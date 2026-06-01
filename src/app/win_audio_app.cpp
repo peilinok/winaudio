@@ -24,6 +24,7 @@ constexpr UINT_PTR kUiTimerId = 1;
 constexpr UINT_PTR kAudioTimerId = 2;
 constexpr UINT kMessageProbeFinished = WM_APP + 2;
 constexpr UINT kMessageProbeMatrixFinished = WM_APP + 3;
+constexpr UINT kMessageComboSetMinVisible = 0x1701;
 
 constexpr int kWindowMinClientWidth = 1120;
 constexpr int kWindowMinClientHeight = 1068;
@@ -31,7 +32,8 @@ constexpr int kOuterMargin = 16;
 constexpr int kSectionGap = 14;
 constexpr int kButtonHeight = 30;
 constexpr int kButtonGap = 12;
-constexpr int kComboHeight = 250;
+constexpr int kComboHeight = 24;
+constexpr int kComboMinVisibleItems = 12;
 constexpr int kEditHeight = 24;
 constexpr int kSummaryMinHeight = 196;
 constexpr int kCapabilityMinHeight = 88;
@@ -134,6 +136,13 @@ struct WindowContext {
   HFONT panel_header_font = nullptr;
   HBRUSH panel_edit_brush = nullptr;
   HBRUSH panel_diagnostic_brush = nullptr;
+  std::wstring last_window_title {};
+  std::wstring last_automation_capture_label {};
+  std::wstring last_automation_device_count_line {};
+  std::wstring last_automation_summary_text {};
+  std::wstring last_automation_diagnostics_text {};
+  std::wstring last_automation_probe_text {};
+  std::wstring last_automation_auto_align_note {};
   std::wstring last_visible_snapshot_text {};
   std::wstring last_visible_summary_text {};
   std::wstring last_visible_diagnostics_text {};
@@ -145,6 +154,8 @@ struct WindowContext {
   ProbeUiMode probe_mode = ProbeUiMode::None;
   std::jthread probe_thread {};
   bool shutting_down = false;
+  bool audio_timer_enabled = false;
+  bool ui_timer_enabled = false;
 };
 
 struct AppLayout {
@@ -217,6 +228,16 @@ void SetControlText(HWND hwnd, const wchar_t* text) {
   SetWindowTextW(hwnd, text);
 }
 
+void SetWindowTextIfChanged(HWND hwnd,
+                            std::wstring& cache,
+                            const std::wstring& text) {
+  if (hwnd == nullptr || cache == text) {
+    return;
+  }
+  SetWindowTextW(hwnd, text.c_str());
+  cache = text;
+}
+
 void SetEditTextIfChanged(HWND hwnd, std::wstring& cache, const std::wstring& text) {
   if (hwnd == nullptr || cache == text) {
     return;
@@ -234,6 +255,14 @@ void ConfigureReadOnlyPanelEdit(HWND hwnd) {
   constexpr WPARAM ec_rightmargin = 0x0002;
   const LPARAM margins = MAKELPARAM(8, 8);
   SendMessageW(hwnd, em_setmargins, ec_leftmargin | ec_rightmargin, margins);
+}
+
+void ConfigureComboDropdown(HWND hwnd) {
+  if (hwnd == nullptr) {
+    return;
+  }
+  SendMessageW(hwnd, kMessageComboSetMinVisible,
+               static_cast<WPARAM>(kComboMinVisibleItems), 0);
 }
 
 void UpdateReadOnlyPanelTextRect(HWND hwnd) {
@@ -332,6 +361,46 @@ void FillPanelRect(HDC hdc, const RECT& rect, COLORREF fill, COLORREF border) {
   DeleteObject(border_brush);
 }
 
+bool IsSessionActive(const WindowContext* context) {
+  return context != nullptr && context->model.session_state() == L"Running";
+}
+
+bool ShouldRunAudioTimer(const WindowContext* context) {
+  return context != nullptr &&
+         (context->probe_running || IsSessionActive(context));
+}
+
+bool ShouldRunUiTimer(const WindowContext* context) {
+  return context != nullptr &&
+         (context->probe_running || IsSessionActive(context));
+}
+
+void UpdateTimerState(HWND hwnd, WindowContext* context) {
+  if (context == nullptr) {
+    return;
+  }
+
+  const bool should_run_audio_timer = ShouldRunAudioTimer(context);
+  if (should_run_audio_timer != context->audio_timer_enabled) {
+    if (should_run_audio_timer) {
+      SetTimer(hwnd, kAudioTimerId, 10, nullptr);
+    } else {
+      KillTimer(hwnd, kAudioTimerId);
+    }
+    context->audio_timer_enabled = should_run_audio_timer;
+  }
+
+  const bool should_run_ui_timer = ShouldRunUiTimer(context);
+  if (should_run_ui_timer != context->ui_timer_enabled) {
+    if (should_run_ui_timer) {
+      SetTimer(hwnd, kUiTimerId, 33, nullptr);
+    } else {
+      KillTimer(hwnd, kUiTimerId);
+    }
+    context->ui_timer_enabled = should_run_ui_timer;
+  }
+}
+
 AppLayout CalculateAppLayout(const RECT& client_rect) {
   AppLayout layout {};
   const int client_width = std::max(RectWidth(client_rect), kWindowMinClientWidth);
@@ -339,7 +408,7 @@ AppLayout CalculateAppLayout(const RECT& client_rect) {
       std::max(RectHeight(client_rect), kWindowMinClientHeight);
   const int inner_width = client_width - (kOuterMargin * 2);
 
-  const int config_height = 398;
+  const int config_height = 516;
   const int vertical_budget =
       client_height - (kOuterMargin * 2) - config_height - (kSectionGap * 4);
   const int base_middle_height =
@@ -732,16 +801,16 @@ ConfigPanelLayout CalculateConfigPanelLayout(const RECT& rect) {
   const int format_gap = 12;
   const int format_width = (content_width - format_gap) / 2;
 
-  layout.toolbar_rect = MakeRect(rect.left, rect.top, content_width, 42);
-  layout.routing_rect = MakeRect(rect.left, rect.top + 34, content_width, 126);
+  layout.toolbar_rect = MakeRect(rect.left, rect.top, content_width, 46);
+  layout.routing_rect = MakeRect(rect.left, rect.top + 54, content_width, 132);
   layout.capture_format_rect =
-      MakeRect(rect.left, rect.top + 168, format_width, 108);
+      MakeRect(rect.left, rect.top + 194, format_width, 136);
   layout.render_format_rect =
-      MakeRect(rect.left + format_width + format_gap, rect.top + 168,
-               content_width - format_width - format_gap, 108);
+      MakeRect(rect.left + format_width + format_gap, rect.top + 194,
+               content_width - format_width - format_gap, 136);
   layout.output_rect =
-      MakeRect(rect.left, rect.top + 284, content_width,
-               rect.bottom - (rect.top + 284));
+      MakeRect(rect.left, rect.top + 338, content_width,
+               rect.bottom - (rect.top + 338));
 
   layout.route_column_width =
       (RectWidth(layout.routing_rect) - (section_inset * 2) - inner_gap) / 2;
@@ -749,10 +818,10 @@ ConfigPanelLayout CalculateConfigPanelLayout(const RECT& rect) {
   layout.route_right = layout.route_left + layout.route_column_width + inner_gap;
   layout.backend_width = 180;
   layout.source_width = layout.route_column_width - layout.backend_width - inner_gap;
-  layout.row1_y = layout.routing_rect.top + 38;
-  layout.row2_y = layout.row1_y + 64;
-  layout.row1_label_y = layout.routing_rect.top + 20;
-  layout.row2_label_y = layout.row1_label_y + 64;
+  layout.row1_label_y = layout.routing_rect.top + 32;
+  layout.row1_y = layout.routing_rect.top + 50;
+  layout.row2_label_y = layout.routing_rect.top + 76;
+  layout.row2_y = layout.routing_rect.top + 94;
 
   layout.rate_width = 110;
   layout.channels_width = 82;
@@ -760,19 +829,19 @@ ConfigPanelLayout CalculateConfigPanelLayout(const RECT& rect) {
                       layout.rate_width - layout.channels_width - (inner_gap * 2);
   layout.mode_width =
       (RectWidth(layout.capture_format_rect) - (section_inset * 2) - inner_gap) / 2;
-  layout.format_row1_y = layout.capture_format_rect.top + 34;
-  layout.format_row2_y = layout.format_row1_y + 34;
-  layout.format_row1_label_y = layout.capture_format_rect.top + 16;
-  layout.format_row2_label_y = layout.format_row1_label_y + 34;
+  layout.format_row1_label_y = layout.capture_format_rect.top + 28;
+  layout.format_row1_y = layout.capture_format_rect.top + 46;
+  layout.format_row2_label_y = layout.capture_format_rect.top + 88;
+  layout.format_row2_y = layout.capture_format_rect.top + 106;
 
   layout.output_left = layout.output_rect.left + section_inset;
   layout.output_inner_width = RectWidth(layout.output_rect) - (section_inset * 2);
-  layout.output_label_y = layout.output_rect.top + 20;
-  layout.output_label_y2 = layout.output_label_y + 30;
-  layout.output_label_y3 = layout.output_label_y2 + 30;
-  layout.row5_y = layout.output_rect.top + 28;
-  layout.row6_y = layout.row5_y + 30;
-  layout.row7_y = layout.row6_y + 30;
+  layout.output_label_y = layout.output_rect.top + 30;
+  layout.row5_y = layout.output_rect.top + 48;
+  layout.output_label_y2 = layout.output_rect.top + 74;
+  layout.row6_y = layout.output_rect.top + 92;
+  layout.output_label_y3 = layout.output_rect.top + 118;
+  layout.row7_y = layout.output_rect.top + 136;
   layout.dump_checkbox_width = 146;
   layout.dump_type_width = 160;
   layout.dump_path_width =
@@ -1042,56 +1111,79 @@ void SetProbeUiBusy(WindowContext* context, bool busy) {
                  BuildProbeMatrixButtonLabel(busy).c_str());
 }
 
-void SyncAutomationTextMirrors(WindowContext* context) {
+bool SyncAutomationTextMirrors(WindowContext* context) {
   if (context == nullptr) {
-    return;
+    return false;
   }
+
+  bool changed = false;
 
   const auto devices = context->model.devices();
   const auto source_mode = context->model.configuration().capture.source_mode;
 
   if (context->automation_capture_label != nullptr) {
-    SetWindowTextW(context->automation_capture_label,
-                   BuildCaptureDeviceLabelText(source_mode).c_str());
+    const auto text = BuildCaptureDeviceLabelText(source_mode);
+    const auto previous = context->last_automation_capture_label;
+    SetWindowTextIfChanged(context->automation_capture_label,
+                           context->last_automation_capture_label, text);
+    changed = changed || previous != text;
   }
   if (context->automation_device_count_line != nullptr) {
-    SetWindowTextW(
-        context->automation_device_count_line,
-        BuildDeviceCountLineText(source_mode, devices.capture_devices.size(),
-                                 devices.render_devices.size())
-            .c_str());
+    const auto text = BuildDeviceCountLineText(source_mode, devices.capture_devices.size(),
+                                               devices.render_devices.size());
+    const auto previous = context->last_automation_device_count_line;
+    SetWindowTextIfChanged(context->automation_device_count_line,
+                           context->last_automation_device_count_line, text);
+    changed = changed || previous != text;
   }
   if (context->automation_summary_text != nullptr) {
-    SetWindowTextW(context->automation_summary_text,
-                   context->model.summary_text().c_str());
+    const auto text = context->model.summary_text();
+    const auto previous = context->last_automation_summary_text;
+    SetWindowTextIfChanged(context->automation_summary_text,
+                           context->last_automation_summary_text, text);
+    changed = changed || previous != text;
   }
   if (context->visible_snapshot_text != nullptr) {
+    const auto previous = context->last_visible_snapshot_text;
     SetEditTextIfChanged(context->visible_snapshot_text,
                          context->last_visible_snapshot_text,
                          BuildSessionSnapshotText(context));
+    changed = changed || previous != context->last_visible_snapshot_text;
   }
   if (context->visible_summary_text != nullptr) {
+    const auto previous = context->last_visible_summary_text;
     SetEditTextIfChanged(context->visible_summary_text,
                          context->last_visible_summary_text,
                          FormatSummaryPanelText(context->model.summary_text()));
+    changed = changed || previous != context->last_visible_summary_text;
   }
   if (context->automation_diagnostics_text != nullptr) {
-    SetWindowTextW(context->automation_diagnostics_text,
-                   context->model.diagnostics_text().c_str());
+    const auto text = context->model.diagnostics_text();
+    const auto previous = context->last_automation_diagnostics_text;
+    SetWindowTextIfChanged(context->automation_diagnostics_text,
+                           context->last_automation_diagnostics_text, text);
+    changed = changed || previous != text;
   }
   if (context->visible_diagnostics_text != nullptr) {
+    const auto previous = context->last_visible_diagnostics_text;
     SetEditTextIfChanged(context->visible_diagnostics_text,
                          context->last_visible_diagnostics_text,
                          FormatDiagnosticsPanelText(context->model.diagnostics_text()));
+    changed = changed || previous != context->last_visible_diagnostics_text;
   }
   if (context->automation_probe_text != nullptr) {
-    SetWindowTextW(context->automation_probe_text,
-                   context->model.probe_text().c_str());
+    const auto text = context->model.probe_text();
+    const auto previous = context->last_automation_probe_text;
+    SetWindowTextIfChanged(context->automation_probe_text,
+                           context->last_automation_probe_text, text);
+    changed = changed || previous != text;
   }
   if (context->visible_probe_text != nullptr) {
+    const auto previous = context->last_visible_probe_text;
     SetEditTextIfChanged(context->visible_probe_text,
                          context->last_visible_probe_text,
                          FormatProbePanelText(context->model.probe_text()));
+    changed = changed || previous != context->last_visible_probe_text;
   }
   if (context->visible_recent_logs_text != nullptr) {
     std::wstring log_text;
@@ -1106,18 +1198,27 @@ void SyncAutomationTextMirrors(WindowContext* context) {
         log_text += *it;
       }
     }
+    const auto previous = context->last_visible_recent_logs_text;
     SetEditTextIfChanged(context->visible_recent_logs_text,
                          context->last_visible_recent_logs_text, log_text);
+    changed = changed || previous != context->last_visible_recent_logs_text;
   }
   if (context->automation_auto_align_note != nullptr) {
-    SetWindowTextW(context->automation_auto_align_note,
-                   BuildAutoAlignExplanatoryNoteText().c_str());
+    const auto text = BuildAutoAlignExplanatoryNoteText();
+    const auto previous = context->last_automation_auto_align_note;
+    SetWindowTextIfChanged(context->automation_auto_align_note,
+                           context->last_automation_auto_align_note, text);
+    changed = changed || previous != text;
   }
   if (context->visible_capability_text != nullptr) {
+    const auto previous = context->last_visible_capability_text;
     SetEditTextIfChanged(context->visible_capability_text,
                          context->last_visible_capability_text,
                          FormatCapabilityPanelText(context->model.capability_text()));
+    changed = changed || previous != context->last_visible_capability_text;
   }
+
+  return changed;
 }
 
 std::wstring GetWindowTextString(HWND hwnd) {
@@ -1411,8 +1512,9 @@ void DrawConfigLabels(HDC hdc, const RECT& rect, AudioSourceMode source_mode) {
 
   SetBkMode(hdc, TRANSPARENT);
   SetTextColor(hdc, RGB(45, 50, 56));
-  TextOutW(hdc, rect.left + 16, rect.top + 12, L"Session Controls", 16);
-  TextOutW(hdc, rect.left + 16, rect.top + 50, L"Signal Routing", 14);
+  TextOutW(hdc, rect.left + 16, layout.toolbar_rect.top + 14, L"Session Controls", 16);
+  TextOutW(hdc, layout.routing_rect.left + 16, layout.routing_rect.top + 10,
+           L"Signal Routing", 14);
   TextOutW(hdc, layout.capture_format_rect.left + 16,
            layout.capture_format_rect.top + 10,
            L"Capture Format", 14);
@@ -1488,18 +1590,16 @@ void DrawConfigLabels(HDC hdc, const RECT& rect, AudioSourceMode source_mode) {
            L"Session Flags", 13);
 }
 
-void DrawConfigLabels(HDC hdc, WindowContext* context) {
+void DrawConfigLabels(HDC hdc, const RECT& client_rect, WindowContext* context) {
   if (context == nullptr) {
     return;
   }
-  RECT client_rect {};
-  GetClientRect(WindowFromDC(hdc), &client_rect);
   const AppLayout layout = CalculateAppLayout(client_rect);
   const auto source_mode = context->model.configuration().capture.source_mode;
   DrawConfigLabels(hdc, layout.config_rect, source_mode);
 }
 
-void UpdateWindowTitle(HWND hwnd, WindowContext* context) {
+bool UpdateWindowTitle(HWND hwnd, WindowContext* context) {
   const auto stats = context->model.stats();
   const auto config = context->model.configuration();
   const auto capture_title_format = BuildWindowTitleFormatText(
@@ -1511,7 +1611,25 @@ void UpdateWindowTitle(HWND hwnd, WindowContext* context) {
   const auto title = BuildWindowTitleText(
       context->probe_mode, context->model.session_state(),
       capture_title_format, render_title_format);
-  SetWindowTextW(hwnd, title.c_str());
+  const bool changed = context->last_window_title != title;
+  SetWindowTextIfChanged(hwnd, context->last_window_title, title);
+  return changed;
+}
+
+void SyncWindowState(HWND hwnd, WindowContext* context) {
+  if (context == nullptr) {
+    return;
+  }
+  SyncAutomationTextMirrors(context);
+  UpdateWindowTitle(hwnd, context);
+  UpdateTimerState(hwnd, context);
+}
+
+void RefreshWindowFromModel(HWND hwnd,
+                            WindowContext* context,
+                            BOOL erase_background = TRUE) {
+  SyncWindowState(hwnd, context);
+  InvalidateRect(hwnd, nullptr, erase_background);
 }
 
 void DrawSummary(HDC hdc, const RECT& rect, WindowContext* context) {
@@ -1792,6 +1910,27 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
       ConfigureReadOnlyPanelEdit(owned_context->visible_capability_text);
       ConfigureReadOnlyPanelEdit(owned_context->visible_probe_text);
       ConfigureReadOnlyPanelEdit(owned_context->visible_recent_logs_text);
+      const HWND combo_controls[] = {
+          owned_context->capture_backend_combo,
+          owned_context->render_backend_combo,
+          owned_context->source_mode_combo,
+          owned_context->capture_device_combo,
+          owned_context->render_device_combo,
+          owned_context->capture_sample_rate_combo,
+          owned_context->capture_channels_combo,
+          owned_context->capture_sample_type_combo,
+          owned_context->render_sample_rate_combo,
+          owned_context->render_channels_combo,
+          owned_context->render_sample_type_combo,
+          owned_context->capture_share_mode_combo,
+          owned_context->capture_drive_mode_combo,
+          owned_context->render_share_mode_combo,
+          owned_context->render_drive_mode_combo,
+          owned_context->dump_type_combo,
+      };
+      for (HWND combo : combo_controls) {
+        ConfigureComboDropdown(combo);
+      }
       ApplyPanelTextFont(owned_context->visible_snapshot_text, owned_context->panel_text_font);
       ApplyPanelTextFont(owned_context->visible_summary_text, owned_context->panel_text_font);
       ApplyPanelTextFont(owned_context->visible_diagnostics_text, owned_context->panel_mono_font);
@@ -1827,9 +1966,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
       LayoutChildControls(hwnd, owned_context);
       owned_context->device_notifications = new DeviceNotificationClient(hwnd);
       owned_context->device_notifications->Register();
-
-      SetTimer(hwnd, kUiTimerId, 33, nullptr);
-      SetTimer(hwnd, kAudioTimerId, 10, nullptr);
+      UpdateWindowTitle(hwnd, owned_context);
+      UpdateTimerState(hwnd, owned_context);
       return 0;
     }
 
@@ -1868,25 +2006,23 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
         case kButtonStart:
           context->model.Start();
           ApplyControlAvailability(context);
-          UpdateWindowTitle(hwnd, context);
-          InvalidateRect(hwnd, nullptr, TRUE);
+          RefreshWindowFromModel(hwnd, context);
           return 0;
         case kButtonStop:
           context->model.Stop();
           ApplyControlAvailability(context);
-          UpdateWindowTitle(hwnd, context);
-          InvalidateRect(hwnd, nullptr, TRUE);
+          RefreshWindowFromModel(hwnd, context);
           return 0;
         case kButtonRefresh:
           context->model.RefreshDevices(true);
           SyncUiFromModel(context);
-          InvalidateRect(hwnd, nullptr, TRUE);
+          RefreshWindowFromModel(hwnd, context);
           return 0;
         case kButtonProbe:
           if (!context->probe_running) {
             context->probe_mode = ProbeUiMode::Quick;
             SetProbeUiBusy(context, true);
-            UpdateWindowTitle(hwnd, context);
+            SyncWindowState(hwnd, context);
             context->probe_thread = std::jthread([hwnd, context]() {
               context->model.RunQuickProbe();
               PostMessageW(hwnd, kMessageProbeFinished, 0, 0);
@@ -1897,7 +2033,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
           if (!context->probe_running) {
             context->probe_mode = ProbeUiMode::Matrix;
             SetProbeUiBusy(context, true);
-            UpdateWindowTitle(hwnd, context);
+            SyncWindowState(hwnd, context);
             context->probe_thread = std::jthread([hwnd, context]() {
               context->model.RunProbeMatrix();
               PostMessageW(hwnd, kMessageProbeMatrixFinished, 0, 0);
@@ -1912,7 +2048,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
             context->model.SetCaptureBackend(index == 0 ? AudioBackendType::Wasapi
                                                         : AudioBackendType::WaveApi);
             SyncUiFromModel(context);
-            InvalidateRect(hwnd, nullptr, TRUE);
+            RefreshWindowFromModel(hwnd, context);
           }
           return 0;
         case kComboRenderBackend:
@@ -1923,7 +2059,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
             context->model.SetRenderBackend(index == 0 ? AudioBackendType::Wasapi
                                                        : AudioBackendType::WaveApi);
             SyncUiFromModel(context);
-            InvalidateRect(hwnd, nullptr, TRUE);
+            RefreshWindowFromModel(hwnd, context);
           }
           return 0;
         case kComboSourceMode:
@@ -1938,27 +2074,28 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
                                   : AudioSourceMode::ApplicationLoopback));
             SyncUiFromModel(context);
             LayoutChildControls(hwnd, context);
-            InvalidateRect(hwnd, nullptr, TRUE);
+            RefreshWindowFromModel(hwnd, context);
           }
           return 0;
         case kEditAppLoopbackProcess:
           if (HIWORD(w_param) == EN_CHANGE) {
             context->model.SetApplicationLoopbackProcess(
                 GetWindowTextString(context->app_loopback_process_edit));
+            SyncWindowState(hwnd, context);
           }
           return 0;
         case kComboCaptureDevice:
           if (HIWORD(w_param) == CBN_SELCHANGE) {
             context->model.SetCaptureDeviceId(
                 GetSelectedComboDeviceId(context->capture_device_combo));
-            InvalidateRect(hwnd, nullptr, TRUE);
+            RefreshWindowFromModel(hwnd, context);
           }
           return 0;
         case kComboRenderDevice:
           if (HIWORD(w_param) == CBN_SELCHANGE) {
             context->model.SetRenderDeviceId(
                 GetSelectedComboDeviceId(context->render_device_combo));
-            InvalidateRect(hwnd, nullptr, TRUE);
+            RefreshWindowFromModel(hwnd, context);
           }
           return 0;
         case kEditDelayMs:
@@ -1967,6 +2104,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
             if (!text.empty()) {
               context->model.SetFixedDelayMs(static_cast<uint32_t>(std::wcstoul(
                   text.c_str(), nullptr, 10)));
+              SyncWindowState(hwnd, context);
             }
           }
           return 0;
@@ -1974,6 +2112,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
           context->model.SetDumpEnabled(
               SendMessageW(context->dump_checkbox, BM_GETCHECK, 0, 0) ==
               BST_CHECKED);
+          SyncWindowState(hwnd, context);
           return 0;
         case kComboCaptureSampleRate:
           if (HIWORD(w_param) == CBN_SELCHANGE) {
@@ -1981,6 +2120,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
                 static_cast<int>(SendMessageW(context->capture_sample_rate_combo,
                                               CB_GETCURSEL, 0, 0));
             context->model.SetCaptureSampleRate(SampleRateFromComboIndex(index));
+            SyncWindowState(hwnd, context);
           }
           return 0;
         case kComboCaptureChannels:
@@ -1989,6 +2129,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
                 static_cast<int>(SendMessageW(context->capture_channels_combo,
                                               CB_GETCURSEL, 0, 0));
             context->model.SetCaptureChannels(ChannelsFromComboIndex(index));
+            SyncWindowState(hwnd, context);
           }
           return 0;
         case kComboCaptureSampleType:
@@ -1997,6 +2138,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
                 static_cast<int>(SendMessageW(context->capture_sample_type_combo,
                                               CB_GETCURSEL, 0, 0));
             context->model.SetCaptureSampleType(SampleTypeFromComboIndex(index));
+            SyncWindowState(hwnd, context);
           }
           return 0;
         case kComboRenderSampleRate:
@@ -2005,6 +2147,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
                 static_cast<int>(SendMessageW(context->render_sample_rate_combo,
                                               CB_GETCURSEL, 0, 0));
             context->model.SetRenderSampleRate(SampleRateFromComboIndex(index));
+            SyncWindowState(hwnd, context);
           }
           return 0;
         case kComboRenderChannels:
@@ -2013,6 +2156,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
                 static_cast<int>(SendMessageW(context->render_channels_combo,
                                               CB_GETCURSEL, 0, 0));
             context->model.SetRenderChannels(ChannelsFromComboIndex(index));
+            SyncWindowState(hwnd, context);
           }
           return 0;
         case kComboRenderSampleType:
@@ -2021,6 +2165,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
                 static_cast<int>(SendMessageW(context->render_sample_type_combo,
                                               CB_GETCURSEL, 0, 0));
             context->model.SetRenderSampleType(SampleTypeFromComboIndex(index));
+            SyncWindowState(hwnd, context);
           }
           return 0;
         case kComboCaptureShareMode:
@@ -2031,6 +2176,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
             context->model.SetCaptureWasapiShareMode(
                 index == 0 ? WasapiShareMode::Shared
                            : WasapiShareMode::Exclusive);
+            SyncWindowState(hwnd, context);
           }
           return 0;
         case kComboCaptureDriveMode:
@@ -2041,6 +2187,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
             context->model.SetCaptureWasapiDriveMode(
                 index == 0 ? WasapiDriveMode::EventDriven
                            : WasapiDriveMode::TimerDriven);
+            SyncWindowState(hwnd, context);
           }
           return 0;
         case kComboRenderShareMode:
@@ -2051,6 +2198,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
             context->model.SetRenderWasapiShareMode(
                 index == 0 ? WasapiShareMode::Shared
                            : WasapiShareMode::Exclusive);
+            SyncWindowState(hwnd, context);
           }
           return 0;
         case kComboRenderDriveMode:
@@ -2061,12 +2209,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
             context->model.SetRenderWasapiDriveMode(
                 index == 0 ? WasapiDriveMode::EventDriven
                            : WasapiDriveMode::TimerDriven);
+            SyncWindowState(hwnd, context);
           }
           return 0;
         case kEditDumpPath:
           if (HIWORD(w_param) == EN_CHANGE) {
             context->model.SetDumpPath(
                 GetWindowTextString(context->dump_path_edit));
+            SyncWindowState(hwnd, context);
           }
           return 0;
         case kComboDumpType:
@@ -2076,6 +2226,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
                                               CB_GETCURSEL, 0, 0));
             context->model.SetDumpFileType(index == 0 ? DumpFileType::Wav
                                                       : DumpFileType::RawPcm);
+            SyncWindowState(hwnd, context);
           }
           return 0;
         case kEditCaptureBufferMs:
@@ -2084,6 +2235,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
             if (!text.empty()) {
               context->model.SetCaptureBufferDurationMs(static_cast<uint32_t>(
                   std::wcstoul(text.c_str(), nullptr, 10)));
+              SyncWindowState(hwnd, context);
             }
           }
           return 0;
@@ -2093,6 +2245,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
             if (!text.empty()) {
               context->model.SetRenderBufferDurationMs(static_cast<uint32_t>(
                   std::wcstoul(text.c_str(), nullptr, 10)));
+              SyncWindowState(hwnd, context);
             }
           }
           return 0;
@@ -2101,21 +2254,21 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
               SendMessageW(context->monitor_checkbox, BM_GETCHECK, 0, 0) ==
               BST_CHECKED);
           SyncUiFromModel(context);
-          InvalidateRect(hwnd, nullptr, TRUE);
+          RefreshWindowFromModel(hwnd, context);
           return 0;
         case kCheckboxFollowDefaults:
           context->model.SetFollowDefaultDevices(
               SendMessageW(context->follow_defaults_checkbox, BM_GETCHECK, 0, 0) ==
               BST_CHECKED);
           SyncUiFromModel(context);
-          InvalidateRect(hwnd, nullptr, TRUE);
+          RefreshWindowFromModel(hwnd, context);
           return 0;
         case kCheckboxAutoAlignRender:
           context->model.SetAutoAlignRenderFormat(
               SendMessageW(context->auto_align_render_checkbox, BM_GETCHECK, 0, 0) ==
               BST_CHECKED);
           SyncUiFromModel(context);
-          InvalidateRect(hwnd, nullptr, TRUE);
+          RefreshWindowFromModel(hwnd, context);
           return 0;
         default:
           break;
@@ -2135,9 +2288,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
       }
       if (w_param == kUiTimerId) {
         ApplyControlAvailability(context);
-        SyncAutomationTextMirrors(context);
-        UpdateWindowTitle(hwnd, context);
-        InvalidateRect(hwnd, nullptr, FALSE);
+        const bool mirrors_changed = SyncAutomationTextMirrors(context);
+        const bool title_changed = UpdateWindowTitle(hwnd, context);
+        if (mirrors_changed || title_changed || context->probe_running || IsSessionActive(context)) {
+          InvalidateRect(hwnd, nullptr, FALSE);
+        }
         return 0;
       }
       break;
@@ -2146,7 +2301,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
       if (context != nullptr) {
         context->model.HandleDefaultDeviceRefresh();
         SyncUiFromModel(context);
-        InvalidateRect(hwnd, nullptr, TRUE);
+        RefreshWindowFromModel(hwnd, context);
       }
       return 0;
 
@@ -2173,11 +2328,13 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
         context->probe_mode = ProbeUiMode::None;
         if (!context->shutting_down) {
           SetProbeUiBusy(context, false);
-          UpdateWindowTitle(hwnd, context);
-          InvalidateRect(hwnd, nullptr, TRUE);
+          RefreshWindowFromModel(hwnd, context);
         }
       }
       return 0;
+
+    case WM_ERASEBKGND:
+      return 1;
 
     case WM_PAINT: {
       PAINTSTRUCT ps;
@@ -2185,21 +2342,50 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
       RECT client_rect {};
       GetClientRect(hwnd, &client_rect);
 
+      const int paint_width = std::max(1, RectWidth(client_rect));
+      const int paint_height = std::max(1, RectHeight(client_rect));
+      HDC memory_dc = CreateCompatibleDC(hdc);
+      HBITMAP buffer_bitmap =
+          memory_dc != nullptr ? CreateCompatibleBitmap(hdc, paint_width, paint_height)
+                               : nullptr;
+      HGDIOBJ old_bitmap =
+          (memory_dc != nullptr && buffer_bitmap != nullptr)
+              ? SelectObject(memory_dc, buffer_bitmap)
+              : nullptr;
+      HDC target_dc =
+          (memory_dc != nullptr && buffer_bitmap != nullptr) ? memory_dc : hdc;
+      HBRUSH window_background = CreateSolidBrush(RGB(255, 255, 255));
+      FillRect(target_dc, &client_rect, window_background);
+      DeleteObject(window_background);
+
       if (context != nullptr) {
         const AppLayout layout = CalculateAppLayout(client_rect);
-        DrawSummary(hdc, layout.summary_rect, context);
-        DrawCapabilityPanel(hdc, layout.capability_rect, context);
-        DrawProbePanel(hdc, layout.probe_rect, context);
-        DrawConfigLabels(hdc, context);
+        DrawSummary(target_dc, layout.summary_rect, context);
+        DrawCapabilityPanel(target_dc, layout.capability_rect, context);
+        DrawProbePanel(target_dc, layout.probe_rect, context);
+        DrawConfigLabels(target_dc, client_rect, context);
 
-        WaveformRenderer::Draw(hdc, layout.capture_waveform_rect,
+        WaveformRenderer::Draw(target_dc, layout.capture_waveform_rect,
                                context->model.capture_waveform(),
                                RGB(41, 182, 246), L"Capture Waveform",
                                context->model.stats().capture_meter);
-        WaveformRenderer::Draw(hdc, layout.render_waveform_rect,
+        WaveformRenderer::Draw(target_dc, layout.render_waveform_rect,
                                context->model.render_waveform(),
                                RGB(255, 112, 67), L"Render Waveform",
                                context->model.stats().render_meter);
+      }
+
+      if (target_dc == memory_dc) {
+        BitBlt(hdc, 0, 0, paint_width, paint_height, memory_dc, 0, 0, SRCCOPY);
+      }
+      if (memory_dc != nullptr && old_bitmap != nullptr) {
+        SelectObject(memory_dc, old_bitmap);
+      }
+      if (buffer_bitmap != nullptr) {
+        DeleteObject(buffer_bitmap);
+      }
+      if (memory_dc != nullptr) {
+        DeleteDC(memory_dc);
       }
 
       EndPaint(hwnd, &ps);
@@ -2283,12 +2469,13 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_command) {
   window_class.hInstance = instance;
   window_class.lpszClassName = kWindowClassName;
   window_class.hCursor = LoadCursorW(nullptr, MAKEINTRESOURCEW(32512));
-  window_class.hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1);
+  window_class.hbrBackground = nullptr;
 
   RegisterClassW(&window_class);
 
   HWND hwnd = CreateWindowExW(
-      0, kWindowClassName, L"WinAudio Demo", WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+      0, kWindowClassName, L"WinAudio Demo",
+      WS_OVERLAPPEDWINDOW | WS_VISIBLE | WS_CLIPCHILDREN,
       CW_USEDEFAULT, CW_USEDEFAULT, 1100, 820, nullptr, nullptr, instance,
       context.get());
 
