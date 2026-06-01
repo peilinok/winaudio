@@ -85,6 +85,16 @@ std::wstring BuildCaptureDeviceLabelText(bool loopback_source) {
   return loopback_source ? L"Loopback Capture Device" : L"Capture Device";
 }
 
+std::wstring BuildCaptureDeviceLabelText(AudioSourceMode source_mode) {
+  if (source_mode == AudioSourceMode::SystemLoopback) {
+    return L"Loopback Capture Device";
+  }
+  if (source_mode == AudioSourceMode::ApplicationLoopback) {
+    return L"App Loopback Source";
+  }
+  return L"Capture Device";
+}
+
 std::wstring BuildDeviceCountLineText(bool loopback_source,
                                       size_t capture_device_count,
                                       size_t render_device_count) {
@@ -97,10 +107,34 @@ std::wstring BuildDeviceCountLineText(bool loopback_source,
          L" | Render devices: " + std::to_wstring(render_device_count);
 }
 
+std::wstring BuildDeviceCountLineText(AudioSourceMode source_mode,
+                                      size_t capture_device_count,
+                                      size_t render_device_count) {
+  if (source_mode == AudioSourceMode::SystemLoopback) {
+    return BuildDeviceCountLineText(true, capture_device_count, render_device_count);
+  }
+  if (source_mode == AudioSourceMode::ApplicationLoopback) {
+    return L"Application loopback sources: " +
+           std::to_wstring(capture_device_count) + L" | Render devices: " +
+           std::to_wstring(render_device_count);
+  }
+  return BuildDeviceCountLineText(false, capture_device_count, render_device_count);
+}
+
 std::wstring BuildLoopbackCaptureNoteText(bool loopback_source) {
   return loopback_source
              ? L"Loopback capture uses render endpoints as capture sources."
              : std::wstring {};
+}
+
+std::wstring BuildLoopbackCaptureNoteText(AudioSourceMode source_mode) {
+  if (source_mode == AudioSourceMode::SystemLoopback) {
+    return L"Loopback capture uses render endpoints as capture sources.";
+  }
+  if (source_mode == AudioSourceMode::ApplicationLoopback) {
+    return L"Application loopback captures audio rendered by a target process tree instead of a device endpoint.";
+  }
+  return {};
 }
 
 std::wstring BuildLoopbackBackendNoteText(bool loopback_source,
@@ -111,6 +145,19 @@ std::wstring BuildLoopbackBackendNoteText(bool loopback_source,
   return wasapi_capture_backend
              ? L"Loopback note: WASAPI loopback is shared-mode only"
              : L"Loopback note: WAVE loopback depends on hardware/driver devices";
+}
+
+std::wstring BuildLoopbackBackendNoteText(AudioSourceMode source_mode,
+                                          bool wasapi_capture_backend) {
+  if (source_mode == AudioSourceMode::SystemLoopback) {
+    return BuildLoopbackBackendNoteText(true, wasapi_capture_backend);
+  }
+  if (source_mode == AudioSourceMode::ApplicationLoopback) {
+    return wasapi_capture_backend
+               ? L"Application loopback note: process-tree loopback requires a WASAPI capture path and newer Windows support."
+               : L"Application loopback note: WAVE capture does not support process-targeted loopback.";
+  }
+  return {};
 }
 
 std::wstring BuildFollowDefaultsNoteText(bool follow_defaults,
@@ -124,6 +171,19 @@ std::wstring BuildFollowDefaultsNoteText(bool follow_defaults,
   return L"Device selection follows current system defaults; manual device picks are inactive";
 }
 
+std::wstring BuildFollowDefaultsNoteText(bool follow_defaults,
+                                         AudioSourceMode source_mode) {
+  if (source_mode == AudioSourceMode::SystemLoopback) {
+    return BuildFollowDefaultsNoteText(follow_defaults, true);
+  }
+  if (source_mode == AudioSourceMode::ApplicationLoopback) {
+    return follow_defaults
+               ? L"Device selection follows current system defaults for render monitoring; app-loopback capture itself is process-targeted."
+               : std::wstring {};
+  }
+  return BuildFollowDefaultsNoteText(follow_defaults, false);
+}
+
 std::wstring BuildFollowDefaultsDiagnosticsText(bool follow_defaults,
                                                 bool loopback_source) {
   if (!follow_defaults) {
@@ -133,6 +193,43 @@ std::wstring BuildFollowDefaultsDiagnosticsText(bool follow_defaults,
     return L"Device tracking: current capture/render selection follows system defaults, and loopback capture follows the current default render endpoint";
   }
   return L"Device tracking: current capture/render selection follows system defaults";
+}
+
+std::wstring BuildFollowDefaultsDiagnosticsText(bool follow_defaults,
+                                                AudioSourceMode source_mode) {
+  if (source_mode == AudioSourceMode::SystemLoopback) {
+    return BuildFollowDefaultsDiagnosticsText(follow_defaults, true);
+  }
+  if (source_mode == AudioSourceMode::ApplicationLoopback) {
+    return follow_defaults
+               ? L"Device tracking: render monitoring follows system defaults while application loopback capture remains process-targeted"
+               : std::wstring {};
+  }
+  return BuildFollowDefaultsDiagnosticsText(follow_defaults, false);
+}
+
+std::wstring BuildApplicationLoopbackTargetSummaryText(
+    const std::wstring& target_process) {
+  if (target_process.empty()) {
+    return L"App loopback target: not set";
+  }
+  return L"App loopback target: " + target_process;
+}
+
+std::wstring BuildApplicationLoopbackNoteText(
+    const std::wstring& target_process) {
+  if (target_process.empty()) {
+    return L"Application loopback needs a target process name or PID.";
+  }
+  return L"Application loopback is only available on supported Windows builds; unsupported machines will report that limitation before capture starts.";
+}
+
+std::wstring BuildApplicationLoopbackDiagnosticsText(
+    const std::wstring& target_process) {
+  if (target_process.empty()) {
+    return L"Application loopback target process: not set";
+  }
+  return L"Application loopback target process: " + target_process;
 }
 
 std::wstring BuildMonitorDisabledNoteText(bool configured_monitor_enabled,
@@ -290,10 +387,32 @@ std::wstring BuildSelectedCaptureDeviceDiagnosticsLabelText(
                          : L"Selected capture device: ";
 }
 
+std::wstring BuildSelectedCaptureDeviceDiagnosticsLabelText(
+    AudioSourceMode source_mode) {
+  if (source_mode == AudioSourceMode::SystemLoopback) {
+    return L"Selected loopback capture device: ";
+  }
+  if (source_mode == AudioSourceMode::ApplicationLoopback) {
+    return L"Selected app-loopback source: ";
+  }
+  return L"Selected capture device: ";
+}
+
 std::wstring BuildSelectedCaptureDeviceIdDiagnosticsLabelText(
     bool loopback_source) {
   return loopback_source ? L"Selected loopback capture id: "
                          : L"Selected capture id: ";
+}
+
+std::wstring BuildSelectedCaptureDeviceIdDiagnosticsLabelText(
+    AudioSourceMode source_mode) {
+  if (source_mode == AudioSourceMode::SystemLoopback) {
+    return L"Selected loopback capture id: ";
+  }
+  if (source_mode == AudioSourceMode::ApplicationLoopback) {
+    return L"Selected app-loopback id: ";
+  }
+  return L"Selected capture id: ";
 }
 
 }  // namespace winaudio

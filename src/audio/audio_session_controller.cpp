@@ -18,6 +18,26 @@ bool ContainsDeviceId(const std::vector<AudioDeviceDescriptor>& devices,
                      });
 }
 
+std::wstring HumanizeAppLoopbackFailure(const std::wstring& detail) {
+  if (detail == L"app-loopback-target-required") {
+    return L"Application loopback requires a target process name or PID.";
+  }
+  if (detail == L"app-loopback-invalid-target") {
+    return L"Application loopback target process was not found. Provide a running process name or PID.";
+  }
+  if (detail == L"app-loopback-unsupported-os") {
+    return L"Application loopback is not supported on this machine. Windows process loopback capture requires client build 20348 or newer.";
+  }
+  if (detail.find(L"ActivateAudioInterfaceAsync: 0x8000000E") !=
+      std::wstring::npos) {
+    return L"Application loopback activation failed on this machine. The target process may not be eligible for loopback capture on this Windows build.";
+  }
+  if (detail.find(L"app-loopback-activate:") != std::wstring::npos) {
+    return L"Application loopback activation did not complete successfully on this machine.";
+  }
+  return {};
+}
+
 }  // namespace
 
 AudioSessionController::AudioSessionController(
@@ -68,12 +88,17 @@ bool AudioSessionController::Start(const SessionConfiguration& config,
   }
 
   if (!capture_adapter_->SupportsSource(config.capture.source_mode)) {
-    const auto detail =
-        config.capture.source_mode == AudioSourceMode::SystemLoopback
-            ? std::wstring(
-                  L"Selected backend does not support the chosen capture source. Use --capture-backend=wasapi for loopback, or switch --source=mic.")
-            : std::wstring(
-                  L"Selected backend does not support the chosen capture source.");
+    std::wstring detail;
+    if (config.capture.source_mode == AudioSourceMode::SystemLoopback) {
+      detail =
+          L"Selected backend does not support the chosen capture source. Use --capture-backend=wasapi for loopback, or switch --source=mic.";
+    } else if (config.capture.source_mode ==
+               AudioSourceMode::ApplicationLoopback) {
+      detail =
+          L"Selected backend does not support application loopback. Use --capture-backend=wasapi and provide --app-loopback-process on a supported Windows build.";
+    } else {
+      detail = L"Selected backend does not support the chosen capture source.";
+    }
     diagnostics_.issues.push_back(
         {L"Source mode unsupported", detail});
     SetLastError(L"source-mode", detail);
@@ -81,18 +106,36 @@ bool AudioSessionController::Start(const SessionConfiguration& config,
     return false;
   }
 
+  if (config.capture.source_mode == AudioSourceMode::ApplicationLoopback &&
+      config.capture.application_loopback_process.empty()) {
+    const auto detail =
+        std::wstring(
+            L"Application loopback requires a target process name or PID. Provide --app-loopback-process before starting capture.");
+    diagnostics_.issues.push_back({L"Application loopback target missing", detail});
+    SetLastError(L"source-mode", detail);
+    Log(L"Application loopback target process is missing.");
+    return false;
+  }
+
   if (!config.capture.device_id.empty()) {
     const auto capture_devices =
         capture_adapter_->EnumerateDevices(config.capture.source_mode);
     if (!ContainsDeviceId(capture_devices, config.capture.device_id)) {
-      const auto detail =
-          config.capture.source_mode == AudioSourceMode::SystemLoopback
-              ? std::wstring(
-                    L"Selected loopback capture device is not available for this source. Use devices --source=loopback to choose a render-backed loopback endpoint.")
-              : std::wstring(
-                    L"Selected capture device is not available for this backend/source mode. Choose a device from devices for the same capture backend/source, or omit --capture-device-id.");
+      std::wstring detail;
+      if (config.capture.source_mode == AudioSourceMode::SystemLoopback) {
+        detail =
+            L"Selected loopback capture device is not available for this source. Use devices --source=loopback to choose a render-backed loopback endpoint.";
+      } else if (config.capture.source_mode ==
+                 AudioSourceMode::ApplicationLoopback) {
+        detail =
+            L"Selected application loopback source is not available for this configuration. Use the built-in app-loopback source entry and provide --app-loopback-process.";
+      } else {
+        detail =
+            L"Selected capture device is not available for this backend/source mode. Choose a device from devices for the same capture backend/source, or omit --capture-device-id.";
+      }
       diagnostics_.issues.push_back({L"Capture device unavailable", detail});
-      SetLastError(config.capture.source_mode == AudioSourceMode::SystemLoopback
+      SetLastError((config.capture.source_mode == AudioSourceMode::SystemLoopback ||
+                    config.capture.source_mode == AudioSourceMode::ApplicationLoopback)
                        ? L"source-mode"
                        : L"capture-device",
                    detail);
@@ -129,9 +172,16 @@ bool AudioSessionController::Start(const SessionConfiguration& config,
     if (!capture_format.has_value()) {
       const auto capture_detail = capture_adapter_->last_error();
       if (!capture_detail.empty()) {
-        detail += L" capture=" + capture_detail;
+        const auto app_loopback_reason = HumanizeAppLoopbackFailure(capture_detail);
+        if (!app_loopback_reason.empty()) {
+          detail += L" " + app_loopback_reason;
+        } else {
+          detail += L" capture=" + capture_detail;
+        }
         if (capture_detail == L"wave-loopback-device-not-found") {
           detail += L" (source-mode unsupported on this machine)";
+        } else if (capture_detail == L"app-loopback-target-required") {
+          detail += L" (application loopback target process missing)";
         }
       }
     }
@@ -165,8 +215,13 @@ bool AudioSessionController::Start(const SessionConfiguration& config,
       std::make_unique<AudioRingBuffer>(runtime_capture_format_, queue_frames);
 
   if (!capture_adapter_->Start(config.capture, runtime_capture_format_, sink_)) {
-    SetLastError(L"capture-start",
-                 L"Failed to start capture adapter. " + capture_adapter_->last_error());
+    const auto capture_error = capture_adapter_->last_error();
+    const auto error_stage =
+        config.capture.source_mode == AudioSourceMode::ApplicationLoopback
+            ? std::wstring(L"app-loopback-start")
+            : std::wstring(L"capture-start");
+    SetLastError(error_stage,
+                 L"Failed to start capture adapter. " + capture_error);
     Log(L"Failed to start capture adapter.");
     return false;
   }

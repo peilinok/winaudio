@@ -38,6 +38,8 @@ std::wstring ToWideString(AudioSourceMode value) {
       return L"Microphone";
     case AudioSourceMode::SystemLoopback:
       return L"System Loopback";
+    case AudioSourceMode::ApplicationLoopback:
+      return L"Application Loopback";
   }
   return L"Unknown";
 }

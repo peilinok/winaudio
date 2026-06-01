@@ -130,6 +130,29 @@ function Assert-QuickInvalidLoopbackCaptureDeviceSemantics {
   }
 }
 
+function Assert-QuickApplicationLoopbackFailureSemantics {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Path,
+
+    [Parameter(Mandatory = $true)]
+    [string]$FailurePrefix
+  )
+
+  $requirements = @(
+    @{ Pattern = '^QuickSummary: failed \| dump=none \| cap-fmt=not-negotiated \| ren-fmt=not-negotiated \| mode=not-started \| monitor=on \| cap-wave=not-started \| ren-wave=not-started \| ren-updates=0$'; Message = "$FailurePrefix did not surface the expected not-started summary semantics." },
+    @{ Pattern = '^RequestedCaptureDeviceId: default$'; Message = "$FailurePrefix did not preserve the default capture device id." },
+    @{ Pattern = '^FailureStage: format-resolution$'; Message = "$FailurePrefix did not report the expected failure stage." },
+    @{ Pattern = '^FailureReason: Failed to resolve runtime audio formats\. Application loopback is not supported on this machine\. Windows process loopback capture requires client build 20348 or newer\.$'; Message = "$FailurePrefix did not surface the expected application-loopback recovery explanation." }
+  )
+
+  foreach ($requirement in $requirements) {
+    if (-not (Select-String -LiteralPath $Path -Pattern $requirement.Pattern -Quiet)) {
+      throw $requirement.Message
+    }
+  }
+}
+
 function Assert-QuickMonitorOffInvalidRenderDeviceSemantics {
   param(
     [Parameter(Mandatory = $true)]

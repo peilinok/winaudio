@@ -7,6 +7,7 @@
 #include <mmeapi.h>
 #include <mmdeviceapi.h>
 #include <audioclient.h>
+#include <audioclientactivationparams.h>
 #include <wrl/client.h>
 
 #include <deque>
@@ -38,12 +39,16 @@ class WasapiCaptureAdapter final : public IAudioCaptureAdapter {
   std::wstring last_error() const override;
   std::wstring runtime_mode() const override;
   std::wstring runtime_details() const override;
+  static bool IsProcessLoopbackSupportedOnCurrentWindows();
 
  private:
   std::optional<AudioFormatSpec> ResolveFormat(const CaptureConfig& config,
                                                IMMDevice* device);
   bool ActivateForConfig(const CaptureConfig& config,
                          Microsoft::WRL::ComPtr<IMMDevice>* device);
+  bool ActivateProcessLoopbackClient(
+      const CaptureConfig& config,
+      Microsoft::WRL::ComPtr<IAudioClient>* client);
 
   AudioSourceMode source_mode_ = AudioSourceMode::MicrophoneCapture;
   AudioFormatSpec runtime_format_ {};

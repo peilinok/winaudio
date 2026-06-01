@@ -43,6 +43,7 @@ add_library(winaudio_core
 target_include_directories(winaudio_core PUBLIC src)
 target_link_libraries(winaudio_core PUBLIC
   ole32
+  mmdevapi
   winmm
   avrt
   Mfplat

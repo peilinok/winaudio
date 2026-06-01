@@ -63,6 +63,24 @@ bool TestParseQuickOverrides() {
          options.config.render.fixed_delay_ms == 0;
 }
 
+bool TestParseApplicationLoopbackOverrides() {
+  const std::vector<std::wstring> args = {
+      L"quick",
+      L"--source=app-loopback",
+      L"--app-loopback-process=spotify.exe",
+  };
+
+  ProbeCliOptions options;
+  if (!ParseProbeCliOptions(args, &options)) {
+    return false;
+  }
+
+  return options.config.capture.source_mode ==
+             AudioSourceMode::ApplicationLoopback &&
+         options.config.capture.application_loopback_process == L"spotify.exe" &&
+         options.application_loopback_process == L"spotify.exe";
+}
+
 bool TestParseRejectsUnknownOverride() {
   const std::vector<std::wstring> args = {
       L"quick",
@@ -241,7 +259,9 @@ bool TestUsageTextIncludesDevicesAndDeviceIds() {
          usage.find(L"Modes:\n  quick   Run a single probe") != std::wstring::npos &&
          usage.find(L"  matrix  Run the probe matrix") != std::wstring::npos &&
          usage.find(L"  devices List available devices") != std::wstring::npos &&
-         usage.find(L"--source=mic|loopback") != std::wstring::npos &&
+         usage.find(L"--source=mic|loopback|app-loopback") != std::wstring::npos &&
+         usage.find(L"--app-loopback-process=<name-or-pid>") !=
+             std::wstring::npos &&
          usage.find(L"capture device ids should match the selected capture backend/source") !=
              std::wstring::npos &&
          usage.find(L"render device ids should match the selected render backend; ignored when --monitor=off") !=
@@ -324,6 +344,8 @@ int main() {
 
   const std::vector<NamedTest> tests = {
       {"ParseQuickOverrides", &TestParseQuickOverrides},
+      {"ParseApplicationLoopbackOverrides",
+       &TestParseApplicationLoopbackOverrides},
       {"ParseRejectsUnknownOverride", &TestParseRejectsUnknownOverride},
       {"ParseHelpMode", &TestParseHelpMode},
       {"ParseDevicesMode", &TestParseDevicesMode},

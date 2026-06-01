@@ -212,6 +212,7 @@ public static class Native {
   [DllImport("user32.dll", CharSet=CharSet.Unicode)] public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
   [DllImport("user32.dll")] public static extern int GetWindowTextLength(IntPtr hWnd);
   [DllImport("user32.dll")] public static extern IntPtr GetDlgItem(IntPtr hDlg, int nIDDlgItem);
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
   [DllImport("user32.dll")] public static extern bool IsWindowEnabled(IntPtr hWnd);
   [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
   [DllImport("user32.dll")] public static extern bool SendNotifyMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
@@ -221,6 +222,9 @@ public static class Native {
 '@
 Add-Type $sig
 function Get-Text([IntPtr]$h){
+  if ($h -eq [IntPtr]::Zero) {
+    return ""
+  }
   $len=[Native]::GetWindowTextLength($h)
   $sb=New-Object System.Text.StringBuilder ($len+8)
   [void][Native]::GetWindowText($h,$sb,$sb.Capacity)
@@ -232,6 +236,193 @@ function Get-ControlTextById([IntPtr]$hwnd, [int]$controlId) {
     return ""
   }
   Get-Text $handle
+}
+function Get-ControlHandle([IntPtr]$hwnd, [int]$controlId) {
+  if ($hwnd -eq [IntPtr]::Zero) {
+    return [IntPtr]::Zero
+  }
+  [Native]::GetDlgItem($hwnd, $controlId)
+}
+function Get-ControlEnabledSafe([IntPtr]$handle) {
+  if ($handle -eq [IntPtr]::Zero) {
+    return $false
+  }
+  [Native]::IsWindowEnabled($handle)
+}
+function Get-ControlTextSafe([IntPtr]$handle) {
+  if ($handle -eq [IntPtr]::Zero) {
+    return ""
+  }
+  Get-Text $handle
+}
+function Wait-ForWindowHandle([System.Diagnostics.Process]$process, [int]$maxPolls = 100) {
+  $hwnd = [IntPtr]::Zero
+  for ($i = 0; $i -lt $maxPolls -and $hwnd -eq [IntPtr]::Zero; $i++) {
+    Start-Sleep -Milliseconds 100
+    try {
+      $proc = Get-Process -Id $process.Id -ErrorAction Stop
+      if ($proc.MainWindowHandle -ne 0) {
+        $hwnd = [IntPtr]$proc.MainWindowHandle
+        break
+      }
+    } catch {}
+    $candidate = [Native]::FindWindow('WinAudioDemoWindowClass', $null)
+    if ($candidate -ne [IntPtr]::Zero) {
+      [uint32]$ownerPid = 0
+      [void][Native]::GetWindowThreadProcessId($candidate, [ref]$ownerPid)
+      if ($ownerPid -eq $process.Id) {
+        $hwnd = $candidate
+      }
+    }
+  }
+  $hwnd
+}
+function Wait-ForProcessExit([System.Diagnostics.Process]$process, [int]$maxPolls = 300) {
+  if ($null -eq $process) {
+    return $true
+  }
+  $exited = $process.WaitForExit($maxPolls * 100)
+  if (-not $exited) {
+    for ($i = 0; $i -lt $maxPolls; $i++) {
+      Start-Sleep -Milliseconds 100
+      try {
+        Get-Process -Id $process.Id -ErrorAction Stop | Out-Null
+      } catch {
+        $exited = $true
+        break
+      }
+    }
+  }
+  if (-not $exited) {
+    Stop-ProcessByIdIfRunning $process.Id
+    for ($i = 0; $i -lt [Math]::Min($maxPolls, 20); $i++) {
+      Start-Sleep -Milliseconds 100
+      try {
+        Get-Process -Id $process.Id -ErrorAction Stop | Out-Null
+      } catch {
+        $exited = $true
+        break
+      }
+    }
+  }
+  $exited
+}
+function Wait-ForRunningEvidence([IntPtr]$hwnd, [IntPtr]$startButton, [IntPtr]$stopButton, [IntPtr]$probeButton, [int]$maxPolls = 300) {
+  $runningSeen = $false
+  $runningObservedEver = $false
+  for ($i = 0; $i -lt $maxPolls; $i++) {
+    Start-Sleep -Milliseconds 100
+    $title = Get-Text $hwnd
+    $probeButtonText = Get-ControlTextSafe $probeButton
+    $probeDisabled = -not (Get-ControlEnabledSafe $probeButton)
+    if ($title -like "*| Running |*") {
+      $runningObservedEver = $true
+    }
+    if ((($title -like "*| Running |*") -or
+         ($probeButtonText -eq "Run Quick Probe") -or
+         ($probeButtonText -eq "Run Probe Matrix") -or
+         $probeDisabled) -and
+        (-not (Get-ControlEnabledSafe $startButton)) -and
+        (Get-ControlEnabledSafe $stopButton)) {
+      $runningSeen = $true
+      break
+    }
+  }
+  [pscustomobject]@{
+    RunningSeen = $runningSeen
+    RunningObservedEver = $runningObservedEver
+  }
+}
+function Wait-ForSessionRunningState([IntPtr]$hwnd, [IntPtr]$startButton, [IntPtr]$stopButton, [scriptblock]$additionalCheck = $null, [int]$maxPolls = 120, [int]$stableSamples = 2) {
+  $runningSeen = $false
+  $runningObservedEver = $false
+  $stableRunningSamples = 0
+  $lastTitle = ""
+  for ($i = 0; $i -lt $maxPolls; $i++) {
+    Start-Sleep -Milliseconds 100
+    $lastTitle = Get-Text $hwnd
+    if ($lastTitle -like "*| Running |*") {
+      $runningObservedEver = $true
+    }
+    $extraSatisfied = $true
+    if ($null -ne $additionalCheck) {
+      $extraSatisfied = [bool](& $additionalCheck)
+    }
+    if ((-not (Get-ControlEnabledSafe $startButton)) -and
+        (Get-ControlEnabledSafe $stopButton) -and
+        $extraSatisfied) {
+      $stableRunningSamples += 1
+      if ($stableRunningSamples -ge $stableSamples) {
+        $runningSeen = $true
+        break
+      }
+    } else {
+      $stableRunningSamples = 0
+    }
+  }
+  [pscustomobject]@{
+    RunningSeen = $runningSeen
+    RunningObservedEver = $runningObservedEver
+    Title = $lastTitle
+  }
+}
+function Start-SessionAndWait([IntPtr]$hwnd, [IntPtr]$startButton, [IntPtr]$stopButton, [int]$startButtonId, [scriptblock]$additionalCheck = $null, [int]$maxPolls = 120, [int]$stableSamples = 2) {
+  $started = $false
+  if (Get-ControlEnabledSafe $startButton) {
+    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$startButtonId, [IntPtr]::Zero)
+    $started = $true
+  }
+  $runningState = Wait-ForSessionRunningState $hwnd $startButton $stopButton $additionalCheck $maxPolls $stableSamples
+  [pscustomobject]@{
+    Started = $started
+    RunningSeen = $runningState.RunningSeen
+    RunningObservedEver = $runningState.RunningObservedEver
+    Title = $runningState.Title
+  }
+}
+function Wait-ForIdleAfterStop([IntPtr]$hwnd, [IntPtr]$startButton, [IntPtr]$stopButton, [int]$maxPolls = 60) {
+  $stableIdleSamples = 0
+  for ($i = 0; $i -lt $maxPolls; $i++) {
+    Start-Sleep -Milliseconds 100
+    $title = Get-Text $hwnd
+    $notRunningTitle =
+      $title -notlike "*| Running |*" -and
+      $title -notlike "*Quick Probe Running*" -and
+      $title -notlike "*Probe Matrix Running*"
+    $startEnabled = Get-ControlEnabledSafe $startButton
+    $stopEnabled = Get-ControlEnabledSafe $stopButton
+    $idleSurfaceSeen =
+      $startEnabled -and
+      (-not $stopEnabled) -and
+      ($notRunningTitle -or
+       [string]::IsNullOrWhiteSpace($title) -or
+       $title -like "*WinAudio Demo*")
+    if ($idleSurfaceSeen) {
+      $stableIdleSamples += 1
+      if ($stableIdleSamples -ge 3) {
+        return $true
+      }
+    } else {
+      $stableIdleSamples = 0
+    }
+  }
+  return $false
+}
+function Stop-SessionAndWait([IntPtr]$hwnd, [IntPtr]$startButton, [IntPtr]$stopButton, [int]$stopButtonId, [int]$maxPolls = 60) {
+  $attempts = @(
+    { Invoke-ButtonClick $stopButton },
+    { [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero) },
+    { Invoke-ButtonClick $stopButton }
+  )
+
+  foreach ($attempt in $attempts) {
+    & $attempt
+    if (Wait-ForIdleAfterStop $hwnd $startButton $stopButton $maxPolls) {
+      return $true
+    }
+  }
+
+  return $false
 }
 function Set-ControlText([IntPtr]$handle, [string]$text) {
   $wmSetText = 0x000C
@@ -256,6 +447,12 @@ function Stop-WindowProcessIfRunning([System.Diagnostics.Process]$process) {
     if (-not $process.HasExited) {
       Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
     }
+  } catch {}
+}
+function Stop-ProcessByIdIfRunning([int]$processId) {
+  try {
+    $proc = Get-Process -Id $processId -ErrorAction Stop
+    Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
   } catch {}
 }
 function Format-StateMap([hashtable]$map) {
@@ -318,6 +515,13 @@ function Invoke-CheckboxClick([IntPtr]$handle) {
   $bmClick = 0x00F5
   [void][Native]::SendMessage($handle, $bmClick, [IntPtr]::Zero, [IntPtr]::Zero)
 }
+function Invoke-ButtonClick([IntPtr]$handle) {
+  if ($handle -eq [IntPtr]::Zero) {
+    return
+  }
+  $bmClick = 0x00F5
+  [void][Native]::SendMessage($handle, $bmClick, [IntPtr]::Zero, [IntPtr]::Zero)
+}
 function Invoke-ComboSelectionChange([IntPtr]$hwnd, [int]$comboId, [int]$index) {
   $cbSetCurSel = 0x014E
   $cbnSelChange = 1
@@ -325,6 +529,14 @@ function Invoke-ComboSelectionChange([IntPtr]$hwnd, [int]$comboId, [int]$index) 
   [void][Native]::SendMessage($combo, $cbSetCurSel, [IntPtr]$index, [IntPtr]::Zero)
   $wParamValue = $comboId -bor ($cbnSelChange -shl 16)
   [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$wParamValue, $combo)
+}
+function Invoke-ComboSelectionChangeSync([IntPtr]$hwnd, [int]$comboId, [int]$index) {
+  $cbSetCurSel = 0x014E
+  $cbnSelChange = 1
+  $combo = [Native]::GetDlgItem($hwnd, $comboId)
+  [void][Native]::SendMessage($combo, $cbSetCurSel, [IntPtr]$index, [IntPtr]::Zero)
+  $wParamValue = $comboId -bor ($cbnSelChange -shl 16)
+  [void][Native]::SendMessage($hwnd, 0x0111, [IntPtr]$wParamValue, $combo)
 }
 function Wait-ForProbeTextContains([IntPtr]$hwnd, [string[]]$needles, [int]$maxPolls = 120) {
   $automationProbeTextId = 1905
@@ -412,6 +624,114 @@ function Wait-ForControlTextEquals([IntPtr]$hwnd, [int]$controlId, [string]$expe
   [pscustomobject]@{
     Seen = $false
     Text = Get-ControlTextById $hwnd $controlId
+  }
+}
+function Invoke-ApplicationLoopbackGuiCheck([IntPtr]$hwnd, [int]$sourceComboId, [int]$captureComboId, [int]$appLoopbackEditId, [int]$probeButtonId, [int]$maxPolls = 120) {
+  $sourceCombo = [Native]::GetDlgItem($hwnd, $sourceComboId)
+  $captureCombo = [Native]::GetDlgItem($hwnd, $captureComboId)
+  $appLoopbackEdit = [Native]::GetDlgItem($hwnd, $appLoopbackEditId)
+  $automationCaptureLabelId = 1901
+  $automationDeviceCountLineId = 1902
+  $automationSummaryTextId = 1903
+  $automationProbeTextId = 1905
+
+  $baselineSourceIndex = [int][Native]::SendMessage($sourceCombo, 0x0147, [IntPtr]::Zero, [IntPtr]::Zero)
+  $baselineSourceText = Get-ComboItemText $sourceCombo $baselineSourceIndex
+  $baselineCaptureEnabled = [Native]::IsWindowEnabled($captureCombo)
+  $baselineAppTargetText = Get-Text $appLoopbackEdit
+
+  Invoke-ComboSelectionChange $hwnd $sourceComboId 2
+  Invoke-EditTextChange $hwnd $appLoopbackEditId "1234"
+
+  $surfaceSeen = $false
+  $sourceSeen = $false
+  $labelSeen = $false
+  $deviceCountSeen = $false
+  $targetSeen = $false
+  $requestedCaptureIdSeen = $false
+  $quickFailureSeen = $false
+  $summarySeen = $false
+  $probeText = ""
+  $summaryText = ""
+  $lastSourceText = ""
+  $lastCaptureLabel = ""
+  $lastDeviceCountLine = ""
+  $lastAppTargetText = ""
+  for ($i = 0; $i -lt $maxPolls; $i++) {
+    Start-Sleep -Milliseconds 100
+    $sourceText = Get-ComboSelectionText $sourceCombo
+    $captureLabel = Get-ControlTextById $hwnd $automationCaptureLabelId
+    $deviceCountLine = Get-ControlTextById $hwnd $automationDeviceCountLineId
+    $summaryText = Get-ControlTextById $hwnd $automationSummaryTextId
+    $appTargetText = Get-Text $appLoopbackEdit
+    $lastSourceText = $sourceText
+    $lastCaptureLabel = $captureLabel
+    $lastDeviceCountLine = $deviceCountLine
+    $lastAppTargetText = $appTargetText
+    $sourceSeen = $sourceText -eq "Application Loopback"
+    $labelSeen = $captureLabel -eq "App Loopback Source"
+    $deviceCountSeen = $deviceCountLine -like "Application loopback sources:*"
+    $targetSeen =
+      $summaryText.IndexOf("App loopback target: 1234", [System.StringComparison]::Ordinal) -ge 0
+    $surfaceSeen =
+      $sourceSeen -and
+      $labelSeen -and
+      $deviceCountSeen -and
+      $targetSeen
+    $summarySeen =
+      $summaryText.IndexOf("App loopback target: 1234", [System.StringComparison]::Ordinal) -ge 0 -and
+      $summaryText.IndexOf("Application loopback captures audio rendered by a target process tree instead of a device endpoint.", [System.StringComparison]::Ordinal) -ge 0
+    if ($surfaceSeen -and $summarySeen) {
+      break
+    }
+  }
+
+  [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$probeButtonId, [IntPtr]::Zero)
+  for ($i = 0; $i -lt $maxPolls; $i++) {
+    Start-Sleep -Milliseconds 100
+    $probeText = Get-ControlTextById $hwnd $automationProbeTextId
+    $requestedCaptureIdSeen =
+      $probeText.IndexOf("RequestedCaptureDeviceId: app-loopback", [System.StringComparison]::Ordinal) -ge 0
+    if ($probeText.IndexOf("FailureStage: format-resolution", [System.StringComparison]::Ordinal) -ge 0 -and
+        $probeText.IndexOf("Application loopback is not supported on this machine.", [System.StringComparison]::Ordinal) -ge 0 -and
+        $requestedCaptureIdSeen) {
+      $quickFailureSeen = $true
+      break
+    }
+  }
+
+  Invoke-EditTextChange $hwnd $appLoopbackEditId $baselineAppTargetText
+  Invoke-ComboSelectionChange $hwnd $sourceComboId $baselineSourceIndex
+  $restored = $false
+  for ($i = 0; $i -lt $maxPolls; $i++) {
+    Start-Sleep -Milliseconds 100
+    $sourceText = Get-ComboSelectionText $sourceCombo
+    $captureEnabled = [Native]::IsWindowEnabled($captureCombo)
+    $appTargetText = Get-Text $appLoopbackEdit
+    if ($sourceText -eq $baselineSourceText -and
+        $captureEnabled -eq $baselineCaptureEnabled -and
+        $appTargetText -eq $baselineAppTargetText) {
+      $restored = $true
+      break
+    }
+  }
+
+  [pscustomobject]@{
+    SurfaceSeen = $surfaceSeen
+    SourceSeen = $sourceSeen
+    LabelSeen = $labelSeen
+    DeviceCountSeen = $deviceCountSeen
+    TargetSeen = $targetSeen
+    RequestedCaptureIdSeen = $requestedCaptureIdSeen
+    SummarySeen = $summarySeen
+    QuickFailureSeen = $quickFailureSeen
+    Restored = $restored
+    LastSourceText = $lastSourceText
+    LastCaptureLabel = $lastCaptureLabel
+    LastDeviceCountLine = $lastDeviceCountLine
+    LastAppTargetText = $lastAppTargetText
+    ProbeText = $probeText
+    SummaryText = $summaryText
   }
 }
 function Get-ControlSnapshot([IntPtr]$handle, [string]$type) {
@@ -748,25 +1068,13 @@ function Invoke-FollowDefaultsWhileRunningCheck([IntPtr]$hwnd, [int]$startButton
   $diagnosticsControlId = 1904
 
   $baselineFollowDefaultsCheck = Get-CheckState $followDefaultsCheckbox
-  $started = $false
-  if ([Native]::IsWindowEnabled($startButton)) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$startButtonId, [IntPtr]::Zero)
-    $started = $true
-  }
-
-  $runningBaselineSeen = $false
-  for ($i = 0; $i -lt $maxPolls; $i++) {
-    Start-Sleep -Milliseconds 100
-    $title = Get-Text $hwnd
-    if ($title -like "*| Running |*" -and
-        (-not [Native]::IsWindowEnabled($startButton)) -and
-        [Native]::IsWindowEnabled($stopButton) -and
-        [Native]::IsWindowEnabled($captureDeviceCombo) -and
-        [Native]::IsWindowEnabled($renderDeviceCombo)) {
-      $runningBaselineSeen = $true
-      break
-    }
-  }
+  $runningStart = Start-SessionAndWait -hwnd $hwnd -startButton $startButton -stopButton $stopButton -startButtonId $startButtonId -additionalCheck {
+    (Get-CheckState $followDefaultsCheckbox) -eq $baselineFollowDefaultsCheck -and
+    (Get-ControlEnabledSafe $captureDeviceCombo) -and
+    (Get-ControlEnabledSafe $renderDeviceCombo)
+  } -maxPolls $maxPolls
+  $started = $runningStart.Started
+  $runningBaselineSeen = $runningStart.RunningSeen
 
   if ((Get-CheckState $followDefaultsCheckbox) -ne 1) {
     Invoke-CheckboxClick $followDefaultsCheckbox
@@ -820,14 +1128,13 @@ function Invoke-FollowDefaultsWhileRunningCheck([IntPtr]$hwnd, [int]$startButton
 
   $stoppedCleanly = $false
   if ($started -or $runningBaselineSeen) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      if ([Native]::IsWindowEnabled($startButton) -and
-          (-not [Native]::IsWindowEnabled($stopButton))) {
-        $stoppedCleanly = $true
-        break
-      }
+    $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
+    if (-not $stoppedCleanly) {
+      Start-Sleep -Milliseconds 200
+      $stoppedCleanly = Wait-ForIdleAfterStop $hwnd $startButton $stopButton ($maxPolls + 30)
+    }
+    if (-not $stoppedCleanly -and $runningRestoredSeen) {
+      $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId ($maxPolls + 30)
     }
   } else {
     $stoppedCleanly = $true
@@ -1010,23 +1317,13 @@ function Invoke-SessionButtonCheck([IntPtr]$hwnd, [int]$startButtonId, [int]$sto
     }
   }
 
-  [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-  $restored = $false
+  $restored = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
   $titleRestored = $false
-  for ($i = 0; $i -lt $maxPolls; $i++) {
-    Start-Sleep -Milliseconds 100
-    $title = Get-Text $hwnd
-    if ($title -notlike "*| Running |*" -and
-        $title -notlike "*Quick Probe Running*" -and
-        $title -notlike "*Probe Matrix Running*") {
-      $titleRestored = $true
-    }
-    if ([Native]::IsWindowEnabled($startButton) -and
-        (-not [Native]::IsWindowEnabled($stopButton)) -and
-        $titleRestored) {
-      $restored = $true
-      break
-    }
+  $finalTitle = Get-Text $hwnd
+  if ($finalTitle -notlike "*| Running |*" -and
+      $finalTitle -notlike "*Quick Probe Running*" -and
+      $finalTitle -notlike "*Probe Matrix Running*") {
+    $titleRestored = $true
   }
 
   [pscustomobject]@{
@@ -1042,22 +1339,9 @@ function Invoke-SessionButtonCheck([IntPtr]$hwnd, [int]$startButtonId, [int]$sto
 function Invoke-CloseDuringBusyProbeCheck([string]$guiExePath, [int]$probeButtonId, [string]$runningTitleNeedle, [string]$runningButtonText, [int]$maxPolls = 300) {
   Get-Process winaudio -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
   $p = Start-Process -FilePath $guiExePath -PassThru
-  $hwnd = [IntPtr]::Zero
-  for ($i = 0; $i -lt 100 -and $hwnd -eq [IntPtr]::Zero; $i++) {
-    Start-Sleep -Milliseconds 100
-    try {
-      $proc = Get-Process -Id $p.Id -ErrorAction Stop
-      if ($proc.MainWindowHandle -ne 0) {
-        $hwnd = [IntPtr]$proc.MainWindowHandle
-        break
-      }
-    } catch {}
-    $hwnd = [Native]::FindWindow('WinAudioDemoWindowClass', $null)
-  }
+  $hwnd = Wait-ForWindowHandle $p 100
   if ($p.HasExited -or $hwnd -eq [IntPtr]::Zero) {
-    if (-not $p.HasExited) {
-      Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
-    }
+    Stop-ProcessByIdIfRunning $p.Id
     return [pscustomobject]@{
       WindowReady = $false
       BusySeen = $false
@@ -1065,14 +1349,14 @@ function Invoke-CloseDuringBusyProbeCheck([string]$guiExePath, [int]$probeButton
     }
   }
 
-  $probeButton = [Native]::GetDlgItem($hwnd, $probeButtonId)
+  $probeButton = Get-ControlHandle $hwnd $probeButtonId
   [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$probeButtonId, [IntPtr]::Zero)
   $busySeen = $false
   for ($i = 0; $i -lt $maxPolls; $i++) {
     Start-Sleep -Milliseconds 100
     $title = Get-Text $hwnd
-    $buttonText = Get-Text $probeButton
-    $probeDisabled = -not [Native]::IsWindowEnabled($probeButton)
+    $buttonText = Get-ControlTextSafe $probeButton
+    $probeDisabled = -not (Get-ControlEnabledSafe $probeButton)
     if ($title -like "*$runningTitleNeedle*" -or
         $buttonText -eq $runningButtonText -or
         $probeDisabled) {
@@ -1081,22 +1365,8 @@ function Invoke-CloseDuringBusyProbeCheck([string]$guiExePath, [int]$probeButton
     }
   }
 
-  [void][Native]::PostMessage($hwnd, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
-  $exited = $p.WaitForExit($maxPolls * 100)
-  if (-not $exited) {
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      try {
-        Get-Process -Id $p.Id -ErrorAction Stop | Out-Null
-      } catch {
-        $exited = $true
-        break
-      }
-    }
-  }
-  if (-not $exited) {
-    Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
-  }
+  [void][Native]::SendNotifyMessage($hwnd, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
+  $exited = Wait-ForProcessExit $p $maxPolls
 
   [pscustomobject]@{
     WindowReady = $true
@@ -1107,22 +1377,9 @@ function Invoke-CloseDuringBusyProbeCheck([string]$guiExePath, [int]$probeButton
 function Invoke-CloseWhileRunningSessionCheck([string]$guiExePath, [int]$startButtonId, [int]$stopButtonId, [int]$maxPolls = 300) {
   Get-Process winaudio -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
   $p = Start-Process -FilePath $guiExePath -PassThru
-  $hwnd = [IntPtr]::Zero
-  for ($i = 0; $i -lt 100 -and $hwnd -eq [IntPtr]::Zero; $i++) {
-    Start-Sleep -Milliseconds 100
-    try {
-      $proc = Get-Process -Id $p.Id -ErrorAction Stop
-      if ($proc.MainWindowHandle -ne 0) {
-        $hwnd = [IntPtr]$proc.MainWindowHandle
-        break
-      }
-    } catch {}
-    $hwnd = [Native]::FindWindow('WinAudioDemoWindowClass', $null)
-  }
+  $hwnd = Wait-ForWindowHandle $p 100
   if ($p.HasExited -or $hwnd -eq [IntPtr]::Zero) {
-    if (-not $p.HasExited) {
-      Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
-    }
+    Stop-ProcessByIdIfRunning $p.Id
     return [pscustomobject]@{
       WindowReady = $false
       RunningSeen = $false
@@ -1130,40 +1387,13 @@ function Invoke-CloseWhileRunningSessionCheck([string]$guiExePath, [int]$startBu
     }
   }
 
-  $startButton = [Native]::GetDlgItem($hwnd, $startButtonId)
-  $stopButton = [Native]::GetDlgItem($hwnd, $stopButtonId)
-  if ([Native]::IsWindowEnabled($startButton)) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$startButtonId, [IntPtr]::Zero)
-  }
+  $startButton = Get-ControlHandle $hwnd $startButtonId
+  $stopButton = Get-ControlHandle $hwnd $stopButtonId
+  $runningStart = Start-SessionAndWait $hwnd $startButton $stopButton $startButtonId $null $maxPolls
+  $runningSeen = $runningStart.RunningSeen -or $runningStart.RunningObservedEver
 
-  $runningSeen = $false
-  for ($i = 0; $i -lt $maxPolls; $i++) {
-    Start-Sleep -Milliseconds 100
-    $title = Get-Text $hwnd
-    if ($title -like "*| Running |*" -and
-        (-not [Native]::IsWindowEnabled($startButton)) -and
-        [Native]::IsWindowEnabled($stopButton)) {
-      $runningSeen = $true
-      break
-    }
-  }
-
-  [void][Native]::PostMessage($hwnd, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
-  $exited = $p.WaitForExit($maxPolls * 100)
-  if (-not $exited) {
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      try {
-        Get-Process -Id $p.Id -ErrorAction Stop | Out-Null
-      } catch {
-        $exited = $true
-        break
-      }
-    }
-  }
-  if (-not $exited) {
-    Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
-  }
+  [void][Native]::SendNotifyMessage($hwnd, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
+  $exited = Wait-ForProcessExit $p $maxPolls
 
   [pscustomobject]@{
     WindowReady = $true
@@ -1174,22 +1404,9 @@ function Invoke-CloseWhileRunningSessionCheck([string]$guiExePath, [int]$startBu
 function Invoke-CloseDuringBusyProbeWhileRunningCheck([string]$guiExePath, [int]$probeButtonId, [int]$startButtonId, [int]$stopButtonId, [string]$runningTitleNeedle, [string]$runningButtonText, [int]$maxPolls = 300) {
   Get-Process winaudio -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
   $p = Start-Process -FilePath $guiExePath -PassThru
-  $hwnd = [IntPtr]::Zero
-  for ($i = 0; $i -lt 100 -and $hwnd -eq [IntPtr]::Zero; $i++) {
-    Start-Sleep -Milliseconds 100
-    try {
-      $proc = Get-Process -Id $p.Id -ErrorAction Stop
-      if ($proc.MainWindowHandle -ne 0) {
-        $hwnd = [IntPtr]$proc.MainWindowHandle
-        break
-      }
-    } catch {}
-    $hwnd = [Native]::FindWindow('WinAudioDemoWindowClass', $null)
-  }
+  $hwnd = Wait-ForWindowHandle $p 100
   if ($p.HasExited -or $hwnd -eq [IntPtr]::Zero) {
-    if (-not $p.HasExited) {
-      Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
-    }
+    Stop-ProcessByIdIfRunning $p.Id
     return [pscustomobject]@{
       WindowReady = $false
       RunningSeen = $false
@@ -1198,60 +1415,37 @@ function Invoke-CloseDuringBusyProbeWhileRunningCheck([string]$guiExePath, [int]
     }
   }
 
-  $startButton = [Native]::GetDlgItem($hwnd, $startButtonId)
-  $stopButton = [Native]::GetDlgItem($hwnd, $stopButtonId)
-  $probeButton = [Native]::GetDlgItem($hwnd, $probeButtonId)
-  if ([Native]::IsWindowEnabled($startButton)) {
+  $startButton = Get-ControlHandle $hwnd $startButtonId
+  $stopButton = Get-ControlHandle $hwnd $stopButtonId
+  $probeButton = Get-ControlHandle $hwnd $probeButtonId
+  if (Get-ControlEnabledSafe $startButton) {
     [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$startButtonId, [IntPtr]::Zero)
   }
 
-  $runningSeen = $false
-  for ($i = 0; $i -lt $maxPolls; $i++) {
-    Start-Sleep -Milliseconds 100
-    $title = Get-Text $hwnd
-    if ($title -like "*| Running |*" -and
-        (-not [Native]::IsWindowEnabled($startButton)) -and
-        [Native]::IsWindowEnabled($stopButton)) {
-      $runningSeen = $true
-      break
-    }
-  }
+  $runningState = Wait-ForRunningEvidence $hwnd $startButton $stopButton $probeButton $maxPolls
 
   [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$probeButtonId, [IntPtr]::Zero)
   $busySeen = $false
   for ($i = 0; $i -lt $maxPolls; $i++) {
     Start-Sleep -Milliseconds 100
     $title = Get-Text $hwnd
-    $buttonText = Get-Text $probeButton
-    $probeDisabled = -not [Native]::IsWindowEnabled($probeButton)
-    if ($title -like "*$runningTitleNeedle*" -or
+    $buttonText = Get-ControlTextSafe $probeButton
+    $probeDisabled = -not (Get-ControlEnabledSafe $probeButton)
+    if (($title -like "*$runningTitleNeedle*" -or
         $buttonText -eq $runningButtonText -or
-        $probeDisabled) {
+        $probeDisabled) -and
+        ($runningState.RunningSeen -or $runningState.RunningObservedEver -or (Get-ControlEnabledSafe $stopButton))) {
       $busySeen = $true
       break
     }
   }
 
-  [void][Native]::PostMessage($hwnd, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
-  $exited = $p.WaitForExit($maxPolls * 100)
-  if (-not $exited) {
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      try {
-        Get-Process -Id $p.Id -ErrorAction Stop | Out-Null
-      } catch {
-        $exited = $true
-        break
-      }
-    }
-  }
-  if (-not $exited) {
-    Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
-  }
+  [void][Native]::SendNotifyMessage($hwnd, 0x0010, [IntPtr]::Zero, [IntPtr]::Zero)
+  $exited = Wait-ForProcessExit $p $maxPolls
 
   [pscustomobject]@{
     WindowReady = $true
-    RunningSeen = $runningSeen
+    RunningSeen = ($runningState.RunningSeen -or $runningState.RunningObservedEver)
     BusySeen = $busySeen
     ExitedCleanly = $exited
   }
@@ -1273,7 +1467,7 @@ function Invoke-SourceModeToggleCheck([IntPtr]$hwnd, [int]$sourceComboId, [int]$
   $baselineCaptureLabel = Get-ControlTextById $hwnd $automationCaptureLabelId
   $baselineDeviceCountLine = Get-ControlTextById $hwnd $automationDeviceCountLineId
 
-  Invoke-ComboSelectionChange $hwnd $sourceComboId 1
+  Invoke-ComboSelectionChangeSync $hwnd $sourceComboId 1
   $loopbackSeen = $false
   $loopbackLabelSeen = $false
   $loopbackDeviceCountSeen = $false
@@ -1309,7 +1503,7 @@ function Invoke-SourceModeToggleCheck([IntPtr]$hwnd, [int]$sourceComboId, [int]$
     }
   }
 
-  Invoke-ComboSelectionChange $hwnd $sourceComboId 0
+  Invoke-ComboSelectionChangeSync $hwnd $sourceComboId 0
   $restored = $false
   $labelRestored = $false
   $deviceCountRestored = $false
@@ -1374,23 +1568,15 @@ function Invoke-SourceModeWhileRunningCheck([IntPtr]$hwnd, [int]$sourceComboId, 
   $baselineCaptureLabel = Get-ControlTextById $hwnd $automationCaptureLabelId
   $baselineDeviceCountLine = Get-ControlTextById $hwnd $automationDeviceCountLineId
 
-  $started = $false
-  if ([Native]::IsWindowEnabled($startButton)) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$startButtonId, [IntPtr]::Zero)
-    $started = $true
-  }
+  $runningStart = Start-SessionAndWait -hwnd $hwnd -startButton $startButton -stopButton $stopButton -startButtonId $startButtonId -additionalCheck {
+    (-not [string]::IsNullOrWhiteSpace((Get-ComboSelectionText $sourceCombo))) -and
+    (-not [string]::IsNullOrWhiteSpace((Get-ControlTextById $hwnd $automationCaptureLabelId))) -and
+    (-not [string]::IsNullOrWhiteSpace((Get-ControlTextById $hwnd $automationDeviceCountLineId)))
+  } -maxPolls $maxPolls
+  $started = $runningStart.Started
+  $runningBaselineSeen = $runningStart.RunningSeen
 
-  $runningBaselineSeen = $false
-  for ($i = 0; $i -lt $maxPolls; $i++) {
-    Start-Sleep -Milliseconds 100
-    if ((-not [Native]::IsWindowEnabled($startButton)) -and
-        [Native]::IsWindowEnabled($stopButton)) {
-      $runningBaselineSeen = $true
-      break
-    }
-  }
-
-  Invoke-ComboSelectionChange $hwnd $sourceComboId 1
+  Invoke-ComboSelectionChangeSync $hwnd $sourceComboId 1
   $loopbackSeen = $false
   $runningPreserved = $false
   $summarySeen = $false
@@ -1424,8 +1610,53 @@ function Invoke-SourceModeWhileRunningCheck([IntPtr]$hwnd, [int]$sourceComboId, 
     }
   }
 
-  Invoke-ComboSelectionChange $hwnd $sourceComboId 0
+  Invoke-ComboSelectionChangeSync $hwnd $sourceComboId 0
+  $runningRestoredSeen = $false
+  $stableRestoredSamples = 0
+  $restoredSummaryText = ""
+  for ($i = 0; $i -lt $maxPolls; $i++) {
+    Start-Sleep -Milliseconds 100
+    $restoredSourceText = Get-ComboSelectionText $sourceCombo
+    $restoredCaptureLabel = Get-ControlTextById $hwnd $automationCaptureLabelId
+    $restoredDeviceCountLine = Get-ControlTextById $hwnd $automationDeviceCountLineId
+    $restoredSummaryText = Get-ControlTextById $hwnd $summaryControlId
+    $runningStillPreserved =
+      (-not [Native]::IsWindowEnabled($startButton)) -and
+      [Native]::IsWindowEnabled($stopButton)
+    $summaryRestoredSeen =
+      $restoredSummaryText.IndexOf("Capture: WASAPI / $baselineSource /", [System.StringComparison]::Ordinal) -ge 0
+    $restoredCaptureLabel = Get-ControlTextById $hwnd $automationCaptureLabelId
+    $surfaceRestoredSeen =
+      $restoredCaptureLabel -eq $baselineCaptureLabel -and
+      $restoredDeviceCountLine -eq $baselineDeviceCountLine
+    if (($restoredSourceText -eq $baselineSource -or $summaryRestoredSeen) -and
+        $surfaceRestoredSeen -and
+        $runningStillPreserved -and
+        $restoredCaptureLabel -eq $baselineCaptureLabel -and
+        $restoredDeviceCountLine -eq $baselineDeviceCountLine) {
+      $stableRestoredSamples += 1
+      if ($stableRestoredSamples -ge 3) {
+        $runningRestoredSeen = $true
+        break
+      }
+    } else {
+      $stableRestoredSamples = 0
+    }
+  }
+
+  $stoppedCleanly = $false
+  if ($started -or $runningBaselineSeen) {
+    $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
+  } else {
+    $stoppedCleanly = $true
+  }
+
   $restored = $false
+  $finalSourceText = ""
+  $finalCaptureSelected = ""
+  $finalCaptureLabel = ""
+  $finalDeviceCountLine = ""
+  $stableFinalRestoredSamples = 0
   for ($i = 0; $i -lt $maxPolls; $i++) {
     Start-Sleep -Milliseconds 100
     $sourceText = Get-ComboSelectionText $sourceCombo
@@ -1433,29 +1664,27 @@ function Invoke-SourceModeWhileRunningCheck([IntPtr]$hwnd, [int]$sourceComboId, 
     $captureItems = Get-ComboItems $captureCombo
     $captureLabel = Get-ControlTextById $hwnd $automationCaptureLabelId
     $deviceCountLine = Get-ControlTextById $hwnd $automationDeviceCountLineId
-    if ($sourceText -eq $baselineSource -and
+    $finalSourceText = $sourceText
+    $finalCaptureSelected = $captureSelected
+    $finalCaptureLabel = $captureLabel
+    $finalDeviceCountLine = $deviceCountLine
+    $idleSurfaceSeen =
+      [Native]::IsWindowEnabled($startButton) -and
+      (-not [Native]::IsWindowEnabled($stopButton))
+    if ($idleSurfaceSeen -and
+        $sourceText -eq $baselineSource -and
         $captureSelected -eq $baselineCaptureSelected -and
         (Test-StringArrayEquality $captureItems $baselineCaptureItems) -and
         $captureLabel -eq $baselineCaptureLabel -and
         $deviceCountLine -eq $baselineDeviceCountLine) {
-      $restored = $true
-      break
-    }
-  }
-
-  $stoppedCleanly = $false
-  if ($started -or $runningBaselineSeen) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      if ([Native]::IsWindowEnabled($startButton) -and
-          (-not [Native]::IsWindowEnabled($stopButton))) {
-        $stoppedCleanly = $true
+      $stableFinalRestoredSamples += 1
+      if ($stableFinalRestoredSamples -ge 3) {
+        $restored = $true
         break
       }
+    } else {
+      $stableFinalRestoredSamples = 0
     }
-  } else {
-    $stoppedCleanly = $true
   }
 
   [pscustomobject]@{
@@ -1464,9 +1693,15 @@ function Invoke-SourceModeWhileRunningCheck([IntPtr]$hwnd, [int]$sourceComboId, 
     RunningPreserved = $runningPreserved
     SummarySeen = $summarySeen
     SummaryDriftSeen = $summaryDriftSeen
+    RunningRestoredSeen = $runningRestoredSeen
     Restored = $restored
     StoppedCleanly = $stoppedCleanly
+    FinalSourceText = $finalSourceText
+    FinalCaptureSelected = $finalCaptureSelected
+    FinalCaptureLabel = $finalCaptureLabel
+    FinalDeviceCountLine = $finalDeviceCountLine
     SummaryText = $summaryText
+    RestoredSummaryText = $restoredSummaryText
   }
 }
 function Invoke-FollowDefaultsSourceModeWhileRunningCheck([IntPtr]$hwnd, [int]$sourceComboId, [int]$followDefaultsCheckboxId, [int]$captureComboId, [int]$renderComboId, [int]$startButtonId, [int]$stopButtonId, [int]$maxPolls = 120) {
@@ -1484,30 +1719,21 @@ function Invoke-FollowDefaultsSourceModeWhileRunningCheck([IntPtr]$hwnd, [int]$s
   $baselineFollowDefaults = Get-CheckState $followDefaultsCheckbox
   $baselineCaptureItems = Get-ComboItems $captureCombo
   $baselineSourceText = Get-ComboItemText $sourceCombo $baselineSourceIndex
+  $runningSessionNote = "Running session note: configuration edits update the next rebuilt or restarted session, not the already-active stream."
 
   if ((Get-CheckState $followDefaultsCheckbox) -ne 1) {
     Invoke-CheckboxClick $followDefaultsCheckbox
     Start-Sleep -Milliseconds 200
   }
 
-  $started = $false
-  if ([Native]::IsWindowEnabled($startButton)) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$startButtonId, [IntPtr]::Zero)
-    $started = $true
-  }
-
-  $runningBaselineSeen = $false
-  for ($i = 0; $i -lt $maxPolls; $i++) {
-    Start-Sleep -Milliseconds 100
-    if ((-not [Native]::IsWindowEnabled($startButton)) -and
-        [Native]::IsWindowEnabled($stopButton) -and
-        (Get-CheckState $followDefaultsCheckbox) -eq 1 -and
-        (-not [Native]::IsWindowEnabled($captureCombo)) -and
-        (-not [Native]::IsWindowEnabled($renderCombo))) {
-      $runningBaselineSeen = $true
-      break
-    }
-  }
+  $runningStart = Start-SessionAndWait -hwnd $hwnd -startButton $startButton -stopButton $stopButton -startButtonId $startButtonId -additionalCheck {
+    (Get-CheckState $followDefaultsCheckbox) -eq 1 -and
+    (-not (Get-ControlEnabledSafe $captureCombo)) -and
+    (-not (Get-ControlEnabledSafe $renderCombo)) -and
+    (-not [string]::IsNullOrWhiteSpace((Get-ComboSelectionText $sourceCombo)))
+  } -maxPolls $maxPolls
+  $started = $runningStart.Started
+  $runningBaselineSeen = $runningStart.RunningSeen
 
   Invoke-ComboSelectionChange $hwnd $sourceComboId 1
   $loopbackSeen = $false
@@ -1545,25 +1771,45 @@ function Invoke-FollowDefaultsSourceModeWhileRunningCheck([IntPtr]$hwnd, [int]$s
   }
 
   if ($baselineSourceIndex -ne 1) {
-    Invoke-ComboSelectionChange $hwnd $sourceComboId $baselineSourceIndex
+    Invoke-ComboSelectionChangeSync $hwnd $sourceComboId $baselineSourceIndex
+    for ($i = 0; $i -lt $maxPolls; $i++) {
+      Start-Sleep -Milliseconds 100
+      $restoredSourceText = Get-ComboSelectionText $sourceCombo
+      $restoredCaptureItems = Get-ComboItems $captureCombo
+      if ($restoredSourceText -eq $baselineSourceText -and
+          (Test-StringArrayEquality $restoredCaptureItems $baselineCaptureItems)) {
+        break
+      }
+    }
   }
   if ($baselineFollowDefaults -ne 1) {
     Invoke-CheckboxClick $followDefaultsCheckbox
   }
 
+  $runningRestoredSeen = $false
+  $stableRunningRestoredSamples = 0
+  $restoredSummaryText = ""
   $restored = $false
   $finalSourceText = ""
   $finalFollowDefaultsState = -1
   $finalCaptureEnabled = $false
   $finalRenderEnabled = $false
+  $finalSummaryText = ""
+  $finalDiagnosticsText = ""
   for ($i = 0; $i -lt $maxPolls; $i++) {
     Start-Sleep -Milliseconds 100
     $sourceText = Get-ComboSelectionText $sourceCombo
     $captureItems = Get-ComboItems $captureCombo
+    $restoredSummaryText = Get-ControlTextById $hwnd $summaryControlId
+    $runningStillPreserved =
+      (-not [Native]::IsWindowEnabled($startButton)) -and
+      [Native]::IsWindowEnabled($stopButton)
     $finalSourceText = $sourceText
     $finalFollowDefaultsState = Get-CheckState $followDefaultsCheckbox
     $finalCaptureEnabled = [Native]::IsWindowEnabled($captureCombo)
     $finalRenderEnabled = [Native]::IsWindowEnabled($renderCombo)
+    $finalSummaryText = Get-ControlTextById $hwnd $summaryControlId
+    $finalDiagnosticsText = Get-ControlTextById $hwnd $diagnosticsControlId
     $deviceStateMatches = $false
     if ($finalFollowDefaultsState -eq 1) {
       $deviceStateMatches =
@@ -1574,10 +1820,33 @@ function Invoke-FollowDefaultsSourceModeWhileRunningCheck([IntPtr]$hwnd, [int]$s
         $finalCaptureEnabled -and
         $finalRenderEnabled
     }
+    $expectedSummarySource = "Capture: WASAPI / $baselineSourceText /"
+    $expectedFollowDefaultsLine = if ($baselineFollowDefaults -eq 1) { "Follow defaults: On" } else { "Follow defaults: Off" }
+    $summaryMatches =
+      $finalSummaryText.IndexOf($expectedSummarySource, [System.StringComparison]::Ordinal) -ge 0 -and
+      $finalSummaryText.IndexOf($expectedFollowDefaultsLine, [System.StringComparison]::Ordinal) -ge 0 -and
+      $finalSummaryText.IndexOf($runningSessionNote, [System.StringComparison]::Ordinal) -ge 0
+    if ($baselineSourceText -ne "System Loopback") {
+      $summaryMatches =
+        $summaryMatches -and
+        $finalSummaryText.IndexOf("Loopback capture uses render endpoints as capture sources.", [System.StringComparison]::Ordinal) -lt 0 -and
+        $finalSummaryText.IndexOf("Loopback note:", [System.StringComparison]::Ordinal) -lt 0
+    }
+    if (($sourceText -eq $baselineSourceText -or $summaryMatches) -and
+        $deviceStateMatches -and
+        $runningStillPreserved) {
+      $stableRunningRestoredSamples += 1
+      if ($stableRunningRestoredSamples -ge 3) {
+        $runningRestoredSeen = $true
+      }
+    } else {
+      $stableRunningRestoredSamples = 0
+    }
     if ($sourceText -eq $baselineSourceText -and
         $finalFollowDefaultsState -eq $baselineFollowDefaults -and
         (Test-StringArrayEquality $captureItems $baselineCaptureItems) -and
-        $deviceStateMatches) {
+        $deviceStateMatches -and
+        $summaryMatches) {
       $restored = $true
       break
     }
@@ -1585,14 +1854,13 @@ function Invoke-FollowDefaultsSourceModeWhileRunningCheck([IntPtr]$hwnd, [int]$s
 
   $stoppedCleanly = $false
   if ($started -or $runningBaselineSeen) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      if ([Native]::IsWindowEnabled($startButton) -and
-          (-not [Native]::IsWindowEnabled($stopButton))) {
-        $stoppedCleanly = $true
-        break
-      }
+    $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
+    if (-not $stoppedCleanly) {
+      Start-Sleep -Milliseconds 200
+      $stoppedCleanly = Wait-ForIdleAfterStop $hwnd $startButton $stopButton ($maxPolls + 30)
+    }
+    if (-not $stoppedCleanly -and $runningRestoredSeen) {
+      $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId ($maxPolls + 30)
     }
   } else {
     $stoppedCleanly = $true
@@ -1604,14 +1872,18 @@ function Invoke-FollowDefaultsSourceModeWhileRunningCheck([IntPtr]$hwnd, [int]$s
     SummarySeen = $summarySeen
     DiagnosticsSeen = $diagnosticsSeen
     RunningPreserved = $runningPreserved
+    RunningRestoredSeen = $runningRestoredSeen
     Restored = $restored
     StoppedCleanly = $stoppedCleanly
     FinalSourceText = $finalSourceText
     FinalFollowDefaultsState = $finalFollowDefaultsState
     FinalCaptureEnabled = $finalCaptureEnabled
     FinalRenderEnabled = $finalRenderEnabled
+    FinalSummaryText = $finalSummaryText
+    FinalDiagnosticsText = $finalDiagnosticsText
     SummaryText = $summaryText
     DiagnosticsText = $diagnosticsText
+    RestoredSummaryText = $restoredSummaryText
   }
 }
 function Invoke-FollowDefaultsRenderBackendWhileRunningCheck([IntPtr]$hwnd, [int]$renderBackendComboId, [int]$followDefaultsCheckboxId, [int]$captureComboId, [int]$renderComboId, [int]$startButtonId, [int]$stopButtonId, [int]$maxPolls = 120) {
@@ -1627,32 +1899,23 @@ function Invoke-FollowDefaultsRenderBackendWhileRunningCheck([IntPtr]$hwnd, [int
 
   $baselineRenderBackendIndex = [int][Native]::SendMessage($renderBackendCombo, $cbGetCurSel, [IntPtr]::Zero, [IntPtr]::Zero)
   $baselineFollowDefaults = Get-CheckState $followDefaultsCheckbox
+  $baselineBackendText = Get-ComboItemText $renderBackendCombo $baselineRenderBackendIndex
 
   if ((Get-CheckState $followDefaultsCheckbox) -ne 1) {
     Invoke-CheckboxClick $followDefaultsCheckbox
     Start-Sleep -Milliseconds 200
   }
 
-  $started = $false
-  if ([Native]::IsWindowEnabled($startButton)) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$startButtonId, [IntPtr]::Zero)
-    $started = $true
-  }
+  $runningStart = Start-SessionAndWait -hwnd $hwnd -startButton $startButton -stopButton $stopButton -startButtonId $startButtonId -additionalCheck {
+    (Get-CheckState $followDefaultsCheckbox) -eq 1 -and
+    (-not (Get-ControlEnabledSafe $captureCombo)) -and
+    (-not (Get-ControlEnabledSafe $renderCombo)) -and
+    (-not [string]::IsNullOrWhiteSpace((Get-ComboSelectionText $renderBackendCombo)))
+  } -maxPolls $maxPolls
+  $started = $runningStart.Started
+  $runningBaselineSeen = $runningStart.RunningSeen
 
-  $runningBaselineSeen = $false
-  for ($i = 0; $i -lt $maxPolls; $i++) {
-    Start-Sleep -Milliseconds 100
-    if ((-not [Native]::IsWindowEnabled($startButton)) -and
-        [Native]::IsWindowEnabled($stopButton) -and
-        (Get-CheckState $followDefaultsCheckbox) -eq 1 -and
-        (-not [Native]::IsWindowEnabled($captureCombo)) -and
-        (-not [Native]::IsWindowEnabled($renderCombo))) {
-      $runningBaselineSeen = $true
-      break
-    }
-  }
-
-  Invoke-ComboSelectionChange $hwnd $renderBackendComboId 1
+  Invoke-ComboSelectionChangeSync $hwnd $renderBackendComboId 1
   $backendSeen = $false
   $summarySeen = $false
   $diagnosticsSeen = $false
@@ -1681,9 +1944,15 @@ function Invoke-FollowDefaultsRenderBackendWhileRunningCheck([IntPtr]$hwnd, [int
   }
 
   if ($baselineRenderBackendIndex -ne 1) {
-    Invoke-ComboSelectionChange $hwnd $renderBackendComboId $baselineRenderBackendIndex
+    Invoke-ComboSelectionChangeSync $hwnd $renderBackendComboId $baselineRenderBackendIndex
+    for ($i = 0; $i -lt $maxPolls; $i++) {
+      Start-Sleep -Milliseconds 100
+      $restoredBackendText = Get-ComboSelectionText $renderBackendCombo
+      if ($restoredBackendText -eq $baselineBackendText) {
+        break
+      }
+    }
   }
-  $baselineBackendText = Get-ComboItemText $renderBackendCombo $baselineRenderBackendIndex
   $backendRestored = Wait-ForComboSelection $hwnd $renderBackendComboId $baselineBackendText $maxPolls
   if ($baselineFollowDefaults -ne 1) {
     Invoke-CheckboxClick $followDefaultsCheckbox
@@ -1721,15 +1990,7 @@ function Invoke-FollowDefaultsRenderBackendWhileRunningCheck([IntPtr]$hwnd, [int
 
   $stoppedCleanly = $false
   if ($started -or $runningBaselineSeen) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      if ([Native]::IsWindowEnabled($startButton) -and
-          (-not [Native]::IsWindowEnabled($stopButton))) {
-        $stoppedCleanly = $true
-        break
-      }
-    }
+    $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
   } else {
     $stoppedCleanly = $true
   }
@@ -1763,30 +2024,21 @@ function Invoke-FollowDefaultsCaptureBackendWhileRunningCheck([IntPtr]$hwnd, [in
 
   $baselineCaptureBackendIndex = [int][Native]::SendMessage($captureBackendCombo, $cbGetCurSel, [IntPtr]::Zero, [IntPtr]::Zero)
   $baselineFollowDefaults = Get-CheckState $followDefaultsCheckbox
+  $baselineBackendText = Get-ComboItemText $captureBackendCombo $baselineCaptureBackendIndex
 
   if ((Get-CheckState $followDefaultsCheckbox) -ne 1) {
     Invoke-CheckboxClick $followDefaultsCheckbox
     Start-Sleep -Milliseconds 200
   }
 
-  $started = $false
-  if ([Native]::IsWindowEnabled($startButton)) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$startButtonId, [IntPtr]::Zero)
-    $started = $true
-  }
-
-  $runningBaselineSeen = $false
-  for ($i = 0; $i -lt $maxPolls; $i++) {
-    Start-Sleep -Milliseconds 100
-    if ((-not [Native]::IsWindowEnabled($startButton)) -and
-        [Native]::IsWindowEnabled($stopButton) -and
-        (Get-CheckState $followDefaultsCheckbox) -eq 1 -and
-        (-not [Native]::IsWindowEnabled($captureCombo)) -and
-        (-not [Native]::IsWindowEnabled($renderCombo))) {
-      $runningBaselineSeen = $true
-      break
-    }
-  }
+  $runningStart = Start-SessionAndWait -hwnd $hwnd -startButton $startButton -stopButton $stopButton -startButtonId $startButtonId -additionalCheck {
+    (Get-CheckState $followDefaultsCheckbox) -eq 1 -and
+    (-not (Get-ControlEnabledSafe $captureCombo)) -and
+    (-not (Get-ControlEnabledSafe $renderCombo)) -and
+    (-not [string]::IsNullOrWhiteSpace((Get-ComboSelectionText $captureBackendCombo)))
+  } -maxPolls $maxPolls
+  $started = $runningStart.Started
+  $runningBaselineSeen = $runningStart.RunningSeen
 
   Invoke-ComboSelectionChange $hwnd $captureBackendComboId 1
   $backendSeen = $false
@@ -1818,8 +2070,14 @@ function Invoke-FollowDefaultsCaptureBackendWhileRunningCheck([IntPtr]$hwnd, [in
 
   if ($baselineCaptureBackendIndex -ne 1) {
     Invoke-ComboSelectionChange $hwnd $captureBackendComboId $baselineCaptureBackendIndex
+    for ($i = 0; $i -lt $maxPolls; $i++) {
+      Start-Sleep -Milliseconds 100
+      $restoredBackendText = Get-ComboSelectionText $captureBackendCombo
+      if ($restoredBackendText -eq $baselineBackendText) {
+        break
+      }
+    }
   }
-  $baselineBackendText = Get-ComboItemText $captureBackendCombo $baselineCaptureBackendIndex
   $backendRestored = Wait-ForComboSelection $hwnd $captureBackendComboId $baselineBackendText $maxPolls
   if ($baselineFollowDefaults -ne 1) {
     Invoke-CheckboxClick $followDefaultsCheckbox
@@ -1857,15 +2115,7 @@ function Invoke-FollowDefaultsCaptureBackendWhileRunningCheck([IntPtr]$hwnd, [in
 
   $stoppedCleanly = $false
   if ($started -or $runningBaselineSeen) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      if ([Native]::IsWindowEnabled($startButton) -and
-          (-not [Native]::IsWindowEnabled($stopButton))) {
-        $stoppedCleanly = $true
-        break
-      }
-    }
+    $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
   } else {
     $stoppedCleanly = $true
   }
@@ -2010,15 +2260,7 @@ function Invoke-FollowDefaultsMonitorOffWhileRunningCheck([IntPtr]$hwnd, [int]$f
 
   $stoppedCleanly = $false
   if ($started -or $runningBaselineSeen) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      if ([Native]::IsWindowEnabled($startButton) -and
-          (-not [Native]::IsWindowEnabled($stopButton))) {
-        $stoppedCleanly = $true
-        break
-      }
-    }
+    $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
   } else {
     $stoppedCleanly = $true
   }
@@ -2116,6 +2358,17 @@ function Invoke-RenderBackendWhileRunningCheck([IntPtr]$hwnd, [int]$renderBacken
   }
 
   Invoke-ComboSelectionChange $hwnd $renderBackendComboId $baselineRenderBackendIndex
+  for ($i = 0; $i -lt $maxPolls; $i++) {
+    Start-Sleep -Milliseconds 100
+    $restoredBackendText = Get-ComboSelectionText $renderBackendCombo
+    $restoredRenderSelected = Get-ComboSelectionText $renderCombo
+    $restoredRenderItems = Get-ComboItems $renderCombo
+    if ($restoredBackendText -eq (Get-ComboItemText $renderBackendCombo $baselineRenderBackendIndex) -and
+        $restoredRenderSelected -eq $baselineRenderSelected -and
+        (Test-StringArrayEquality $restoredRenderItems $baselineRenderItems)) {
+      break
+    }
+  }
   $restored = $false
   for ($i = 0; $i -lt $maxPolls; $i++) {
     Start-Sleep -Milliseconds 100
@@ -2132,15 +2385,7 @@ function Invoke-RenderBackendWhileRunningCheck([IntPtr]$hwnd, [int]$renderBacken
 
   $stoppedCleanly = $false
   if ($started -or $runningBaselineSeen) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      if ([Native]::IsWindowEnabled($startButton) -and
-          (-not [Native]::IsWindowEnabled($stopButton))) {
-        $stoppedCleanly = $true
-        break
-      }
-    }
+    $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
   } else {
     $stoppedCleanly = $true
   }
@@ -2236,6 +2481,17 @@ function Invoke-CaptureBackendWhileRunningCheck([IntPtr]$hwnd, [int]$captureBack
   }
 
   Invoke-ComboSelectionChange $hwnd $captureBackendComboId $baselineCaptureBackendIndex
+  for ($i = 0; $i -lt $maxPolls; $i++) {
+    Start-Sleep -Milliseconds 100
+    $restoredBackendText = Get-ComboSelectionText $captureBackendCombo
+    $restoredCaptureSelected = Get-ComboSelectionText $captureCombo
+    $restoredCaptureItems = Get-ComboItems $captureCombo
+    if ($restoredBackendText -eq (Get-ComboItemText $captureBackendCombo $baselineCaptureBackendIndex) -and
+        $restoredCaptureSelected -eq $baselineCaptureSelected -and
+        (Test-StringArrayEquality $restoredCaptureItems $baselineCaptureItems)) {
+      break
+    }
+  }
   $restored = $false
   for ($i = 0; $i -lt $maxPolls; $i++) {
     Start-Sleep -Milliseconds 100
@@ -2252,15 +2508,7 @@ function Invoke-CaptureBackendWhileRunningCheck([IntPtr]$hwnd, [int]$captureBack
 
   $stoppedCleanly = $false
   if ($started -or $runningBaselineSeen) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      if ([Native]::IsWindowEnabled($startButton) -and
-          (-not [Native]::IsWindowEnabled($stopButton))) {
-        $stoppedCleanly = $true
-        break
-      }
-    }
+    $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
   } else {
     $stoppedCleanly = $true
   }
@@ -2397,15 +2645,7 @@ function Invoke-ManualDeviceChangeWhileRunningCheck([IntPtr]$hwnd, [int]$capture
 
   $stoppedCleanly = $false
   if ($started -or $runningBaselineSeen) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      if ([Native]::IsWindowEnabled($startButton) -and
-          (-not [Native]::IsWindowEnabled($stopButton))) {
-        $stoppedCleanly = $true
-        break
-      }
-    }
+    $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
   } else {
     $stoppedCleanly = $true
   }
@@ -2528,15 +2768,7 @@ function Invoke-ManualDeviceChangeThenRefreshWhileRunningCheck([IntPtr]$hwnd, [i
 
   $stoppedCleanly = $false
   if ($started -or $runningBaselineSeen) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      if ([Native]::IsWindowEnabled($startButton) -and
-          (-not [Native]::IsWindowEnabled($stopButton))) {
-        $stoppedCleanly = $true
-        break
-      }
-    }
+    $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
   } else {
     $stoppedCleanly = $true
   }
@@ -2719,15 +2951,7 @@ function Invoke-RunningSessionProbeCycleCheck([IntPtr]$hwnd, [int]$probeButtonId
 
   $stoppedCleanly = $false
   if ($started -or $runningBaselineSeen) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      if ([Native]::IsWindowEnabled($startButton) -and
-          (-not [Native]::IsWindowEnabled($stopButton))) {
-        $stoppedCleanly = $true
-        break
-      }
-    }
+    $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
   } else {
     $stoppedCleanly = $true
   }
@@ -2793,15 +3017,7 @@ function Invoke-RefreshWhileRunningCheck([IntPtr]$hwnd, [int]$refreshButtonId, [
   $refreshStayedEnabled = [Native]::IsWindowEnabled($refreshButton)
   $stoppedCleanly = $false
   if ($started -or $runningBaselineSeen) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      if ([Native]::IsWindowEnabled($startButton) -and
-          (-not [Native]::IsWindowEnabled($stopButton))) {
-        $stoppedCleanly = $true
-        break
-      }
-    }
+    $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
   } else {
     $stoppedCleanly = $true
   }
@@ -2955,15 +3171,7 @@ function Invoke-RunningCaptureConfigDriftCheck([IntPtr]$hwnd, [int]$startButtonI
 
   $stoppedCleanly = $false
   if ($started -or $runningBaselineSeen) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      if ([Native]::IsWindowEnabled($startButton) -and
-          (-not [Native]::IsWindowEnabled($stopButton))) {
-        $stoppedCleanly = $true
-        break
-      }
-    }
+    $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
   } else {
     $stoppedCleanly = $true
   }
@@ -3054,15 +3262,7 @@ function Invoke-RunningRenderConfigDriftCheck([IntPtr]$hwnd, [int]$startButtonId
 
   $stoppedCleanly = $false
   if ($started -or $runningBaselineSeen) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      if ([Native]::IsWindowEnabled($startButton) -and
-          (-not [Native]::IsWindowEnabled($stopButton))) {
-        $stoppedCleanly = $true
-        break
-      }
-    }
+    $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
   } else {
     $stoppedCleanly = $true
   }
@@ -3173,15 +3373,7 @@ function Invoke-FollowDefaultsRunningCaptureConfigDriftCheck([IntPtr]$hwnd, [int
 
   $stoppedCleanly = $false
   if ($started -or $runningBaselineSeen) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      if ([Native]::IsWindowEnabled($startButton) -and
-          (-not [Native]::IsWindowEnabled($stopButton))) {
-        $stoppedCleanly = $true
-        break
-      }
-    }
+    $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
   } else {
     $stoppedCleanly = $true
   }
@@ -3293,15 +3485,7 @@ function Invoke-FollowDefaultsRunningRenderConfigDriftCheck([IntPtr]$hwnd, [int]
 
   $stoppedCleanly = $false
   if ($started -or $runningBaselineSeen) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      if ([Native]::IsWindowEnabled($startButton) -and
-          (-not [Native]::IsWindowEnabled($stopButton))) {
-        $stoppedCleanly = $true
-        break
-      }
-    }
+    $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
   } else {
     $stoppedCleanly = $true
   }
@@ -3459,15 +3643,7 @@ function Invoke-RunningAutoAlignConfigDriftCheck([IntPtr]$hwnd, [int]$startButto
 
   $stoppedCleanly = $false
   if ($started -or $runningBaselineSeen) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      if ([Native]::IsWindowEnabled($startButton) -and
-          (-not [Native]::IsWindowEnabled($stopButton))) {
-        $stoppedCleanly = $true
-        break
-      }
-    }
+    $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
   } else {
     $stoppedCleanly = $true
   }
@@ -3647,15 +3823,7 @@ function Invoke-FollowDefaultsRunningAutoAlignConfigDriftCheck([IntPtr]$hwnd, [i
 
   $stoppedCleanly = $false
   if ($started -or $runningBaselineSeen) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      if ([Native]::IsWindowEnabled($startButton) -and
-          (-not [Native]::IsWindowEnabled($stopButton))) {
-        $stoppedCleanly = $true
-        break
-      }
-    }
+    $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
   } else {
     $stoppedCleanly = $true
   }
@@ -3777,15 +3945,7 @@ function Invoke-RunningDumpConfigDriftCheck([IntPtr]$hwnd, [int]$startButtonId, 
 
   $stoppedCleanly = $false
   if ($started -or $runningBaselineSeen) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      if ([Native]::IsWindowEnabled($startButton) -and
-          (-not [Native]::IsWindowEnabled($stopButton))) {
-        $stoppedCleanly = $true
-        break
-      }
-    }
+    $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
   } else {
     $stoppedCleanly = $true
   }
@@ -3892,15 +4052,7 @@ function Invoke-RunningTimingConfigDriftCheck([IntPtr]$hwnd, [int]$startButtonId
 
   $stoppedCleanly = $false
   if ($started -or $runningBaselineSeen) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      if ([Native]::IsWindowEnabled($startButton) -and
-          (-not [Native]::IsWindowEnabled($stopButton))) {
-        $stoppedCleanly = $true
-        break
-      }
-    }
+    $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
   } else {
     $stoppedCleanly = $true
   }
@@ -4041,15 +4193,7 @@ function Invoke-FollowDefaultsRunningDumpConfigDriftCheck([IntPtr]$hwnd, [int]$s
 
   $stoppedCleanly = $false
   if ($started -or $runningBaselineSeen) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      if ([Native]::IsWindowEnabled($startButton) -and
-          (-not [Native]::IsWindowEnabled($stopButton))) {
-        $stoppedCleanly = $true
-        break
-      }
-    }
+    $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
   } else {
     $stoppedCleanly = $true
   }
@@ -4178,15 +4322,7 @@ function Invoke-FollowDefaultsRunningTimingConfigDriftCheck([IntPtr]$hwnd, [int]
 
   $stoppedCleanly = $false
   if ($started -or $runningBaselineSeen) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      if ([Native]::IsWindowEnabled($startButton) -and
-          (-not [Native]::IsWindowEnabled($stopButton))) {
-        $stoppedCleanly = $true
-        break
-      }
-    }
+    $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
   } else {
     $stoppedCleanly = $true
   }
@@ -4321,15 +4457,7 @@ function Invoke-RunningWasapiModeConfigDriftCheck([IntPtr]$hwnd, [int]$startButt
 
   $stoppedCleanly = $false
   if ($started -or $runningBaselineSeen) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      if ([Native]::IsWindowEnabled($startButton) -and
-          (-not [Native]::IsWindowEnabled($stopButton))) {
-        $stoppedCleanly = $true
-        break
-      }
-    }
+    $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
   } else {
     $stoppedCleanly = $true
   }
@@ -4484,15 +4612,7 @@ function Invoke-FollowDefaultsRunningWasapiModeConfigDriftCheck([IntPtr]$hwnd, [
 
   $stoppedCleanly = $false
   if ($started -or $runningBaselineSeen) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      if ([Native]::IsWindowEnabled($startButton) -and
-          (-not [Native]::IsWindowEnabled($stopButton))) {
-        $stoppedCleanly = $true
-        break
-      }
-    }
+    $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
   } else {
     $stoppedCleanly = $true
   }
@@ -4576,15 +4696,7 @@ function Invoke-FollowDefaultsRefreshResyncCheck([IntPtr]$hwnd, [int]$refreshBut
 
   $stoppedCleanly = $false
   if ($started -or $runningBaselineSeen) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      if ([Native]::IsWindowEnabled($startButton) -and
-          (-not [Native]::IsWindowEnabled($stopButton))) {
-        $stoppedCleanly = $true
-        break
-      }
-    }
+    $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
   } else {
     $stoppedCleanly = $true
   }
@@ -4882,15 +4994,7 @@ function Invoke-MonitorOffWhileRunningConfigDriftCheck([IntPtr]$hwnd, [int]$star
 
   $stoppedCleanly = $false
   if ($started -or $runningBaselineSeen) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      if ([Native]::IsWindowEnabled($startButton) -and
-          (-not [Native]::IsWindowEnabled($stopButton))) {
-        $stoppedCleanly = $true
-        break
-      }
-    }
+    $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
   } else {
     $stoppedCleanly = $true
   }
@@ -4963,15 +5067,7 @@ function Invoke-FollowDefaultsDefaultDeviceRebuildCheck([IntPtr]$hwnd, [int]$sta
 
   $stoppedCleanly = $false
   if ($startedForCheck -or $runningSeen) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      if ([Native]::IsWindowEnabled($startButton) -and
-          (-not [Native]::IsWindowEnabled($stopButton))) {
-        $stoppedCleanly = $true
-        break
-      }
-    }
+    $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
   } else {
     $stoppedCleanly = $true
   }
@@ -5073,15 +5169,7 @@ function Invoke-ManualDeviceNoRebuildCheck([IntPtr]$hwnd, [int]$startButtonId, [
 
   $stoppedCleanly = $false
   if ($startedForCheck -or $runningSeen) {
-    [void][Native]::PostMessage($hwnd, 0x0111, [IntPtr]$stopButtonId, [IntPtr]::Zero)
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      if ([Native]::IsWindowEnabled($startButton) -and
-          (-not [Native]::IsWindowEnabled($stopButton))) {
-        $stoppedCleanly = $true
-        break
-      }
-    }
+    $stoppedCleanly = Stop-SessionAndWait $hwnd $startButton $stopButton $stopButtonId $maxPolls
   } else {
     $stoppedCleanly = $true
   }
@@ -5185,6 +5273,11 @@ function Invoke-RestoreBusyProbeSurface([IntPtr]$hwnd, [pscustomobject]$baseline
 
   $followRestored -and $monitorRestored -and $autoAlignRestored
 }
+function Assert-IdleSessionSurface([IntPtr]$hwnd, [int]$startButtonId, [int]$stopButtonId, [int]$maxPolls = 60) {
+  $startButton = Get-ControlHandle $hwnd $startButtonId
+  $stopButton = Get-ControlHandle $hwnd $stopButtonId
+  [void](Wait-ForIdleAfterStop $hwnd $startButton $stopButton $maxPolls)
+}
 $watchedControls = @(
   @{ Name = "Refresh"; Id = 1003; Type = "text" },
   @{ Name = "CaptureBackend"; Id = 1101; Type = "combo" },
@@ -5212,19 +5305,9 @@ $watchedControls = @(
   @{ Name = "RenderShare"; Id = 1123; Type = "combo" },
   @{ Name = "RenderDrive"; Id = 1124; Type = "combo" }
 )
+Get-Process winaudio -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 $p = Start-Process -FilePath $guiExe -PassThru
-$hwnd=[IntPtr]::Zero
-for($i=0;$i -lt 100 -and $hwnd -eq [IntPtr]::Zero;$i++){
-  Start-Sleep -Milliseconds 100
-  try {
-    $proc = Get-Process -Id $p.Id -ErrorAction Stop
-    if ($proc.MainWindowHandle -ne 0) {
-      $hwnd = [IntPtr]$proc.MainWindowHandle
-      break
-    }
-  } catch {}
-  $hwnd=[Native]::FindWindow('WinAudioDemoWindowClass',$null)
-}
+$hwnd = Wait-ForWindowHandle $p 100
 if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
   Write-Host "GUI status: EXITED_OR_WINDOW_NOT_FOUND"
   throw "GUI smoke failed: window did not become available."
@@ -5250,7 +5333,7 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
       -not $sourceMode.DeviceCountRestored -or
       -not $sourceMode.CaptureItemsRestored -or
       -not $sourceMode.Restored) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: source-mode toggle did not remap loopback capture devices correctly."
   }
   $manualSelectionPersistence = Invoke-ManualDeviceSelectionPersistenceCheck $hwnd 1104 1105 1003 120
@@ -5267,7 +5350,7 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
        -not $manualSelectionPersistence.CapturePersisted -or
        -not $manualSelectionPersistence.RenderPersisted -or
        -not $manualSelectionPersistence.Restored)) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: manual device selections did not persist across refresh."
   }
   $sourceModeWhileRunning = Invoke-SourceModeWhileRunningCheck $hwnd 1103 1104 1105 1001 1002 120
@@ -5276,9 +5359,15 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
   Write-Host "GUI source-mode while-running running preserved: $($sourceModeWhileRunning.RunningPreserved)"
   Write-Host "GUI source-mode while-running summary seen: $($sourceModeWhileRunning.SummarySeen)"
   Write-Host "GUI source-mode while-running summary drift seen: $($sourceModeWhileRunning.SummaryDriftSeen)"
+  Write-Host "GUI source-mode while-running running restored seen: $($sourceModeWhileRunning.RunningRestoredSeen)"
   Write-Host "GUI source-mode while-running restored: $($sourceModeWhileRunning.Restored)"
   Write-Host "GUI source-mode while-running stopped cleanly: $($sourceModeWhileRunning.StoppedCleanly)"
+  Write-Host "GUI source-mode while-running final source text: $($sourceModeWhileRunning.FinalSourceText)"
+  Write-Host "GUI source-mode while-running final capture selected: $($sourceModeWhileRunning.FinalCaptureSelected)"
+  Write-Host "GUI source-mode while-running final capture label: $($sourceModeWhileRunning.FinalCaptureLabel)"
+  Write-Host "GUI source-mode while-running final device-count line: $($sourceModeWhileRunning.FinalDeviceCountLine)"
   Write-Host "GUI source-mode while-running summary text: $($sourceModeWhileRunning.SummaryText)"
+  Write-Host "GUI source-mode while-running restored summary text: $($sourceModeWhileRunning.RestoredSummaryText)"
   if (-not $sourceModeWhileRunning.RunningBaselineSeen -or
       -not $sourceModeWhileRunning.LoopbackSeen -or
       -not $sourceModeWhileRunning.RunningPreserved -or
@@ -5286,9 +5375,10 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
       -not $sourceModeWhileRunning.SummaryDriftSeen -or
       -not $sourceModeWhileRunning.Restored -or
       -not $sourceModeWhileRunning.StoppedCleanly) {
-    Stop-Process -Id $p.Id -Force
+    Stop-ProcessByIdIfRunning $p.Id
     throw "GUI smoke failed: source-mode change while running did not preserve the active session correctly."
   }
+  Assert-IdleSessionSurface $hwnd 1001 1002 60
   $followDefaultsSourceModeWhileRunning = Invoke-FollowDefaultsSourceModeWhileRunningCheck $hwnd 1103 1118 1104 1105 1001 1002 120
   Write-Host "GUI follow-defaults source-mode while-running baseline seen: $($followDefaultsSourceModeWhileRunning.RunningBaselineSeen)"
   Write-Host "GUI follow-defaults source-mode while-running loopback seen: $($followDefaultsSourceModeWhileRunning.LoopbackSeen)"
@@ -5297,6 +5387,12 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
   Write-Host "GUI follow-defaults source-mode while-running running preserved: $($followDefaultsSourceModeWhileRunning.RunningPreserved)"
   Write-Host "GUI follow-defaults source-mode while-running restored: $($followDefaultsSourceModeWhileRunning.Restored)"
   Write-Host "GUI follow-defaults source-mode while-running stopped cleanly: $($followDefaultsSourceModeWhileRunning.StoppedCleanly)"
+  Write-Host "GUI follow-defaults source-mode while-running final source text: $($followDefaultsSourceModeWhileRunning.FinalSourceText)"
+  Write-Host "GUI follow-defaults source-mode while-running final follow-defaults state: $($followDefaultsSourceModeWhileRunning.FinalFollowDefaultsState)"
+  Write-Host "GUI follow-defaults source-mode while-running final capture enabled: $($followDefaultsSourceModeWhileRunning.FinalCaptureEnabled)"
+  Write-Host "GUI follow-defaults source-mode while-running final render enabled: $($followDefaultsSourceModeWhileRunning.FinalRenderEnabled)"
+  Write-Host "GUI follow-defaults source-mode while-running final summary text: $($followDefaultsSourceModeWhileRunning.FinalSummaryText)"
+  Write-Host "GUI follow-defaults source-mode while-running final diagnostics text: $($followDefaultsSourceModeWhileRunning.FinalDiagnosticsText)"
   Write-Host "GUI follow-defaults source-mode while-running summary text: $($followDefaultsSourceModeWhileRunning.SummaryText)"
   Write-Host "GUI follow-defaults source-mode while-running diagnostics text: $($followDefaultsSourceModeWhileRunning.DiagnosticsText)"
   if (-not $followDefaultsSourceModeWhileRunning.RunningBaselineSeen -or
@@ -5306,9 +5402,10 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
       -not $followDefaultsSourceModeWhileRunning.RunningPreserved -or
       -not $followDefaultsSourceModeWhileRunning.Restored -or
       -not $followDefaultsSourceModeWhileRunning.StoppedCleanly) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: follow-defaults source-mode change while running did not preserve the active session correctly."
   }
+  Assert-IdleSessionSurface $hwnd 1001 1002 60
   $followDefaultsRenderBackendWhileRunning = Invoke-FollowDefaultsRenderBackendWhileRunningCheck $hwnd 1102 1118 1104 1105 1001 1002 120
   Write-Host "GUI follow-defaults render-backend while-running baseline seen: $($followDefaultsRenderBackendWhileRunning.RunningBaselineSeen)"
   Write-Host "GUI follow-defaults render-backend while-running backend seen: $($followDefaultsRenderBackendWhileRunning.BackendSeen)"
@@ -5333,6 +5430,7 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
     Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: follow-defaults render-backend change while running did not preserve the active session correctly."
   }
+  Assert-IdleSessionSurface $hwnd 1001 1002 60
   $followDefaultsCaptureBackendWhileRunning = Invoke-FollowDefaultsCaptureBackendWhileRunningCheck $hwnd 1101 1118 1104 1105 1001 1002 120
   Write-Host "GUI follow-defaults capture-backend while-running baseline seen: $($followDefaultsCaptureBackendWhileRunning.RunningBaselineSeen)"
   Write-Host "GUI follow-defaults capture-backend while-running backend seen: $($followDefaultsCaptureBackendWhileRunning.BackendSeen)"
@@ -5357,6 +5455,7 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
     Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: follow-defaults capture-backend change while running did not preserve the active session correctly."
   }
+  Assert-IdleSessionSurface $hwnd 1001 1002 60
   $followDefaultsMonitorWhileRunning = Invoke-FollowDefaultsMonitorOffWhileRunningCheck $hwnd 1118 1117 1104 1105 1102 1119 1120 1121 1123 1124 1116 1106 1122 1001 1002 120
   Write-Host "GUI follow-defaults monitor-off while-running auto-align normalized: $($followDefaultsMonitorWhileRunning.NormalizedAutoAlign)"
   Write-Host "GUI follow-defaults monitor-off while-running baseline seen: $($followDefaultsMonitorWhileRunning.RunningBaselineSeen)"
@@ -5382,7 +5481,7 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
       -not $followDefaultsMonitorWhileRunning.AutoAlignRestored -or
       -not $followDefaultsMonitorWhileRunning.Restored -or
       -not $followDefaultsMonitorWhileRunning.StoppedCleanly) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: follow-defaults monitor-off while running did not preserve the active session correctly."
   }
   $renderBackendWhileRunning = Invoke-RenderBackendWhileRunningCheck $hwnd 1102 1105 1001 1002 120
@@ -5406,7 +5505,7 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
       -not $renderBackendWhileRunning.SelectedRenderIdSeen -or
       -not $renderBackendWhileRunning.Restored -or
       -not $renderBackendWhileRunning.StoppedCleanly) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: render-backend change while running did not preserve the active session correctly."
   }
   $captureBackendWhileRunning = Invoke-CaptureBackendWhileRunningCheck $hwnd 1101 1104 1001 1002 120
@@ -5430,7 +5529,7 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
       -not $captureBackendWhileRunning.SelectedCaptureIdSeen -or
       -not $captureBackendWhileRunning.Restored -or
       -not $captureBackendWhileRunning.StoppedCleanly) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: capture-backend change while running did not preserve the active session correctly."
   }
   $manualDeviceWhileRunning = Invoke-ManualDeviceChangeWhileRunningCheck $hwnd 1104 1105 1001 1002 120
@@ -5452,7 +5551,7 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
        -not $manualDeviceWhileRunning.RunningPreserved -or
        -not $manualDeviceWhileRunning.Restored -or
        -not $manualDeviceWhileRunning.StoppedCleanly)) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: manual device changes while running did not preserve the active session correctly."
   }
   $manualDeviceRefreshWhileRunning = Invoke-ManualDeviceChangeThenRefreshWhileRunningCheck $hwnd 1104 1105 1003 1001 1002 120
@@ -5469,18 +5568,25 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
        -not $manualDeviceRefreshWhileRunning.RunningPreserved -or
        -not $manualDeviceRefreshWhileRunning.Restored -or
        -not $manualDeviceRefreshWhileRunning.StoppedCleanly)) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: manual device changes plus refresh while running did not preserve the active session correctly."
   }
   $autoAlign = Invoke-AutoAlignToggleCheck $hwnd 1122 @(1119, 1120, 1121) 60
-  $autoAlignNote = Get-ControlTextById $hwnd 1906
+  $autoAlignNote = ""
+  for ($i = 0; $i -lt 20; $i++) {
+    Start-Sleep -Milliseconds 100
+    $autoAlignNote = Get-ControlTextById $hwnd 1906
+    if ($autoAlignNote -eq "When render auto-align is on, effective render format follows capture.") {
+      break
+    }
+  }
   Write-Host "GUI auto-align toggled render controls seen: $($autoAlign.ToggledSeen)"
   Write-Host "GUI auto-align restored: $($autoAlign.Restored)"
   Write-Host "GUI auto-align explanatory note: $autoAlignNote"
   if (-not $autoAlign.ToggledSeen -or
       -not $autoAlign.Restored -or
       $autoAlignNote -ne "When render auto-align is on, effective render format follows capture.") {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: auto-align toggle did not update render-format controls correctly."
   }
   $autoAlignMonitorComposition = Invoke-AutoAlignMonitorCompositionCheck $hwnd 1122 1117 @(1119, 1120, 1121) 60
@@ -5498,14 +5604,14 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
       -not $autoAlignMonitorComposition.MonitorRestoredWhileAutoAlignSeen -or
       -not $autoAlignMonitorComposition.RestoredNormalized -or
       -not $autoAlignMonitorComposition.RestoredBaseline) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: auto-align and monitor composition state did not behave correctly."
   }
   $followDefaults = Invoke-FollowDefaultsToggleCheck $hwnd 1118 @(1104, 1105) 60
   Write-Host "GUI follow-defaults toggled device controls seen: $($followDefaults.ToggledSeen)"
   Write-Host "GUI follow-defaults restored: $($followDefaults.Restored)"
   if (-not $followDefaults.ToggledSeen -or -not $followDefaults.Restored) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: follow-defaults toggle did not update device controls correctly."
   }
   $followDefaultsWhileRunning = Invoke-FollowDefaultsWhileRunningCheck $hwnd 1001 1002 1118 1104 1105 120
@@ -5523,7 +5629,7 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
       -not $followDefaultsWhileRunning.DiagnosticsSeen -or
       -not $followDefaultsWhileRunning.RestoredRunningSeen -or
       -not $followDefaultsWhileRunning.StoppedCleanly) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: follow-defaults toggle did not preserve the running session correctly."
   }
   $followDefaultsCaptureDrift = Invoke-FollowDefaultsRunningCaptureConfigDriftCheck $hwnd 1001 1002 1118 1104 1105 1108 1122 120
@@ -5725,14 +5831,14 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
       -not $followDefaultsSemantics.DiagnosticsSeen -or
       -not $followDefaultsSemantics.SummaryRestored -or
       -not $followDefaultsSemantics.DiagnosticsRestored) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: follow-defaults loopback semantics did not update summary/diagnostics correctly."
   }
   $monitor = Invoke-MonitorToggleCheck $hwnd 1117 @(1102, 1105, 1106, 1119, 1120, 1121, 1123, 1124, 1116, 1122) 60
   Write-Host "GUI monitor disabled render controls seen: $($monitor.DisabledSeen)"
   Write-Host "GUI monitor restored: $($monitor.Restored)"
   if (-not $monitor.DisabledSeen -or -not $monitor.Restored) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: monitor toggle did not update render controls correctly."
   }
   $followDefaultsMonitorComposition = Invoke-FollowDefaultsMonitorCompositionCheck $hwnd 1118 1117 1104 1105 60
@@ -5748,7 +5854,7 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
       -not $followDefaultsMonitorComposition.FollowReleasedSeen -or
       -not $followDefaultsMonitorComposition.RestoredNormalized -or
       -not $followDefaultsMonitorComposition.RestoredBaseline) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: follow-defaults and monitor composition state did not behave correctly."
   }
   $monitorSemantics = Invoke-MonitorDisabledSemanticsCheck $hwnd 1117 120
@@ -5760,7 +5866,7 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
       -not $monitorSemantics.DiagnosticsSeen -or
       -not $monitorSemantics.SummaryRestored -or
       -not $monitorSemantics.DiagnosticsRestored) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: monitor-off semantics did not update summary/diagnostics correctly."
   }
   $monitorWhileRunning = Invoke-MonitorOffWhileRunningConfigDriftCheck $hwnd 1001 1002 1117 1122 1102 1105 1119 1120 1121 1123 1124 1116 1106 120
@@ -5784,7 +5890,7 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
       -not $monitorWhileRunning.MonitorRestored -or
       -not $monitorWhileRunning.AutoAlignRestored -or
       -not $monitorWhileRunning.StoppedCleanly) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: monitor-off while-running config drift semantics did not behave correctly."
   }
   $sessionButtons = Invoke-SessionButtonCheck $hwnd 1001 1002 80
@@ -5801,7 +5907,7 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
       -not $sessionButtons.RunningTitleSeen -or
       -not $sessionButtons.TitleRestored -or
       -not $sessionButtons.Restored) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: start/stop availability did not track session state correctly."
   }
   $refreshWhileRunning = Invoke-RefreshWhileRunningCheck $hwnd 1003 1001 1002 120
@@ -5817,7 +5923,7 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
       -not $refreshWhileRunning.RunningNoteSeen -or
       -not $refreshWhileRunning.RefreshStayedEnabled -or
       -not $refreshWhileRunning.StoppedCleanly) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: refresh while running did not preserve the active session correctly."
   }
   $runningCaptureDrift = Invoke-RunningCaptureConfigDriftCheck $hwnd 1001 1002 1108 1122 120
@@ -5840,7 +5946,7 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
       -not $runningCaptureDrift.Restored -or
       -not $runningCaptureDrift.AutoAlignRestored -or
       -not $runningCaptureDrift.StoppedCleanly) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: running capture configuration edits did not preserve active-session diagnostics semantics."
   }
   $runningRenderDrift = Invoke-RunningRenderConfigDriftCheck $hwnd 1001 1002 1119 1122 120
@@ -5883,7 +5989,7 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
       -not $runningDumpDrift.RunningPreserved -or
       -not $runningDumpDrift.Restored -or
       -not $runningDumpDrift.StoppedCleanly) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: running dump configuration edits did not preserve active-session dump semantics."
   }
   $runningTimingDrift = Invoke-RunningTimingConfigDriftCheck $hwnd 1001 1002 1106 1115 1116 120
@@ -5903,7 +6009,7 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
       -not $runningTimingDrift.RunningPreserved -or
       -not $runningTimingDrift.Restored -or
       -not $runningTimingDrift.StoppedCleanly) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: running timing/buffer configuration edits did not preserve active-session timing semantics."
   }
   $runningWasapiModeDrift = Invoke-RunningWasapiModeConfigDriftCheck $hwnd 1001 1002 1111 1112 1123 1124 120
@@ -5923,7 +6029,7 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
       -not $runningWasapiModeDrift.RunningPreserved -or
       -not $runningWasapiModeDrift.Restored -or
       -not $runningWasapiModeDrift.StoppedCleanly) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: running WASAPI share/drive configuration edits did not preserve active-session mode semantics."
   }
   $runningAutoAlignDrift = Invoke-RunningAutoAlignConfigDriftCheck $hwnd 1001 1002 1108 1109 1110 1119 1120 1121 1122 120
@@ -5945,7 +6051,7 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
       -not $runningAutoAlignDrift.RunningPreserved -or
       -not $runningAutoAlignDrift.Restored -or
       -not $runningAutoAlignDrift.StoppedCleanly) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: running auto-align configuration edits did not preserve effective-request diagnostics semantics."
   }
   $manualDeviceNoRebuild = Invoke-ManualDeviceNoRebuildCheck $hwnd 1001 1002 1118 160
@@ -5971,7 +6077,7 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
       -not $manualDeviceNoRebuild.FollowDefaultsRestored -or
       -not $manualDeviceDiagnosticsLabelsSeen -or
       -not $manualDeviceRequestedIdsExplicit) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: manual-device default-device-change semantics did not behave correctly."
   }
   $followDefaultsRefreshResync = Invoke-FollowDefaultsRefreshResyncCheck $hwnd 1003 1001 1002 1118 1104 1105 120
@@ -6003,7 +6109,7 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
       -not $followDefaultsRefreshResync.FollowDefaultsRestored -or
       -not $followDefaultsRefreshDiagnosticsLabelsSeen -or
       -not $followDefaultsRefreshRequestedIdsDefault) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: follow-defaults refresh did not preserve tracked-device semantics correctly."
   }
   $followDefaultsRebuild = Invoke-FollowDefaultsDefaultDeviceRebuildCheck $hwnd 1001 1002 1118 160
@@ -6017,13 +6123,13 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
       -not $followDefaultsRebuild.RunningRestored -or
       -not $followDefaultsRebuild.StoppedCleanly -or
       -not $followDefaultsRebuild.FollowDefaultsRestored) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: follow-defaults default-device-change rebuild semantics did not behave correctly."
   }
   $quickBusySurface = Invoke-NormalizeBusyProbeSurface $hwnd 1118 1117 1122 1104 1105 @(1119, 1120, 1121) 60
   Write-Host "GUI quick busy surface normalized: $($quickBusySurface.NormalizedOk)"
   if (-not $quickBusySurface.NormalizedOk) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: quick busy-cycle surface could not be normalized."
   }
   $quick = Invoke-ProbeUiCheck $hwnd 1004 1005 1001 1002 "Quick Probe Running" "Quick Probe Running..." "Run Quick Probe" $watchedControls 240
@@ -6056,7 +6162,7 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
       -not (Test-AllStatesTrue $quick.WatchedRestored) -or
       -not $quick.BaselineRestored -or
       -not $quick.Restored) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: quick probe busy cycle incomplete."
   }
   $quickWhileRunning = Invoke-RunningSessionProbeCycleCheck $hwnd 1004 1005 1001 1002 "Quick Probe Running" "Quick Probe Running..." "Run Quick Probe" $watchedControls 240
@@ -6078,7 +6184,7 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
       -not $quickWhileRunning.StopAvailableSeen -or
       -not $quickWhileRunning.RunningRestored -or
       -not $quickWhileRunning.StoppedCleanly) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: quick probe did not restore the running session correctly."
   }
   $quickSemantics = Invoke-QuickProbeResultSemanticsCheck $hwnd 1004 1117 180
@@ -6088,7 +6194,7 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
   if (-not $quickSemantics.MonitorOnSeen -or
       -not $quickSemantics.MonitorOffSeen -or
       -not $quickSemantics.Restored) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: quick probe result semantics did not reflect monitor on/off correctly."
   }
   $quickSourceModeFailure = Invoke-QuickProbeSourceModeFailureCheck $hwnd 1101 1103 1004 120
@@ -6096,13 +6202,37 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
   Write-Host "GUI quick source-mode failure restored: $($quickSourceModeFailure.Restored)"
   if (-not $quickSourceModeFailure.FailureSeen -or
       -not $quickSourceModeFailure.Restored) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: quick probe source-mode failure semantics did not surface correctly."
+  }
+  $appLoopbackGui = Invoke-ApplicationLoopbackGuiCheck $hwnd 1103 1104 1125 1004 120
+  Write-Host "GUI app-loopback surface seen: $($appLoopbackGui.SurfaceSeen)"
+  Write-Host "GUI app-loopback source seen: $($appLoopbackGui.SourceSeen)"
+  Write-Host "GUI app-loopback label seen: $($appLoopbackGui.LabelSeen)"
+  Write-Host "GUI app-loopback device-count seen: $($appLoopbackGui.DeviceCountSeen)"
+  Write-Host "GUI app-loopback target seen: $($appLoopbackGui.TargetSeen)"
+  Write-Host "GUI app-loopback requested-capture-id seen: $($appLoopbackGui.RequestedCaptureIdSeen)"
+  Write-Host "GUI app-loopback summary seen: $($appLoopbackGui.SummarySeen)"
+  Write-Host "GUI app-loopback quick failure seen: $($appLoopbackGui.QuickFailureSeen)"
+  Write-Host "GUI app-loopback restored: $($appLoopbackGui.Restored)"
+  Write-Host "GUI app-loopback last source text: $($appLoopbackGui.LastSourceText)"
+  Write-Host "GUI app-loopback last capture label: $($appLoopbackGui.LastCaptureLabel)"
+  Write-Host "GUI app-loopback last device-count line: $($appLoopbackGui.LastDeviceCountLine)"
+  Write-Host "GUI app-loopback last target text: $($appLoopbackGui.LastAppTargetText)"
+  Write-Host "GUI app-loopback summary text: $($appLoopbackGui.SummaryText)"
+  Write-Host "GUI app-loopback probe text: $($appLoopbackGui.ProbeText)"
+  if (-not $appLoopbackGui.SurfaceSeen -or
+      -not $appLoopbackGui.RequestedCaptureIdSeen -or
+      -not $appLoopbackGui.SummarySeen -or
+      -not $appLoopbackGui.QuickFailureSeen -or
+      -not $appLoopbackGui.Restored) {
+    Stop-ProcessByIdIfRunning $p.Id
+    throw "GUI smoke failed: application-loopback source-mode semantics did not surface correctly."
   }
   $matrixBusySurface = Invoke-NormalizeBusyProbeSurface $hwnd 1118 1117 1122 1104 1105 @(1119, 1120, 1121) 60
   Write-Host "GUI matrix busy surface normalized: $($matrixBusySurface.NormalizedOk)"
   if (-not $matrixBusySurface.NormalizedOk) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: matrix busy-cycle surface could not be normalized."
   }
   $matrix = Invoke-ProbeUiCheck $hwnd 1005 1004 1001 1002 "Probe Matrix Running" "Probe Matrix Running..." "Run Probe Matrix" $watchedControls 1800
@@ -6135,7 +6265,7 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
       -not (Test-AllStatesTrue $matrix.WatchedRestored) -or
       -not $matrix.BaselineRestored -or
       -not $matrix.Restored) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: probe matrix busy cycle incomplete."
   }
   $matrixWhileRunning = Invoke-RunningSessionProbeCycleCheck $hwnd 1005 1004 1001 1002 "Probe Matrix Running" "Probe Matrix Running..." "Run Probe Matrix" $watchedControls 1800
@@ -6157,10 +6287,10 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
       -not $matrixWhileRunning.StopAvailableSeen -or
       -not $matrixWhileRunning.RunningRestored -or
       -not $matrixWhileRunning.StoppedCleanly) {
-    Stop-Process -Id $p.Id -Force
+    Stop-WindowProcessIfRunning $p
     throw "GUI smoke failed: probe matrix did not restore the running session correctly."
   }
-  Stop-Process -Id $p.Id -Force
+  Stop-WindowProcessIfRunning $p
 
   $closeDuringQuickProbe = Invoke-CloseDuringBusyProbeCheck $guiExe 1004 "Quick Probe Running" "Quick Probe Running..." 300
   Write-Host "GUI close-during-quick-probe window ready: $($closeDuringQuickProbe.WindowReady)"
@@ -6217,3 +6347,4 @@ if (-not $GuiSmokeOnly) {
   Write-Step "CTest"
   Invoke-ConvergenceCommand { ctest --test-dir $BuildDir -C $Config --output-on-failure } "CTest failed"
 }
+

@@ -40,7 +40,8 @@ AudioBackendType StubCaptureAdapter::backend_type() const {
 
 bool StubCaptureAdapter::SupportsSource(AudioSourceMode source_mode) const {
   if (backend_ == AudioBackendType::WaveApi &&
-      source_mode == AudioSourceMode::SystemLoopback) {
+      (source_mode == AudioSourceMode::SystemLoopback ||
+       source_mode == AudioSourceMode::ApplicationLoopback)) {
     return false;
   }
   return true;
@@ -50,6 +51,10 @@ std::vector<AudioDeviceDescriptor> StubCaptureAdapter::EnumerateDevices(
     AudioSourceMode source_mode) {
   if (!SupportsSource(source_mode)) {
     return {};
+  }
+  if (source_mode == AudioSourceMode::ApplicationLoopback) {
+    return {MakeDevice(backend_, AudioDirection::Capture,
+                       L"Application Loopback Target", true)};
   }
   return {MakeDevice(backend_, AudioDirection::Capture, L"Default Capture", false)};
 }

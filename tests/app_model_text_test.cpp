@@ -82,6 +82,50 @@ bool TestSummaryExplainsFollowDefaultsLoopbackBinding() {
                   L"Device selection follows current system defaults; manual device picks are inactive and loopback capture follows the current default render endpoint");
 }
 
+bool TestSummaryShowsApplicationLoopbackTargetAndNote() {
+  AppModel model = MakeStubBackedModel();
+  model.SetCaptureSourceMode(AudioSourceMode::ApplicationLoopback);
+  model.SetApplicationLoopbackProcess(L"spotify.exe");
+
+  const auto summary = model.summary_text();
+  return Contains(summary,
+                  L"Capture: WASAPI / Application Loopback / 48000 Hz / 2 ch / Float32") &&
+         Contains(summary, L"App loopback target: spotify.exe") &&
+         Contains(summary,
+                  L"Application loopback captures audio rendered by a target process tree instead of a device endpoint.") &&
+         Contains(summary,
+                  L"Application loopback is unavailable on this machine because Windows process loopback requires client build 20348 or newer.");
+}
+
+bool TestDiagnosticsExplainApplicationLoopbackTarget() {
+  AppModel model = MakeStubBackedModel();
+  model.SetCaptureSourceMode(AudioSourceMode::ApplicationLoopback);
+  model.SetApplicationLoopbackProcess(L"1234");
+
+  const auto diagnostics = model.diagnostics_text();
+  return Contains(diagnostics,
+                  L"Application loopback target process: 1234");
+}
+
+bool TestCapabilityTextExplainsApplicationLoopbackLimitation() {
+  AppModel model = MakeStubBackedModel();
+  model.SetCaptureSourceMode(AudioSourceMode::ApplicationLoopback);
+
+  const auto capability = model.capability_text();
+  return Contains(capability,
+                  L"Application loopback is unavailable on this machine because Windows process loopback requires client build 20348 or newer");
+}
+
+bool TestSummaryShowsApplicationLoopbackTargetMissingNote() {
+  AppModel model = MakeStubBackedModel();
+  model.SetCaptureSourceMode(AudioSourceMode::ApplicationLoopback);
+
+  const auto summary = model.summary_text();
+  return Contains(summary, L"App loopback target: not set") &&
+         Contains(summary,
+                  L"Application loopback needs a target process name or PID.");
+}
+
 bool TestSummaryShowsEffectiveRenderRequestWhenAutoAlignEnabled() {
   AppModel model = MakeStubBackedModel();
   model.SetCaptureSampleRate(44100);
@@ -1579,6 +1623,22 @@ bool TestQuickProbeExplainsLoopbackDeviceSelectionMismatch() {
          Contains(probe, L"RequestedCaptureDeviceId: not-a-loopback-render-endpoint");
 }
 
+bool TestQuickProbeExplainsApplicationLoopbackTargetFailure() {
+  AppModel model;
+  if (!model.Initialize()) {
+    return false;
+  }
+  model.SetCaptureSourceMode(AudioSourceMode::ApplicationLoopback);
+  model.SetApplicationLoopbackProcess(L"1234");
+
+  const bool ok = model.RunQuickProbe();
+  const auto probe = model.probe_text();
+  return !ok &&
+         Contains(probe, L"FailureStage: format-resolution") &&
+         Contains(probe,
+                  L"Application loopback is not supported on this machine. Windows process loopback capture requires client build 20348 or newer.");
+}
+
 bool TestQuickProbeDoesNotDuplicateSharedEnginePeriodDetails() {
   AppModel model = MakeStubBackedModel();
   model.RunQuickProbe();
@@ -1943,6 +2003,14 @@ int main() {
       {"SummaryTextReflectsConfiguration", &TestSummaryTextReflectsConfiguration},
       {"SummaryExplainsFollowDefaultsLoopbackBinding",
        &TestSummaryExplainsFollowDefaultsLoopbackBinding},
+      {"SummaryShowsApplicationLoopbackTargetAndNote",
+       &TestSummaryShowsApplicationLoopbackTargetAndNote},
+      {"DiagnosticsExplainApplicationLoopbackTarget",
+       &TestDiagnosticsExplainApplicationLoopbackTarget},
+      {"CapabilityTextExplainsApplicationLoopbackLimitation",
+       &TestCapabilityTextExplainsApplicationLoopbackLimitation},
+      {"SummaryShowsApplicationLoopbackTargetMissingNote",
+       &TestSummaryShowsApplicationLoopbackTargetMissingNote},
       {"SummaryShowsEffectiveRenderRequestWhenAutoAlignEnabled",
        &TestSummaryShowsEffectiveRenderRequestWhenAutoAlignEnabled},
       {"RunningSessionSummaryShowsConfigurationNote",
@@ -2061,6 +2129,8 @@ int main() {
        &TestQuickProbeReportsRequestedDeviceIds},
       {"QuickProbeExplainsLoopbackDeviceSelectionMismatch",
        &TestQuickProbeExplainsLoopbackDeviceSelectionMismatch},
+      {"QuickProbeExplainsApplicationLoopbackTargetFailure",
+       &TestQuickProbeExplainsApplicationLoopbackTargetFailure},
       {"QuickProbeDoesNotDuplicateSharedEnginePeriodDetails",
        &TestQuickProbeDoesNotDuplicateSharedEnginePeriodDetails},
       {"StoppedSessionClearsWaveformCaches",

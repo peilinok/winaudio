@@ -2,6 +2,8 @@
 
 #include <string>
 
+#include "audio/audio_types.h"
+
 namespace winaudio {
 
 enum class ProbeUiMode {
@@ -29,16 +31,33 @@ std::wstring BuildRunningDeviceSelectionDriftSummaryText(
     const std::wstring& active_requested_capture_id,
     const std::wstring& active_requested_render_id);
 std::wstring BuildCaptureDeviceLabelText(bool loopback_source);
+std::wstring BuildCaptureDeviceLabelText(AudioSourceMode source_mode);
 std::wstring BuildDeviceCountLineText(bool loopback_source,
                                       size_t capture_device_count,
                                       size_t render_device_count);
+std::wstring BuildDeviceCountLineText(AudioSourceMode source_mode,
+                                      size_t capture_device_count,
+                                      size_t render_device_count);
 std::wstring BuildLoopbackCaptureNoteText(bool loopback_source);
+std::wstring BuildLoopbackCaptureNoteText(AudioSourceMode source_mode);
 std::wstring BuildLoopbackBackendNoteText(bool loopback_source,
+                                          bool wasapi_capture_backend);
+std::wstring BuildLoopbackBackendNoteText(AudioSourceMode source_mode,
                                           bool wasapi_capture_backend);
 std::wstring BuildFollowDefaultsNoteText(bool follow_defaults,
                                          bool loopback_source);
+std::wstring BuildFollowDefaultsNoteText(bool follow_defaults,
+                                         AudioSourceMode source_mode);
 std::wstring BuildFollowDefaultsDiagnosticsText(bool follow_defaults,
                                                 bool loopback_source);
+std::wstring BuildFollowDefaultsDiagnosticsText(bool follow_defaults,
+                                                AudioSourceMode source_mode);
+std::wstring BuildApplicationLoopbackTargetSummaryText(
+    const std::wstring& target_process);
+std::wstring BuildApplicationLoopbackNoteText(
+    const std::wstring& target_process);
+std::wstring BuildApplicationLoopbackDiagnosticsText(
+    const std::wstring& target_process);
 std::wstring BuildMonitorDisabledNoteText(bool configured_monitor_enabled,
                                           bool active_render_monitor_enabled,
                                           const std::wstring& session_state);
@@ -79,7 +98,11 @@ std::wstring BuildLastRebuildDiagnosticsText(const std::wstring& reason,
                                              const std::wstring& result);
 std::wstring BuildSelectedCaptureDeviceDiagnosticsLabelText(
     bool loopback_source);
+std::wstring BuildSelectedCaptureDeviceDiagnosticsLabelText(
+    AudioSourceMode source_mode);
 std::wstring BuildSelectedCaptureDeviceIdDiagnosticsLabelText(
     bool loopback_source);
+std::wstring BuildSelectedCaptureDeviceIdDiagnosticsLabelText(
+    AudioSourceMode source_mode);
 
 }  // namespace winaudio

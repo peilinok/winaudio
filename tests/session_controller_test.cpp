@@ -327,6 +327,48 @@ bool TestLoopbackCaptureDeviceMustComeFromLoopbackEnumeration() {
              std::wstring::npos;
 }
 
+bool TestApplicationLoopbackRequiresTargetProcess() {
+  AudioSessionController controller(std::make_unique<StubAudioBackendFactory>());
+  if (!controller.Initialize()) {
+    return false;
+  }
+
+  SessionConfiguration config;
+  config.capture.backend = AudioBackendType::Wasapi;
+  config.capture.source_mode = AudioSourceMode::ApplicationLoopback;
+  config.render.backend = AudioBackendType::Wasapi;
+
+  const bool started = controller.Start(config, nullptr);
+  const auto& stats = controller.diagnostics().stats;
+  return !started &&
+         stats.last_error_stage == L"source-mode" &&
+         stats.last_error_message.find(
+             L"Application loopback requires a target process name or PID.") !=
+             std::wstring::npos;
+}
+
+bool TestApplicationLoopbackCanStartWithStubWhenTargetProvided() {
+  AudioSessionController controller(std::make_unique<StubAudioBackendFactory>());
+  if (!controller.Initialize()) {
+    return false;
+  }
+
+  SessionConfiguration config;
+  config.capture.backend = AudioBackendType::Wasapi;
+  config.capture.source_mode = AudioSourceMode::ApplicationLoopback;
+  config.capture.application_loopback_process = L"spotify.exe";
+  config.render.backend = AudioBackendType::Wasapi;
+
+  const bool started = controller.Start(config, nullptr);
+  if (!started) {
+    return false;
+  }
+
+  const auto& stats = controller.diagnostics().stats;
+  controller.Stop();
+  return stats.requested_capture_format == L"48000 Hz / 2 ch / Float32";
+}
+
 }  // namespace
 
 int main() {
@@ -355,6 +397,10 @@ int main() {
        &TestUnsupportedWaveLoopbackShowsSourceModeReason},
       {"LoopbackCaptureDeviceMustComeFromLoopbackEnumeration",
        &TestLoopbackCaptureDeviceMustComeFromLoopbackEnumeration},
+      {"ApplicationLoopbackRequiresTargetProcess",
+       &TestApplicationLoopbackRequiresTargetProcess},
+      {"ApplicationLoopbackCanStartWithStubWhenTargetProvided",
+       &TestApplicationLoopbackCanStartWithStubWhenTargetProvided},
   };
 
   for (const auto& test : tests) {

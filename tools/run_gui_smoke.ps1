@@ -19,7 +19,8 @@ $convergenceScript = Join-Path $PSScriptRoot "run_convergence_check.ps1"
 $buildWrapper = Join-Path $PSScriptRoot "invoke_msbuild_safe.ps1"
 $envInspector = Join-Path $PSScriptRoot "inspect_build_environment.ps1"
 $artifactDir = Join-Path $BuildDir "$Config\\gui_smoke_artifacts"
-$guiSmokeOut = Join-Path $artifactDir "gui_smoke_output.txt"
+$runStamp = Get-Date -Format "yyyyMMdd_HHmmss_fff"
+$guiSmokeOut = Join-Path $artifactDir ("gui_smoke_output_" + $runStamp + ".txt")
 . (Join-Path $PSScriptRoot "convergence_helpers.ps1")
 
 function Write-Step($label) {

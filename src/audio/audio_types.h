@@ -23,6 +23,7 @@ enum class AudioBackendType {
 enum class AudioSourceMode {
   MicrophoneCapture,
   SystemLoopback,
+  ApplicationLoopback,
 };
 
 enum class AudioDirection {
@@ -85,6 +86,7 @@ struct CaptureConfig {
   AudioBackendType backend = AudioBackendType::Wasapi;
   AudioSourceMode source_mode = AudioSourceMode::MicrophoneCapture;
   std::wstring device_id;
+  std::wstring application_loopback_process;
   AudioFormatSpec format {};
   uint32_t buffer_duration_ms = 40;
   WasapiShareMode wasapi_share_mode = WasapiShareMode::Shared;

@@ -7,11 +7,14 @@
 #include <endpointvolume.h>
 #include <functiondiscoverykeys_devpkey.h>
 #include <propvarutil.h>
+#include <tlhelp32.h>
 
 #include <algorithm>
 #include <cmath>
 #include <cwctype>
+#include <condition_variable>
 #include <memory>
+#include <mutex>
 #include <string>
 
 #include "audio/com_support.h"
@@ -21,6 +24,27 @@ namespace winaudio {
 using Microsoft::WRL::ComPtr;
 
 namespace {
+
+bool IsWindowsBuildAtLeast(DWORD build_number) {
+  HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
+  if (ntdll == nullptr) {
+    return false;
+  }
+  using RtlGetVersionFn = LONG(WINAPI*)(PRTL_OSVERSIONINFOW);
+  const auto rtl_get_version =
+      reinterpret_cast<RtlGetVersionFn>(GetProcAddress(ntdll, "RtlGetVersion"));
+  if (rtl_get_version == nullptr) {
+    return false;
+  }
+  RTL_OSVERSIONINFOW version_info {};
+  version_info.dwOSVersionInfoSize = sizeof(version_info);
+  if (rtl_get_version(&version_info) != 0) {
+    return false;
+  }
+  return version_info.dwMajorVersion > 10 ||
+         (version_info.dwMajorVersion == 10 &&
+          version_info.dwBuildNumber >= build_number);
+}
 
 std::wstring MmResultToString(MMRESULT result) {
   switch (result) {
@@ -63,6 +87,83 @@ std::wstring WasapiResultToString(HRESULT hr) {
       return HResultToString(hr);
   }
 }
+
+class AudioInterfaceActivateHandler final
+    : public IActivateAudioInterfaceCompletionHandler {
+ public:
+  AudioInterfaceActivateHandler() = default;
+
+  HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid,
+                                           void** object) override {
+    if (object == nullptr) {
+      return E_POINTER;
+    }
+    *object = nullptr;
+    if (riid == __uuidof(IUnknown) ||
+        riid == __uuidof(IActivateAudioInterfaceCompletionHandler)) {
+      *object = static_cast<IActivateAudioInterfaceCompletionHandler*>(this);
+      AddRef();
+      return S_OK;
+    }
+    return E_NOINTERFACE;
+  }
+
+  ULONG STDMETHODCALLTYPE AddRef() override {
+    return static_cast<ULONG>(InterlockedIncrement(&ref_count_));
+  }
+
+  ULONG STDMETHODCALLTYPE Release() override {
+    const auto count = static_cast<ULONG>(InterlockedDecrement(&ref_count_));
+    if (count == 0) {
+      delete this;
+    }
+    return count;
+  }
+
+  HRESULT STDMETHODCALLTYPE ActivateCompleted(
+      IActivateAudioInterfaceAsyncOperation* activateOperation) override {
+    HRESULT activate_result = E_FAIL;
+    IUnknown* activated_interface = nullptr;
+    if (activateOperation != nullptr) {
+      activateOperation->GetActivateResult(&activate_result, &activated_interface);
+    }
+
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      activate_result_ = activate_result;
+      activated_interface_.Attach(activated_interface);
+      completed_ = true;
+    }
+    cv_.notify_all();
+    return S_OK;
+  }
+
+  HRESULT Wait(DWORD timeout_ms, ComPtr<IAudioClient>* audio_client) {
+    std::unique_lock<std::mutex> lock(mutex_);
+    if (!cv_.wait_for(lock, std::chrono::milliseconds(timeout_ms),
+                      [&]() { return completed_; })) {
+      return HRESULT_FROM_WIN32(WAIT_TIMEOUT);
+    }
+
+    if (audio_client != nullptr) {
+      audio_client->Reset();
+      if (activated_interface_) {
+        activated_interface_.As(audio_client);
+      }
+    }
+    return activate_result_;
+  }
+
+ private:
+  ~AudioInterfaceActivateHandler() = default;
+
+  LONG ref_count_ = 1;
+  std::mutex mutex_;
+  std::condition_variable cv_;
+  bool completed_ = false;
+  HRESULT activate_result_ = E_FAIL;
+  ComPtr<IUnknown> activated_interface_;
+};
 
 void AppendSharedEnginePeriodDetail(IAudioClient* client, std::wstring* details) {
   if (client == nullptr || details == nullptr) {
@@ -213,6 +314,41 @@ MMRESULT QueryWaveOutFormat(UINT device_id, const WAVEFORMATEX& format) {
                      WAVE_FORMAT_QUERY);
 }
 
+std::optional<DWORD> ResolveProcessLoopbackTargetProcessId(
+    const std::wstring& target) {
+  if (target.empty()) {
+    return std::nullopt;
+  }
+
+  try {
+    const auto parsed = static_cast<DWORD>(std::stoul(target));
+    if (parsed != 0) {
+      return parsed;
+    }
+  } catch (...) {
+  }
+
+  const HANDLE snapshot =
+      CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+  if (snapshot == INVALID_HANDLE_VALUE) {
+    return std::nullopt;
+  }
+
+  PROCESSENTRY32W entry {};
+  entry.dwSize = sizeof(entry);
+  std::optional<DWORD> result;
+  if (Process32FirstW(snapshot, &entry)) {
+    do {
+      if (_wcsicmp(entry.szExeFile, target.c_str()) == 0) {
+        result = entry.th32ProcessID;
+        break;
+      }
+    } while (Process32NextW(snapshot, &entry));
+  }
+  CloseHandle(snapshot);
+  return result;
+}
+
 }  // namespace
 
 std::wstring WasapiCaptureAdapter::name() const {
@@ -225,11 +361,23 @@ AudioBackendType WasapiCaptureAdapter::backend_type() const {
 
 bool WasapiCaptureAdapter::SupportsSource(AudioSourceMode source_mode) const {
   return source_mode == AudioSourceMode::MicrophoneCapture ||
-         source_mode == AudioSourceMode::SystemLoopback;
+         source_mode == AudioSourceMode::SystemLoopback ||
+         source_mode == AudioSourceMode::ApplicationLoopback;
 }
 
 std::vector<AudioDeviceDescriptor> WasapiCaptureAdapter::EnumerateDevices(
     AudioSourceMode source_mode) {
+  if (source_mode == AudioSourceMode::ApplicationLoopback) {
+    AudioDeviceDescriptor descriptor;
+    descriptor.id = L"app-loopback";
+    descriptor.friendly_name = L"Application Loopback Target";
+    descriptor.direction = AudioDirection::Capture;
+    descriptor.is_default = true;
+    descriptor.supports_loopback = true;
+    descriptor.capability_flags = kDeviceCapabilitySharedMode |
+                                  kDeviceCapabilityEventDriven;
+    return {descriptor};
+  }
   return EnumerateWasapiDevices(source_mode == AudioSourceMode::SystemLoopback
                                     ? eRender
                                     : eCapture);
@@ -237,6 +385,47 @@ std::vector<AudioDeviceDescriptor> WasapiCaptureAdapter::EnumerateDevices(
 
 std::optional<AudioFormatSpec> WasapiCaptureAdapter::GetPreferredFormat(
     const CaptureConfig& config) {
+  if (config.source_mode == AudioSourceMode::ApplicationLoopback) {
+    if (!IsProcessLoopbackSupportedOnCurrentWindows()) {
+      last_error_ = L"app-loopback-unsupported-os";
+      return std::nullopt;
+    }
+    Microsoft::WRL::ComPtr<IAudioClient> client;
+    if (!ActivateProcessLoopbackClient(config, &client) || !client) {
+      return std::nullopt;
+    }
+    auto requested = MakeWaveFormatExtensible(config.format);
+    WAVEFORMATEX* mix_format = nullptr;
+    client->GetMixFormat(&mix_format);
+
+    AudioFormatSpec resolved = config.format;
+    resolved.normalize();
+
+    if (config.wasapi_share_mode == WasapiShareMode::Shared) {
+      WAVEFORMATEX* closest_match = nullptr;
+      const auto hr = client->IsFormatSupported(
+          AUDCLNT_SHAREMODE_SHARED,
+          reinterpret_cast<WAVEFORMATEX*>(&requested), &closest_match);
+      if (hr == S_OK) {
+        resolved = AudioFormatFromWaveFormat(
+            reinterpret_cast<const WAVEFORMATEX&>(requested));
+      } else if (closest_match != nullptr) {
+        resolved = AudioFormatFromWaveFormat(*closest_match);
+        CoTaskMemFree(closest_match);
+      } else if (mix_format != nullptr) {
+        resolved = AudioFormatFromWaveFormat(*mix_format);
+      }
+    } else {
+      if (mix_format != nullptr) {
+        resolved = AudioFormatFromWaveFormat(*mix_format);
+      }
+    }
+
+    if (mix_format != nullptr) {
+      CoTaskMemFree(mix_format);
+    }
+    return resolved;
+  }
   auto device = ResolveWasapiDevice(
       config.source_mode == AudioSourceMode::SystemLoopback ? eRender : eCapture,
       config.device_id);
@@ -257,16 +446,32 @@ bool WasapiCaptureAdapter::Start(const CaptureConfig& config,
   runtime_format_.normalize();
   runtime_mode_.clear();
 
-  ComPtr<IMMDevice> device;
-  if (!ActivateForConfig(config, &device) || !device) {
-    last_error_ = L"resolve-device";
-    return false;
-  }
+  if (config.source_mode == AudioSourceMode::ApplicationLoopback) {
+    if (config.application_loopback_process.empty()) {
+      last_error_ =
+          L"app-loopback-target-required";
+      return false;
+    }
+    if (!IsProcessLoopbackSupportedOnCurrentWindows()) {
+      last_error_ = L"app-loopback-unsupported-os";
+      return false;
+    }
+    if (!ActivateProcessLoopbackClient(config, &audio_client_) || !audio_client_) {
+      return false;
+    }
+  } else {
+    ComPtr<IMMDevice> device;
+    if (!ActivateForConfig(config, &device) || !device) {
+      last_error_ = L"resolve-device";
+      return false;
+    }
 
-  if (FAILED(device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
-                              reinterpret_cast<void**>(audio_client_.GetAddressOf())))) {
-    last_error_ = L"activate-iaudioclient";
-    return false;
+    if (FAILED(device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
+                                reinterpret_cast<void**>(
+                                    audio_client_.GetAddressOf())))) {
+      last_error_ = L"activate-iaudioclient";
+      return false;
+    }
   }
 
   auto wave_format = MakeWaveFormatExtensible(runtime_format_);
@@ -429,6 +634,10 @@ std::wstring WasapiCaptureAdapter::runtime_details() const {
   return runtime_details_;
 }
 
+bool WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows() {
+  return IsWindowsBuildAtLeast(20348);
+}
+
 std::optional<AudioFormatSpec> WasapiCaptureAdapter::ResolveFormat(
     const CaptureConfig& config, IMMDevice* device) {
   ComPtr<IAudioClient> client;
@@ -480,10 +689,73 @@ std::optional<AudioFormatSpec> WasapiCaptureAdapter::ResolveFormat(
 
 bool WasapiCaptureAdapter::ActivateForConfig(const CaptureConfig& config,
                                              ComPtr<IMMDevice>* device) {
+  if (config.source_mode == AudioSourceMode::ApplicationLoopback) {
+    device->Reset();
+    return false;
+  }
   *device = ResolveWasapiDevice(
       config.source_mode == AudioSourceMode::SystemLoopback ? eRender : eCapture,
       config.device_id);
   return device->Get() != nullptr;
+}
+
+bool WasapiCaptureAdapter::ActivateProcessLoopbackClient(
+    const CaptureConfig& config, ComPtr<IAudioClient>* client) {
+  if (client == nullptr) {
+    last_error_ = L"app-loopback-invalid-client";
+    return false;
+  }
+  client->Reset();
+
+  const auto process_id =
+      ResolveProcessLoopbackTargetProcessId(
+          config.application_loopback_process);
+  if (!process_id.has_value() || *process_id == 0) {
+    last_error_ = L"app-loopback-invalid-target";
+    return false;
+  }
+
+  AUDIOCLIENT_ACTIVATION_PARAMS activation_params {};
+  activation_params.ActivationType =
+      AUDIOCLIENT_ACTIVATION_TYPE_PROCESS_LOOPBACK;
+  activation_params.ProcessLoopbackParams.TargetProcessId = *process_id;
+  activation_params.ProcessLoopbackParams.ProcessLoopbackMode =
+      PROCESS_LOOPBACK_MODE_INCLUDE_TARGET_PROCESS_TREE;
+
+  PROPVARIANT activation_prop {};
+  PropVariantInit(&activation_prop);
+  const auto blob_size = static_cast<ULONG>(sizeof(activation_params));
+  auto* blob_bytes = static_cast<BYTE*>(CoTaskMemAlloc(blob_size));
+  if (blob_bytes == nullptr) {
+    last_error_ = L"app-loopback-oom";
+    return false;
+  }
+  memcpy(blob_bytes, &activation_params, blob_size);
+  activation_prop.vt = VT_BLOB;
+  activation_prop.blob.cbSize = blob_size;
+  activation_prop.blob.pBlobData = blob_bytes;
+
+  auto* handler = new AudioInterfaceActivateHandler();
+  ComPtr<IActivateAudioInterfaceAsyncOperation> async_operation;
+  const auto activate_hr = ActivateAudioInterfaceAsync(
+      VIRTUAL_AUDIO_DEVICE_PROCESS_LOOPBACK, __uuidof(IAudioClient),
+      &activation_prop, handler, async_operation.GetAddressOf());
+  if (FAILED(activate_hr)) {
+    handler->Release();
+    PropVariantClear(&activation_prop);
+    last_error_ = L"ActivateAudioInterfaceAsync: " +
+                  WasapiResultToString(activate_hr);
+    return false;
+  }
+
+  const auto wait_hr = handler->Wait(5000, client);
+  handler->Release();
+  PropVariantClear(&activation_prop);
+  if (FAILED(wait_hr) || !client->Get()) {
+    last_error_ = L"app-loopback-activate: " + WasapiResultToString(wait_hr);
+    return false;
+  }
+  return true;
 }
 
 std::wstring WasapiRenderAdapter::name() const {

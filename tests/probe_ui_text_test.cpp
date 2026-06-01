@@ -89,20 +89,26 @@ bool TestBuildRunningDeviceChangeSummaryText() {
 
 bool TestBuildCaptureDeviceLabelText() {
   return BuildCaptureDeviceLabelText(false) == L"Capture Device" &&
-         BuildCaptureDeviceLabelText(true) == L"Loopback Capture Device";
+         BuildCaptureDeviceLabelText(true) == L"Loopback Capture Device" &&
+         BuildCaptureDeviceLabelText(AudioSourceMode::ApplicationLoopback) ==
+             L"App Loopback Source";
 }
 
 bool TestBuildDeviceCountLineText() {
   return BuildDeviceCountLineText(false, 2, 3) ==
              L"Capture devices: 2 | Render devices: 3" &&
          BuildDeviceCountLineText(true, 2, 3) ==
-             L"Loopback capture devices: 2 | Render devices: 3";
+             L"Loopback capture devices: 2 | Render devices: 3" &&
+         BuildDeviceCountLineText(AudioSourceMode::ApplicationLoopback, 1, 3) ==
+             L"Application loopback sources: 1 | Render devices: 3";
 }
 
 bool TestBuildLoopbackCaptureNoteText() {
   return BuildLoopbackCaptureNoteText(false).empty() &&
          BuildLoopbackCaptureNoteText(true) ==
-             L"Loopback capture uses render endpoints as capture sources.";
+             L"Loopback capture uses render endpoints as capture sources." &&
+         BuildLoopbackCaptureNoteText(AudioSourceMode::ApplicationLoopback) ==
+             L"Application loopback captures audio rendered by a target process tree instead of a device endpoint.";
 }
 
 bool TestBuildLoopbackBackendNoteText() {
@@ -110,7 +116,9 @@ bool TestBuildLoopbackBackendNoteText() {
          BuildLoopbackBackendNoteText(true, true) ==
              L"Loopback note: WASAPI loopback is shared-mode only" &&
          BuildLoopbackBackendNoteText(true, false) ==
-             L"Loopback note: WAVE loopback depends on hardware/driver devices";
+             L"Loopback note: WAVE loopback depends on hardware/driver devices" &&
+         BuildLoopbackBackendNoteText(AudioSourceMode::ApplicationLoopback, true) ==
+             L"Application loopback note: process-tree loopback requires a WASAPI capture path and newer Windows support.";
 }
 
 bool TestBuildFollowDefaultsNoteText() {
@@ -118,7 +126,9 @@ bool TestBuildFollowDefaultsNoteText() {
          BuildFollowDefaultsNoteText(true, false) ==
              L"Device selection follows current system defaults; manual device picks are inactive" &&
          BuildFollowDefaultsNoteText(true, true) ==
-             L"Device selection follows current system defaults; manual device picks are inactive and loopback capture follows the current default render endpoint";
+             L"Device selection follows current system defaults; manual device picks are inactive and loopback capture follows the current default render endpoint" &&
+         BuildFollowDefaultsNoteText(true, AudioSourceMode::ApplicationLoopback) ==
+             L"Device selection follows current system defaults for render monitoring; app-loopback capture itself is process-targeted.";
 }
 
 bool TestBuildFollowDefaultsDiagnosticsText() {
@@ -126,7 +136,20 @@ bool TestBuildFollowDefaultsDiagnosticsText() {
          BuildFollowDefaultsDiagnosticsText(true, false) ==
              L"Device tracking: current capture/render selection follows system defaults" &&
          BuildFollowDefaultsDiagnosticsText(true, true) ==
-             L"Device tracking: current capture/render selection follows system defaults, and loopback capture follows the current default render endpoint";
+             L"Device tracking: current capture/render selection follows system defaults, and loopback capture follows the current default render endpoint" &&
+         BuildFollowDefaultsDiagnosticsText(true, AudioSourceMode::ApplicationLoopback) ==
+             L"Device tracking: render monitoring follows system defaults while application loopback capture remains process-targeted";
+}
+
+bool TestBuildApplicationLoopbackText() {
+  return BuildApplicationLoopbackTargetSummaryText(L"spotify.exe") ==
+             L"App loopback target: spotify.exe" &&
+         BuildApplicationLoopbackTargetSummaryText(L"") ==
+             L"App loopback target: not set" &&
+         BuildApplicationLoopbackNoteText(L"") ==
+             L"Application loopback needs a target process name or PID." &&
+         BuildApplicationLoopbackDiagnosticsText(L"1234") ==
+             L"Application loopback target process: 1234";
 }
 
 bool TestBuildMonitorDisabledNoteText() {
@@ -196,14 +219,20 @@ bool TestBuildSelectedCaptureDeviceDiagnosticsLabelText() {
   return BuildSelectedCaptureDeviceDiagnosticsLabelText(false) ==
              L"Selected capture device: " &&
          BuildSelectedCaptureDeviceDiagnosticsLabelText(true) ==
-             L"Selected loopback capture device: ";
+             L"Selected loopback capture device: " &&
+         BuildSelectedCaptureDeviceDiagnosticsLabelText(
+             AudioSourceMode::ApplicationLoopback) ==
+             L"Selected app-loopback source: ";
 }
 
 bool TestBuildSelectedCaptureDeviceIdDiagnosticsLabelText() {
   return BuildSelectedCaptureDeviceIdDiagnosticsLabelText(false) ==
              L"Selected capture id: " &&
          BuildSelectedCaptureDeviceIdDiagnosticsLabelText(true) ==
-             L"Selected loopback capture id: ";
+             L"Selected loopback capture id: " &&
+         BuildSelectedCaptureDeviceIdDiagnosticsLabelText(
+             AudioSourceMode::ApplicationLoopback) ==
+             L"Selected app-loopback id: ";
 }
 
 }  // namespace
@@ -236,6 +265,7 @@ int main() {
       {"BuildFollowDefaultsNoteText", &TestBuildFollowDefaultsNoteText},
       {"BuildFollowDefaultsDiagnosticsText",
        &TestBuildFollowDefaultsDiagnosticsText},
+      {"BuildApplicationLoopbackText", &TestBuildApplicationLoopbackText},
       {"BuildMonitorDisabledNoteText", &TestBuildMonitorDisabledNoteText},
       {"BuildMonitorDisabledDiagnosticsText",
        &TestBuildMonitorDisabledDiagnosticsText},

@@ -193,6 +193,16 @@ Require-Line $quickSourceModeFailOut '^QuickSummary: failed \| dump=none \| cap-
 Require-Line $quickSourceModeFailOut '^FailureStage: source-mode$' "CLI integration failed: source-mode quick probe did not report the expected failure stage."
 Require-Line $quickSourceModeFailOut '^FailureReason: Selected backend does not support the chosen capture source\. Use --capture-backend=wasapi for loopback, or switch --source=mic\.$' "CLI integration failed: source-mode quick probe did not surface the expected recovery hint."
 
+Write-Step "Quick Application Loopback Failure"
+$quickAppLoopbackFailOut = Join-Path $artifactDir "cli_integration_quick_app_loopback_fail.txt"
+& $probeExe quick "--source=app-loopback" "--app-loopback-process=1234" |
+  Out-File -LiteralPath $quickAppLoopbackFailOut -Encoding utf8
+if ($LASTEXITCODE -ne 2) {
+  throw "CLI integration failed: application-loopback quick probe did not fail with the expected exit code."
+}
+Get-Content $quickAppLoopbackFailOut | Select-Object -First 24
+Assert-QuickApplicationLoopbackFailureSemantics $quickAppLoopbackFailOut "CLI integration failed: application-loopback quick probe"
+
 Write-Step "Quick Monitor Off Invalid Render Device"
 $quickMonitorOffOut = Join-Path $artifactDir "cli_integration_quick_monitor_off_invalid_render.txt"
 Invoke-ConvergenceCommand {
