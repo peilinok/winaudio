@@ -1,0 +1,44 @@
+name: Build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  build:
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build-build
+
+      - name: Build
+        run: >
+          powershell -ExecutionPolicy Bypass -File tools\invoke_msbuild_safe.ps1 -PrintEnvironmentSummary
+          cmake --build build-build --config Release
+
+      - name: Hosted-stable baseline
+        run: >
+          powershell -ExecutionPolicy Bypass -File tools\run_hosted_stable_ctest.ps1
+          -Config Release -BuildDir build-build -SkipConfigure -SkipBuild
+
+      - name: Package build artifacts
+        run: >
+          powershell -ExecutionPolicy Bypass -File tools\package_release_assets.ps1
+          -ArtifactLabel build-${{ github.run_number }} -Config Release -BuildDir build-build -OutputDir artifacts
+
+      - name: Upload packaged artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-assets-${{ github.run_number }}
+          path: |
+            artifacts/*.zip

@@ -227,6 +227,28 @@ powershell -ExecutionPolicy Bypass -File tools\run_hosted_stable_ctest.ps1 -Conf
 - `gui_smoke_test`
 - `hardware_validation_test`
 
+### GitHub Hosted Build 产物
+
+仓库还提供一个独立的手动构建 workflow，用来主动触发编译产物生成：
+
+- workflow 名称：`Build`
+- 触发时机：`workflow_dispatch`
+- 运行环境：`windows-2022`
+- 目标：手动生成可下载的 Windows 编译产物，不创建正式 GitHub Release
+
+该 workflow 会：
+
+- 配置并构建 `Release`
+- 运行与 PR 相同的 hosted-stable 基线
+- 打包并上传以下 artifact：
+  - `WinAudio-build-<run_number>-windows-x64.zip`
+  - `WinAudio-build-<run_number>-windows-x64-symbols.zip`
+
+其主包与符号包内容与 `Release` workflow 保持一致：
+
+- 主包：`winaudio.exe`、`winaudio_probe.exe`、`README.md`
+- 符号包：`winaudio.pdb`、`winaudio_probe.pdb`
+
 ### CLI 集成验证
 
 ```powershell
