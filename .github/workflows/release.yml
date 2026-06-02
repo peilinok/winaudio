@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  release:
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build-release
+
+      - name: Build
+        run: >
+          powershell -ExecutionPolicy Bypass -File tools\invoke_msbuild_safe.ps1 -PrintEnvironmentSummary
+          cmake --build build-release --config Release
+
+      - name: Hosted-stable baseline
+        run: >
+          powershell -ExecutionPolicy Bypass -File tools\run_hosted_stable_ctest.ps1
+          -Config Release -BuildDir build-release -SkipConfigure -SkipBuild
+
+      - name: Package release assets
+        run: >
+          powershell -ExecutionPolicy Bypass -File tools\package_release_assets.ps1
+          -Tag ${{ github.ref_name }} -Config Release -BuildDir build-release -OutputDir artifacts
+
+      - name: Upload packaged artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets-${{ github.ref_name }}
+          path: |
+            artifacts/*.zip
+
+      - name: Publish GitHub release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: >
+          powershell -ExecutionPolicy Bypass -File tools\publish_github_release.ps1
+          -Tag ${{ github.ref_name }} -Repo ${{ github.repository }} -Token ${{ github.token }} -ArtifactsDir artifacts

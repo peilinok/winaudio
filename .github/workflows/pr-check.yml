@@ -1,0 +1,47 @@
+name: PR Check
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-check-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  hosted-stable:
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: cmake -S . -B build-ci
+
+      - name: Build
+        run: >
+          powershell -ExecutionPolicy Bypass -File tools\invoke_msbuild_safe.ps1 -PrintEnvironmentSummary
+          cmake --build build-ci --config Release
+
+      - name: Hosted-stable baseline
+        run: >
+          powershell -ExecutionPolicy Bypass -File tools\run_hosted_stable_ctest.ps1
+          -Config Release -BuildDir build-ci -SkipConfigure -SkipBuild
+
+      - name: Upload test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-check-logs
+          if-no-files-found: ignore
+          path: |
+            build-ci/Testing/**
+            build-ci/CMakeFiles/CMakeOutput.log
+            build-ci/CMakeFiles/CMakeError.log

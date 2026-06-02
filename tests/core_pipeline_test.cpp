@@ -101,7 +101,17 @@ bool TestSignalAnalyzerMeterAndWaveform() {
 bool TestWavDumpWriterWritesHeaderAndPayload() {
   const auto format = MakeFloatStereoFormat();
   const auto temp_dir = std::filesystem::temp_directory_path();
-  const auto path = temp_dir / "winaudio-core-pipeline-test.wav";
+  wchar_t temp_name[MAX_PATH] = {};
+  if (GetTempFileNameW(temp_dir.c_str(), L"wat", 0, temp_name) == 0) {
+    return false;
+  }
+  std::error_code rename_ec;
+  const auto path = std::filesystem::path(temp_name).replace_extension(L".wav");
+  std::filesystem::rename(temp_name, path, rename_ec);
+  if (rename_ec) {
+    std::filesystem::remove(temp_name, rename_ec);
+    return false;
+  }
 
   WavDumpWriter writer;
   if (!writer.Open(path, format, DumpFileType::Wav)) {

@@ -7,6 +7,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 if (MSVC)
   add_compile_options(/FS)
+  string(APPEND CMAKE_CXX_FLAGS_RELEASE " /Zi")
+  string(APPEND CMAKE_EXE_LINKER_FLAGS_RELEASE " /DEBUG")
 endif()
 
 enable_testing()
@@ -108,6 +110,15 @@ add_test(NAME wave_format_utils_test COMMAND wave_format_utils_test)
 add_test(NAME app_model_text_test COMMAND app_model_text_test)
 add_test(NAME probe_cli_test COMMAND probe_cli_test)
 add_test(NAME probe_ui_text_test COMMAND probe_ui_text_test)
+set_tests_properties(
+  core_pipeline_test
+  session_controller_test
+  wave_format_utils_test
+  app_model_text_test
+  probe_cli_test
+  probe_ui_text_test
+  PROPERTIES LABELS "unit;hosted-stable"
+)
 add_test(
   NAME build_environment_tools_test
   COMMAND powershell -ExecutionPolicy Bypass -File ${CMAKE_SOURCE_DIR}/tools/test_build_environment_tools.ps1 -BuildDir ${CMAKE_BINARY_DIR}
@@ -120,7 +131,12 @@ add_test(
   NAME cli_integration_test
   COMMAND powershell -ExecutionPolicy Bypass -File ${CMAKE_SOURCE_DIR}/tools/test_cli_integration.ps1 -Config $<CONFIG> -BuildDir ${CMAKE_BINARY_DIR} -SkipBuild
 )
-set_tests_properties(cli_integration_test PROPERTIES LABELS "integration")
+set_tests_properties(
+  build_environment_tools_test
+  convergence_helpers_test
+  PROPERTIES LABELS "script;hosted-stable"
+)
+set_tests_properties(cli_integration_test PROPERTIES LABELS "integration;device")
 
 if (WINAUDIO_ENABLE_GUI_SMOKE_TESTS)
   add_test(
