@@ -2,6 +2,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <commctrl.h>
 
 #include <algorithm>
 #include <cwchar>
@@ -48,6 +49,7 @@ constexpr int kButtonStop = 1002;
 constexpr int kButtonRefresh = 1003;
 constexpr int kButtonProbe = 1004;
 constexpr int kButtonProbeMatrix = 1005;
+constexpr int kTabInfoPages = 1006;
 constexpr int kComboCaptureBackend = 1101;
 constexpr int kComboRenderBackend = 1102;
 constexpr int kComboSourceMode = 1103;
@@ -85,6 +87,9 @@ constexpr int kVisibleDiagnosticsText = 1952;
 constexpr int kVisibleCapabilityText = 1953;
 constexpr int kVisibleProbeText = 1954;
 constexpr int kVisibleRecentLogsText = 1955;
+constexpr int kOverviewSnapshotLabel = 1956;
+constexpr int kOverviewSummaryLabel = 1957;
+constexpr int kOverviewLogsLabel = 1958;
 
 struct WindowContext {
   ScopedCoInitialize com {};
@@ -125,6 +130,10 @@ struct WindowContext {
   HWND automation_diagnostics_text = nullptr;
   HWND automation_probe_text = nullptr;
   HWND automation_auto_align_note = nullptr;
+  HWND info_tabs = nullptr;
+  HWND overview_snapshot_label = nullptr;
+  HWND overview_summary_label = nullptr;
+  HWND overview_logs_label = nullptr;
   HWND visible_snapshot_text = nullptr;
   HWND visible_summary_text = nullptr;
   HWND visible_diagnostics_text = nullptr;
@@ -160,9 +169,7 @@ struct WindowContext {
 
 struct AppLayout {
   RECT config_rect {};
-  RECT summary_rect {};
-  RECT capability_rect {};
-  RECT probe_rect {};
+  RECT info_tabs_rect {};
   RECT capture_waveform_rect {};
   RECT render_waveform_rect {};
 };
@@ -263,6 +270,18 @@ void ConfigureComboDropdown(HWND hwnd) {
   }
   SendMessageW(hwnd, kMessageComboSetMinVisible,
                static_cast<WPARAM>(kComboMinVisibleItems), 0);
+}
+
+RECT GetTabPageRect(HWND tab_control) {
+  RECT page_rect {};
+  if (tab_control == nullptr) {
+    return page_rect;
+  }
+  GetClientRect(tab_control, &page_rect);
+  TabCtrl_AdjustRect(tab_control, FALSE, &page_rect);
+  MapWindowPoints(tab_control, GetParent(tab_control),
+                  reinterpret_cast<POINT*>(&page_rect), 2);
+  return page_rect;
 }
 
 void UpdateReadOnlyPanelTextRect(HWND hwnd) {
@@ -410,30 +429,22 @@ AppLayout CalculateAppLayout(const RECT& client_rect) {
 
   const int config_height = 516;
   const int vertical_budget =
-      client_height - (kOuterMargin * 2) - config_height - (kSectionGap * 4);
-  const int base_middle_height =
-      kSummaryMinHeight + kCapabilityMinHeight + kProbeMinHeight +
-      (kWaveformMinHeight * 2);
-  const int extra_height = std::max(0, vertical_budget - base_middle_height);
-  const int summary_height = kSummaryMinHeight + ((extra_height * 9) / 20);
-  const int capability_height = kCapabilityMinHeight + (extra_height / 10);
-  const int probe_height = kProbeMinHeight + ((extra_height * 3) / 20);
+      client_height - (kOuterMargin * 2) - config_height - (kSectionGap * 3);
+  const int info_tabs_min_height =
+      kSummaryMinHeight + kCapabilityMinHeight + kProbeMinHeight + (kSectionGap * 2);
+  const int min_content_height = info_tabs_min_height + (kWaveformMinHeight * 2);
+  const int extra_height = std::max(0, vertical_budget - min_content_height);
+  const int info_tabs_height = info_tabs_min_height + ((extra_height * 13) / 20);
   const int waveform_extra =
-      std::max(0, vertical_budget - summary_height - capability_height - probe_height -
-                      (kWaveformMinHeight * 2));
+      std::max(0, vertical_budget - info_tabs_height - (kWaveformMinHeight * 2));
   const int capture_waveform_height = kWaveformMinHeight + (waveform_extra / 2);
   const int render_waveform_height =
       kWaveformMinHeight + (waveform_extra - (waveform_extra / 2));
 
   layout.config_rect = MakeRect(kOuterMargin, kOuterMargin, inner_width, config_height);
   int top = layout.config_rect.bottom + kSectionGap;
-  layout.summary_rect = MakeRect(kOuterMargin, top, inner_width, summary_height);
-  top = layout.summary_rect.bottom + kSectionGap;
-  layout.capability_rect =
-      MakeRect(kOuterMargin, top, inner_width, capability_height);
-  top = layout.capability_rect.bottom + kSectionGap;
-  layout.probe_rect = MakeRect(kOuterMargin, top, inner_width, probe_height);
-  top = layout.probe_rect.bottom + kSectionGap;
+  layout.info_tabs_rect = MakeRect(kOuterMargin, top, inner_width, info_tabs_height);
+  top = layout.info_tabs_rect.bottom + kSectionGap;
 
   layout.capture_waveform_rect =
       MakeRect(kOuterMargin, top, inner_width, capture_waveform_height);
@@ -442,6 +453,25 @@ AppLayout CalculateAppLayout(const RECT& client_rect) {
       MakeRect(kOuterMargin, top, inner_width, render_waveform_height);
 
   return layout;
+}
+
+enum class InfoTabPage {
+  Overview = 0,
+  Diagnostics = 1,
+  Capabilities = 2,
+  Probe = 3,
+  Logs = 4,
+};
+
+InfoTabPage GetActiveInfoTabPage(WindowContext* context) {
+  if (context == nullptr || context->info_tabs == nullptr) {
+    return InfoTabPage::Overview;
+  }
+  const int selection = TabCtrl_GetCurSel(context->info_tabs);
+  if (selection < 0) {
+    return InfoTabPage::Overview;
+  }
+  return static_cast<InfoTabPage>(selection);
 }
 
 SummaryPanelLayout CalculateSummaryPanelLayout(const RECT& rect,
@@ -984,28 +1014,79 @@ void LayoutChildControls(HWND hwnd, WindowContext* context) {
                        config_layout.row7_y, config_layout.auto_align_width,
                        kEditHeight));
 
-  const RECT& summary = layout.summary_rect;
-  const RECT& capability = layout.capability_rect;
-  const RECT& probe = layout.probe_rect;
-  const auto summary_layout = CalculateSummaryPanelLayout(summary, source_mode);
+  MoveControl(context->info_tabs, layout.info_tabs_rect);
+  const RECT page_rect = GetTabPageRect(context->info_tabs);
+  const int page_width = RectWidth(page_rect);
+  const int page_height = RectHeight(page_rect);
+  const int page_left = page_rect.left;
+  const int page_top = page_rect.top;
+  const int page_inset = 16;
+  const int label_height = 18;
+  const int column_width = std::max(220, (page_width - (page_inset * 2) - inner_gap) / 2);
+  const int right_left = page_left + page_inset + column_width + inner_gap;
+  const int right_width =
+      std::max(220, page_width - (page_inset * 2) - column_width - inner_gap);
+
+  const int overview_header_top = page_top + page_inset;
+  const int overview_text_top = overview_header_top + 22;
+  const int overview_top_height =
+      std::max(88, (page_height - (page_inset * 2) - 84) / 2);
+  const int logs_label_top = overview_text_top + overview_top_height + 10;
+  const int logs_top = logs_label_top + 22;
+  const int logs_height =
+      std::max(72, page_top + page_height - page_inset - logs_top);
+
+  MoveControl(context->overview_snapshot_label,
+              MakeRect(page_left + page_inset, overview_header_top, column_width,
+                       label_height));
   MoveControl(context->visible_snapshot_text,
-              summary_layout.snapshot_text_rect);
+              MakeRect(page_left + page_inset, overview_text_top, column_width,
+                       overview_top_height));
+  MoveControl(context->overview_summary_label,
+              MakeRect(right_left, overview_header_top, right_width, label_height));
   MoveControl(context->visible_summary_text,
-              summary_layout.summary_text_rect);
-  MoveControl(context->visible_diagnostics_text,
-              summary_layout.diagnostics_text_rect);
+              MakeRect(right_left, overview_text_top, right_width, overview_top_height));
+  MoveControl(context->overview_logs_label,
+              MakeRect(page_left + page_inset, logs_label_top,
+                       page_width - (page_inset * 2), label_height));
   MoveControl(context->visible_recent_logs_text,
-              summary_layout.recent_logs_rect);
+              MakeRect(page_left + page_inset, logs_top,
+                       page_width - (page_inset * 2), logs_height));
   MoveControl(context->visible_capability_text,
-              MakeRect(capability.left + kPanelInset,
-                       capability.top + kPanelInset + 32,
-                       RectWidth(capability) - (kPanelInset * 2),
-                       RectHeight(capability) - ((kPanelInset * 2) + 32)));
+              MakeRect(page_left + page_inset, page_top + page_inset,
+                       page_width - (page_inset * 2), page_height - (page_inset * 2)));
   MoveControl(context->visible_probe_text,
-              MakeRect(probe.left + kPanelInset,
-                       probe.top + kPanelInset + 32,
-                       RectWidth(probe) - (kPanelInset * 2),
-                       RectHeight(probe) - ((kPanelInset * 2) + 32)));
+              MakeRect(page_left + page_inset, page_top + page_inset,
+                       page_width - (page_inset * 2), page_height - (page_inset * 2)));
+
+  const auto active_page = GetActiveInfoTabPage(context);
+  const bool show_overview = active_page == InfoTabPage::Overview;
+  const bool show_diagnostics = active_page == InfoTabPage::Diagnostics;
+  const bool show_capabilities = active_page == InfoTabPage::Capabilities;
+  const bool show_probe = active_page == InfoTabPage::Probe;
+  const bool show_logs = active_page == InfoTabPage::Logs;
+
+  SetControlVisible(context->overview_snapshot_label, show_overview);
+  SetControlVisible(context->overview_summary_label, show_overview);
+  SetControlVisible(context->overview_logs_label, show_overview);
+  SetControlVisible(context->visible_snapshot_text, show_overview);
+  SetControlVisible(context->visible_summary_text, show_overview);
+  SetControlVisible(context->visible_recent_logs_text, show_overview || show_logs);
+  SetControlVisible(context->visible_diagnostics_text, show_diagnostics);
+  SetControlVisible(context->visible_capability_text, show_capabilities);
+  SetControlVisible(context->visible_probe_text, show_probe);
+
+  if (show_logs) {
+    MoveControl(context->visible_recent_logs_text,
+                MakeRect(page_left + page_inset, page_top + page_inset,
+                         page_width - (page_inset * 2), page_height - (page_inset * 2)));
+  }
+  if (show_diagnostics) {
+    MoveControl(context->visible_diagnostics_text,
+                MakeRect(page_left + page_inset, page_top + page_inset,
+                         page_width - (page_inset * 2), page_height - (page_inset * 2)));
+  }
+
   UpdateReadOnlyPanelTextRect(context->visible_snapshot_text);
   UpdateReadOnlyPanelTextRect(context->visible_recent_logs_text);
   UpdateReadOnlyPanelTextRect(context->visible_summary_text);
@@ -1665,6 +1746,12 @@ void DrawSummary(HDC hdc, const RECT& rect, WindowContext* context) {
                 DT_NOPREFIX);
 }
 
+void DrawInfoTabsBackground(HDC hdc, const RECT& rect) {
+  HBRUSH background = CreateSolidBrush(RGB(245, 247, 250));
+  FillRect(hdc, &rect, background);
+  DeleteObject(background);
+}
+
 void DrawCapabilityPanel(HDC hdc, const RECT& rect, WindowContext* context) {
   HBRUSH background = CreateSolidBrush(RGB(236, 241, 247));
   FillRect(hdc, &rect, background);
@@ -1863,6 +1950,18 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
       owned_context->automation_auto_align_note = CreateWindowW(
           L"STATIC", L"", WS_CHILD, 0, 0, 0, 0, hwnd,
           ControlIdToMenu(kAutomationAutoAlignNote), nullptr, nullptr);
+      owned_context->info_tabs = CreateWindowExW(
+          0, WC_TABCONTROLW, L"", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS,
+          0, 0, 0, 0, hwnd, ControlIdToMenu(kTabInfoPages), nullptr, nullptr);
+      owned_context->overview_snapshot_label = CreateWindowW(
+          L"STATIC", L"Session Snapshot", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, hwnd,
+          ControlIdToMenu(kOverviewSnapshotLabel), nullptr, nullptr);
+      owned_context->overview_summary_label = CreateWindowW(
+          L"STATIC", L"Configured Summary", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, hwnd,
+          ControlIdToMenu(kOverviewSummaryLabel), nullptr, nullptr);
+      owned_context->overview_logs_label = CreateWindowW(
+          L"STATIC", L"Recent Logs", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, hwnd,
+          ControlIdToMenu(kOverviewLogsLabel), nullptr, nullptr);
       owned_context->visible_snapshot_text = CreateWindowExW(
           WS_EX_CLIENTEDGE, L"EDIT", L"",
           WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY |
@@ -1931,12 +2030,41 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
       for (HWND combo : combo_controls) {
         ConfigureComboDropdown(combo);
       }
+      TCITEMW tab_item {};
+      tab_item.mask = TCIF_TEXT;
+      wchar_t overview_text[] = L"Overview";
+      tab_item.pszText = overview_text;
+      SendMessageW(owned_context->info_tabs, TCM_INSERTITEMW, 0,
+                   reinterpret_cast<LPARAM>(&tab_item));
+      wchar_t diagnostics_text[] = L"Diagnostics";
+      tab_item.pszText = diagnostics_text;
+      SendMessageW(owned_context->info_tabs, TCM_INSERTITEMW, 1,
+                   reinterpret_cast<LPARAM>(&tab_item));
+      wchar_t capabilities_text[] = L"Capabilities";
+      tab_item.pszText = capabilities_text;
+      SendMessageW(owned_context->info_tabs, TCM_INSERTITEMW, 2,
+                   reinterpret_cast<LPARAM>(&tab_item));
+      wchar_t probe_text[] = L"Probe";
+      tab_item.pszText = probe_text;
+      SendMessageW(owned_context->info_tabs, TCM_INSERTITEMW, 3,
+                   reinterpret_cast<LPARAM>(&tab_item));
+      wchar_t logs_text[] = L"Logs";
+      tab_item.pszText = logs_text;
+      SendMessageW(owned_context->info_tabs, TCM_INSERTITEMW, 4,
+                   reinterpret_cast<LPARAM>(&tab_item));
+      TabCtrl_SetCurSel(owned_context->info_tabs, 0);
       ApplyPanelTextFont(owned_context->visible_snapshot_text, owned_context->panel_text_font);
       ApplyPanelTextFont(owned_context->visible_summary_text, owned_context->panel_text_font);
       ApplyPanelTextFont(owned_context->visible_diagnostics_text, owned_context->panel_mono_font);
       ApplyPanelTextFont(owned_context->visible_capability_text, owned_context->panel_mono_font);
       ApplyPanelTextFont(owned_context->visible_probe_text, owned_context->panel_mono_font);
       ApplyPanelTextFont(owned_context->visible_recent_logs_text, owned_context->panel_text_font);
+      ApplyPanelTextFont(owned_context->overview_snapshot_label,
+                         owned_context->panel_header_font);
+      ApplyPanelTextFont(owned_context->overview_summary_label,
+                         owned_context->panel_header_font);
+      ApplyPanelTextFont(owned_context->overview_logs_label,
+                         owned_context->panel_header_font);
 
       PopulateBackendCombo(owned_context->capture_backend_combo);
       PopulateBackendCombo(owned_context->render_backend_combo);
@@ -2276,6 +2404,18 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
       break;
     }
 
+    case WM_NOTIFY:
+      if (context != nullptr) {
+        auto* header = reinterpret_cast<LPNMHDR>(l_param);
+        if (header != nullptr && header->hwndFrom == context->info_tabs &&
+            header->code == TCN_SELCHANGE) {
+          LayoutChildControls(hwnd, context);
+          InvalidateRect(hwnd, nullptr, TRUE);
+          return 0;
+        }
+      }
+      break;
+
     case WM_TIMER:
       if (context == nullptr) {
         return 0;
@@ -2360,9 +2500,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
 
       if (context != nullptr) {
         const AppLayout layout = CalculateAppLayout(client_rect);
-        DrawSummary(target_dc, layout.summary_rect, context);
-        DrawCapabilityPanel(target_dc, layout.capability_rect, context);
-        DrawProbePanel(target_dc, layout.probe_rect, context);
+        DrawInfoTabsBackground(target_dc, layout.info_tabs_rect);
         DrawConfigLabels(target_dc, client_rect, context);
 
         WaveformRenderer::Draw(target_dc, layout.capture_waveform_rect,
@@ -2450,6 +2588,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
 
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_command) {
   using namespace winaudio;
+
+  INITCOMMONCONTROLSEX common_controls {};
+  common_controls.dwSize = sizeof(common_controls);
+  common_controls.dwICC = ICC_TAB_CLASSES;
+  InitCommonControlsEx(&common_controls);
 
   auto context = std::make_unique<WindowContext>();
   if (!context->com.ok()) {

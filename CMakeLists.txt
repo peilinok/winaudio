@@ -94,7 +94,7 @@ add_executable(winaudio WIN32
   src/ui/waveform_renderer.cpp
 )
 
-target_link_libraries(winaudio PRIVATE winaudio_core user32 gdi32)
+target_link_libraries(winaudio PRIVATE winaudio_core user32 gdi32 comctl32)
 
 add_executable(winaudio_probe
   src/app/probe_cli_main.cpp
