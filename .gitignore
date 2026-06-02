@@ -2,3 +2,6 @@ build/
 build-cli/
 build-gui/
 build-hwtest/
+build-ci/
+build-release/
+artifacts/

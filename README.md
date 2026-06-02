@@ -195,6 +195,38 @@ ctest --test-dir build -C Debug --output-on-failure
 默认测试基线强调轻量、可复现、无真实硬件强依赖。真实设备结果允许随机器、
 驱动和系统状态变化，但输出语义、失败阶段与诊断字段必须保持稳定、可审计。
 
+### GitHub Hosted PR 基线
+
+仓库提供一个面向 GitHub Hosted Windows runner 的稳定 PR 检查：
+
+- workflow 名称：`PR Check`
+- 触发时机：`pull_request`
+- 运行环境：`windows-2022`
+- 目标：只验证 hosted-stable 基线，不把真实设备依赖或桌面交互依赖塞进必跑 CI
+
+该 hosted-stable 基线当前覆盖：
+
+- `core_pipeline_test`
+- `session_controller_test`
+- `wave_format_utils_test`
+- `app_model_text_test`
+- `probe_cli_test`
+- `probe_ui_text_test`
+- `build_environment_tools_test`
+- `convergence_helpers_test`
+
+本地复现该基线可使用：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\run_hosted_stable_ctest.ps1 -Config Release -BuildDir build-ci
+```
+
+以下验证层当前不纳入 GitHub Hosted PR 必跑范围：
+
+- `cli_integration_test`
+- `gui_smoke_test`
+- `hardware_validation_test`
+
 ### CLI 集成验证
 
 ```powershell
@@ -208,6 +240,7 @@ powershell -ExecutionPolicy Bypass -File tools\run_cli_integration_ctest.ps1 -Co
 ```
 
 CLI 集成验证会覆盖设备发现、显式 device id 复用、loopback 设备路径、monitor off 语义、失败恢复提示和部分矩阵筛选能力。
+它依赖机器上存在可枚举的音频设备与 loopback 路径，因此仍视为本地或特定环境验证层，而不是 GitHub Hosted PR 基线。
 
 ### GUI Smoke 验证
 
@@ -231,6 +264,8 @@ ctest --test-dir build-gui -C Debug -R gui_smoke_test --output-on-failure
 powershell -ExecutionPolicy Bypass -File tools\run_gui_smoke_ctest.ps1 -Config Debug -BuildDir build-gui
 ```
 
+GUI smoke 是真实桌面交互验证，当前不纳入 GitHub Hosted PR 必跑范围。
+
 ### 硬件验证
 
 真实硬件相关验证默认不纳入轻量基线，需要在具备可用音频设备的环境中运行：
@@ -252,6 +287,35 @@ ctest --test-dir build-hwtest -C Debug -R hardware_validation_test --output-on-f
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools\run_hardware_validation_ctest.ps1 -Config Debug -BuildDir build-hwtest
 ```
+
+硬件验证依赖真实设备环境，当前不纳入 GitHub Hosted PR 必跑范围。
+
+### Release 发布
+
+仓库提供一个正式发布 workflow：
+
+- workflow 名称：`Release`
+- 触发时机：推送匹配 `v*` 的 tag，例如 `v0.1.0`
+- 运行环境：`windows-2022`
+- 发布前会重新执行一遍与 PR 相同的 hosted-stable 基线
+
+发布成功后会创建正式 GitHub Release，并上传以下资产：
+
+- `WinAudio-<tag>-windows-x64.zip`
+- `WinAudio-<tag>-windows-x64-symbols.zip`
+
+主包包含：
+
+- `winaudio.exe`
+- `winaudio_probe.exe`
+- `README.md`
+
+符号包包含：
+
+- `winaudio.pdb`
+- `winaudio_probe.pdb`
+
+如果任一发布必需文件缺失，release workflow 会直接失败，不会创建不完整资产。
 
 ### 一站式收敛检查
 

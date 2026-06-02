@@ -1106,10 +1106,13 @@ std::wstring AppModel::summary_text() const {
     text += L"\r\n" + loopback_backend_note;
   }
   if (source_mode == AudioSourceMode::ApplicationLoopback) {
-    if (WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows()) {
-      text += L"\r\n" + BuildApplicationLoopbackNoteText(
-                          configuration_.capture.application_loopback_process);
-    } else {
+    const auto target_process = configuration_.capture.application_loopback_process;
+    if (target_process.empty()) {
+      text += L"\r\n" + BuildApplicationLoopbackNoteText(target_process);
+    } else if (WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows()) {
+      text += L"\r\n" + BuildApplicationLoopbackNoteText(target_process);
+    }
+    if (!WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows()) {
       text +=
           L"\r\nApplication loopback is unavailable on this machine because Windows process loopback requires client build 20348 or newer.";
     }
