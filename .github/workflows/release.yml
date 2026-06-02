@@ -36,7 +36,7 @@ jobs:
       - name: Package release assets
         run: >
           powershell -ExecutionPolicy Bypass -File tools\package_release_assets.ps1
-          -Tag ${{ github.ref_name }} -Config Release -BuildDir build-release -OutputDir artifacts
+          -ArtifactLabel ${{ github.ref_name }} -Config Release -BuildDir build-release -OutputDir artifacts
 
       - name: Upload packaged artifacts
         uses: actions/upload-artifact@v4

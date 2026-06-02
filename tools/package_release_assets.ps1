@@ -1,6 +1,6 @@
 param(
   [Parameter(Mandatory = $true)]
-  [string]$Tag,
+  [string]$ArtifactLabel,
 
   [string]$Config = "Release",
   [string]$BuildDir = "build-release",
@@ -21,8 +21,8 @@ $stageDir = Join-Path $OutputDir "stage"
 $binaryStageDir = Join-Path $stageDir "binary"
 $symbolsStageDir = Join-Path $stageDir "symbols"
 
-$binaryZip = Join-Path $OutputDir ("WinAudio-" + $Tag + "-windows-x64.zip")
-$symbolsZip = Join-Path $OutputDir ("WinAudio-" + $Tag + "-windows-x64-symbols.zip")
+$binaryZip = Join-Path $OutputDir ("WinAudio-" + $ArtifactLabel + "-windows-x64.zip")
+$symbolsZip = Join-Path $OutputDir ("WinAudio-" + $ArtifactLabel + "-windows-x64-symbols.zip")
 
 $requiredBinaryFiles = @(
   (Join-Path $BuildDir "$Config\winaudio.exe"),
