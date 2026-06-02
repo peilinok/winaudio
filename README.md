@@ -35,6 +35,18 @@ WinAudio 是一个面向 Windows 的音频链路验证与诊断项目，提供 G
 
 这是一个 Windows 专用项目。仓库当前直接链接 `ole32`、`mmdevapi`、`winmm`、`Mfplat`、`Mf`、`Mfcore` 等 Windows 音频/媒体组件。
 
+## 项目治理约束
+
+WinAudio 采用正式项目宪章治理，核心要求如下：
+
+- Windows 音频语义优先：设计、实现与验证必须忠实反映 WASAPI/Wave API、设备枚举、loopback/app-loopback、共享/驱动模式与失败语义。
+- GUI/CLI 契约一致：`winaudio` 与 `winaudio_probe` 对共享概念必须保持一致术语、状态名、设备标签、失败阶段与提示语义。
+- 测试先于实现：凡影响核心音频逻辑、CLI 解析、GUI 状态语义、诊断文本或设备发现行为的改动，必须先更新测试、脚本断言或人工清单，再进入实现验收。
+- 分层验证明确：feature plan 必须声明影响的是 baseline `CTest`、CLI integration、GUI smoke、hardware validation 还是 manual checklist；默认基线不得混入真实硬件依赖。
+- 文档与验证材料同步：任何用户可见语义改动都不能只改代码，必须同步更新 README、脚本、文本测试、手工清单或相关验证文档。
+
+宪章全文位于 `.specify/memory/constitution.md`。
+
 ## 构建
 
 标准构建方式：
@@ -180,6 +192,9 @@ ctest --test-dir build -C Debug --output-on-failure
 - `convergence_helpers_test`
 - `cli_integration_test`
 
+默认测试基线强调轻量、可复现、无真实硬件强依赖。真实设备结果允许随机器、
+驱动和系统状态变化，但输出语义、失败阶段与诊断字段必须保持稳定、可审计。
+
 ### CLI 集成验证
 
 ```powershell
@@ -245,6 +260,9 @@ powershell -ExecutionPolicy Bypass -File tools\run_convergence_check.ps1 -Config
 ```
 
 该入口会串联执行构建、CLI 帮助、设备检查、quick probe、matrix probe、CLI integration、GUI smoke 和 `CTest` 基线。
+
+PowerShell 脚本是本项目的一等验证入口。新增构建或验证入口时，应优先对齐
+`CMake`、`CTest` 与 `tools/*.ps1`，并明确其适用场景、默认基线归属与失败排查路径。
 
 ## 已知边界与注意事项
 
