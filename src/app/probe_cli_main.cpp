@@ -58,8 +58,9 @@ int wmain(int argc, wchar_t** argv) {
   model.SetDumpFileType(options.config.capture.dump_file_type);
   model.SetDumpPath(options.config.capture.dump_path);
   model.SetFixedDelayMs(options.config.render.fixed_delay_ms);
-  model.SetApplicationLoopbackProcess(
-      options.config.capture.application_loopback_process);
+  model.SetApplicationLoopbackTarget(
+      options.config.capture.application_loopback_target_kind,
+      options.config.capture.application_loopback_target_value);
 
   if (options.mode == L"devices") {
     if (options.device_name_format == L"native") {
@@ -76,6 +77,8 @@ int wmain(int argc, wchar_t** argv) {
       std::wcout << L"Loopback Capture Devices (" << devices.capture_devices.size()
                  << L")\n";
     } else if (options.config.capture.source_mode ==
+                   AudioSourceMode::ApplicationProcessLoopback ||
+               options.config.capture.source_mode ==
                AudioSourceMode::ApplicationLoopback) {
       std::wcout << L"Application Loopback Capture Devices (" <<
                        devices.capture_devices.size() << L")\n";

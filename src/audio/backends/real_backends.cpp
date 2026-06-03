@@ -315,17 +315,21 @@ MMRESULT QueryWaveOutFormat(UINT device_id, const WAVEFORMATEX& format) {
 }
 
 std::optional<DWORD> ResolveProcessLoopbackTargetProcessId(
+    ApplicationLoopbackTargetKind target_kind,
     const std::wstring& target) {
   if (target.empty()) {
     return std::nullopt;
   }
 
-  try {
-    const auto parsed = static_cast<DWORD>(std::stoul(target));
-    if (parsed != 0) {
-      return parsed;
+  if (target_kind == ApplicationLoopbackTargetKind::ProcessId) {
+    try {
+      const auto parsed = static_cast<DWORD>(std::stoul(target));
+      if (parsed != 0) {
+        return parsed;
+      }
+    } catch (...) {
     }
-  } catch (...) {
+    return std::nullopt;
   }
 
   const HANDLE snapshot =
@@ -336,17 +340,85 @@ std::optional<DWORD> ResolveProcessLoopbackTargetProcessId(
 
   PROCESSENTRY32W entry {};
   entry.dwSize = sizeof(entry);
-  std::optional<DWORD> result;
+  std::vector<DWORD> matches;
   if (Process32FirstW(snapshot, &entry)) {
     do {
       if (_wcsicmp(entry.szExeFile, target.c_str()) == 0) {
-        result = entry.th32ProcessID;
-        break;
+        matches.push_back(entry.th32ProcessID);
       }
     } while (Process32NextW(snapshot, &entry));
   }
   CloseHandle(snapshot);
-  return result;
+  if (matches.empty()) {
+    return std::nullopt;
+  }
+
+  ComPtr<IMMDeviceEnumerator> enumerator;
+  if (SUCCEEDED(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
+                                 IID_PPV_ARGS(&enumerator))) &&
+      enumerator) {
+    ComPtr<IMMDeviceCollection> render_collection;
+    if (SUCCEEDED(enumerator->EnumAudioEndpoints(
+            eRender, DEVICE_STATE_ACTIVE, render_collection.GetAddressOf())) &&
+        render_collection) {
+      UINT render_count = 0;
+      if (SUCCEEDED(render_collection->GetCount(&render_count))) {
+        for (UINT render_index = 0; render_index < render_count; ++render_index) {
+          ComPtr<IMMDevice> render_device;
+          if (FAILED(render_collection->Item(render_index, render_device.GetAddressOf())) ||
+              !render_device) {
+            continue;
+          }
+          ComPtr<IAudioSessionManager2> session_manager;
+          if (FAILED(render_device->Activate(__uuidof(IAudioSessionManager2),
+                                             CLSCTX_ALL, nullptr,
+                                             reinterpret_cast<void**>(
+                                                 session_manager.GetAddressOf()))) ||
+              !session_manager) {
+            continue;
+          }
+          ComPtr<IAudioSessionEnumerator> session_enumerator;
+          if (FAILED(session_manager->GetSessionEnumerator(
+                  session_enumerator.GetAddressOf())) ||
+              !session_enumerator) {
+            continue;
+          }
+          int session_count = 0;
+          if (FAILED(session_enumerator->GetCount(&session_count))) {
+            continue;
+          }
+          for (int index = 0; index < session_count; ++index) {
+            ComPtr<IAudioSessionControl> session_control;
+            if (FAILED(session_enumerator->GetSession(index,
+                                                      session_control.GetAddressOf())) ||
+                !session_control) {
+              continue;
+            }
+            AudioSessionState session_state = AudioSessionStateInactive;
+            if (FAILED(session_control->GetState(&session_state)) ||
+                session_state != AudioSessionStateActive) {
+              continue;
+            }
+            ComPtr<IAudioSessionControl2> session_control2;
+            if (FAILED(session_control.As(&session_control2)) || !session_control2) {
+              continue;
+            }
+            DWORD process_id = 0;
+            if (FAILED(session_control2->GetProcessId(&process_id)) ||
+                process_id == 0) {
+              continue;
+            }
+            if (std::find(matches.begin(), matches.end(), process_id) !=
+                matches.end()) {
+              return process_id;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return std::nullopt;
 }
 
 }  // namespace
@@ -362,15 +434,20 @@ AudioBackendType WasapiCaptureAdapter::backend_type() const {
 bool WasapiCaptureAdapter::SupportsSource(AudioSourceMode source_mode) const {
   return source_mode == AudioSourceMode::MicrophoneCapture ||
          source_mode == AudioSourceMode::SystemLoopback ||
+         source_mode == AudioSourceMode::ApplicationProcessLoopback ||
          source_mode == AudioSourceMode::ApplicationLoopback;
 }
 
 std::vector<AudioDeviceDescriptor> WasapiCaptureAdapter::EnumerateDevices(
     AudioSourceMode source_mode) {
-  if (source_mode == AudioSourceMode::ApplicationLoopback) {
+  if (source_mode == AudioSourceMode::ApplicationProcessLoopback ||
+      source_mode == AudioSourceMode::ApplicationLoopback) {
     AudioDeviceDescriptor descriptor;
     descriptor.id = L"app-loopback";
-    descriptor.friendly_name = L"Application Loopback Target";
+    descriptor.friendly_name =
+        source_mode == AudioSourceMode::ApplicationProcessLoopback
+            ? L"Application Process Loopback Target"
+            : L"Application Loopback Target";
     descriptor.direction = AudioDirection::Capture;
     descriptor.is_default = true;
     descriptor.supports_loopback = true;
@@ -385,7 +462,8 @@ std::vector<AudioDeviceDescriptor> WasapiCaptureAdapter::EnumerateDevices(
 
 std::optional<AudioFormatSpec> WasapiCaptureAdapter::GetPreferredFormat(
     const CaptureConfig& config) {
-  if (config.source_mode == AudioSourceMode::ApplicationLoopback) {
+  if (config.source_mode == AudioSourceMode::ApplicationProcessLoopback ||
+      config.source_mode == AudioSourceMode::ApplicationLoopback) {
     if (!IsProcessLoopbackSupportedOnCurrentWindows()) {
       last_error_ = L"app-loopback-unsupported-os";
       return std::nullopt;
@@ -446,10 +524,13 @@ bool WasapiCaptureAdapter::Start(const CaptureConfig& config,
   runtime_format_.normalize();
   runtime_mode_.clear();
 
-  if (config.source_mode == AudioSourceMode::ApplicationLoopback) {
-    if (config.application_loopback_process.empty()) {
-      last_error_ =
-          L"app-loopback-target-required";
+  if (config.source_mode == AudioSourceMode::ApplicationProcessLoopback ||
+      config.source_mode == AudioSourceMode::ApplicationLoopback) {
+    if (config.application_loopback_target_value.empty()) {
+      last_error_ = config.source_mode ==
+                            AudioSourceMode::ApplicationProcessLoopback
+                        ? L"app-loopback-process-id-required"
+                        : L"app-loopback-application-required";
       return false;
     }
     if (!IsProcessLoopbackSupportedOnCurrentWindows()) {
@@ -689,7 +770,8 @@ std::optional<AudioFormatSpec> WasapiCaptureAdapter::ResolveFormat(
 
 bool WasapiCaptureAdapter::ActivateForConfig(const CaptureConfig& config,
                                              ComPtr<IMMDevice>* device) {
-  if (config.source_mode == AudioSourceMode::ApplicationLoopback) {
+  if (config.source_mode == AudioSourceMode::ApplicationProcessLoopback ||
+      config.source_mode == AudioSourceMode::ApplicationLoopback) {
     device->Reset();
     return false;
   }
@@ -709,9 +791,14 @@ bool WasapiCaptureAdapter::ActivateProcessLoopbackClient(
 
   const auto process_id =
       ResolveProcessLoopbackTargetProcessId(
-          config.application_loopback_process);
+          config.application_loopback_target_kind,
+          config.application_loopback_target_value);
   if (!process_id.has_value() || *process_id == 0) {
-    last_error_ = L"app-loopback-invalid-target";
+    last_error_ =
+        config.application_loopback_target_kind ==
+                ApplicationLoopbackTargetKind::ApplicationName
+            ? L"app-loopback-no-active-audio-session"
+            : L"app-loopback-invalid-target";
     return false;
   }
 

@@ -91,6 +91,10 @@ bool ParseSourceValue(const std::wstring& value, AudioSourceMode* source_mode) {
     *source_mode = AudioSourceMode::ApplicationLoopback;
     return true;
   }
+  if (value == L"app-process-loopback") {
+    *source_mode = AudioSourceMode::ApplicationProcessLoopback;
+    return true;
+  }
   return false;
 }
 
@@ -261,8 +265,20 @@ bool ParseProbeCliOptions(const std::vector<std::wstring>& args,
     } else if (key == L"--render-device-id") {
       options->config.render.device_id = value;
     } else if (key == L"--app-loopback-process") {
-      options->config.capture.application_loopback_process = value;
-      options->application_loopback_process = value;
+      options->config.capture.application_loopback_target_value = value;
+      options->application_loopback_target_value = value;
+      options->config.capture.application_loopback_target_kind =
+          ApplicationLoopbackTargetKind::ApplicationName;
+    } else if (key == L"--app-loopback-process-id") {
+      options->config.capture.application_loopback_target_value = value;
+      options->application_loopback_target_value = value;
+      options->config.capture.application_loopback_target_kind =
+          ApplicationLoopbackTargetKind::ProcessId;
+    } else if (key == L"--app-loopback-application") {
+      options->config.capture.application_loopback_target_value = value;
+      options->application_loopback_target_value = value;
+      options->config.capture.application_loopback_target_kind =
+          ApplicationLoopbackTargetKind::ApplicationName;
     } else if (key == L"--device-name-format") {
       if (value != L"escaped" && value != L"native") {
         return false;
@@ -334,11 +350,15 @@ std::wstring BuildProbeCliUsageText() {
          L"    capture device ids should match the selected capture backend/source\n"
          L"  --render-device-id=<id>\n"
          L"    render device ids should match the selected render backend; ignored when --monitor=off\n"
-         L"  --source=mic|loopback|app-loopback\n"
+         L"  --source=mic|loopback|app-process-loopback|app-loopback\n"
          L"    loopback capture device ids come from: devices --source=loopback\n"
          L"    app-loopback captures audio rendered by a target process tree\n"
-         L"  --app-loopback-process=<name-or-pid>\n"
-         L"    required with --source=app-loopback; example: spotify.exe or 1234\n"
+         L"  --app-loopback-process-id=<pid>\n"
+         L"    required with --source=app-process-loopback; example: 1234\n"
+         L"  --app-loopback-application=<exe>\n"
+         L"    required with --source=app-loopback; example: spotify.exe\n"
+         L"  --app-loopback-process=<exe>\n"
+         L"    legacy alias for --app-loopback-application\n"
          L"  --device-name-format=escaped|native\n"
          L"  --delay-ms=<n>\n"
          L"\nFormat options:\n"

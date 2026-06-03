@@ -53,11 +53,14 @@ std::wstring BuildFollowDefaultsDiagnosticsText(bool follow_defaults,
 std::wstring BuildFollowDefaultsDiagnosticsText(bool follow_defaults,
                                                 AudioSourceMode source_mode);
 std::wstring BuildApplicationLoopbackTargetSummaryText(
-    const std::wstring& target_process);
+    ApplicationLoopbackTargetKind target_kind,
+    const std::wstring& target_value);
 std::wstring BuildApplicationLoopbackNoteText(
-    const std::wstring& target_process);
+    ApplicationLoopbackTargetKind target_kind,
+    const std::wstring& target_value);
 std::wstring BuildApplicationLoopbackDiagnosticsText(
-    const std::wstring& target_process);
+    ApplicationLoopbackTargetKind target_kind,
+    const std::wstring& target_value);
 std::wstring BuildMonitorDisabledNoteText(bool configured_monitor_enabled,
                                           bool active_render_monitor_enabled,
                                           const std::wstring& session_state);

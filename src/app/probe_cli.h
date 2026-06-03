@@ -19,7 +19,7 @@ struct ProbeCliOptions {
   std::wstring matrix_profile = L"both";
   std::wstring matrix_delay = L"both";
   std::wstring matrix_buffer = L"both";
-  std::wstring application_loopback_process;
+  std::wstring application_loopback_target_value;
 };
 
 bool ParseProbeCliOptions(const std::vector<std::wstring>& args,

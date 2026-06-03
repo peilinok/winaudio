@@ -21,7 +21,9 @@ class AppModel final : public ISessionEventSink {
   void SetCaptureBackend(AudioBackendType backend);
   void SetRenderBackend(AudioBackendType backend);
   void SetCaptureSourceMode(AudioSourceMode source_mode);
-  void SetApplicationLoopbackProcess(const std::wstring& process_name_or_pid);
+  void SetApplicationLoopbackTarget(
+      ApplicationLoopbackTargetKind target_kind,
+      const std::wstring& target_value);
   void SetCaptureDeviceId(const std::wstring& device_id);
   void SetRenderDeviceId(const std::wstring& device_id);
   void SetFixedDelayMs(uint32_t delay_ms);

@@ -82,15 +82,38 @@ bool TestSummaryExplainsFollowDefaultsLoopbackBinding() {
                   L"Device selection follows current system defaults; manual device picks are inactive and loopback capture follows the current default render endpoint");
 }
 
+bool TestSystemLoopbackForcesMonitorOffInConfiguration() {
+  AppModel model = MakeStubBackedModel();
+  model.SetMonitorEnabled(true);
+  model.SetCaptureSourceMode(AudioSourceMode::SystemLoopback);
+
+  const auto config = model.configuration();
+  const auto summary = model.summary_text();
+  return config.render.monitor_enabled == false &&
+         Contains(summary, L"Monitor: Off");
+}
+
+bool TestSystemLoopbackIgnoresSubsequentMonitorEnable() {
+  AppModel model = MakeStubBackedModel();
+  model.SetCaptureSourceMode(AudioSourceMode::SystemLoopback);
+  model.SetMonitorEnabled(true);
+
+  const auto config = model.configuration();
+  const auto summary = model.summary_text();
+  return config.render.monitor_enabled == false &&
+         Contains(summary, L"Monitor: Off");
+}
+
 bool TestSummaryShowsApplicationLoopbackTargetAndNote() {
   AppModel model = MakeStubBackedModel();
   model.SetCaptureSourceMode(AudioSourceMode::ApplicationLoopback);
-  model.SetApplicationLoopbackProcess(L"spotify.exe");
+  model.SetApplicationLoopbackTarget(
+      ApplicationLoopbackTargetKind::ApplicationName, L"spotify.exe");
 
   const auto summary = model.summary_text();
   return Contains(summary,
-                  L"Capture: WASAPI / Application Loopback / 48000 Hz / 2 ch / Float32") &&
-         Contains(summary, L"App loopback target: spotify.exe") &&
+                  L"Capture: WASAPI / Loopback Application / 48000 Hz / 2 ch / Float32") &&
+         Contains(summary, L"App loopback application: spotify.exe") &&
          Contains(summary,
                   L"Application loopback captures audio rendered by a target process tree instead of a device endpoint.") &&
          Contains(summary,
@@ -99,12 +122,13 @@ bool TestSummaryShowsApplicationLoopbackTargetAndNote() {
 
 bool TestDiagnosticsExplainApplicationLoopbackTarget() {
   AppModel model = MakeStubBackedModel();
-  model.SetCaptureSourceMode(AudioSourceMode::ApplicationLoopback);
-  model.SetApplicationLoopbackProcess(L"1234");
+  model.SetCaptureSourceMode(AudioSourceMode::ApplicationProcessLoopback);
+  model.SetApplicationLoopbackTarget(
+      ApplicationLoopbackTargetKind::ProcessId, L"1234");
 
   const auto diagnostics = model.diagnostics_text();
   return Contains(diagnostics,
-                  L"Application loopback target process: 1234");
+                  L"Application loopback target process id: 1234");
 }
 
 bool TestCapabilityTextExplainsApplicationLoopbackLimitation() {
@@ -121,9 +145,9 @@ bool TestSummaryShowsApplicationLoopbackTargetMissingNote() {
   model.SetCaptureSourceMode(AudioSourceMode::ApplicationLoopback);
 
   const auto summary = model.summary_text();
-  return Contains(summary, L"App loopback target: not set") &&
+  return Contains(summary, L"App loopback application: not set") &&
          Contains(summary,
-                  L"Application loopback needs a target process name or PID.");
+                  L"Application loopback needs a target application name.");
 }
 
 bool TestSummaryShowsEffectiveRenderRequestWhenAutoAlignEnabled() {
@@ -1628,8 +1652,9 @@ bool TestQuickProbeExplainsApplicationLoopbackTargetFailure() {
   if (!model.Initialize()) {
     return false;
   }
-  model.SetCaptureSourceMode(AudioSourceMode::ApplicationLoopback);
-  model.SetApplicationLoopbackProcess(L"1234");
+  model.SetCaptureSourceMode(AudioSourceMode::ApplicationProcessLoopback);
+  model.SetApplicationLoopbackTarget(
+      ApplicationLoopbackTargetKind::ProcessId, L"1234");
 
   const bool ok = model.RunQuickProbe();
   const auto probe = model.probe_text();
@@ -2003,6 +2028,10 @@ int main() {
       {"SummaryTextReflectsConfiguration", &TestSummaryTextReflectsConfiguration},
       {"SummaryExplainsFollowDefaultsLoopbackBinding",
        &TestSummaryExplainsFollowDefaultsLoopbackBinding},
+      {"SystemLoopbackForcesMonitorOffInConfiguration",
+       &TestSystemLoopbackForcesMonitorOffInConfiguration},
+      {"SystemLoopbackIgnoresSubsequentMonitorEnable",
+       &TestSystemLoopbackIgnoresSubsequentMonitorEnable},
       {"SummaryShowsApplicationLoopbackTargetAndNote",
        &TestSummaryShowsApplicationLoopbackTargetAndNote},
       {"DiagnosticsExplainApplicationLoopbackTarget",

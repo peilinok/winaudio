@@ -20,10 +20,19 @@ bool ContainsDeviceId(const std::vector<AudioDeviceDescriptor>& devices,
 
 std::wstring HumanizeAppLoopbackFailure(const std::wstring& detail) {
   if (detail == L"app-loopback-target-required") {
-    return L"Application loopback requires a target process name or PID.";
+    return L"Application loopback requires a target process id or application name.";
+  }
+  if (detail == L"app-loopback-process-id-required") {
+    return L"Application process loopback requires a target process id.";
+  }
+  if (detail == L"app-loopback-application-required") {
+    return L"Application loopback requires a target application name.";
   }
   if (detail == L"app-loopback-invalid-target") {
-    return L"Application loopback target process was not found. Provide a running process name or PID.";
+    return L"Application loopback target process was not found.";
+  }
+  if (detail == L"app-loopback-no-active-audio-session") {
+    return L"Application loopback target application was found, but no active audio-playing process was available.";
   }
   if (detail == L"app-loopback-unsupported-os") {
     return L"Application loopback is not supported on this machine. Windows process loopback capture requires client build 20348 or newer.";
@@ -74,10 +83,18 @@ bool AudioSessionController::Start(const SessionConfiguration& config,
   Stop();
   diagnostics_ = {};
   config_ = config;
+  if (config_.capture.source_mode == AudioSourceMode::SystemLoopback &&
+      config_.render.monitor_enabled) {
+    config_.render.monitor_enabled = false;
+    Log(L"System loopback disables monitor playback to avoid loopback storm.");
+  }
   sink_ = sink;
+  const auto& effective_config = config_;
 
-  capture_adapter_ = backend_factory_->CreateCaptureAdapter(config.capture.backend);
-  render_adapter_ = backend_factory_->CreateRenderAdapter(config.render.backend);
+  capture_adapter_ =
+      backend_factory_->CreateCaptureAdapter(effective_config.capture.backend);
+  render_adapter_ =
+      backend_factory_->CreateRenderAdapter(effective_config.render.backend);
   resampler_ = CreateAudioResampler();
   dump_writer_ = std::make_unique<WavDumpWriter>();
 
@@ -87,15 +104,17 @@ bool AudioSessionController::Start(const SessionConfiguration& config,
     return false;
   }
 
-  if (!capture_adapter_->SupportsSource(config.capture.source_mode)) {
+  if (!capture_adapter_->SupportsSource(effective_config.capture.source_mode)) {
     std::wstring detail;
-    if (config.capture.source_mode == AudioSourceMode::SystemLoopback) {
+    if (effective_config.capture.source_mode == AudioSourceMode::SystemLoopback) {
       detail =
           L"Selected backend does not support the chosen capture source. Use --capture-backend=wasapi for loopback, or switch --source=mic.";
-    } else if (config.capture.source_mode ==
-               AudioSourceMode::ApplicationLoopback) {
+    } else if (effective_config.capture.source_mode ==
+                   AudioSourceMode::ApplicationProcessLoopback ||
+               effective_config.capture.source_mode ==
+                   AudioSourceMode::ApplicationLoopback) {
       detail =
-          L"Selected backend does not support application loopback. Use --capture-backend=wasapi and provide --app-loopback-process on a supported Windows build.";
+          L"Selected backend does not support application loopback. Use --capture-backend=wasapi and provide an application loopback target on a supported Windows build.";
     } else {
       detail = L"Selected backend does not support the chosen capture source.";
     }
@@ -106,36 +125,48 @@ bool AudioSessionController::Start(const SessionConfiguration& config,
     return false;
   }
 
-  if (config.capture.source_mode == AudioSourceMode::ApplicationLoopback &&
-      config.capture.application_loopback_process.empty()) {
-    const auto detail =
-        std::wstring(
-            L"Application loopback requires a target process name or PID. Provide --app-loopback-process before starting capture.");
+  if ((effective_config.capture.source_mode ==
+           AudioSourceMode::ApplicationProcessLoopback ||
+       effective_config.capture.source_mode ==
+           AudioSourceMode::ApplicationLoopback) &&
+      effective_config.capture.application_loopback_target_value.empty()) {
+    const auto detail = effective_config.capture.source_mode ==
+                                AudioSourceMode::ApplicationProcessLoopback
+                            ? std::wstring(
+                                  L"Application process loopback requires a target process id before starting capture.")
+                            : std::wstring(
+                                  L"Application loopback requires a target application name before starting capture.");
     diagnostics_.issues.push_back({L"Application loopback target missing", detail});
     SetLastError(L"source-mode", detail);
     Log(L"Application loopback target process is missing.");
     return false;
   }
 
-  if (!config.capture.device_id.empty()) {
+  if (!effective_config.capture.device_id.empty()) {
     const auto capture_devices =
-        capture_adapter_->EnumerateDevices(config.capture.source_mode);
-    if (!ContainsDeviceId(capture_devices, config.capture.device_id)) {
+        capture_adapter_->EnumerateDevices(effective_config.capture.source_mode);
+    if (!ContainsDeviceId(capture_devices, effective_config.capture.device_id)) {
       std::wstring detail;
-      if (config.capture.source_mode == AudioSourceMode::SystemLoopback) {
+      if (effective_config.capture.source_mode == AudioSourceMode::SystemLoopback) {
         detail =
             L"Selected loopback capture device is not available for this source. Use devices --source=loopback to choose a render-backed loopback endpoint.";
-      } else if (config.capture.source_mode ==
-                 AudioSourceMode::ApplicationLoopback) {
+      } else if (effective_config.capture.source_mode ==
+                     AudioSourceMode::ApplicationProcessLoopback ||
+                 effective_config.capture.source_mode ==
+                     AudioSourceMode::ApplicationLoopback) {
         detail =
-            L"Selected application loopback source is not available for this configuration. Use the built-in app-loopback source entry and provide --app-loopback-process.";
+            L"Selected application loopback source is not available for this configuration. Use the built-in app-loopback source entry and provide an application loopback target.";
       } else {
         detail =
             L"Selected capture device is not available for this backend/source mode. Choose a device from devices for the same capture backend/source, or omit --capture-device-id.";
       }
       diagnostics_.issues.push_back({L"Capture device unavailable", detail});
-      SetLastError((config.capture.source_mode == AudioSourceMode::SystemLoopback ||
-                    config.capture.source_mode == AudioSourceMode::ApplicationLoopback)
+      SetLastError((effective_config.capture.source_mode ==
+                        AudioSourceMode::SystemLoopback ||
+                    effective_config.capture.source_mode ==
+                        AudioSourceMode::ApplicationProcessLoopback ||
+                    effective_config.capture.source_mode ==
+                        AudioSourceMode::ApplicationLoopback)
                        ? L"source-mode"
                        : L"capture-device",
                    detail);
@@ -144,9 +175,10 @@ bool AudioSessionController::Start(const SessionConfiguration& config,
     }
   }
 
-  if (config.render.monitor_enabled && !config.render.device_id.empty()) {
+  if (effective_config.render.monitor_enabled &&
+      !effective_config.render.device_id.empty()) {
     const auto render_devices = render_adapter_->EnumerateDevices();
-    if (!ContainsDeviceId(render_devices, config.render.device_id)) {
+    if (!ContainsDeviceId(render_devices, effective_config.render.device_id)) {
       const auto detail =
           std::wstring(
               L"Selected render device is not available for this backend. Choose a device from devices for the same render backend, or omit --render-device-id.");
@@ -157,14 +189,15 @@ bool AudioSessionController::Start(const SessionConfiguration& config,
     }
   }
 
-  RenderConfig effective_render_config = config.render;
-  if (config.auto_align_render_format) {
-    effective_render_config.format = config.capture.format;
+  RenderConfig effective_render_config = effective_config.render;
+  if (effective_config.auto_align_render_format) {
+    effective_render_config.format = effective_config.capture.format;
   }
 
-  const auto capture_format = capture_adapter_->GetPreferredFormat(config.capture);
+  const auto capture_format =
+      capture_adapter_->GetPreferredFormat(effective_config.capture);
   const auto render_format =
-      config.render.monitor_enabled
+      effective_config.render.monitor_enabled
           ? render_adapter_->GetPreferredFormat(effective_render_config)
           : std::optional<AudioFormatSpec> {effective_render_config.format};
   if (!capture_format.has_value() || !render_format.has_value()) {
@@ -185,7 +218,7 @@ bool AudioSessionController::Start(const SessionConfiguration& config,
         }
       }
     }
-    if (config.render.monitor_enabled && !render_format.has_value()) {
+    if (effective_config.render.monitor_enabled && !render_format.has_value()) {
       const auto render_detail = render_adapter_->last_error();
       if (!render_detail.empty()) {
         detail += L" render=" + render_detail;
@@ -209,15 +242,20 @@ bool AudioSessionController::Start(const SessionConfiguration& config,
 
   const auto queue_frames = std::max<uint32_t>(
       runtime_capture_format_.sample_rate,
-      runtime_capture_format_.sample_rate * config.render.fixed_delay_ms / 1000 +
+      runtime_capture_format_.sample_rate *
+              effective_config.render.fixed_delay_ms / 1000 +
           runtime_capture_format_.sample_rate / 10);
   ring_buffer_ =
       std::make_unique<AudioRingBuffer>(runtime_capture_format_, queue_frames);
 
-  if (!capture_adapter_->Start(config.capture, runtime_capture_format_, sink_)) {
+  if (!capture_adapter_->Start(effective_config.capture, runtime_capture_format_,
+                               sink_)) {
     const auto capture_error = capture_adapter_->last_error();
     const auto error_stage =
-        config.capture.source_mode == AudioSourceMode::ApplicationLoopback
+        (effective_config.capture.source_mode ==
+             AudioSourceMode::ApplicationProcessLoopback ||
+         effective_config.capture.source_mode ==
+             AudioSourceMode::ApplicationLoopback)
             ? std::wstring(L"app-loopback-start")
             : std::wstring(L"capture-start");
     SetLastError(error_stage,
@@ -226,7 +264,7 @@ bool AudioSessionController::Start(const SessionConfiguration& config,
     return false;
   }
 
-  if (config.render.monitor_enabled) {
+  if (effective_config.render.monitor_enabled) {
     if (!render_adapter_->Start(effective_render_config, runtime_render_format_, sink_)) {
       capture_adapter_->Stop();
       SetLastError(L"render-start",
@@ -236,12 +274,13 @@ bool AudioSessionController::Start(const SessionConfiguration& config,
     }
   }
 
-  if (config.capture.dump_enabled) {
-    std::filesystem::path dump_path = config.capture.dump_path.empty()
+  if (effective_config.capture.dump_enabled) {
+    std::filesystem::path dump_path = effective_config.capture.dump_path.empty()
                                           ? BuildDefaultDumpPath()
-                                          : std::filesystem::path(config.capture.dump_path);
+                                          : std::filesystem::path(
+                                                effective_config.capture.dump_path);
     if (!dump_writer_->Open(dump_path, runtime_capture_format_,
-                            config.capture.dump_file_type)) {
+                            effective_config.capture.dump_file_type)) {
       SetLastError(L"dump-open", L"Failed to open dump file.");
       Log(L"Failed to open dump file: " + dump_path.wstring());
       diagnostics_.issues.push_back({L"Dump open failed", dump_path.wstring()});
@@ -252,40 +291,42 @@ bool AudioSessionController::Start(const SessionConfiguration& config,
   }
 
   diagnostics_.stats.requested_capture_format =
-      DescribeAudioFormat(config.capture.format);
+      DescribeAudioFormat(effective_config.capture.format);
   diagnostics_.stats.requested_render_format =
       DescribeAudioFormat(effective_render_config.format);
-  diagnostics_.stats.active_render_monitor_enabled = config.render.monitor_enabled;
+  diagnostics_.stats.active_render_monitor_enabled =
+      effective_config.render.monitor_enabled;
   diagnostics_.stats.active_requested_timing_present = true;
   diagnostics_.stats.active_requested_wasapi_mode_present = true;
   diagnostics_.stats.requested_capture_device_id =
-      config.capture.device_id.empty() ? std::wstring(L"default")
-                                       : config.capture.device_id;
+      effective_config.capture.device_id.empty() ? std::wstring(L"default")
+                                                 : effective_config.capture.device_id;
   diagnostics_.stats.requested_render_device_id =
-      config.render.device_id.empty() ? std::wstring(L"default")
-                                      : config.render.device_id;
-  diagnostics_.stats.requested_monitor_delay_ms = config.render.fixed_delay_ms;
+      effective_config.render.device_id.empty() ? std::wstring(L"default")
+                                                : effective_config.render.device_id;
+  diagnostics_.stats.requested_monitor_delay_ms =
+      effective_config.render.fixed_delay_ms;
   diagnostics_.stats.requested_capture_buffer_duration_ms =
-      config.capture.buffer_duration_ms;
+      effective_config.capture.buffer_duration_ms;
   diagnostics_.stats.requested_render_buffer_duration_ms =
-      config.render.buffer_duration_ms;
+      effective_config.render.buffer_duration_ms;
   diagnostics_.stats.requested_capture_wasapi_mode =
-      ToWideString(config.capture.wasapi_share_mode) + L" / " +
-      ToWideString(config.capture.wasapi_drive_mode);
+      ToWideString(effective_config.capture.wasapi_share_mode) + L" / " +
+      ToWideString(effective_config.capture.wasapi_drive_mode);
   diagnostics_.stats.requested_render_wasapi_mode =
-      ToWideString(config.render.wasapi_share_mode) + L" / " +
-      ToWideString(config.render.wasapi_drive_mode);
+      ToWideString(effective_config.render.wasapi_share_mode) + L" / " +
+      ToWideString(effective_config.render.wasapi_drive_mode);
   diagnostics_.stats.negotiated_capture_format =
       DescribeAudioFormat(runtime_capture_format_);
   diagnostics_.stats.negotiated_render_format =
       DescribeAudioFormat(runtime_render_format_);
   diagnostics_.stats.actual_capture_backend_mode =
       capture_adapter_->runtime_mode().empty()
-          ? ToWideString(config.capture.backend)
+          ? ToWideString(effective_config.capture.backend)
           : capture_adapter_->runtime_mode();
   diagnostics_.stats.actual_render_backend_mode =
       render_adapter_->runtime_mode().empty()
-          ? ToWideString(config.render.backend)
+          ? ToWideString(effective_config.render.backend)
           : render_adapter_->runtime_mode();
   diagnostics_.stats.actual_resampler_mode = resampler_->mode_name();
   diagnostics_.stats.capture_runtime_details = capture_adapter_->runtime_details();
@@ -298,11 +339,12 @@ bool AudioSessionController::Start(const SessionConfiguration& config,
     sink_->OnSessionStateChanged(L"Running");
   }
   Log(L"Session started.");
-  if (config.auto_align_render_format &&
-      DescribeAudioFormat(config.render.format) !=
+  if (effective_config.auto_align_render_format &&
+      DescribeAudioFormat(effective_config.render.format) !=
           diagnostics_.stats.requested_render_format) {
     Log(L"Render auto-align applied. Configured render format " +
-        DescribeAudioFormat(config.render.format) + L", effective request " +
+        DescribeAudioFormat(effective_config.render.format) +
+        L", effective request " +
         diagnostics_.stats.requested_render_format);
   }
   if (diagnostics_.stats.requested_capture_format !=

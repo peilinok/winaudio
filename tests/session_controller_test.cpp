@@ -343,7 +343,7 @@ bool TestApplicationLoopbackRequiresTargetProcess() {
   return !started &&
          stats.last_error_stage == L"source-mode" &&
          stats.last_error_message.find(
-             L"Application loopback requires a target process name or PID.") !=
+             L"Application loopback requires a target application name") !=
              std::wstring::npos;
 }
 
@@ -356,7 +356,9 @@ bool TestApplicationLoopbackCanStartWithStubWhenTargetProvided() {
   SessionConfiguration config;
   config.capture.backend = AudioBackendType::Wasapi;
   config.capture.source_mode = AudioSourceMode::ApplicationLoopback;
-  config.capture.application_loopback_process = L"spotify.exe";
+  config.capture.application_loopback_target_kind =
+      ApplicationLoopbackTargetKind::ApplicationName;
+  config.capture.application_loopback_target_value = L"spotify.exe";
   config.render.backend = AudioBackendType::Wasapi;
 
   const bool started = controller.Start(config, nullptr);
@@ -367,6 +369,27 @@ bool TestApplicationLoopbackCanStartWithStubWhenTargetProvided() {
   const auto& stats = controller.diagnostics().stats;
   controller.Stop();
   return stats.requested_capture_format == L"48000 Hz / 2 ch / Float32";
+}
+
+bool TestSystemLoopbackDisablesMonitorPlayback() {
+  AudioSessionController controller(std::make_unique<StubAudioBackendFactory>());
+  if (!controller.Initialize()) {
+    return false;
+  }
+
+  SessionConfiguration config;
+  config.capture.backend = AudioBackendType::Wasapi;
+  config.capture.source_mode = AudioSourceMode::SystemLoopback;
+  config.render.backend = AudioBackendType::Wasapi;
+  config.render.monitor_enabled = true;
+
+  const bool started = controller.Start(config, nullptr);
+  if (!started) {
+    return false;
+  }
+  const auto& stats = controller.diagnostics().stats;
+  controller.Stop();
+  return stats.active_render_monitor_enabled == false;
 }
 
 }  // namespace
@@ -397,6 +420,8 @@ int main() {
        &TestUnsupportedWaveLoopbackShowsSourceModeReason},
       {"LoopbackCaptureDeviceMustComeFromLoopbackEnumeration",
        &TestLoopbackCaptureDeviceMustComeFromLoopbackEnumeration},
+      {"SystemLoopbackDisablesMonitorPlayback",
+       &TestSystemLoopbackDisablesMonitorPlayback},
       {"ApplicationLoopbackRequiresTargetProcess",
        &TestApplicationLoopbackRequiresTargetProcess},
       {"ApplicationLoopbackCanStartWithStubWhenTargetProvided",

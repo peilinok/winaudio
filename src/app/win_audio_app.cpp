@@ -1112,7 +1112,10 @@ void ApplyControlAvailability(WindowContext* context) {
   const bool busy = context->probe_running;
   const bool monitor_enabled = config.render.monitor_enabled;
   const bool application_loopback =
+      config.capture.source_mode == AudioSourceMode::ApplicationProcessLoopback ||
       config.capture.source_mode == AudioSourceMode::ApplicationLoopback;
+  const bool system_loopback =
+      config.capture.source_mode == AudioSourceMode::SystemLoopback;
   const BOOL general_enabled = busy ? FALSE : TRUE;
   const BOOL capture_device_combo_enabled =
       (!busy && !config.follow_default_devices && !application_loopback) ? TRUE
@@ -1153,7 +1156,6 @@ void ApplyControlAvailability(WindowContext* context) {
       context->dump_path_edit,
       context->dump_type_combo,
       context->capture_buffer_edit,
-      context->monitor_checkbox,
       context->follow_defaults_checkbox,
   };
   for (HWND control : general_controls) {
@@ -1167,6 +1169,10 @@ void ApplyControlAvailability(WindowContext* context) {
   if (context->app_loopback_process_edit != nullptr) {
     EnableWindow(context->app_loopback_process_edit,
                  application_loopback_target_enabled);
+  }
+  if (context->monitor_checkbox != nullptr) {
+    EnableWindow(context->monitor_checkbox,
+                 (!busy && !system_loopback) ? TRUE : FALSE);
   }
   if (context->render_device_combo != nullptr) {
     EnableWindow(context->render_device_combo, render_device_combo_enabled);
@@ -1332,8 +1338,8 @@ void PopulateSourceModeCombo(HWND combo) {
   SendMessageW(combo, CB_RESETCONTENT, 0, 0);
   SendMessageW(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"Microphone"));
   SendMessageW(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"System Loopback"));
-  SendMessageW(combo, CB_ADDSTRING, 0,
-               reinterpret_cast<LPARAM>(L"Application Loopback"));
+  SendMessageW(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"Loopback Process"));
+  SendMessageW(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"Loopback Application"));
 }
 
 void PopulateSimpleCombo(HWND combo, const std::vector<std::wstring>& items) {
@@ -1514,6 +1520,7 @@ void SyncUiFromModel(WindowContext* context) {
   const auto config = context->model.configuration();
   const auto devices = context->model.devices();
   const bool application_loopback =
+      config.capture.source_mode == AudioSourceMode::ApplicationProcessLoopback ||
       config.capture.source_mode == AudioSourceMode::ApplicationLoopback;
 
   SendMessageW(context->capture_backend_combo, CB_SETCURSEL,
@@ -1525,7 +1532,10 @@ void SyncUiFromModel(WindowContext* context) {
                    ? 0
                    : (config.capture.source_mode == AudioSourceMode::SystemLoopback
                           ? 1
-                          : 2),
+                          : (config.capture.source_mode ==
+                                     AudioSourceMode::ApplicationProcessLoopback
+                                 ? 2
+                                 : 3)),
                0);
   ClearDeviceComboHeapStrings(context->capture_device_combo);
   ClearDeviceComboHeapStrings(context->render_device_combo);
@@ -1570,7 +1580,7 @@ void SyncUiFromModel(WindowContext* context) {
                0);
   SetControlText(context->dump_path_edit, config.capture.dump_path.c_str());
   SetControlText(context->app_loopback_process_edit,
-                 config.capture.application_loopback_process.c_str());
+                 config.capture.application_loopback_target_value.c_str());
   SendMessageW(context->dump_type_combo, CB_SETCURSEL,
                config.capture.dump_file_type == DumpFileType::Wav ? 0 : 1, 0);
   SetControlText(context->capture_buffer_edit,
@@ -1623,10 +1633,14 @@ void DrawConfigLabels(HDC hdc, const RECT& rect, AudioSourceMode source_mode) {
            layout.row1_label_y, L"Delay (ms)", 10);
 
   const bool application_loopback =
+      source_mode == AudioSourceMode::ApplicationProcessLoopback ||
       source_mode == AudioSourceMode::ApplicationLoopback;
-  const auto capture_device_label = application_loopback
-                                        ? std::wstring {L"Target Process / PID"}
-                                        : BuildCaptureDeviceLabelText(source_mode);
+  const auto capture_device_label =
+      source_mode == AudioSourceMode::ApplicationProcessLoopback
+          ? std::wstring {L"Target Process ID"}
+          : (source_mode == AudioSourceMode::ApplicationLoopback
+                 ? std::wstring {L"Target Application (.exe)"}
+                 : BuildCaptureDeviceLabelText(source_mode));
   TextOutW(hdc, layout.route_left, layout.row2_label_y, capture_device_label.c_str(),
            static_cast<int>(capture_device_label.size()));
   TextOutW(hdc, layout.route_right, layout.row2_label_y, L"Render Device", 13);
@@ -2210,7 +2224,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
                 index == 0
                     ? AudioSourceMode::MicrophoneCapture
                     : (index == 1 ? AudioSourceMode::SystemLoopback
-                                  : AudioSourceMode::ApplicationLoopback));
+                                  : (index == 2
+                                         ? AudioSourceMode::ApplicationProcessLoopback
+                                         : AudioSourceMode::ApplicationLoopback)));
             SyncUiFromModel(context);
             LayoutChildControls(hwnd, context);
             RefreshWindowFromModel(hwnd, context);
@@ -2218,7 +2234,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
           return 0;
         case kEditAppLoopbackProcess:
           if (HIWORD(w_param) == EN_CHANGE) {
-            context->model.SetApplicationLoopbackProcess(
+            const auto source_mode = context->model.configuration().capture.source_mode;
+            context->model.SetApplicationLoopbackTarget(
+                source_mode == AudioSourceMode::ApplicationProcessLoopback
+                    ? ApplicationLoopbackTargetKind::ProcessId
+                    : ApplicationLoopbackTargetKind::ApplicationName,
                 GetWindowTextString(context->app_loopback_process_edit));
             SyncWindowState(hwnd, context);
           }

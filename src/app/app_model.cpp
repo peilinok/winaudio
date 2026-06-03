@@ -137,16 +137,28 @@ void AppModel::SetCaptureSourceMode(AudioSourceMode source_mode) {
   {
     std::scoped_lock lock(mutex_);
     configuration_.capture.source_mode = source_mode;
+    if (source_mode == AudioSourceMode::SystemLoopback) {
+      configuration_.render.monitor_enabled = false;
+    }
+    if (source_mode == AudioSourceMode::ApplicationProcessLoopback) {
+      configuration_.capture.application_loopback_target_kind =
+          ApplicationLoopbackTargetKind::ProcessId;
+    } else if (source_mode == AudioSourceMode::ApplicationLoopback) {
+      configuration_.capture.application_loopback_target_kind =
+          ApplicationLoopbackTargetKind::ApplicationName;
+    }
   }
   RefreshDevices();
   RefreshCapabilitySnapshot();
 }
 
-void AppModel::SetApplicationLoopbackProcess(
-    const std::wstring& process_name_or_pid) {
+void AppModel::SetApplicationLoopbackTarget(
+    ApplicationLoopbackTargetKind target_kind,
+    const std::wstring& target_value) {
   {
     std::scoped_lock lock(mutex_);
-    configuration_.capture.application_loopback_process = process_name_or_pid;
+    configuration_.capture.application_loopback_target_kind = target_kind;
+    configuration_.capture.application_loopback_target_value = target_value;
   }
   RefreshCapabilitySnapshot();
 }
@@ -250,7 +262,10 @@ void AppModel::SetRenderBufferDurationMs(uint32_t duration_ms) {
 void AppModel::SetMonitorEnabled(bool enabled) {
   {
     std::scoped_lock lock(mutex_);
-    configuration_.render.monitor_enabled = enabled;
+    configuration_.render.monitor_enabled =
+        configuration_.capture.source_mode == AudioSourceMode::SystemLoopback
+            ? false
+            : enabled;
   }
   RefreshCapabilitySnapshot();
 }
@@ -1050,9 +1065,12 @@ std::wstring AppModel::summary_text() const {
     text += L"\r\n" + BuildEffectiveRenderRequestSummaryText(
                           DescribeAudioFormat(effective_configured_render_request));
   }
-  if (configuration_.capture.source_mode == AudioSourceMode::ApplicationLoopback) {
+  if (configuration_.capture.source_mode ==
+          AudioSourceMode::ApplicationProcessLoopback ||
+      configuration_.capture.source_mode == AudioSourceMode::ApplicationLoopback) {
     text += L"\r\n" + BuildApplicationLoopbackTargetSummaryText(
-                          configuration_.capture.application_loopback_process);
+                          configuration_.capture.application_loopback_target_kind,
+                          configuration_.capture.application_loopback_target_value);
   }
   if (!configuration_.capture.dump_path.empty()) {
     text += L"\r\nDump path: " + configuration_.capture.dump_path;
@@ -1105,12 +1123,16 @@ std::wstring AppModel::summary_text() const {
   if (!loopback_backend_note.empty()) {
     text += L"\r\n" + loopback_backend_note;
   }
-  if (source_mode == AudioSourceMode::ApplicationLoopback) {
-    const auto target_process = configuration_.capture.application_loopback_process;
-    if (target_process.empty()) {
-      text += L"\r\n" + BuildApplicationLoopbackNoteText(target_process);
+  if (source_mode == AudioSourceMode::ApplicationProcessLoopback ||
+      source_mode == AudioSourceMode::ApplicationLoopback) {
+    const auto target_kind =
+        configuration_.capture.application_loopback_target_kind;
+    const auto target_value =
+        configuration_.capture.application_loopback_target_value;
+    if (target_value.empty()) {
+      text += L"\r\n" + BuildApplicationLoopbackNoteText(target_kind, target_value);
     } else if (WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows()) {
-      text += L"\r\n" + BuildApplicationLoopbackNoteText(target_process);
+      text += L"\r\n" + BuildApplicationLoopbackNoteText(target_kind, target_value);
     }
     if (!WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows()) {
       text +=
@@ -1197,9 +1219,11 @@ std::wstring AppModel::diagnostics_text() const {
   if (!follow_defaults_diagnostics.empty()) {
     text += L"\r\n" + follow_defaults_diagnostics;
   }
-  if (source_mode == AudioSourceMode::ApplicationLoopback) {
+  if (source_mode == AudioSourceMode::ApplicationProcessLoopback ||
+      source_mode == AudioSourceMode::ApplicationLoopback) {
     text += L"\r\n" + BuildApplicationLoopbackDiagnosticsText(
-                        configuration_.capture.application_loopback_process);
+                        configuration_.capture.application_loopback_target_kind,
+                        configuration_.capture.application_loopback_target_value);
   }
   const auto monitor_disabled_diagnostics =
       BuildMonitorDisabledDiagnosticsText(
@@ -1855,13 +1879,16 @@ void AppModel::RefreshCapabilitySnapshot() {
   }
 
   text += L"\r\n\r\nCurrent Limitations";
-  if (configuration_.capture.source_mode == AudioSourceMode::ApplicationLoopback) {
+  if (configuration_.capture.source_mode ==
+          AudioSourceMode::ApplicationProcessLoopback ||
+      configuration_.capture.source_mode == AudioSourceMode::ApplicationLoopback) {
     text += WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows()
                 ? L"\r\n- Application loopback requires a target process selection and process eligibility on this Windows build"
                 : L"\r\n- Application loopback is unavailable on this machine because Windows process loopback requires client build 20348 or newer";
   } else if (configuration_.capture.source_mode == AudioSourceMode::SystemLoopback &&
       configuration_.capture.backend == AudioBackendType::Wasapi) {
     text += L"\r\n- WASAPI loopback is shared-mode only";
+    text += L"\r\n- System loopback disables monitor playback to avoid loopback storm";
   } else if (configuration_.capture.source_mode == AudioSourceMode::SystemLoopback &&
              configuration_.capture.backend == AudioBackendType::WaveApi) {
     text +=

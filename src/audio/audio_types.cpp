@@ -38,8 +38,20 @@ std::wstring ToWideString(AudioSourceMode value) {
       return L"Microphone";
     case AudioSourceMode::SystemLoopback:
       return L"System Loopback";
+    case AudioSourceMode::ApplicationProcessLoopback:
+      return L"Loopback Process";
     case AudioSourceMode::ApplicationLoopback:
-      return L"Application Loopback";
+      return L"Loopback Application";
+  }
+  return L"Unknown";
+}
+
+std::wstring ToWideString(ApplicationLoopbackTargetKind value) {
+  switch (value) {
+    case ApplicationLoopbackTargetKind::ProcessId:
+      return L"Process ID";
+    case ApplicationLoopbackTargetKind::ApplicationName:
+      return L"Application";
   }
   return L"Unknown";
 }

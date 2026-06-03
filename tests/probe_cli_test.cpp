@@ -67,7 +67,7 @@ bool TestParseApplicationLoopbackOverrides() {
   const std::vector<std::wstring> args = {
       L"quick",
       L"--source=app-loopback",
-      L"--app-loopback-process=spotify.exe",
+      L"--app-loopback-application=spotify.exe",
   };
 
   ProbeCliOptions options;
@@ -77,8 +77,30 @@ bool TestParseApplicationLoopbackOverrides() {
 
   return options.config.capture.source_mode ==
              AudioSourceMode::ApplicationLoopback &&
-         options.config.capture.application_loopback_process == L"spotify.exe" &&
-         options.application_loopback_process == L"spotify.exe";
+         options.config.capture.application_loopback_target_kind ==
+             ApplicationLoopbackTargetKind::ApplicationName &&
+         options.config.capture.application_loopback_target_value == L"spotify.exe" &&
+         options.application_loopback_target_value == L"spotify.exe";
+}
+
+bool TestParseApplicationProcessLoopbackOverrides() {
+  const std::vector<std::wstring> args = {
+      L"quick",
+      L"--source=app-process-loopback",
+      L"--app-loopback-process-id=1234",
+  };
+
+  ProbeCliOptions options;
+  if (!ParseProbeCliOptions(args, &options)) {
+    return false;
+  }
+
+  return options.config.capture.source_mode ==
+             AudioSourceMode::ApplicationProcessLoopback &&
+         options.config.capture.application_loopback_target_kind ==
+             ApplicationLoopbackTargetKind::ProcessId &&
+         options.config.capture.application_loopback_target_value == L"1234" &&
+         options.application_loopback_target_value == L"1234";
 }
 
 bool TestParseRejectsUnknownOverride() {
@@ -259,8 +281,10 @@ bool TestUsageTextIncludesDevicesAndDeviceIds() {
          usage.find(L"Modes:\n  quick   Run a single probe") != std::wstring::npos &&
          usage.find(L"  matrix  Run the probe matrix") != std::wstring::npos &&
          usage.find(L"  devices List available devices") != std::wstring::npos &&
-         usage.find(L"--source=mic|loopback|app-loopback") != std::wstring::npos &&
-         usage.find(L"--app-loopback-process=<name-or-pid>") !=
+         usage.find(L"--source=mic|loopback|app-process-loopback|app-loopback") != std::wstring::npos &&
+         usage.find(L"--app-loopback-process-id=<pid>") !=
+             std::wstring::npos &&
+         usage.find(L"--app-loopback-application=<exe>") !=
              std::wstring::npos &&
          usage.find(L"capture device ids should match the selected capture backend/source") !=
              std::wstring::npos &&
@@ -346,6 +370,8 @@ int main() {
       {"ParseQuickOverrides", &TestParseQuickOverrides},
       {"ParseApplicationLoopbackOverrides",
        &TestParseApplicationLoopbackOverrides},
+      {"ParseApplicationProcessLoopbackOverrides",
+       &TestParseApplicationProcessLoopbackOverrides},
       {"ParseRejectsUnknownOverride", &TestParseRejectsUnknownOverride},
       {"ParseHelpMode", &TestParseHelpMode},
       {"ParseDevicesMode", &TestParseDevicesMode},

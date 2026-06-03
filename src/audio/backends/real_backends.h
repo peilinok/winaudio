@@ -7,6 +7,7 @@
 #include <mmeapi.h>
 #include <mmdeviceapi.h>
 #include <audioclient.h>
+#include <audiopolicy.h>
 #include <audioclientactivationparams.h>
 #include <wrl/client.h>
 
