@@ -104,6 +104,18 @@ bool TestSystemLoopbackIgnoresSubsequentMonitorEnable() {
          Contains(summary, L"Monitor: Off");
 }
 
+bool TestLeavingSystemLoopbackRestoresMonitorPreference() {
+  AppModel model = MakeStubBackedModel();
+  model.SetMonitorEnabled(true);
+  model.SetCaptureSourceMode(AudioSourceMode::SystemLoopback);
+  model.SetCaptureSourceMode(AudioSourceMode::MicrophoneCapture);
+
+  const auto config = model.configuration();
+  const auto summary = model.summary_text();
+  return config.render.monitor_enabled == true &&
+         Contains(summary, L"Monitor: On");
+}
+
 bool TestSummaryShowsApplicationLoopbackTargetAndNote() {
   AppModel model = MakeStubBackedModel();
   model.SetCaptureSourceMode(AudioSourceMode::ApplicationLoopback);
@@ -2032,6 +2044,8 @@ int main() {
        &TestSystemLoopbackForcesMonitorOffInConfiguration},
       {"SystemLoopbackIgnoresSubsequentMonitorEnable",
        &TestSystemLoopbackIgnoresSubsequentMonitorEnable},
+      {"LeavingSystemLoopbackRestoresMonitorPreference",
+       &TestLeavingSystemLoopbackRestoresMonitorPreference},
       {"SummaryShowsApplicationLoopbackTargetAndNote",
        &TestSummaryShowsApplicationLoopbackTargetAndNote},
       {"DiagnosticsExplainApplicationLoopbackTarget",

@@ -44,6 +44,7 @@ AppModel::AppModel(std::unique_ptr<IAudioBackendFactory> backend_factory,
   configuration_.capture.format.normalize();
   configuration_.render.backend = AudioBackendType::Wasapi;
   configuration_.render.monitor_enabled = true;
+  non_loopback_monitor_preference_ = true;
   configuration_.render.fixed_delay_ms = 120;
   configuration_.render.format.normalize();
 }
@@ -136,8 +137,18 @@ void AppModel::SetRenderBackend(AudioBackendType backend) {
 void AppModel::SetCaptureSourceMode(AudioSourceMode source_mode) {
   {
     std::scoped_lock lock(mutex_);
+    const auto previous_source_mode = configuration_.capture.source_mode;
+    const bool leaving_system_loopback =
+        previous_source_mode == AudioSourceMode::SystemLoopback &&
+        source_mode != AudioSourceMode::SystemLoopback;
+    const bool entering_system_loopback =
+        source_mode == AudioSourceMode::SystemLoopback &&
+        previous_source_mode != AudioSourceMode::SystemLoopback;
+    if (leaving_system_loopback) {
+      configuration_.render.monitor_enabled = non_loopback_monitor_preference_;
+    }
     configuration_.capture.source_mode = source_mode;
-    if (source_mode == AudioSourceMode::SystemLoopback) {
+    if (entering_system_loopback || source_mode == AudioSourceMode::SystemLoopback) {
       configuration_.render.monitor_enabled = false;
     }
     if (source_mode == AudioSourceMode::ApplicationProcessLoopback) {
@@ -262,10 +273,13 @@ void AppModel::SetRenderBufferDurationMs(uint32_t duration_ms) {
 void AppModel::SetMonitorEnabled(bool enabled) {
   {
     std::scoped_lock lock(mutex_);
-    configuration_.render.monitor_enabled =
-        configuration_.capture.source_mode == AudioSourceMode::SystemLoopback
-            ? false
-            : enabled;
+    if (configuration_.capture.source_mode == AudioSourceMode::SystemLoopback) {
+      non_loopback_monitor_preference_ = enabled;
+      configuration_.render.monitor_enabled = false;
+    } else {
+      non_loopback_monitor_preference_ = enabled;
+      configuration_.render.monitor_enabled = enabled;
+    }
   }
   RefreshCapabilitySnapshot();
 }

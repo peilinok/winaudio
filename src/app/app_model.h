@@ -114,6 +114,7 @@ class AppModel final : public ISessionEventSink {
   std::vector<WaveformEnvelopePoint> render_waveform_;
   std::vector<std::wstring> logs_;
   std::wstring session_state_ = L"Idle";
+  bool non_loopback_monitor_preference_ = true;
   std::wstring capability_text_cache_;
   std::wstring probe_stage_;
   uint32_t probe_ticks_ = 0;
