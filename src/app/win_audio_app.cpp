@@ -28,7 +28,7 @@ constexpr UINT kMessageProbeMatrixFinished = WM_APP + 3;
 constexpr UINT kMessageComboSetMinVisible = 0x1701;
 
 constexpr int kWindowMinClientWidth = 1120;
-constexpr int kWindowMinClientHeight = 1068;
+constexpr int kWindowMinClientHeight = 980;
 constexpr int kOuterMargin = 16;
 constexpr int kSectionGap = 14;
 constexpr int kButtonHeight = 30;
@@ -40,6 +40,10 @@ constexpr int kSummaryMinHeight = 196;
 constexpr int kCapabilityMinHeight = 88;
 constexpr int kProbeMinHeight = 104;
 constexpr int kWaveformMinHeight = 96;
+constexpr int kLogsMinHeight = 120;
+constexpr int kOverviewMinPageHeight = 236;
+constexpr int kInfoTabsExtraHeightShareNumerator = 2;
+constexpr int kInfoTabsExtraHeightShareDenominator = 5;
 constexpr int kPanelInset = 16;
 constexpr int kPanelGap = 12;
 constexpr int kPanelHeaderHeight = 24;
@@ -431,10 +435,14 @@ AppLayout CalculateAppLayout(const RECT& client_rect) {
   const int vertical_budget =
       client_height - (kOuterMargin * 2) - config_height - (kSectionGap * 3);
   const int info_tabs_min_height =
-      kSummaryMinHeight + kCapabilityMinHeight + kProbeMinHeight + (kSectionGap * 2);
+      std::max({kOverviewMinPageHeight, kSummaryMinHeight, kCapabilityMinHeight,
+                kProbeMinHeight, kLogsMinHeight});
   const int min_content_height = info_tabs_min_height + (kWaveformMinHeight * 2);
   const int extra_height = std::max(0, vertical_budget - min_content_height);
-  const int info_tabs_height = info_tabs_min_height + ((extra_height * 13) / 20);
+  const int info_tabs_height =
+      info_tabs_min_height +
+      ((extra_height * kInfoTabsExtraHeightShareNumerator) /
+       kInfoTabsExtraHeightShareDenominator);
   const int waveform_extra =
       std::max(0, vertical_budget - info_tabs_height - (kWaveformMinHeight * 2));
   const int capture_waveform_height = kWaveformMinHeight + (waveform_extra / 2);
@@ -1029,12 +1037,15 @@ void LayoutChildControls(HWND hwnd, WindowContext* context) {
 
   const int overview_header_top = page_top + page_inset;
   const int overview_text_top = overview_header_top + 22;
+  const int overview_vertical_budget =
+      std::max(184, page_height - (page_inset * 2));
   const int overview_top_height =
-      std::max(88, (page_height - (page_inset * 2) - 84) / 2);
+      std::clamp((overview_vertical_budget * 43) / 100, 80,
+                 std::max(80, overview_vertical_budget - 108));
   const int logs_label_top = overview_text_top + overview_top_height + 10;
   const int logs_top = logs_label_top + 22;
   const int logs_height =
-      std::max(72, page_top + page_height - page_inset - logs_top);
+      std::max(60, page_top + page_height - page_inset - logs_top);
 
   MoveControl(context->overview_snapshot_label,
               MakeRect(page_left + page_inset, overview_header_top, column_width,
@@ -2619,7 +2630,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_command) {
   HWND hwnd = CreateWindowExW(
       0, kWindowClassName, L"WinAudio Demo",
       WS_OVERLAPPEDWINDOW | WS_VISIBLE | WS_CLIPCHILDREN,
-      CW_USEDEFAULT, CW_USEDEFAULT, 1100, 820, nullptr, nullptr, instance,
+      CW_USEDEFAULT, CW_USEDEFAULT, 1280, 1120, nullptr, nullptr, instance,
       context.get());
 
   if (hwnd == nullptr) {
