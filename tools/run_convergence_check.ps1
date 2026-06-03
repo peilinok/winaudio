@@ -668,19 +668,19 @@ function Invoke-ApplicationLoopbackGuiCheck([IntPtr]$hwnd, [int]$sourceComboId, 
     $lastCaptureLabel = $captureLabel
     $lastDeviceCountLine = $deviceCountLine
     $lastAppTargetText = $appTargetText
-    $sourceSeen = $sourceText -eq "Application Loopback"
+    $sourceSeen = $sourceText -eq "Loopback Process"
     $labelSeen = $captureLabel -eq "App Loopback Source"
     $deviceCountSeen = $deviceCountLine -like "Application loopback sources:*"
     $targetSeen =
-      $summaryText.IndexOf("App loopback target: 1234", [System.StringComparison]::Ordinal) -ge 0
+      $summaryText.IndexOf("App loopback process id: 1234", [System.StringComparison]::Ordinal) -ge 0
     $surfaceSeen =
       $sourceSeen -and
       $labelSeen -and
       $deviceCountSeen -and
       $targetSeen
     $summarySeen =
-      $summaryText.IndexOf("App loopback target: 1234", [System.StringComparison]::Ordinal) -ge 0 -and
-      $summaryText.IndexOf("Application loopback captures audio rendered by a target process tree instead of a device endpoint.", [System.StringComparison]::Ordinal) -ge 0
+      $summaryText.IndexOf("App loopback process id: 1234", [System.StringComparison]::Ordinal) -ge 0 -and
+      $summaryText.IndexOf("Application process loopback captures audio rendered by a target process tree instead of a device endpoint.", [System.StringComparison]::Ordinal) -ge 0
     if ($surfaceSeen -and $summarySeen) {
       break
     }
@@ -1576,11 +1576,11 @@ function Invoke-SourceModeWhileRunningCheck([IntPtr]$hwnd, [int]$sourceComboId, 
   $started = $runningStart.Started
   $runningBaselineSeen = $runningStart.RunningSeen
 
-  Invoke-ComboSelectionChangeSync $hwnd $sourceComboId 1
-  $loopbackSeen = $false
+  $sourceDisabled = $false
+  $sourceUnchanged = $false
   $runningPreserved = $false
   $summarySeen = $false
-  $summaryDriftSeen = $false
+  $summaryDriftBlocked = $false
   $summaryText = Get-ControlTextById $hwnd $summaryControlId
   for ($i = 0; $i -lt $maxPolls; $i++) {
     Start-Sleep -Milliseconds 100
@@ -1592,25 +1592,29 @@ function Invoke-SourceModeWhileRunningCheck([IntPtr]$hwnd, [int]$sourceComboId, 
     $captureLabel = Get-ControlTextById $hwnd $automationCaptureLabelId
     $deviceCountLine = Get-ControlTextById $hwnd $automationDeviceCountLineId
     $summaryText = Get-ControlTextById $hwnd $summaryControlId
-    $loopbackSeen =
-      $sourceText -eq "System Loopback" -and
-      $captureSelected -eq $renderSelected -and
-      (Test-StringArrayEquality $captureItems $renderItems) -and
-      $captureLabel -eq "Loopback Capture Device" -and
-      $deviceCountLine -like "Loopback capture devices:*"
+    $sourceDisabled = -not [Native]::IsWindowEnabled($sourceCombo)
+    $sourceUnchanged = $sourceText -eq $baselineSource
     $runningPreserved =
       (-not [Native]::IsWindowEnabled($startButton)) -and
       [Native]::IsWindowEnabled($stopButton)
     $summarySeen =
-      $summaryText.IndexOf("Loopback capture uses render endpoints as capture sources.", [System.StringComparison]::Ordinal) -ge 0
-    $summaryDriftSeen =
-      $summaryText.IndexOf("Running session note: the current capture device pick applies to the next rebuilt or restarted session, while the already-active stream still uses the previous capture device.", [System.StringComparison]::Ordinal) -ge 0
-    if ($loopbackSeen -and $runningPreserved -and $summarySeen -and $summaryDriftSeen) {
+      $summaryText.IndexOf("Running session note: configuration edits update the next rebuilt or restarted session, not the already-active stream.", [System.StringComparison]::Ordinal) -ge 0
+    $summaryDriftBlocked =
+      $summaryText.IndexOf("Running session note: the current capture device pick applies to the next rebuilt or restarted session, while the already-active stream still uses the previous capture device.", [System.StringComparison]::Ordinal) -lt 0 -and
+      $summaryText.IndexOf("Loopback capture uses render endpoints as capture sources.", [System.StringComparison]::Ordinal) -lt 0
+    if ($sourceDisabled -and
+        $sourceUnchanged -and
+        $runningPreserved -and
+        $captureSelected -eq $baselineCaptureSelected -and
+        (Test-StringArrayEquality $captureItems $baselineCaptureItems) -and
+        $captureLabel -eq $baselineCaptureLabel -and
+        $deviceCountLine -eq $baselineDeviceCountLine -and
+        $summarySeen -and
+        $summaryDriftBlocked) {
       break
     }
   }
 
-  Invoke-ComboSelectionChangeSync $hwnd $sourceComboId 0
   $runningRestoredSeen = $false
   $stableRestoredSamples = 0
   $restoredSummaryText = ""
@@ -1689,10 +1693,11 @@ function Invoke-SourceModeWhileRunningCheck([IntPtr]$hwnd, [int]$sourceComboId, 
 
   [pscustomobject]@{
     RunningBaselineSeen = $runningBaselineSeen
-    LoopbackSeen = $loopbackSeen
+    SourceDisabled = $sourceDisabled
+    SourceUnchanged = $sourceUnchanged
     RunningPreserved = $runningPreserved
     SummarySeen = $summarySeen
-    SummaryDriftSeen = $summaryDriftSeen
+    SummaryDriftBlocked = $summaryDriftBlocked
     RunningRestoredSeen = $runningRestoredSeen
     Restored = $restored
     StoppedCleanly = $stoppedCleanly
@@ -1735,8 +1740,8 @@ function Invoke-FollowDefaultsSourceModeWhileRunningCheck([IntPtr]$hwnd, [int]$s
   $started = $runningStart.Started
   $runningBaselineSeen = $runningStart.RunningSeen
 
-  Invoke-ComboSelectionChange $hwnd $sourceComboId 1
-  $loopbackSeen = $false
+  $sourceDisabled = $false
+  $sourceUnchanged = $false
   $summarySeen = $false
   $diagnosticsSeen = $false
   $runningPreserved = $false
@@ -1751,37 +1756,32 @@ function Invoke-FollowDefaultsSourceModeWhileRunningCheck([IntPtr]$hwnd, [int]$s
     $renderItems = Get-ComboItems $renderCombo
     $summaryText = Get-ControlTextById $hwnd $summaryControlId
     $diagnosticsText = Get-ControlTextById $hwnd $diagnosticsControlId
-    $loopbackSeen =
-      $sourceText -eq "System Loopback" -and
-      $captureSelected -eq $renderSelected -and
-      (Test-StringArrayEquality $captureItems $renderItems)
-    $summarySeen =
-      $summaryText.IndexOf("Device selection follows current system defaults; manual device picks are inactive and loopback capture follows the current default render endpoint", [System.StringComparison]::Ordinal) -ge 0
-    $diagnosticsSeen =
-      $diagnosticsText.IndexOf("Device tracking: current capture/render selection follows system defaults, and loopback capture follows the current default render endpoint", [System.StringComparison]::Ordinal) -ge 0
+    $sourceDisabled = -not [Native]::IsWindowEnabled($sourceCombo)
+    $sourceUnchanged = $sourceText -eq $baselineSourceText
+    if ($baselineSourceText -eq "System Loopback") {
+      $summarySeen =
+        $summaryText.IndexOf("Device selection follows current system defaults; manual device picks are inactive and loopback capture follows the current default render endpoint", [System.StringComparison]::Ordinal) -ge 0
+      $diagnosticsSeen =
+        $diagnosticsText.IndexOf("Device tracking: current capture/render selection follows system defaults, and loopback capture follows the current default render endpoint", [System.StringComparison]::Ordinal) -ge 0
+    } else {
+      $summarySeen =
+        $summaryText.IndexOf("Device selection follows current system defaults; manual device picks are inactive", [System.StringComparison]::Ordinal) -ge 0 -and
+        $summaryText.IndexOf("loopback capture follows the current default render endpoint", [System.StringComparison]::Ordinal) -lt 0
+      $diagnosticsSeen =
+        $diagnosticsText.IndexOf("Device tracking: current capture/render selection follows system defaults", [System.StringComparison]::Ordinal) -ge 0 -and
+        $diagnosticsText.IndexOf("loopback capture follows the current default render endpoint", [System.StringComparison]::Ordinal) -lt 0
+    }
     $runningPreserved =
       (-not [Native]::IsWindowEnabled($startButton)) -and
       [Native]::IsWindowEnabled($stopButton) -and
       (Get-CheckState $followDefaultsCheckbox) -eq 1 -and
       (-not [Native]::IsWindowEnabled($captureCombo)) -and
       (-not [Native]::IsWindowEnabled($renderCombo))
-    if ($loopbackSeen -and $summarySeen -and $diagnosticsSeen -and $runningPreserved) {
+    if ($sourceDisabled -and $sourceUnchanged -and $summarySeen -and $diagnosticsSeen -and $runningPreserved) {
       break
     }
   }
 
-  if ($baselineSourceIndex -ne 1) {
-    Invoke-ComboSelectionChangeSync $hwnd $sourceComboId $baselineSourceIndex
-    for ($i = 0; $i -lt $maxPolls; $i++) {
-      Start-Sleep -Milliseconds 100
-      $restoredSourceText = Get-ComboSelectionText $sourceCombo
-      $restoredCaptureItems = Get-ComboItems $captureCombo
-      if ($restoredSourceText -eq $baselineSourceText -and
-          (Test-StringArrayEquality $restoredCaptureItems $baselineCaptureItems)) {
-        break
-      }
-    }
-  }
   if ($baselineFollowDefaults -ne 1) {
     Invoke-CheckboxClick $followDefaultsCheckbox
   }
@@ -1868,7 +1868,8 @@ function Invoke-FollowDefaultsSourceModeWhileRunningCheck([IntPtr]$hwnd, [int]$s
 
   [pscustomobject]@{
     RunningBaselineSeen = $runningBaselineSeen
-    LoopbackSeen = $loopbackSeen
+    SourceDisabled = $sourceDisabled
+    SourceUnchanged = $sourceUnchanged
     SummarySeen = $summarySeen
     DiagnosticsSeen = $diagnosticsSeen
     RunningPreserved = $runningPreserved
@@ -5355,10 +5356,11 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
   }
   $sourceModeWhileRunning = Invoke-SourceModeWhileRunningCheck $hwnd 1103 1104 1105 1001 1002 120
   Write-Host "GUI source-mode while-running baseline seen: $($sourceModeWhileRunning.RunningBaselineSeen)"
-  Write-Host "GUI source-mode while-running loopback seen: $($sourceModeWhileRunning.LoopbackSeen)"
+  Write-Host "GUI source-mode while-running source disabled: $($sourceModeWhileRunning.SourceDisabled)"
+  Write-Host "GUI source-mode while-running source unchanged: $($sourceModeWhileRunning.SourceUnchanged)"
   Write-Host "GUI source-mode while-running running preserved: $($sourceModeWhileRunning.RunningPreserved)"
   Write-Host "GUI source-mode while-running summary seen: $($sourceModeWhileRunning.SummarySeen)"
-  Write-Host "GUI source-mode while-running summary drift seen: $($sourceModeWhileRunning.SummaryDriftSeen)"
+  Write-Host "GUI source-mode while-running summary drift blocked: $($sourceModeWhileRunning.SummaryDriftBlocked)"
   Write-Host "GUI source-mode while-running running restored seen: $($sourceModeWhileRunning.RunningRestoredSeen)"
   Write-Host "GUI source-mode while-running restored: $($sourceModeWhileRunning.Restored)"
   Write-Host "GUI source-mode while-running stopped cleanly: $($sourceModeWhileRunning.StoppedCleanly)"
@@ -5369,19 +5371,21 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
   Write-Host "GUI source-mode while-running summary text: $($sourceModeWhileRunning.SummaryText)"
   Write-Host "GUI source-mode while-running restored summary text: $($sourceModeWhileRunning.RestoredSummaryText)"
   if (-not $sourceModeWhileRunning.RunningBaselineSeen -or
-      -not $sourceModeWhileRunning.LoopbackSeen -or
+      -not $sourceModeWhileRunning.SourceDisabled -or
+      -not $sourceModeWhileRunning.SourceUnchanged -or
       -not $sourceModeWhileRunning.RunningPreserved -or
       -not $sourceModeWhileRunning.SummarySeen -or
-      -not $sourceModeWhileRunning.SummaryDriftSeen -or
+      -not $sourceModeWhileRunning.SummaryDriftBlocked -or
       -not $sourceModeWhileRunning.Restored -or
       -not $sourceModeWhileRunning.StoppedCleanly) {
     Stop-ProcessByIdIfRunning $p.Id
-    throw "GUI smoke failed: source-mode change while running did not preserve the active session correctly."
+    throw "GUI smoke failed: source mode stayed editable or drifted while the session was running."
   }
   Assert-IdleSessionSurface $hwnd 1001 1002 60
   $followDefaultsSourceModeWhileRunning = Invoke-FollowDefaultsSourceModeWhileRunningCheck $hwnd 1103 1118 1104 1105 1001 1002 120
   Write-Host "GUI follow-defaults source-mode while-running baseline seen: $($followDefaultsSourceModeWhileRunning.RunningBaselineSeen)"
-  Write-Host "GUI follow-defaults source-mode while-running loopback seen: $($followDefaultsSourceModeWhileRunning.LoopbackSeen)"
+  Write-Host "GUI follow-defaults source-mode while-running source disabled: $($followDefaultsSourceModeWhileRunning.SourceDisabled)"
+  Write-Host "GUI follow-defaults source-mode while-running source unchanged: $($followDefaultsSourceModeWhileRunning.SourceUnchanged)"
   Write-Host "GUI follow-defaults source-mode while-running summary seen: $($followDefaultsSourceModeWhileRunning.SummarySeen)"
   Write-Host "GUI follow-defaults source-mode while-running diagnostics seen: $($followDefaultsSourceModeWhileRunning.DiagnosticsSeen)"
   Write-Host "GUI follow-defaults source-mode while-running running preserved: $($followDefaultsSourceModeWhileRunning.RunningPreserved)"
@@ -5396,14 +5400,15 @@ if($p.HasExited -or $hwnd -eq [IntPtr]::Zero){
   Write-Host "GUI follow-defaults source-mode while-running summary text: $($followDefaultsSourceModeWhileRunning.SummaryText)"
   Write-Host "GUI follow-defaults source-mode while-running diagnostics text: $($followDefaultsSourceModeWhileRunning.DiagnosticsText)"
   if (-not $followDefaultsSourceModeWhileRunning.RunningBaselineSeen -or
-      -not $followDefaultsSourceModeWhileRunning.LoopbackSeen -or
+      -not $followDefaultsSourceModeWhileRunning.SourceDisabled -or
+      -not $followDefaultsSourceModeWhileRunning.SourceUnchanged -or
       -not $followDefaultsSourceModeWhileRunning.SummarySeen -or
       -not $followDefaultsSourceModeWhileRunning.DiagnosticsSeen -or
       -not $followDefaultsSourceModeWhileRunning.RunningPreserved -or
       -not $followDefaultsSourceModeWhileRunning.Restored -or
       -not $followDefaultsSourceModeWhileRunning.StoppedCleanly) {
     Stop-WindowProcessIfRunning $p
-    throw "GUI smoke failed: follow-defaults source-mode change while running did not preserve the active session correctly."
+    throw "GUI smoke failed: follow-defaults source mode stayed editable or drifted while the session was running."
   }
   Assert-IdleSessionSurface $hwnd 1001 1002 60
   $followDefaultsRenderBackendWhileRunning = Invoke-FollowDefaultsRenderBackendWhileRunningCheck $hwnd 1102 1118 1104 1105 1001 1002 120

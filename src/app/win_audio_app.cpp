@@ -1110,6 +1110,7 @@ void ApplyControlAvailability(WindowContext* context) {
   const auto config = context->model.configuration();
   const auto session_state = context->model.session_state();
   const bool busy = context->probe_running;
+  const bool session_running = session_state == L"Running";
   const bool monitor_enabled = config.render.monitor_enabled;
   const bool application_loopback =
       config.capture.source_mode == AudioSourceMode::ApplicationProcessLoopback ||
@@ -1117,6 +1118,8 @@ void ApplyControlAvailability(WindowContext* context) {
   const bool system_loopback =
       config.capture.source_mode == AudioSourceMode::SystemLoopback;
   const BOOL general_enabled = busy ? FALSE : TRUE;
+  const BOOL source_mode_enabled =
+      (!busy && !session_running) ? TRUE : FALSE;
   const BOOL capture_device_combo_enabled =
       (!busy && !config.follow_default_devices && !application_loopback) ? TRUE
                                                                          : FALSE;
@@ -1145,7 +1148,6 @@ void ApplyControlAvailability(WindowContext* context) {
       context->probe_button,
       context->probe_matrix_button,
       context->capture_backend_combo,
-      context->source_mode_combo,
       context->app_loopback_process_edit,
       context->dump_checkbox,
       context->capture_sample_rate_combo,
@@ -1162,6 +1164,9 @@ void ApplyControlAvailability(WindowContext* context) {
     if (control != nullptr) {
       EnableWindow(control, general_enabled);
     }
+  }
+  if (context->source_mode_combo != nullptr) {
+    EnableWindow(context->source_mode_combo, source_mode_enabled);
   }
   if (context->capture_device_combo != nullptr) {
     EnableWindow(context->capture_device_combo, capture_device_combo_enabled);

@@ -367,20 +367,22 @@ bool TestSourceModeChangePreservesRunningSessionState() {
   model.SetCaptureSourceMode(AudioSourceMode::SystemLoopback);
 
   const auto state = model.session_state();
+  const auto config = model.configuration();
   const auto summary = model.summary_text();
   const auto diagnostics = model.diagnostics_text();
   model.OnSessionStateChanged(L"Stopped");
 
   return state == L"Running" &&
-         Contains(summary, L"Capture: WASAPI / System Loopback / 48000 Hz / 2 ch / Float32") &&
-         Contains(summary, L"Loopback capture uses render endpoints as capture sources.") &&
+         config.capture.source_mode == AudioSourceMode::MicrophoneCapture &&
+         Contains(summary, L"Capture: WASAPI / Microphone / 48000 Hz / 2 ch / Float32") &&
+         !Contains(summary, L"Loopback capture uses render endpoints as capture sources.") &&
          Contains(diagnostics, L"Current configured capture: 48000 Hz / 2 ch / Float32") &&
          Contains(diagnostics, L"Active session requested capture: 48000 Hz / 2 ch / Float32") &&
          Contains(diagnostics,
                   L"Running session note: configuration edits update the next rebuilt or restarted session, not the already-active stream.");
 }
 
-bool TestSourceModeChangeShowsSummaryDriftNoteWhileRunning() {
+bool TestSourceModeChangeDoesNotShowSummaryDriftNoteWhileRunning() {
   AppModel model = MakeStubBackedModel();
   model.SetCaptureDeviceId(L"cap-b");
 
@@ -395,7 +397,7 @@ bool TestSourceModeChangeShowsSummaryDriftNoteWhileRunning() {
   const auto summary = model.summary_text();
   model.OnSessionStateChanged(L"Stopped");
 
-  return Contains(
+  return !Contains(
       summary,
       L"Running session note: current capture/render device picks apply to the next rebuilt or restarted session");
 }
@@ -515,7 +517,7 @@ bool TestFollowDefaultsWhileRunningShowsSummaryTrackingNote() {
       L"Device selection follows current system defaults; manual device picks are inactive");
 }
 
-bool TestFollowDefaultsSourceModeChangeShowsRunningLoopbackTrackingNote() {
+bool TestFollowDefaultsSourceModeChangeKeepsRunningTrackingNoteStable() {
   AppModel model = MakeStubBackedModel();
   model.SetFollowDefaultDevices(true);
 
@@ -532,13 +534,19 @@ bool TestFollowDefaultsSourceModeChangeShowsRunningLoopbackTrackingNote() {
 
   return Contains(
              summary,
-             L"Device selection follows current system defaults; manual device picks are inactive and loopback capture follows the current default render endpoint") &&
+             L"Device selection follows current system defaults; manual device picks are inactive") &&
+         !Contains(
+             summary,
+             L"loopback capture follows the current default render endpoint") &&
          !Contains(
              summary,
              L"Running session note: the current capture device pick applies to the next rebuilt or restarted session, while the already-active stream still uses the previous capture device.") &&
          Contains(
              diagnostics,
-             L"Device tracking: current capture/render selection follows system defaults, and loopback capture follows the current default render endpoint");
+             L"Device tracking: current capture/render selection follows system defaults") &&
+         !Contains(
+             diagnostics,
+             L"loopback capture follows the current default render endpoint");
 }
 
 bool TestFollowDefaultsCaptureBackendChangeShowsRunningTrackingNote() {
@@ -2074,8 +2082,8 @@ int main() {
        &TestRefreshDevicesPreservesRunningSessionState},
       {"SourceModeChangePreservesRunningSessionState",
        &TestSourceModeChangePreservesRunningSessionState},
-      {"SourceModeChangeShowsSummaryDriftNoteWhileRunning",
-       &TestSourceModeChangeShowsSummaryDriftNoteWhileRunning},
+      {"SourceModeChangeDoesNotShowSummaryDriftNoteWhileRunning",
+       &TestSourceModeChangeDoesNotShowSummaryDriftNoteWhileRunning},
       {"RenderBackendChangePreservesRunningSessionState",
        &TestRenderBackendChangePreservesRunningSessionState},
       {"RenderBackendChangeShowsSummaryDriftNoteWhileRunning",
@@ -2086,8 +2094,8 @@ int main() {
        &TestCaptureBackendChangeShowsSummaryDriftNoteWhileRunning},
       {"FollowDefaultsWhileRunningShowsSummaryTrackingNote",
        &TestFollowDefaultsWhileRunningShowsSummaryTrackingNote},
-      {"FollowDefaultsSourceModeChangeShowsRunningLoopbackTrackingNote",
-       &TestFollowDefaultsSourceModeChangeShowsRunningLoopbackTrackingNote},
+      {"FollowDefaultsSourceModeChangeKeepsRunningTrackingNoteStable",
+       &TestFollowDefaultsSourceModeChangeKeepsRunningTrackingNoteStable},
       {"FollowDefaultsCaptureBackendChangeShowsRunningTrackingNote",
        &TestFollowDefaultsCaptureBackendChangeShowsRunningTrackingNote},
       {"FollowDefaultsRenderBackendChangeShowsRunningTrackingNote",

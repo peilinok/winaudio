@@ -137,6 +137,9 @@ void AppModel::SetRenderBackend(AudioBackendType backend) {
 void AppModel::SetCaptureSourceMode(AudioSourceMode source_mode) {
   {
     std::scoped_lock lock(mutex_);
+    if (session_state_ == L"Running") {
+      return;
+    }
     const auto previous_source_mode = configuration_.capture.source_mode;
     const bool leaving_system_loopback =
         previous_source_mode == AudioSourceMode::SystemLoopback &&

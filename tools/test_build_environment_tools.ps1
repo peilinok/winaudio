@@ -58,5 +58,14 @@ $generatedProjectText = Get-Content -LiteralPath $generatedProject -Raw
 if ($generatedProjectText -notmatch '/FS') {
   throw "Expected generated MSVC project to include /FS for shared PDB protection."
 }
+if ($generatedProjectText -match 'MultiThreadedDebugDLL|MultiThreadedDLL') {
+  throw "Expected generated MSVC project to avoid dynamic CRT runtime library settings."
+}
+if ($generatedProjectText -notmatch 'MultiThreadedDebug') {
+  throw "Expected generated MSVC project to include static Debug CRT runtime library settings."
+}
+if ($generatedProjectText -notmatch 'MultiThreaded</RuntimeLibrary>') {
+  throw "Expected generated MSVC project to include static Release CRT runtime library settings."
+}
 
 Write-Host "ALL_TESTS_PASSED"
