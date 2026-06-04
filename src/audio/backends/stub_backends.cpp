@@ -27,6 +27,14 @@ AudioDeviceDescriptor MakeDevice(AudioBackendType backend,
 
 }  // namespace
 
+namespace {
+
+std::optional<AudioFormatSpec> g_stub_capture_preferred_format;
+std::optional<AudioFormatSpec> g_stub_render_preferred_format;
+std::wstring g_stub_render_format_error;
+
+}  // namespace
+
 StubCaptureAdapter::StubCaptureAdapter(AudioBackendType backend)
     : backend_(backend) {}
 
@@ -63,6 +71,11 @@ std::vector<AudioDeviceDescriptor> StubCaptureAdapter::EnumerateDevices(
 
 std::optional<AudioFormatSpec> StubCaptureAdapter::GetPreferredFormat(
     const CaptureConfig& config) {
+  if (g_stub_capture_preferred_format.has_value()) {
+    auto format = *g_stub_capture_preferred_format;
+    format.normalize();
+    return format;
+  }
   auto format = config.format;
   format.normalize();
   return format;
@@ -147,6 +160,14 @@ std::vector<AudioDeviceDescriptor> StubRenderAdapter::EnumerateDevices() {
 
 std::optional<AudioFormatSpec> StubRenderAdapter::GetPreferredFormat(
     const RenderConfig& config) {
+  if (!g_stub_render_format_error.empty()) {
+    return std::nullopt;
+  }
+  if (g_stub_render_preferred_format.has_value()) {
+    auto format = *g_stub_render_preferred_format;
+    format.normalize();
+    return format;
+  }
   auto format = config.format;
   format.normalize();
   return format;
@@ -183,7 +204,7 @@ bool StubRenderAdapter::WriteChunk(const AudioFrameChunk& chunk) {
 }
 
 std::wstring StubRenderAdapter::last_error() const {
-  return {};
+  return g_stub_render_format_error;
 }
 
 std::wstring StubRenderAdapter::runtime_mode() const {
@@ -194,13 +215,19 @@ std::wstring StubRenderAdapter::runtime_details() const {
   return L"Stub render runtime";
 }
 
+StubAudioBackendFactory::StubAudioBackendFactory(Options options)
+    : options_(std::move(options)) {}
+
 std::unique_ptr<IAudioCaptureAdapter> StubAudioBackendFactory::CreateCaptureAdapter(
     AudioBackendType backend) {
+  g_stub_capture_preferred_format = options_.capture_preferred_format;
   return std::make_unique<StubCaptureAdapter>(backend);
 }
 
 std::unique_ptr<IAudioRenderAdapter> StubAudioBackendFactory::CreateRenderAdapter(
     AudioBackendType backend) {
+  g_stub_render_preferred_format = options_.render_preferred_format;
+  g_stub_render_format_error = options_.render_format_error;
   return std::make_unique<StubRenderAdapter>(backend);
 }
 

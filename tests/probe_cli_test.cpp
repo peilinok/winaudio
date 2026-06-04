@@ -3,6 +3,7 @@
 #include <vector>
 
 #include "app/probe_cli.h"
+#include "audio/backends/real_backends.h"
 
 using namespace winaudio;
 
@@ -71,6 +72,9 @@ bool TestParseApplicationLoopbackOverrides() {
   };
 
   ProbeCliOptions options;
+  if (!WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows()) {
+    return !ParseProbeCliOptions(args, &options);
+  }
   if (!ParseProbeCliOptions(args, &options)) {
     return false;
   }
@@ -91,6 +95,9 @@ bool TestParseApplicationProcessLoopbackOverrides() {
   };
 
   ProbeCliOptions options;
+  if (!WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows()) {
+    return !ParseProbeCliOptions(args, &options);
+  }
   if (!ParseProbeCliOptions(args, &options)) {
     return false;
   }
@@ -101,6 +108,21 @@ bool TestParseApplicationProcessLoopbackOverrides() {
              ApplicationLoopbackTargetKind::ProcessId &&
          options.config.capture.application_loopback_target_value == L"1234" &&
          options.application_loopback_target_value == L"1234";
+}
+
+bool TestParseRejectsApplicationLoopbackWhenUnsupported() {
+  if (WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows()) {
+    return true;
+  }
+
+  const std::vector<std::wstring> args = {
+      L"quick",
+      L"--source=app-loopback",
+      L"--app-loopback-application=spotify.exe",
+  };
+
+  ProbeCliOptions options;
+  return !ParseProbeCliOptions(args, &options);
 }
 
 bool TestParseRejectsUnknownOverride() {
@@ -372,6 +394,8 @@ int main() {
        &TestParseApplicationLoopbackOverrides},
       {"ParseApplicationProcessLoopbackOverrides",
        &TestParseApplicationProcessLoopbackOverrides},
+      {"ParseRejectsApplicationLoopbackWhenUnsupported",
+       &TestParseRejectsApplicationLoopbackWhenUnsupported},
       {"ParseRejectsUnknownOverride", &TestParseRejectsUnknownOverride},
       {"ParseHelpMode", &TestParseHelpMode},
       {"ParseDevicesMode", &TestParseDevicesMode},

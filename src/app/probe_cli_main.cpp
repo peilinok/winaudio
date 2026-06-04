@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "app/probe_cli.h"
+#include "audio/backends/real_backends.h"
 #include "audio/com_support.h"
 
 int wmain(int argc, wchar_t** argv) {
@@ -23,6 +24,18 @@ int wmain(int argc, wchar_t** argv) {
 
   ProbeCliOptions options;
   if (!ParseProbeCliOptions(args, &options)) {
+    bool requested_app_loopback = false;
+    for (const auto& arg : args) {
+      if (arg == L"--source=app-loopback" || arg == L"--source=app-process-loopback") {
+        requested_app_loopback = true;
+        break;
+      }
+    }
+    if (requested_app_loopback &&
+        !WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows()) {
+      std::wcerr << WasapiCaptureAdapter::DescribeProcessLoopbackSupport() << L"\n";
+      return 4;
+    }
     std::wcerr << NormalizeProbeCliTextForConsole(BuildProbeCliUsageText());
     return 4;
   }

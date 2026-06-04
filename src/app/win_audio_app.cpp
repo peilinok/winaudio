@@ -13,6 +13,7 @@
 #include "app_model.h"
 #include "probe_ui_text.h"
 #include "device_notification_client.h"
+#include "audio/backends/real_backends.h"
 #include "audio/com_support.h"
 #include "ui/waveform_renderer.h"
 
@@ -1343,8 +1344,37 @@ void PopulateSourceModeCombo(HWND combo) {
   SendMessageW(combo, CB_RESETCONTENT, 0, 0);
   SendMessageW(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"Microphone"));
   SendMessageW(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"System Loopback"));
-  SendMessageW(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"Loopback Process"));
-  SendMessageW(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"Loopback Application"));
+  if (WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows()) {
+    SendMessageW(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"Loopback Process"));
+    SendMessageW(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"Loopback Application"));
+  }
+}
+
+int SourceModeToComboIndex(AudioSourceMode source_mode) {
+  if (source_mode == AudioSourceMode::MicrophoneCapture) {
+    return 0;
+  }
+  if (source_mode == AudioSourceMode::SystemLoopback) {
+    return 1;
+  }
+  if (!WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows()) {
+    return 0;
+  }
+  return source_mode == AudioSourceMode::ApplicationProcessLoopback ? 2 : 3;
+}
+
+AudioSourceMode SourceModeFromComboIndex(int index) {
+  if (index <= 0) {
+    return AudioSourceMode::MicrophoneCapture;
+  }
+  if (index == 1) {
+    return AudioSourceMode::SystemLoopback;
+  }
+  if (!WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows()) {
+    return AudioSourceMode::MicrophoneCapture;
+  }
+  return index == 2 ? AudioSourceMode::ApplicationProcessLoopback
+                    : AudioSourceMode::ApplicationLoopback;
 }
 
 void PopulateSimpleCombo(HWND combo, const std::vector<std::wstring>& items) {
@@ -1533,15 +1563,7 @@ void SyncUiFromModel(WindowContext* context) {
   SendMessageW(context->render_backend_combo, CB_SETCURSEL,
                config.render.backend == AudioBackendType::Wasapi ? 0 : 1, 0);
   SendMessageW(context->source_mode_combo, CB_SETCURSEL,
-               config.capture.source_mode == AudioSourceMode::MicrophoneCapture
-                   ? 0
-                   : (config.capture.source_mode == AudioSourceMode::SystemLoopback
-                          ? 1
-                          : (config.capture.source_mode ==
-                                     AudioSourceMode::ApplicationProcessLoopback
-                                 ? 2
-                                 : 3)),
-               0);
+               SourceModeToComboIndex(config.capture.source_mode), 0);
   ClearDeviceComboHeapStrings(context->capture_device_combo);
   ClearDeviceComboHeapStrings(context->render_device_combo);
   PopulateDeviceCombo(context->capture_device_combo, devices.capture_devices,
@@ -2225,13 +2247,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
             const auto index =
                 static_cast<int>(SendMessageW(context->source_mode_combo,
                                               CB_GETCURSEL, 0, 0));
-            context->model.SetCaptureSourceMode(
-                index == 0
-                    ? AudioSourceMode::MicrophoneCapture
-                    : (index == 1 ? AudioSourceMode::SystemLoopback
-                                  : (index == 2
-                                         ? AudioSourceMode::ApplicationProcessLoopback
-                                         : AudioSourceMode::ApplicationLoopback)));
+            context->model.SetCaptureSourceMode(SourceModeFromComboIndex(index));
             SyncUiFromModel(context);
             LayoutChildControls(hwnd, context);
             RefreshWindowFromModel(hwnd, context);

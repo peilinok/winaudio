@@ -241,6 +241,75 @@ bool TestAutoAlignRenderFormatUsesCaptureRequest() {
          stats.negotiated_render_format == L"44100 Hz / 1 ch / PCM16";
 }
 
+bool TestAutoAlignRenderFormatUsesNegotiatedCaptureFormat() {
+  StubAudioBackendFactory::Options options;
+  options.capture_preferred_format =
+      AudioFormatSpec {48000, 1, AudioSampleType::Float32, 32, 0, 4, 192000};
+  AudioSessionController controller(
+      std::make_unique<StubAudioBackendFactory>(options));
+  if (!controller.Initialize()) {
+    return false;
+  }
+
+  SessionConfiguration config;
+  config.capture.backend = AudioBackendType::Wasapi;
+  config.capture.source_mode = AudioSourceMode::ApplicationLoopback;
+  config.capture.application_loopback_target_kind =
+      ApplicationLoopbackTargetKind::ApplicationName;
+  config.capture.application_loopback_target_value = L"cloudmusic.exe";
+  config.capture.format.sample_rate = 48000;
+  config.capture.format.channels = 2;
+  config.capture.format.sample_type = AudioSampleType::Float32;
+  config.capture.format.normalize();
+  config.render.backend = AudioBackendType::Wasapi;
+  config.render.format.sample_rate = 48000;
+  config.render.format.channels = 2;
+  config.render.format.sample_type = AudioSampleType::Float32;
+  config.render.format.normalize();
+  config.auto_align_render_format = true;
+
+  if (!controller.Start(config, nullptr)) {
+    return false;
+  }
+
+  const auto& stats = controller.diagnostics().stats;
+  controller.Stop();
+  return stats.requested_capture_format == L"48000 Hz / 2 ch / Float32" &&
+         stats.negotiated_capture_format == L"48000 Hz / 1 ch / Float32" &&
+         stats.requested_render_format == L"48000 Hz / 1 ch / Float32" &&
+         stats.negotiated_render_format == L"48000 Hz / 1 ch / Float32";
+}
+
+bool TestFormatResolutionReportsRenderFailureAfterMonoNegotiation() {
+  StubAudioBackendFactory::Options options;
+  options.capture_preferred_format =
+      AudioFormatSpec {48000, 1, AudioSampleType::Float32, 32, 0, 4, 192000};
+  options.render_format_error = L"resolve-device";
+  AudioSessionController controller(
+      std::make_unique<StubAudioBackendFactory>(options));
+  if (!controller.Initialize()) {
+    return false;
+  }
+
+  SessionConfiguration config;
+  config.capture.backend = AudioBackendType::Wasapi;
+  config.capture.source_mode = AudioSourceMode::ApplicationLoopback;
+  config.capture.application_loopback_target_kind =
+      ApplicationLoopbackTargetKind::ApplicationName;
+  config.capture.application_loopback_target_value = L"cloudmusic.exe";
+  config.render.backend = AudioBackendType::Wasapi;
+  config.auto_align_render_format = true;
+
+  const bool started = controller.Start(config, nullptr);
+  const auto& stats = controller.diagnostics().stats;
+  return !started &&
+         stats.last_error_stage == L"format-resolution" &&
+         stats.negotiated_capture_format == L"48000 Hz / 1 ch / Float32" &&
+         stats.requested_render_format == L"48000 Hz / 1 ch / Float32" &&
+         stats.last_error_message.find(L"render=target device could not be resolved") !=
+             std::wstring::npos;
+}
+
 bool TestActualBackendModeIncludesRuntimeModeDetails() {
   AudioSessionController controller(std::make_unique<StubAudioBackendFactory>());
   if (!controller.Initialize()) {
@@ -412,6 +481,10 @@ int main() {
        &TestRenderDeviceFailureExplainsBackendMismatchRecovery},
       {"AutoAlignRenderFormatUsesCaptureRequest",
        &TestAutoAlignRenderFormatUsesCaptureRequest},
+      {"AutoAlignRenderFormatUsesNegotiatedCaptureFormat",
+       &TestAutoAlignRenderFormatUsesNegotiatedCaptureFormat},
+      {"FormatResolutionReportsRenderFailureAfterMonoNegotiation",
+       &TestFormatResolutionReportsRenderFailureAfterMonoNegotiation},
       {"ActualBackendModeIncludesRuntimeModeDetails",
        &TestActualBackendModeIncludesRuntimeModeDetails},
       {"CaptureDeviceFailureExplainsBackendSourceRecovery",

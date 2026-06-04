@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "app/app_model.h"
+#include "audio/backends/real_backends.h"
 #include "audio/backends/stub_backends.h"
 
 using namespace winaudio;
@@ -123,6 +124,11 @@ bool TestSummaryShowsApplicationLoopbackTargetAndNote() {
       ApplicationLoopbackTargetKind::ApplicationName, L"spotify.exe");
 
   const auto summary = model.summary_text();
+  if (!WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows()) {
+    return Contains(summary,
+                    L"Capture: WASAPI / Microphone / 48000 Hz / 2 ch / Float32") &&
+           !Contains(summary, L"App loopback application: spotify.exe");
+  }
   return Contains(summary,
                   L"Capture: WASAPI / Loopback Application / 48000 Hz / 2 ch / Float32") &&
          Contains(summary, L"App loopback application: spotify.exe") &&
@@ -139,6 +145,11 @@ bool TestDiagnosticsExplainApplicationLoopbackTarget() {
       ApplicationLoopbackTargetKind::ProcessId, L"1234");
 
   const auto diagnostics = model.diagnostics_text();
+  if (!WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows()) {
+    return !Contains(diagnostics,
+                     L"Application loopback target process id: 1234") &&
+           !Contains(diagnostics, L"1234");
+  }
   return Contains(diagnostics,
                   L"Application loopback target process id: 1234");
 }
@@ -148,6 +159,9 @@ bool TestCapabilityTextExplainsApplicationLoopbackLimitation() {
   model.SetCaptureSourceMode(AudioSourceMode::ApplicationLoopback);
 
   const auto capability = model.capability_text();
+  if (!WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows()) {
+    return !Contains(capability, L"Application loopback");
+  }
   return Contains(capability,
                   L"Application loopback is unavailable on this machine because Windows process loopback requires client build 20348 or newer");
 }
@@ -157,6 +171,11 @@ bool TestSummaryShowsApplicationLoopbackTargetMissingNote() {
   model.SetCaptureSourceMode(AudioSourceMode::ApplicationLoopback);
 
   const auto summary = model.summary_text();
+  if (!WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows()) {
+    return !Contains(summary, L"App loopback application: not set") &&
+           !Contains(summary,
+                     L"Application loopback needs a target application name.");
+  }
   return Contains(summary, L"App loopback application: not set") &&
          Contains(summary,
                   L"Application loopback needs a target application name.");
@@ -175,6 +194,17 @@ bool TestSummaryShowsEffectiveRenderRequestWhenAutoAlignEnabled() {
   const auto summary = model.summary_text();
   return Contains(summary, L"Render auto-align: On") &&
          Contains(summary, L"Effective render request: 44100 Hz / 1 ch / PCM16");
+}
+
+bool TestSummaryShowsUnsupportedApplicationLoopbackCapabilityNotice() {
+  if (WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows()) {
+    return true;
+  }
+
+  AppModel model = MakeStubBackedModel();
+  const auto summary = model.summary_text();
+  return Contains(summary,
+                  L"Application loopback is unavailable on this machine because Windows process loopback requires client build 20348 or newer");
 }
 
 bool TestRunningSessionSummaryShowsConfigurationNote() {
@@ -1676,12 +1706,31 @@ bool TestQuickProbeExplainsApplicationLoopbackTargetFailure() {
   model.SetApplicationLoopbackTarget(
       ApplicationLoopbackTargetKind::ProcessId, L"1234");
 
+  if (!WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows()) {
+    return model.configuration().capture.source_mode ==
+           AudioSourceMode::MicrophoneCapture;
+  }
+
   const bool ok = model.RunQuickProbe();
   const auto probe = model.probe_text();
   return !ok &&
          Contains(probe, L"FailureStage: format-resolution") &&
-         Contains(probe,
-                  L"Application loopback is not supported on this machine. Windows process loopback capture requires client build 20348 or newer.");
+         Contains(probe, L"Application loopback is unavailable on this machine because Windows process loopback requires client build 20348 or newer");
+}
+
+bool TestUnsupportedApplicationLoopbackFallsBackToMicrophoneMode() {
+  if (WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows()) {
+    return true;
+  }
+
+  AppModel model = MakeStubBackedModel();
+  model.SetCaptureSourceMode(AudioSourceMode::ApplicationLoopback);
+  const auto config = model.configuration();
+  const auto logs = model.logs();
+  return config.capture.source_mode == AudioSourceMode::MicrophoneCapture &&
+         !logs.empty() &&
+         Contains(logs.back(),
+                  L"Application loopback is unavailable on this machine because Windows process loopback requires client build 20348 or newer");
 }
 
 bool TestQuickProbeDoesNotDuplicateSharedEnginePeriodDetails() {
@@ -2064,6 +2113,8 @@ int main() {
        &TestSummaryShowsApplicationLoopbackTargetMissingNote},
       {"SummaryShowsEffectiveRenderRequestWhenAutoAlignEnabled",
        &TestSummaryShowsEffectiveRenderRequestWhenAutoAlignEnabled},
+      {"SummaryShowsUnsupportedApplicationLoopbackCapabilityNotice",
+       &TestSummaryShowsUnsupportedApplicationLoopbackCapabilityNotice},
       {"RunningSessionSummaryShowsConfigurationNote",
        &TestRunningSessionSummaryShowsConfigurationNote},
       {"DiagnosticsTextIncludesRuntimeAndSelectedDevices",
@@ -2182,6 +2233,8 @@ int main() {
        &TestQuickProbeExplainsLoopbackDeviceSelectionMismatch},
       {"QuickProbeExplainsApplicationLoopbackTargetFailure",
        &TestQuickProbeExplainsApplicationLoopbackTargetFailure},
+      {"UnsupportedApplicationLoopbackFallsBackToMicrophoneMode",
+       &TestUnsupportedApplicationLoopbackFallsBackToMicrophoneMode},
       {"QuickProbeDoesNotDuplicateSharedEnginePeriodDetails",
        &TestQuickProbeDoesNotDuplicateSharedEnginePeriodDetails},
       {"StoppedSessionClearsWaveformCaches",

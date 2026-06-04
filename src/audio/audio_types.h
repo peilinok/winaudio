@@ -163,6 +163,7 @@ struct SessionRuntimeStats {
   uint32_t requested_render_buffer_duration_ms = 0;
   std::wstring requested_capture_wasapi_mode;
   std::wstring requested_render_wasapi_mode;
+  std::wstring effective_render_request_format;
   std::wstring negotiated_capture_format;
   std::wstring negotiated_render_format;
   std::wstring actual_capture_backend_mode;

@@ -135,6 +135,20 @@ void AppModel::SetRenderBackend(AudioBackendType backend) {
 }
 
 void AppModel::SetCaptureSourceMode(AudioSourceMode source_mode) {
+  if ((source_mode == AudioSourceMode::ApplicationProcessLoopback ||
+       source_mode == AudioSourceMode::ApplicationLoopback) &&
+      !WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows()) {
+    {
+      std::scoped_lock lock(mutex_);
+      configuration_.capture.source_mode = AudioSourceMode::MicrophoneCapture;
+      configuration_.capture.application_loopback_target_kind =
+          ApplicationLoopbackTargetKind::ApplicationName;
+    }
+    OnLogLine(WasapiCaptureAdapter::DescribeProcessLoopbackSupport());
+    RefreshDevices();
+    RefreshCapabilitySnapshot();
+    return;
+  }
   {
     std::scoped_lock lock(mutex_);
     if (session_state_ == L"Running") {
@@ -1140,6 +1154,9 @@ std::wstring AppModel::summary_text() const {
   if (!loopback_backend_note.empty()) {
     text += L"\r\n" + loopback_backend_note;
   }
+  if (!WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows()) {
+    text += L"\r\n" + WasapiCaptureAdapter::DescribeProcessLoopbackSupport();
+  }
   if (source_mode == AudioSourceMode::ApplicationProcessLoopback ||
       source_mode == AudioSourceMode::ApplicationLoopback) {
     const auto target_kind =
@@ -1151,10 +1168,6 @@ std::wstring AppModel::summary_text() const {
     } else if (WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows()) {
       text += L"\r\n" + BuildApplicationLoopbackNoteText(target_kind, target_value);
     }
-    if (!WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows()) {
-      text +=
-          L"\r\nApplication loopback is unavailable on this machine because Windows process loopback requires client build 20348 or newer.";
-    }
   }
   return text;
 }
@@ -1164,6 +1177,10 @@ std::wstring AppModel::diagnostics_text() const {
   const auto effective_configured_render_request =
       configuration_.auto_align_render_format ? configuration_.capture.format
                                               : configuration_.render.format;
+  const auto active_effective_render_request =
+      stats_.effective_render_request_format.empty()
+          ? DescribeAudioFormat(effective_configured_render_request)
+          : stats_.effective_render_request_format;
   std::wstring text =
       BuildCurrentConfiguredCaptureDiagnosticsLabelText() +
       DescribeAudioFormat(configuration_.capture.format) +
@@ -1172,7 +1189,7 @@ std::wstring AppModel::diagnostics_text() const {
       DescribeAudioFormat(configuration_.render.format) +
       L"\r\n" +
       BuildEffectiveConfiguredRenderRequestDiagnosticsLabelText() +
-      DescribeAudioFormat(effective_configured_render_request) +
+      active_effective_render_request +
       L"\r\n" +
       BuildActiveRequestedCaptureDiagnosticsLabelText() + stats_.requested_capture_format +
       L"\r\n" +
@@ -1894,6 +1911,9 @@ void AppModel::RefreshCapabilitySnapshot() {
     text += L"\r\n- Render devices visible: " +
             std::to_wstring(devices_.render_devices.size());
   }
+  if (!WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows()) {
+    text += L"\r\n- " + WasapiCaptureAdapter::DescribeProcessLoopbackSupport();
+  }
 
   text += L"\r\n\r\nCurrent Limitations";
   if (configuration_.capture.source_mode ==
@@ -1901,7 +1921,7 @@ void AppModel::RefreshCapabilitySnapshot() {
       configuration_.capture.source_mode == AudioSourceMode::ApplicationLoopback) {
     text += WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows()
                 ? L"\r\n- Application loopback requires a target process selection and process eligibility on this Windows build"
-                : L"\r\n- Application loopback is unavailable on this machine because Windows process loopback requires client build 20348 or newer";
+                : L"\r\n- " + WasapiCaptureAdapter::DescribeProcessLoopbackSupport();
   } else if (configuration_.capture.source_mode == AudioSourceMode::SystemLoopback &&
       configuration_.capture.backend == AudioBackendType::Wasapi) {
     text += L"\r\n- WASAPI loopback is shared-mode only";

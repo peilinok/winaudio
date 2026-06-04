@@ -46,6 +46,25 @@ bool IsWindowsBuildAtLeast(DWORD build_number) {
           version_info.dwBuildNumber >= build_number);
 }
 
+DWORD GetCurrentWindowsBuildNumber() {
+  HMODULE ntdll = GetModuleHandleW(L"ntdll.dll");
+  if (ntdll == nullptr) {
+    return 0;
+  }
+  using RtlGetVersionFn = LONG(WINAPI*)(PRTL_OSVERSIONINFOW);
+  const auto rtl_get_version =
+      reinterpret_cast<RtlGetVersionFn>(GetProcAddress(ntdll, "RtlGetVersion"));
+  if (rtl_get_version == nullptr) {
+    return 0;
+  }
+  RTL_OSVERSIONINFOW version_info {};
+  version_info.dwOSVersionInfoSize = sizeof(version_info);
+  if (rtl_get_version(&version_info) != 0) {
+    return 0;
+  }
+  return version_info.dwBuildNumber;
+}
+
 std::wstring MmResultToString(MMRESULT result) {
   switch (result) {
     case MMSYSERR_NOERROR:
@@ -717,6 +736,20 @@ std::wstring WasapiCaptureAdapter::runtime_details() const {
 
 bool WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows() {
   return IsWindowsBuildAtLeast(20348);
+}
+
+DWORD WasapiCaptureAdapter::CurrentWindowsBuildNumber() {
+  return GetCurrentWindowsBuildNumber();
+}
+
+std::wstring WasapiCaptureAdapter::DescribeProcessLoopbackSupport() {
+  const auto build_number = CurrentWindowsBuildNumber();
+  if (IsProcessLoopbackSupportedOnCurrentWindows()) {
+    return L"Application loopback is supported on this machine (current build " +
+           std::to_wstring(build_number) + L").";
+  }
+  return L"Application loopback is unavailable on this machine because Windows process loopback requires client build 20348 or newer (current build " +
+         std::to_wstring(build_number) + L").";
 }
 
 std::optional<AudioFormatSpec> WasapiCaptureAdapter::ResolveFormat(

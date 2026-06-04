@@ -6,6 +6,8 @@
 #include <iomanip>
 #include <sstream>
 
+#include "audio/backends/real_backends.h"
+
 namespace winaudio {
 
 namespace {
@@ -35,7 +37,7 @@ std::wstring HumanizeAppLoopbackFailure(const std::wstring& detail) {
     return L"Application loopback target application was found, but no active audio-playing process was available.";
   }
   if (detail == L"app-loopback-unsupported-os") {
-    return L"Application loopback is not supported on this machine. Windows process loopback capture requires client build 20348 or newer.";
+    return WasapiCaptureAdapter::DescribeProcessLoopbackSupport();
   }
   if (detail.find(L"ActivateAudioInterfaceAsync: 0x8000000E") !=
       std::wstring::npos) {
@@ -45,6 +47,19 @@ std::wstring HumanizeAppLoopbackFailure(const std::wstring& detail) {
     return L"Application loopback activation did not complete successfully on this machine.";
   }
   return {};
+}
+
+std::wstring HumanizeFormatResolutionFailure(const std::wstring& detail) {
+  if (detail == L"resolve-device") {
+    return L"target device could not be resolved";
+  }
+  if (detail == L"activate-iaudioclient") {
+    return L"IAudioClient activation failed";
+  }
+  if (detail == L"wave-loopback-device-not-found") {
+    return L"loopback device was not found";
+  }
+  return detail;
 }
 
 }  // namespace
@@ -189,17 +204,55 @@ bool AudioSessionController::Start(const SessionConfiguration& config,
     }
   }
 
-  RenderConfig effective_render_config = effective_config.render;
-  if (effective_config.auto_align_render_format) {
-    effective_render_config.format = effective_config.capture.format;
-  }
-
   const auto capture_format =
       capture_adapter_->GetPreferredFormat(effective_config.capture);
+  RenderConfig effective_render_config = effective_config.render;
+  if (capture_format.has_value() && effective_config.auto_align_render_format) {
+    effective_render_config.format = *capture_format;
+    effective_render_config.format.normalize();
+  }
   const auto render_format =
       effective_config.render.monitor_enabled
           ? render_adapter_->GetPreferredFormat(effective_render_config)
           : std::optional<AudioFormatSpec> {effective_render_config.format};
+
+  diagnostics_.stats.requested_capture_format =
+      DescribeAudioFormat(effective_config.capture.format);
+  diagnostics_.stats.requested_render_format =
+      DescribeAudioFormat(effective_render_config.format);
+  diagnostics_.stats.effective_render_request_format =
+      diagnostics_.stats.requested_render_format;
+  diagnostics_.stats.active_render_monitor_enabled =
+      effective_config.render.monitor_enabled;
+  diagnostics_.stats.active_requested_timing_present = true;
+  diagnostics_.stats.active_requested_wasapi_mode_present = true;
+  diagnostics_.stats.requested_capture_device_id =
+      effective_config.capture.device_id.empty() ? std::wstring(L"default")
+                                                 : effective_config.capture.device_id;
+  diagnostics_.stats.requested_render_device_id =
+      effective_config.render.device_id.empty() ? std::wstring(L"default")
+                                                : effective_config.render.device_id;
+  diagnostics_.stats.requested_monitor_delay_ms =
+      effective_config.render.fixed_delay_ms;
+  diagnostics_.stats.requested_capture_buffer_duration_ms =
+      effective_config.capture.buffer_duration_ms;
+  diagnostics_.stats.requested_render_buffer_duration_ms =
+      effective_config.render.buffer_duration_ms;
+  diagnostics_.stats.requested_capture_wasapi_mode =
+      ToWideString(effective_config.capture.wasapi_share_mode) + L" / " +
+      ToWideString(effective_config.capture.wasapi_drive_mode);
+  diagnostics_.stats.requested_render_wasapi_mode =
+      ToWideString(effective_config.render.wasapi_share_mode) + L" / " +
+      ToWideString(effective_config.render.wasapi_drive_mode);
+  if (capture_format.has_value()) {
+    diagnostics_.stats.negotiated_capture_format =
+        DescribeAudioFormat(*capture_format);
+  }
+  if (render_format.has_value()) {
+    diagnostics_.stats.negotiated_render_format =
+        DescribeAudioFormat(*render_format);
+  }
+
   if (!capture_format.has_value() || !render_format.has_value()) {
     std::wstring detail = L"Failed to resolve runtime audio formats.";
     if (!capture_format.has_value()) {
@@ -221,7 +274,7 @@ bool AudioSessionController::Start(const SessionConfiguration& config,
     if (effective_config.render.monitor_enabled && !render_format.has_value()) {
       const auto render_detail = render_adapter_->last_error();
       if (!render_detail.empty()) {
-        detail += L" render=" + render_detail;
+        detail += L" render=" + HumanizeFormatResolutionFailure(render_detail);
       }
     }
     SetLastError(L"format-resolution", detail);
@@ -290,32 +343,6 @@ bool AudioSessionController::Start(const SessionConfiguration& config,
     }
   }
 
-  diagnostics_.stats.requested_capture_format =
-      DescribeAudioFormat(effective_config.capture.format);
-  diagnostics_.stats.requested_render_format =
-      DescribeAudioFormat(effective_render_config.format);
-  diagnostics_.stats.active_render_monitor_enabled =
-      effective_config.render.monitor_enabled;
-  diagnostics_.stats.active_requested_timing_present = true;
-  diagnostics_.stats.active_requested_wasapi_mode_present = true;
-  diagnostics_.stats.requested_capture_device_id =
-      effective_config.capture.device_id.empty() ? std::wstring(L"default")
-                                                 : effective_config.capture.device_id;
-  diagnostics_.stats.requested_render_device_id =
-      effective_config.render.device_id.empty() ? std::wstring(L"default")
-                                                : effective_config.render.device_id;
-  diagnostics_.stats.requested_monitor_delay_ms =
-      effective_config.render.fixed_delay_ms;
-  diagnostics_.stats.requested_capture_buffer_duration_ms =
-      effective_config.capture.buffer_duration_ms;
-  diagnostics_.stats.requested_render_buffer_duration_ms =
-      effective_config.render.buffer_duration_ms;
-  diagnostics_.stats.requested_capture_wasapi_mode =
-      ToWideString(effective_config.capture.wasapi_share_mode) + L" / " +
-      ToWideString(effective_config.capture.wasapi_drive_mode);
-  diagnostics_.stats.requested_render_wasapi_mode =
-      ToWideString(effective_config.render.wasapi_share_mode) + L" / " +
-      ToWideString(effective_config.render.wasapi_drive_mode);
   diagnostics_.stats.negotiated_capture_format =
       DescribeAudioFormat(runtime_capture_format_);
   diagnostics_.stats.negotiated_render_format =

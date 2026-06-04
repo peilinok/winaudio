@@ -60,10 +60,22 @@ class StubRenderAdapter final : public IAudioRenderAdapter {
 
 class StubAudioBackendFactory final : public IAudioBackendFactory {
  public:
+  struct Options {
+    std::optional<AudioFormatSpec> capture_preferred_format;
+    std::optional<AudioFormatSpec> render_preferred_format;
+    std::wstring render_format_error;
+  };
+
+  StubAudioBackendFactory() = default;
+  explicit StubAudioBackendFactory(Options options);
+
   std::unique_ptr<IAudioCaptureAdapter> CreateCaptureAdapter(
       AudioBackendType backend) override;
   std::unique_ptr<IAudioRenderAdapter> CreateRenderAdapter(
       AudioBackendType backend) override;
+
+ private:
+  Options options_ {};
 };
 
 }  // namespace winaudio

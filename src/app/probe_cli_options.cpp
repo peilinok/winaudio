@@ -1,4 +1,5 @@
 #include "app/probe_cli.h"
+#include "audio/backends/real_backends.h"
 
 namespace winaudio {
 
@@ -334,6 +335,14 @@ bool ParseProbeCliOptions(const std::vector<std::wstring>& args,
     }
   }
 
+  if ((options->config.capture.source_mode ==
+           AudioSourceMode::ApplicationLoopback ||
+       options->config.capture.source_mode ==
+           AudioSourceMode::ApplicationProcessLoopback) &&
+      !WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows()) {
+    return false;
+  }
+
   return true;
 }
 
@@ -359,6 +368,7 @@ std::wstring BuildProbeCliUsageText() {
          L"    required with --source=app-loopback; example: spotify.exe\n"
          L"  --app-loopback-process=<exe>\n"
          L"    legacy alias for --app-loopback-application\n"
+         L"    unavailable on Windows builds earlier than 20348\n"
          L"  --device-name-format=escaped|native\n"
          L"  --delay-ms=<n>\n"
          L"\nFormat options:\n"

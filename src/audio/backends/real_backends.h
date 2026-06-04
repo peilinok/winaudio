@@ -41,6 +41,8 @@ class WasapiCaptureAdapter final : public IAudioCaptureAdapter {
   std::wstring runtime_mode() const override;
   std::wstring runtime_details() const override;
   static bool IsProcessLoopbackSupportedOnCurrentWindows();
+  static DWORD CurrentWindowsBuildNumber();
+  static std::wstring DescribeProcessLoopbackSupport();
 
  private:
   std::optional<AudioFormatSpec> ResolveFormat(const CaptureConfig& config,
