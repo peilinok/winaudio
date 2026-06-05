@@ -70,8 +70,12 @@ constexpr int kComboRenderChannels = 1120;
 constexpr int kComboRenderSampleType = 1121;
 constexpr int kComboCaptureShareMode = 1111;
 constexpr int kComboCaptureDriveMode = 1112;
+constexpr int kComboCaptureCategory = 1126;
+constexpr int kComboCaptureOptions = 1127;
 constexpr int kComboRenderShareMode = 1123;
 constexpr int kComboRenderDriveMode = 1124;
+constexpr int kComboRenderCategory = 1128;
+constexpr int kComboRenderOptions = 1129;
 constexpr int kEditAppLoopbackProcess = 1125;
 constexpr int kEditDumpPath = 1113;
 constexpr int kComboDumpType = 1114;
@@ -119,8 +123,12 @@ struct WindowContext {
   HWND render_sample_type_combo = nullptr;
   HWND capture_share_mode_combo = nullptr;
   HWND capture_drive_mode_combo = nullptr;
+  HWND capture_category_combo = nullptr;
+  HWND capture_options_combo = nullptr;
   HWND render_share_mode_combo = nullptr;
   HWND render_drive_mode_combo = nullptr;
+  HWND render_category_combo = nullptr;
+  HWND render_options_combo = nullptr;
   HWND app_loopback_process_edit = nullptr;
   HWND dump_path_edit = nullptr;
   HWND dump_type_combo = nullptr;
@@ -211,10 +219,14 @@ struct ConfigPanelLayout {
   int channels_width = 0;
   int type_width = 0;
   int mode_width = 0;
+  int category_width = 0;
+  int options_width = 0;
   int format_row1_y = 0;
   int format_row2_y = 0;
+  int format_row3_y = 0;
   int format_row1_label_y = 0;
   int format_row2_label_y = 0;
+  int format_row3_label_y = 0;
   int output_left = 0;
   int output_inner_width = 0;
   int output_label_y = 0;
@@ -432,7 +444,7 @@ AppLayout CalculateAppLayout(const RECT& client_rect) {
       std::max(RectHeight(client_rect), kWindowMinClientHeight);
   const int inner_width = client_width - (kOuterMargin * 2);
 
-  const int config_height = 516;
+  const int config_height = 570;
   const int vertical_budget =
       client_height - (kOuterMargin * 2) - config_height - (kSectionGap * 3);
   const int info_tabs_min_height =
@@ -843,13 +855,13 @@ ConfigPanelLayout CalculateConfigPanelLayout(const RECT& rect) {
   layout.toolbar_rect = MakeRect(rect.left, rect.top, content_width, 46);
   layout.routing_rect = MakeRect(rect.left, rect.top + 54, content_width, 132);
   layout.capture_format_rect =
-      MakeRect(rect.left, rect.top + 194, format_width, 136);
+      MakeRect(rect.left, rect.top + 194, format_width, 190);
   layout.render_format_rect =
       MakeRect(rect.left + format_width + format_gap, rect.top + 194,
-               content_width - format_width - format_gap, 136);
+               content_width - format_width - format_gap, 190);
   layout.output_rect =
-      MakeRect(rect.left, rect.top + 338, content_width,
-               rect.bottom - (rect.top + 338));
+      MakeRect(rect.left, rect.top + 392, content_width,
+               rect.bottom - (rect.top + 392));
 
   layout.route_column_width =
       (RectWidth(layout.routing_rect) - (section_inset * 2) - inner_gap) / 2;
@@ -868,10 +880,15 @@ ConfigPanelLayout CalculateConfigPanelLayout(const RECT& rect) {
                       layout.rate_width - layout.channels_width - (inner_gap * 2);
   layout.mode_width =
       (RectWidth(layout.capture_format_rect) - (section_inset * 2) - inner_gap) / 2;
+  layout.category_width =
+      (RectWidth(layout.capture_format_rect) - (section_inset * 2) - inner_gap) / 2;
+  layout.options_width = layout.category_width;
   layout.format_row1_label_y = layout.capture_format_rect.top + 28;
   layout.format_row1_y = layout.capture_format_rect.top + 46;
   layout.format_row2_label_y = layout.capture_format_rect.top + 88;
   layout.format_row2_y = layout.capture_format_rect.top + 106;
+  layout.format_row3_label_y = layout.capture_format_rect.top + 134;
+  layout.format_row3_y = layout.capture_format_rect.top + 152;
 
   layout.output_left = layout.output_rect.left + section_inset;
   layout.output_inner_width = RectWidth(layout.output_rect) - (section_inset * 2);
@@ -966,6 +983,14 @@ void LayoutChildControls(HWND hwnd, WindowContext* context) {
   MoveControl(context->capture_drive_mode_combo,
               MakeRect(x, config_layout.format_row2_y, config_layout.mode_width,
                        kComboHeight));
+  x = config_layout.capture_format_rect.left + 16;
+  MoveControl(context->capture_category_combo,
+              MakeRect(x, config_layout.format_row3_y, config_layout.category_width,
+                       kComboHeight));
+  x += config_layout.category_width + inner_gap;
+  MoveControl(context->capture_options_combo,
+              MakeRect(x, config_layout.format_row3_y, config_layout.options_width,
+                       kComboHeight));
 
   x = config_layout.render_format_rect.left + 16;
   MoveControl(context->render_sample_rate_combo,
@@ -986,6 +1011,14 @@ void LayoutChildControls(HWND hwnd, WindowContext* context) {
   x += config_layout.mode_width + inner_gap;
   MoveControl(context->render_drive_mode_combo,
               MakeRect(x, config_layout.format_row2_y, config_layout.mode_width,
+                       kComboHeight));
+  x = config_layout.render_format_rect.left + 16;
+  MoveControl(context->render_category_combo,
+              MakeRect(x, config_layout.format_row3_y, config_layout.category_width,
+                       kComboHeight));
+  x += config_layout.category_width + inner_gap;
+  MoveControl(context->render_options_combo,
+              MakeRect(x, config_layout.format_row3_y, config_layout.options_width,
                        kComboHeight));
 
   MoveControl(context->dump_path_edit,
@@ -1156,6 +1189,8 @@ void ApplyControlAvailability(WindowContext* context) {
       context->capture_sample_type_combo,
       context->capture_share_mode_combo,
       context->capture_drive_mode_combo,
+      context->capture_category_combo,
+      context->capture_options_combo,
       context->dump_path_edit,
       context->dump_type_combo,
       context->capture_buffer_edit,
@@ -1188,6 +1223,8 @@ void ApplyControlAvailability(WindowContext* context) {
       context->delay_edit,
       context->render_share_mode_combo,
       context->render_drive_mode_combo,
+      context->render_category_combo,
+      context->render_options_combo,
       context->render_buffer_edit,
       context->auto_align_render_checkbox,
   };
@@ -1483,6 +1520,125 @@ int ComboIndexFromSampleType(AudioSampleType sample_type) {
   return 0;
 }
 
+WasapiStreamCategory StreamCategoryFromComboIndex(int index) {
+  switch (index) {
+    case 0:
+      return WasapiStreamCategory::Communications;
+    case 1:
+      return WasapiStreamCategory::Media;
+    case 2:
+      return WasapiStreamCategory::Movie;
+    case 3:
+      return WasapiStreamCategory::Speech;
+    case 4:
+      return WasapiStreamCategory::GameChat;
+    case 5:
+      return WasapiStreamCategory::GameMedia;
+    case 6:
+      return WasapiStreamCategory::GameEffects;
+    case 7:
+      return WasapiStreamCategory::SoundEffects;
+    case 8:
+      return WasapiStreamCategory::Alerts;
+    case 9:
+      return WasapiStreamCategory::Other;
+    case 10:
+      return WasapiStreamCategory::ForegroundOnlyMedia;
+    case 11:
+      return WasapiStreamCategory::BackgroundCapableMedia;
+    case 12:
+      return WasapiStreamCategory::FarFieldSpeech;
+    case 13:
+      return WasapiStreamCategory::UniformSpeech;
+    case 14:
+      return WasapiStreamCategory::VoiceTyping;
+    default:
+      return WasapiStreamCategory::Communications;
+  }
+}
+
+int ComboIndexFromStreamCategory(WasapiStreamCategory category) {
+  switch (category) {
+    case WasapiStreamCategory::Communications:
+      return 0;
+    case WasapiStreamCategory::Media:
+      return 1;
+    case WasapiStreamCategory::Movie:
+      return 2;
+    case WasapiStreamCategory::Speech:
+      return 3;
+    case WasapiStreamCategory::GameChat:
+      return 4;
+    case WasapiStreamCategory::GameMedia:
+      return 5;
+    case WasapiStreamCategory::GameEffects:
+      return 6;
+    case WasapiStreamCategory::SoundEffects:
+      return 7;
+    case WasapiStreamCategory::Alerts:
+      return 8;
+    case WasapiStreamCategory::Other:
+      return 9;
+    case WasapiStreamCategory::ForegroundOnlyMedia:
+      return 10;
+    case WasapiStreamCategory::BackgroundCapableMedia:
+      return 11;
+    case WasapiStreamCategory::FarFieldSpeech:
+      return 12;
+    case WasapiStreamCategory::UniformSpeech:
+      return 13;
+    case WasapiStreamCategory::VoiceTyping:
+      return 14;
+  }
+  return 0;
+}
+
+WasapiStreamOptions StreamOptionsFromComboIndex(int index) {
+  switch (index) {
+    case 0:
+      return WasapiStreamOptions::Raw;
+    case 1:
+      return WasapiStreamOptions::None;
+    case 2:
+      return static_cast<WasapiStreamOptions>(
+          static_cast<uint32_t>(WasapiStreamOptions::Raw) |
+          static_cast<uint32_t>(WasapiStreamOptions::MatchFormat));
+    case 3:
+      return WasapiStreamOptions::MatchFormat;
+    case 4:
+      return WasapiStreamOptions::Ambisonics;
+    case 5:
+      return WasapiStreamOptions::PostVolumeLoopback;
+    default:
+      return WasapiStreamOptions::Raw;
+  }
+}
+
+int ComboIndexFromStreamOptions(WasapiStreamOptions options) {
+  if (options == WasapiStreamOptions::Raw) {
+    return 0;
+  }
+  if (options == WasapiStreamOptions::None) {
+    return 1;
+  }
+  if (options ==
+      static_cast<WasapiStreamOptions>(
+          static_cast<uint32_t>(WasapiStreamOptions::Raw) |
+          static_cast<uint32_t>(WasapiStreamOptions::MatchFormat))) {
+    return 2;
+  }
+  if (options == WasapiStreamOptions::MatchFormat) {
+    return 3;
+  }
+  if (options == WasapiStreamOptions::Ambisonics) {
+    return 4;
+  }
+  if (options == WasapiStreamOptions::PostVolumeLoopback) {
+    return 5;
+  }
+  return 0;
+}
+
 void PopulateDeviceCombo(HWND combo,
                          const std::vector<AudioDeviceDescriptor>& devices,
                          const std::wstring& selected_device_id) {
@@ -1598,12 +1754,28 @@ void SyncUiFromModel(WindowContext* context) {
                config.capture.wasapi_drive_mode == WasapiDriveMode::EventDriven ? 0
                                                                                 : 1,
                0);
+  SendMessageW(context->capture_category_combo, CB_SETCURSEL,
+               ComboIndexFromStreamCategory(
+                   config.capture.wasapi_stream_category),
+               0);
+  SendMessageW(context->capture_options_combo, CB_SETCURSEL,
+               ComboIndexFromStreamOptions(
+                   config.capture.wasapi_stream_options),
+               0);
   SendMessageW(context->render_share_mode_combo, CB_SETCURSEL,
                config.render.wasapi_share_mode == WasapiShareMode::Shared ? 0 : 1,
                0);
   SendMessageW(context->render_drive_mode_combo, CB_SETCURSEL,
                config.render.wasapi_drive_mode == WasapiDriveMode::EventDriven ? 0
                                                                                : 1,
+               0);
+  SendMessageW(context->render_category_combo, CB_SETCURSEL,
+               ComboIndexFromStreamCategory(
+                   config.render.wasapi_stream_category),
+               0);
+  SendMessageW(context->render_options_combo, CB_SETCURSEL,
+               ComboIndexFromStreamOptions(
+                   config.render.wasapi_stream_options),
                0);
   SetControlText(context->dump_path_edit, config.capture.dump_path.c_str());
   SetControlText(context->app_loopback_process_edit,
@@ -1690,6 +1862,13 @@ void DrawConfigLabels(HDC hdc, const RECT& rect, AudioSourceMode source_mode) {
            layout.capture_format_rect.left + section_inset + layout.mode_width +
                inner_gap,
            layout.format_row2_label_y, L"Drive", 5);
+  TextOutW(hdc, layout.capture_format_rect.left + section_inset,
+           layout.format_row3_label_y,
+           L"Category", 8);
+  TextOutW(hdc,
+           layout.capture_format_rect.left + section_inset + layout.category_width +
+               inner_gap,
+           layout.format_row3_label_y, L"Options", 7);
 
   TextOutW(hdc, layout.render_format_rect.left + section_inset,
            layout.format_row1_label_y,
@@ -1709,6 +1888,13 @@ void DrawConfigLabels(HDC hdc, const RECT& rect, AudioSourceMode source_mode) {
            layout.render_format_rect.left + section_inset + layout.mode_width +
                inner_gap,
            layout.format_row2_label_y, L"Drive", 5);
+  TextOutW(hdc, layout.render_format_rect.left + section_inset,
+           layout.format_row3_label_y,
+           L"Category", 8);
+  TextOutW(hdc,
+           layout.render_format_rect.left + section_inset + layout.category_width +
+               inner_gap,
+           layout.format_row3_label_y, L"Options", 7);
 
   TextOutW(hdc, layout.output_rect.left + section_inset, layout.output_label_y,
            L"Dump Path", 9);
@@ -1950,6 +2136,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
           L"COMBOBOX", nullptr, WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST, 920, 176,
           130, 180, hwnd, ControlIdToMenu(kComboCaptureDriveMode), nullptr,
           nullptr);
+      owned_context->capture_category_combo = CreateWindowW(
+          L"COMBOBOX", nullptr, WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST, 760, 206,
+          130, 220, hwnd, ControlIdToMenu(kComboCaptureCategory), nullptr,
+          nullptr);
+      owned_context->capture_options_combo = CreateWindowW(
+          L"COMBOBOX", nullptr, WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST, 920, 206,
+          130, 220, hwnd, ControlIdToMenu(kComboCaptureOptions), nullptr,
+          nullptr);
       owned_context->render_share_mode_combo = CreateWindowW(
           L"COMBOBOX", nullptr, WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST, 760, 226,
           130, 180, hwnd, ControlIdToMenu(kComboRenderShareMode), nullptr,
@@ -1957,6 +2151,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
       owned_context->render_drive_mode_combo = CreateWindowW(
           L"COMBOBOX", nullptr, WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST, 920, 226,
           130, 180, hwnd, ControlIdToMenu(kComboRenderDriveMode), nullptr,
+          nullptr);
+      owned_context->render_category_combo = CreateWindowW(
+          L"COMBOBOX", nullptr, WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST, 760, 256,
+          130, 220, hwnd, ControlIdToMenu(kComboRenderCategory), nullptr,
+          nullptr);
+      owned_context->render_options_combo = CreateWindowW(
+          L"COMBOBOX", nullptr, WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST, 920, 256,
+          130, 220, hwnd, ControlIdToMenu(kComboRenderOptions), nullptr,
           nullptr);
       owned_context->dump_path_edit = CreateWindowW(
           L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL, 16, 276,
@@ -2075,8 +2277,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
           owned_context->render_sample_type_combo,
           owned_context->capture_share_mode_combo,
           owned_context->capture_drive_mode_combo,
+          owned_context->capture_category_combo,
+          owned_context->capture_options_combo,
           owned_context->render_share_mode_combo,
           owned_context->render_drive_mode_combo,
+          owned_context->render_category_combo,
+          owned_context->render_options_combo,
           owned_context->dump_type_combo,
       };
       for (HWND combo : combo_controls) {
@@ -2137,10 +2343,32 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
                           {L"Shared", L"Exclusive"});
       PopulateSimpleCombo(owned_context->capture_drive_mode_combo,
                           {L"Event", L"Timer"});
+      PopulateSimpleCombo(owned_context->capture_category_combo,
+                          {L"Communications", L"Media", L"Movie", L"Speech",
+                           L"Game Chat", L"Game Media", L"Game Effects",
+                           L"Sound Effects", L"Alerts", L"Other",
+                           L"Foreground Media", L"Background Media",
+                           L"Far Field Speech", L"Uniform Speech",
+                           L"Voice Typing"});
+      PopulateSimpleCombo(owned_context->capture_options_combo,
+                          {L"Raw", L"None", L"Raw | MatchFormat",
+                           L"MatchFormat", L"Ambisonics",
+                           L"PostVolumeLoopback"});
       PopulateSimpleCombo(owned_context->render_share_mode_combo,
                           {L"Shared", L"Exclusive"});
       PopulateSimpleCombo(owned_context->render_drive_mode_combo,
                           {L"Event", L"Timer"});
+      PopulateSimpleCombo(owned_context->render_category_combo,
+                          {L"Communications", L"Media", L"Movie", L"Speech",
+                           L"Game Chat", L"Game Media", L"Game Effects",
+                           L"Sound Effects", L"Alerts", L"Other",
+                           L"Foreground Media", L"Background Media",
+                           L"Far Field Speech", L"Uniform Speech",
+                           L"Voice Typing"});
+      PopulateSimpleCombo(owned_context->render_options_combo,
+                          {L"Raw", L"None", L"Raw | MatchFormat",
+                           L"MatchFormat", L"Ambisonics",
+                           L"PostVolumeLoopback"});
       PopulateSimpleCombo(owned_context->dump_type_combo, {L"WAV", L"PCM"});
       SyncUiFromModel(owned_context);
       LayoutChildControls(hwnd, owned_context);
@@ -2370,6 +2598,26 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
             SyncWindowState(hwnd, context);
           }
           return 0;
+        case kComboCaptureCategory:
+          if (HIWORD(w_param) == CBN_SELCHANGE) {
+            const auto index =
+                static_cast<int>(SendMessageW(context->capture_category_combo,
+                                              CB_GETCURSEL, 0, 0));
+            context->model.SetCaptureWasapiStreamCategory(
+                StreamCategoryFromComboIndex(index));
+            SyncWindowState(hwnd, context);
+          }
+          return 0;
+        case kComboCaptureOptions:
+          if (HIWORD(w_param) == CBN_SELCHANGE) {
+            const auto index =
+                static_cast<int>(SendMessageW(context->capture_options_combo,
+                                              CB_GETCURSEL, 0, 0));
+            context->model.SetCaptureWasapiStreamOptions(
+                StreamOptionsFromComboIndex(index));
+            SyncWindowState(hwnd, context);
+          }
+          return 0;
         case kComboRenderShareMode:
           if (HIWORD(w_param) == CBN_SELCHANGE) {
             const auto index =
@@ -2389,6 +2637,26 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
             context->model.SetRenderWasapiDriveMode(
                 index == 0 ? WasapiDriveMode::EventDriven
                            : WasapiDriveMode::TimerDriven);
+            SyncWindowState(hwnd, context);
+          }
+          return 0;
+        case kComboRenderCategory:
+          if (HIWORD(w_param) == CBN_SELCHANGE) {
+            const auto index =
+                static_cast<int>(SendMessageW(context->render_category_combo,
+                                              CB_GETCURSEL, 0, 0));
+            context->model.SetRenderWasapiStreamCategory(
+                StreamCategoryFromComboIndex(index));
+            SyncWindowState(hwnd, context);
+          }
+          return 0;
+        case kComboRenderOptions:
+          if (HIWORD(w_param) == CBN_SELCHANGE) {
+            const auto index =
+                static_cast<int>(SendMessageW(context->render_options_combo,
+                                              CB_GETCURSEL, 0, 0));
+            context->model.SetRenderWasapiStreamOptions(
+                StreamOptionsFromComboIndex(index));
             SyncWindowState(hwnd, context);
           }
           return 0;

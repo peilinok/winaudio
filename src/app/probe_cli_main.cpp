@@ -60,11 +60,19 @@ int wmain(int argc, wchar_t** argv) {
   model.SetCaptureSampleType(options.config.capture.format.sample_type);
   model.SetCaptureWasapiShareMode(options.config.capture.wasapi_share_mode);
   model.SetCaptureWasapiDriveMode(options.config.capture.wasapi_drive_mode);
+  model.SetCaptureWasapiStreamCategory(
+      options.config.capture.wasapi_stream_category);
+  model.SetCaptureWasapiStreamOptions(
+      options.config.capture.wasapi_stream_options);
   model.SetRenderSampleRate(options.config.render.format.sample_rate);
   model.SetRenderChannels(options.config.render.format.channels);
   model.SetRenderSampleType(options.config.render.format.sample_type);
   model.SetRenderWasapiShareMode(options.config.render.wasapi_share_mode);
   model.SetRenderWasapiDriveMode(options.config.render.wasapi_drive_mode);
+  model.SetRenderWasapiStreamCategory(
+      options.config.render.wasapi_stream_category);
+  model.SetRenderWasapiStreamOptions(
+      options.config.render.wasapi_stream_options);
   model.SetMonitorEnabled(options.config.render.monitor_enabled);
   model.SetAutoAlignRenderFormat(options.config.auto_align_render_format);
   model.SetDumpEnabled(options.config.capture.dump_enabled);

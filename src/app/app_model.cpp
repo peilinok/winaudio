@@ -267,6 +267,16 @@ void AppModel::SetCaptureWasapiDriveMode(WasapiDriveMode drive_mode) {
   configuration_.capture.wasapi_drive_mode = drive_mode;
 }
 
+void AppModel::SetCaptureWasapiStreamCategory(WasapiStreamCategory category) {
+  std::scoped_lock lock(mutex_);
+  configuration_.capture.wasapi_stream_category = category;
+}
+
+void AppModel::SetCaptureWasapiStreamOptions(WasapiStreamOptions options) {
+  std::scoped_lock lock(mutex_);
+  configuration_.capture.wasapi_stream_options = options;
+}
+
 void AppModel::SetRenderWasapiShareMode(WasapiShareMode share_mode) {
   std::scoped_lock lock(mutex_);
   configuration_.render.wasapi_share_mode = share_mode;
@@ -275,6 +285,16 @@ void AppModel::SetRenderWasapiShareMode(WasapiShareMode share_mode) {
 void AppModel::SetRenderWasapiDriveMode(WasapiDriveMode drive_mode) {
   std::scoped_lock lock(mutex_);
   configuration_.render.wasapi_drive_mode = drive_mode;
+}
+
+void AppModel::SetRenderWasapiStreamCategory(WasapiStreamCategory category) {
+  std::scoped_lock lock(mutex_);
+  configuration_.render.wasapi_stream_category = category;
+}
+
+void AppModel::SetRenderWasapiStreamOptions(WasapiStreamOptions options) {
+  std::scoped_lock lock(mutex_);
+  configuration_.render.wasapi_stream_options = options;
 }
 
 void AppModel::SetCaptureBufferDurationMs(uint32_t duration_ms) {
@@ -1071,9 +1091,17 @@ std::wstring AppModel::summary_text() const {
                       L"\r\nCapture WASAPI: " +
                       ToWideString(configuration_.capture.wasapi_share_mode) + L" / " +
                       ToWideString(configuration_.capture.wasapi_drive_mode) +
+                      L" / " +
+                      ToWideString(configuration_.capture.wasapi_stream_category) +
+                      L" / " +
+                      ToWideString(configuration_.capture.wasapi_stream_options) +
                       L"\r\nRender WASAPI: " +
                       ToWideString(configuration_.render.wasapi_share_mode) + L" / " +
                       ToWideString(configuration_.render.wasapi_drive_mode) +
+                      L" / " +
+                      ToWideString(configuration_.render.wasapi_stream_category) +
+                      L" / " +
+                      ToWideString(configuration_.render.wasapi_stream_options) +
                       L"\r\nFollow defaults: " +
                       std::wstring(configuration_.follow_default_devices ? L"On"
                                                                         : L"Off") +

@@ -107,6 +107,73 @@ std::wstring WasapiResultToString(HRESULT hr) {
   }
 }
 
+AUDCLNT_STREAMOPTIONS ToNativeStreamOptions(WasapiStreamOptions options) {
+  AUDCLNT_STREAMOPTIONS native_options = AUDCLNT_STREAMOPTIONS_NONE;
+  if ((static_cast<uint32_t>(options) &
+       static_cast<uint32_t>(WasapiStreamOptions::Raw)) != 0) {
+    native_options = static_cast<AUDCLNT_STREAMOPTIONS>(
+        native_options | AUDCLNT_STREAMOPTIONS_RAW);
+  }
+  if ((static_cast<uint32_t>(options) &
+       static_cast<uint32_t>(WasapiStreamOptions::MatchFormat)) != 0) {
+    native_options = static_cast<AUDCLNT_STREAMOPTIONS>(
+        native_options | AUDCLNT_STREAMOPTIONS_MATCH_FORMAT);
+  }
+  if ((static_cast<uint32_t>(options) &
+       static_cast<uint32_t>(WasapiStreamOptions::Ambisonics)) != 0) {
+    native_options = static_cast<AUDCLNT_STREAMOPTIONS>(
+        native_options | AUDCLNT_STREAMOPTIONS_AMBISONICS);
+  }
+#ifdef AUDCLNT_STREAMOPTIONS_POST_VOLUME_LOOPBACK
+  if ((static_cast<uint32_t>(options) &
+       static_cast<uint32_t>(WasapiStreamOptions::PostVolumeLoopback)) != 0) {
+    native_options = static_cast<AUDCLNT_STREAMOPTIONS>(
+        native_options | AUDCLNT_STREAMOPTIONS_POST_VOLUME_LOOPBACK);
+  }
+#endif
+  return native_options;
+}
+
+AUDIO_STREAM_CATEGORY ToNativeStreamCategory(WasapiStreamCategory category) {
+  switch (category) {
+    case WasapiStreamCategory::Other:
+      return AudioCategory_Other;
+    case WasapiStreamCategory::ForegroundOnlyMedia:
+      return AudioCategory_ForegroundOnlyMedia;
+    case WasapiStreamCategory::BackgroundCapableMedia:
+#if NTDDI_VERSION < NTDDI_WINTHRESHOLD
+      return AudioCategory_BackgroundCapableMedia;
+#else
+      return AudioCategory_Movie;
+#endif
+    case WasapiStreamCategory::Communications:
+      return AudioCategory_Communications;
+    case WasapiStreamCategory::Alerts:
+      return AudioCategory_Alerts;
+    case WasapiStreamCategory::SoundEffects:
+      return AudioCategory_SoundEffects;
+    case WasapiStreamCategory::GameEffects:
+      return AudioCategory_GameEffects;
+    case WasapiStreamCategory::GameMedia:
+      return AudioCategory_GameMedia;
+    case WasapiStreamCategory::GameChat:
+      return AudioCategory_GameChat;
+    case WasapiStreamCategory::Speech:
+      return AudioCategory_Speech;
+    case WasapiStreamCategory::Movie:
+      return AudioCategory_Movie;
+    case WasapiStreamCategory::Media:
+      return AudioCategory_Media;
+    case WasapiStreamCategory::FarFieldSpeech:
+      return AudioCategory_FarFieldSpeech;
+    case WasapiStreamCategory::UniformSpeech:
+      return AudioCategory_UniformSpeech;
+    case WasapiStreamCategory::VoiceTyping:
+      return AudioCategory_VoiceTyping;
+  }
+  return AudioCategory_Communications;
+}
+
 class AudioInterfaceActivateHandler final
     : public IActivateAudioInterfaceCompletionHandler {
  public:
@@ -479,6 +546,39 @@ std::vector<AudioDeviceDescriptor> WasapiCaptureAdapter::EnumerateDevices(
                                     : eCapture);
 }
 
+bool WasapiCaptureAdapter::ApplyClientProperties(IAudioClient* client,
+                                                 const CaptureConfig& config) {
+  if (client == nullptr) {
+    last_error_ = L"set-client-properties-invalid-client";
+    return false;
+  }
+
+  ComPtr<IAudioClient2> client2;
+  if (FAILED(client->QueryInterface(__uuidof(IAudioClient2),
+                                    reinterpret_cast<void**>(
+                                        client2.GetAddressOf()))) ||
+      !client2) {
+    last_error_ = L"query-iaudioclient2";
+    return false;
+  }
+
+  AudioClientProperties properties {};
+  properties.cbSize = sizeof(properties);
+  properties.bIsOffload = FALSE;
+  properties.eCategory =
+      ToNativeStreamCategory(config.wasapi_stream_category);
+#if (NTDDI_VERSION >= NTDDI_WINBLUE)
+  properties.Options = ToNativeStreamOptions(config.wasapi_stream_options);
+#endif
+
+  const auto hr = client2->SetClientProperties(&properties);
+  if (FAILED(hr)) {
+    last_error_ = L"SetClientProperties: " + WasapiResultToString(hr);
+    return false;
+  }
+  return true;
+}
+
 std::optional<AudioFormatSpec> WasapiCaptureAdapter::GetPreferredFormat(
     const CaptureConfig& config) {
   if (config.source_mode == AudioSourceMode::ApplicationProcessLoopback ||
@@ -489,6 +589,9 @@ std::optional<AudioFormatSpec> WasapiCaptureAdapter::GetPreferredFormat(
     }
     Microsoft::WRL::ComPtr<IAudioClient> client;
     if (!ActivateProcessLoopbackClient(config, &client) || !client) {
+      return std::nullopt;
+    }
+    if (!ApplyClientProperties(client.Get(), config)) {
       return std::nullopt;
     }
     auto requested = MakeWaveFormatExtensible(config.format);
@@ -572,6 +675,11 @@ bool WasapiCaptureAdapter::Start(const CaptureConfig& config,
       last_error_ = L"activate-iaudioclient";
       return false;
     }
+  }
+
+  if (!ApplyClientProperties(audio_client_.Get(), config)) {
+    audio_client_.Reset();
+    return false;
   }
 
   auto wave_format = MakeWaveFormatExtensible(runtime_format_);
@@ -759,6 +867,9 @@ std::optional<AudioFormatSpec> WasapiCaptureAdapter::ResolveFormat(
                               reinterpret_cast<void**>(client.GetAddressOf())))) {
     return std::nullopt;
   }
+  if (!ApplyClientProperties(client.Get(), config)) {
+    return std::nullopt;
+  }
 
   auto requested = MakeWaveFormatExtensible(config.format);
   WAVEFORMATEX* mix_format = nullptr;
@@ -890,6 +1001,39 @@ std::vector<AudioDeviceDescriptor> WasapiRenderAdapter::EnumerateDevices() {
   return EnumerateWasapiDevices(eRender);
 }
 
+bool WasapiRenderAdapter::ApplyClientProperties(IAudioClient* client,
+                                                const RenderConfig& config) {
+  if (client == nullptr) {
+    last_error_ = L"set-client-properties-invalid-client";
+    return false;
+  }
+
+  ComPtr<IAudioClient2> client2;
+  if (FAILED(client->QueryInterface(__uuidof(IAudioClient2),
+                                    reinterpret_cast<void**>(
+                                        client2.GetAddressOf()))) ||
+      !client2) {
+    last_error_ = L"query-iaudioclient2";
+    return false;
+  }
+
+  AudioClientProperties properties {};
+  properties.cbSize = sizeof(properties);
+  properties.bIsOffload = FALSE;
+  properties.eCategory =
+      ToNativeStreamCategory(config.wasapi_stream_category);
+#if (NTDDI_VERSION >= NTDDI_WINBLUE)
+  properties.Options = ToNativeStreamOptions(config.wasapi_stream_options);
+#endif
+
+  const auto hr = client2->SetClientProperties(&properties);
+  if (FAILED(hr)) {
+    last_error_ = L"SetClientProperties: " + WasapiResultToString(hr);
+    return false;
+  }
+  return true;
+}
+
 std::optional<AudioFormatSpec> WasapiRenderAdapter::GetPreferredFormat(
     const RenderConfig& config) {
   auto device = ResolveWasapiDevice(eRender, config.device_id);
@@ -919,6 +1063,11 @@ bool WasapiRenderAdapter::Start(const RenderConfig& config,
   if (FAILED(device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
                               reinterpret_cast<void**>(audio_client_.GetAddressOf())))) {
     last_error_ = L"activate-iaudioclient";
+    return false;
+  }
+
+  if (!ApplyClientProperties(audio_client_.Get(), config)) {
+    audio_client_.Reset();
     return false;
   }
 
@@ -1071,6 +1220,9 @@ std::optional<AudioFormatSpec> WasapiRenderAdapter::ResolveFormat(
   ComPtr<IAudioClient> client;
   if (FAILED(device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
                               reinterpret_cast<void**>(client.GetAddressOf())))) {
+    return std::nullopt;
+  }
+  if (!ApplyClientProperties(client.Get(), config)) {
     return std::nullopt;
   }
 

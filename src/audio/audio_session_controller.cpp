@@ -240,10 +240,14 @@ bool AudioSessionController::Start(const SessionConfiguration& config,
       effective_config.render.buffer_duration_ms;
   diagnostics_.stats.requested_capture_wasapi_mode =
       ToWideString(effective_config.capture.wasapi_share_mode) + L" / " +
-      ToWideString(effective_config.capture.wasapi_drive_mode);
+      ToWideString(effective_config.capture.wasapi_drive_mode) + L" / " +
+      ToWideString(effective_config.capture.wasapi_stream_category) + L" / " +
+      ToWideString(effective_config.capture.wasapi_stream_options);
   diagnostics_.stats.requested_render_wasapi_mode =
       ToWideString(effective_config.render.wasapi_share_mode) + L" / " +
-      ToWideString(effective_config.render.wasapi_drive_mode);
+      ToWideString(effective_config.render.wasapi_drive_mode) + L" / " +
+      ToWideString(effective_config.render.wasapi_stream_category) + L" / " +
+      ToWideString(effective_config.render.wasapi_stream_options);
   if (capture_format.has_value()) {
     diagnostics_.stats.negotiated_capture_format =
         DescribeAudioFormat(*capture_format);

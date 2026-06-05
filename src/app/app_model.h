@@ -38,8 +38,12 @@ class AppModel final : public ISessionEventSink {
   void SetRenderSampleType(AudioSampleType sample_type);
   void SetCaptureWasapiShareMode(WasapiShareMode share_mode);
   void SetCaptureWasapiDriveMode(WasapiDriveMode drive_mode);
+  void SetCaptureWasapiStreamCategory(WasapiStreamCategory category);
+  void SetCaptureWasapiStreamOptions(WasapiStreamOptions options);
   void SetRenderWasapiShareMode(WasapiShareMode share_mode);
   void SetRenderWasapiDriveMode(WasapiDriveMode drive_mode);
+  void SetRenderWasapiStreamCategory(WasapiStreamCategory category);
+  void SetRenderWasapiStreamOptions(WasapiStreamOptions options);
   void SetCaptureBufferDurationMs(uint32_t duration_ms);
   void SetRenderBufferDurationMs(uint32_t duration_ms);
   void SetMonitorEnabled(bool enabled);

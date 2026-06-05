@@ -100,6 +100,66 @@ std::wstring ToWideString(WasapiDriveMode value) {
   return L"Unknown";
 }
 
+std::wstring ToWideString(WasapiStreamCategory value) {
+  switch (value) {
+    case WasapiStreamCategory::Other:
+      return L"Other";
+    case WasapiStreamCategory::ForegroundOnlyMedia:
+      return L"ForegroundOnlyMedia";
+    case WasapiStreamCategory::BackgroundCapableMedia:
+      return L"BackgroundCapableMedia";
+    case WasapiStreamCategory::Communications:
+      return L"Communications";
+    case WasapiStreamCategory::Alerts:
+      return L"Alerts";
+    case WasapiStreamCategory::SoundEffects:
+      return L"SoundEffects";
+    case WasapiStreamCategory::GameEffects:
+      return L"GameEffects";
+    case WasapiStreamCategory::GameMedia:
+      return L"GameMedia";
+    case WasapiStreamCategory::GameChat:
+      return L"GameChat";
+    case WasapiStreamCategory::Speech:
+      return L"Speech";
+    case WasapiStreamCategory::Movie:
+      return L"Movie";
+    case WasapiStreamCategory::Media:
+      return L"Media";
+    case WasapiStreamCategory::FarFieldSpeech:
+      return L"FarFieldSpeech";
+    case WasapiStreamCategory::UniformSpeech:
+      return L"UniformSpeech";
+    case WasapiStreamCategory::VoiceTyping:
+      return L"VoiceTyping";
+  }
+  return L"Unknown";
+}
+
+std::wstring ToWideString(WasapiStreamOptions value) {
+  if (value == WasapiStreamOptions::None) {
+    return L"None";
+  }
+
+  std::wstring text;
+  const auto append_flag = [&](WasapiStreamOptions flag, const wchar_t* label) {
+    if ((static_cast<uint32_t>(value) & static_cast<uint32_t>(flag)) == 0) {
+      return;
+    }
+    if (!text.empty()) {
+      text += L"|";
+    }
+    text += label;
+  };
+
+  append_flag(WasapiStreamOptions::Raw, L"Raw");
+  append_flag(WasapiStreamOptions::MatchFormat, L"MatchFormat");
+  append_flag(WasapiStreamOptions::Ambisonics, L"Ambisonics");
+  append_flag(WasapiStreamOptions::PostVolumeLoopback, L"PostVolumeLoopback");
+
+  return text.empty() ? std::wstring(L"Unknown") : text;
+}
+
 std::wstring ToWideString(DumpFileType value) {
   switch (value) {
     case DumpFileType::Wav:

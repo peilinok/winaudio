@@ -8,6 +8,7 @@
 #include <mmdeviceapi.h>
 #include <audioclient.h>
 #include <audiopolicy.h>
+#include <AudioSessionTypes.h>
 #include <audioclientactivationparams.h>
 #include <wrl/client.h>
 
@@ -45,6 +46,7 @@ class WasapiCaptureAdapter final : public IAudioCaptureAdapter {
   static std::wstring DescribeProcessLoopbackSupport();
 
  private:
+  bool ApplyClientProperties(IAudioClient* client, const CaptureConfig& config);
   std::optional<AudioFormatSpec> ResolveFormat(const CaptureConfig& config,
                                                IMMDevice* device);
   bool ActivateForConfig(const CaptureConfig& config,
@@ -83,6 +85,7 @@ class WasapiRenderAdapter final : public IAudioRenderAdapter {
   std::wstring runtime_details() const override;
 
  private:
+  bool ApplyClientProperties(IAudioClient* client, const RenderConfig& config);
   std::optional<AudioFormatSpec> ResolveFormat(const RenderConfig& config,
                                                IMMDevice* device);
   bool ActivateForConfig(const RenderConfig& config,

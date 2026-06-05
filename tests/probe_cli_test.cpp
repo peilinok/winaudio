@@ -20,11 +20,15 @@ bool TestParseQuickOverrides() {
       L"--capture-type=pcm16",
       L"--capture-share=exclusive",
       L"--capture-drive=timer",
+      L"--capture-category=media",
+      L"--capture-options=raw|match-format",
       L"--render-rate=48000",
       L"--render-channels=2",
       L"--render-type=float32",
       L"--render-share=shared",
       L"--render-drive=timer",
+      L"--render-category=game-chat",
+      L"--render-options=none",
       L"--monitor=off",
       L"--auto-align=off",
       L"--dump=on",
@@ -49,11 +53,21 @@ bool TestParseQuickOverrides() {
          options.config.capture.format.sample_type == AudioSampleType::PcmInt16 &&
          options.config.capture.wasapi_share_mode == WasapiShareMode::Exclusive &&
          options.config.capture.wasapi_drive_mode == WasapiDriveMode::TimerDriven &&
+         options.config.capture.wasapi_stream_category ==
+             WasapiStreamCategory::Media &&
+         options.config.capture.wasapi_stream_options ==
+             static_cast<WasapiStreamOptions>(
+                 static_cast<uint32_t>(WasapiStreamOptions::Raw) |
+                 static_cast<uint32_t>(WasapiStreamOptions::MatchFormat)) &&
          options.config.render.format.sample_rate == 48000 &&
          options.config.render.format.channels == 2 &&
          options.config.render.format.sample_type == AudioSampleType::Float32 &&
          options.config.render.wasapi_share_mode == WasapiShareMode::Shared &&
          options.config.render.wasapi_drive_mode == WasapiDriveMode::TimerDriven &&
+         options.config.render.wasapi_stream_category ==
+             WasapiStreamCategory::GameChat &&
+         options.config.render.wasapi_stream_options ==
+             WasapiStreamOptions::None &&
          options.config.render.monitor_enabled == false &&
          options.config.auto_align_render_format == false &&
          options.config.capture.dump_enabled == true &&
@@ -85,6 +99,26 @@ bool TestParseApplicationLoopbackOverrides() {
              ApplicationLoopbackTargetKind::ApplicationName &&
          options.config.capture.application_loopback_target_value == L"spotify.exe" &&
          options.application_loopback_target_value == L"spotify.exe";
+}
+
+bool TestParseWasapiClientPropertiesDefaults() {
+  const std::vector<std::wstring> args = {
+      L"quick",
+  };
+
+  ProbeCliOptions options;
+  if (!ParseProbeCliOptions(args, &options)) {
+    return false;
+  }
+
+  return options.config.capture.wasapi_stream_category ==
+             WasapiStreamCategory::Communications &&
+         options.config.capture.wasapi_stream_options ==
+             WasapiStreamOptions::Raw &&
+         options.config.render.wasapi_stream_category ==
+             WasapiStreamCategory::Communications &&
+         options.config.render.wasapi_stream_options ==
+             WasapiStreamOptions::Raw;
 }
 
 bool TestParseApplicationProcessLoopbackOverrides() {
@@ -320,6 +354,14 @@ bool TestUsageTextIncludesDevicesAndDeviceIds() {
          usage.find(L"--capture-device-id=<id>") != std::wstring::npos &&
          usage.find(L"--render-device-id=<id>") != std::wstring::npos &&
          usage.find(L"--dump-path=<path>") != std::wstring::npos &&
+         usage.find(L"--capture-category=other|foreground-only-media|background-capable-media|communications|alerts|sound-effects|game-effects|game-media|game-chat|speech|movie|media|far-field-speech|uniform-speech|voice-typing") !=
+             std::wstring::npos &&
+         usage.find(L"--capture-options=none|raw[|match-format|ambisonics|post-volume-loopback]") !=
+             std::wstring::npos &&
+         usage.find(L"--render-category=other|foreground-only-media|background-capable-media|communications|alerts|sound-effects|game-effects|game-media|game-chat|speech|movie|media|far-field-speech|uniform-speech|voice-typing") !=
+             std::wstring::npos &&
+         usage.find(L"--render-options=none|raw[|match-format|ambisonics|post-volume-loopback]") !=
+             std::wstring::npos &&
          usage.find(L"--matrix-capture-backend=wasapi|wave|both") != std::wstring::npos &&
          usage.find(L"--matrix-align=on|off|both") != std::wstring::npos &&
          usage.find(L"--matrix-profile=pcm16-48k-stereo|pcm24-44k-mono|both") != std::wstring::npos &&
@@ -390,6 +432,8 @@ int main() {
 
   const std::vector<NamedTest> tests = {
       {"ParseQuickOverrides", &TestParseQuickOverrides},
+      {"ParseWasapiClientPropertiesDefaults",
+       &TestParseWasapiClientPropertiesDefaults},
       {"ParseApplicationLoopbackOverrides",
        &TestParseApplicationLoopbackOverrides},
       {"ParseApplicationProcessLoopbackOverrides",

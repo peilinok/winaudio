@@ -54,6 +54,32 @@ enum class WasapiDriveMode {
   TimerDriven,
 };
 
+enum class WasapiStreamCategory {
+  Other,
+  ForegroundOnlyMedia,
+  BackgroundCapableMedia,
+  Communications,
+  Alerts,
+  SoundEffects,
+  GameEffects,
+  GameMedia,
+  GameChat,
+  Speech,
+  Movie,
+  Media,
+  FarFieldSpeech,
+  UniformSpeech,
+  VoiceTyping,
+};
+
+enum class WasapiStreamOptions : uint32_t {
+  None = 0,
+  Raw = 1u << 0,
+  MatchFormat = 1u << 1,
+  Ambisonics = 1u << 2,
+  PostVolumeLoopback = 1u << 3,
+};
+
 enum class DumpFileType {
   Wav,
   RawPcm,
@@ -99,6 +125,9 @@ struct CaptureConfig {
   uint32_t buffer_duration_ms = 40;
   WasapiShareMode wasapi_share_mode = WasapiShareMode::Shared;
   WasapiDriveMode wasapi_drive_mode = WasapiDriveMode::EventDriven;
+  WasapiStreamCategory wasapi_stream_category =
+      WasapiStreamCategory::Communications;
+  WasapiStreamOptions wasapi_stream_options = WasapiStreamOptions::Raw;
   bool dump_enabled = false;
   std::wstring dump_path;
   DumpFileType dump_file_type = DumpFileType::Wav;
@@ -113,6 +142,9 @@ struct RenderConfig {
   uint32_t buffer_duration_ms = 40;
   WasapiShareMode wasapi_share_mode = WasapiShareMode::Shared;
   WasapiDriveMode wasapi_drive_mode = WasapiDriveMode::EventDriven;
+  WasapiStreamCategory wasapi_stream_category =
+      WasapiStreamCategory::Communications;
+  WasapiStreamOptions wasapi_stream_options = WasapiStreamOptions::Raw;
 };
 
 struct AudioFrameChunk {
@@ -187,6 +219,8 @@ std::wstring ToWideString(AudioDirection value);
 std::wstring ToWideString(AudioSampleType value);
 std::wstring ToWideString(WasapiShareMode value);
 std::wstring ToWideString(WasapiDriveMode value);
+std::wstring ToWideString(WasapiStreamCategory value);
+std::wstring ToWideString(WasapiStreamOptions value);
 std::wstring ToWideString(DumpFileType value);
 std::wstring DescribeAudioFormat(const AudioFormatSpec& format);
 std::wstring DescribeDeviceCapabilities(const AudioDeviceDescriptor& device);

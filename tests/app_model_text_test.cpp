@@ -163,7 +163,7 @@ bool TestCapabilityTextExplainsApplicationLoopbackLimitation() {
     return !Contains(capability, L"Application loopback");
   }
   return Contains(capability,
-                  L"Application loopback is unavailable on this machine because Windows process loopback requires client build 20348 or newer");
+                  L"Application loopback requires a target process selection and process eligibility on this Windows build");
 }
 
 bool TestSummaryShowsApplicationLoopbackTargetMissingNote() {

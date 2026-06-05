@@ -143,6 +143,108 @@ bool ParseDriveModeValue(const std::wstring& value, WasapiDriveMode* drive_mode)
   return false;
 }
 
+bool ParseStreamCategoryValue(const std::wstring& value,
+                              WasapiStreamCategory* category) {
+  if (value == L"other") {
+    *category = WasapiStreamCategory::Other;
+    return true;
+  }
+  if (value == L"foreground-only-media") {
+    *category = WasapiStreamCategory::ForegroundOnlyMedia;
+    return true;
+  }
+  if (value == L"background-capable-media") {
+    *category = WasapiStreamCategory::BackgroundCapableMedia;
+    return true;
+  }
+  if (value == L"communications") {
+    *category = WasapiStreamCategory::Communications;
+    return true;
+  }
+  if (value == L"alerts") {
+    *category = WasapiStreamCategory::Alerts;
+    return true;
+  }
+  if (value == L"sound-effects") {
+    *category = WasapiStreamCategory::SoundEffects;
+    return true;
+  }
+  if (value == L"game-effects") {
+    *category = WasapiStreamCategory::GameEffects;
+    return true;
+  }
+  if (value == L"game-media") {
+    *category = WasapiStreamCategory::GameMedia;
+    return true;
+  }
+  if (value == L"game-chat") {
+    *category = WasapiStreamCategory::GameChat;
+    return true;
+  }
+  if (value == L"speech") {
+    *category = WasapiStreamCategory::Speech;
+    return true;
+  }
+  if (value == L"movie") {
+    *category = WasapiStreamCategory::Movie;
+    return true;
+  }
+  if (value == L"media") {
+    *category = WasapiStreamCategory::Media;
+    return true;
+  }
+  if (value == L"far-field-speech") {
+    *category = WasapiStreamCategory::FarFieldSpeech;
+    return true;
+  }
+  if (value == L"uniform-speech") {
+    *category = WasapiStreamCategory::UniformSpeech;
+    return true;
+  }
+  if (value == L"voice-typing") {
+    *category = WasapiStreamCategory::VoiceTyping;
+    return true;
+  }
+  return false;
+}
+
+bool ParseStreamOptionsValue(const std::wstring& value,
+                             WasapiStreamOptions* options) {
+  if (value == L"none") {
+    *options = WasapiStreamOptions::None;
+    return true;
+  }
+
+  uint32_t flags = 0;
+  size_t start = 0;
+  while (start <= value.size()) {
+    const auto separator = value.find(L'|', start);
+    const auto token = value.substr(
+        start,
+        separator == std::wstring::npos ? std::wstring::npos
+                                        : separator - start);
+    if (token == L"raw") {
+      flags |= static_cast<uint32_t>(WasapiStreamOptions::Raw);
+    } else if (token == L"match-format") {
+      flags |= static_cast<uint32_t>(WasapiStreamOptions::MatchFormat);
+    } else if (token == L"ambisonics") {
+      flags |= static_cast<uint32_t>(WasapiStreamOptions::Ambisonics);
+    } else if (token == L"post-volume-loopback") {
+      flags |= static_cast<uint32_t>(WasapiStreamOptions::PostVolumeLoopback);
+    } else if (!token.empty()) {
+      return false;
+    }
+
+    if (separator == std::wstring::npos) {
+      break;
+    }
+    start = separator + 1;
+  }
+
+  *options = static_cast<WasapiStreamOptions>(flags);
+  return true;
+}
+
 bool ParseOnOffValue(const std::wstring& value, bool* enabled) {
   if (value == L"on") {
     *enabled = true;
@@ -222,6 +324,16 @@ bool ParseProbeCliOptions(const std::vector<std::wstring>& args,
       if (!ParseDriveModeValue(value, &options->config.capture.wasapi_drive_mode)) {
         return false;
       }
+    } else if (key == L"--capture-category") {
+      if (!ParseStreamCategoryValue(value,
+                                    &options->config.capture.wasapi_stream_category)) {
+        return false;
+      }
+    } else if (key == L"--capture-options") {
+      if (!ParseStreamOptionsValue(value,
+                                   &options->config.capture.wasapi_stream_options)) {
+        return false;
+      }
     } else if (key == L"--render-rate") {
       options->config.render.format.sample_rate =
           static_cast<uint32_t>(std::stoul(value));
@@ -241,6 +353,16 @@ bool ParseProbeCliOptions(const std::vector<std::wstring>& args,
       }
     } else if (key == L"--render-drive") {
       if (!ParseDriveModeValue(value, &options->config.render.wasapi_drive_mode)) {
+        return false;
+      }
+    } else if (key == L"--render-category") {
+      if (!ParseStreamCategoryValue(value,
+                                    &options->config.render.wasapi_stream_category)) {
+        return false;
+      }
+    } else if (key == L"--render-options") {
+      if (!ParseStreamOptionsValue(value,
+                                   &options->config.render.wasapi_stream_options)) {
         return false;
       }
     } else if (key == L"--monitor") {
@@ -381,8 +503,12 @@ std::wstring BuildProbeCliUsageText() {
          L"\nMode options:\n"
          L"  --capture-share=shared|exclusive\n"
          L"  --capture-drive=event|timer\n"
+         L"  --capture-category=other|foreground-only-media|background-capable-media|communications|alerts|sound-effects|game-effects|game-media|game-chat|speech|movie|media|far-field-speech|uniform-speech|voice-typing\n"
+         L"  --capture-options=none|raw[|match-format|ambisonics|post-volume-loopback]\n"
          L"  --render-share=shared|exclusive\n"
          L"  --render-drive=event|timer\n"
+         L"  --render-category=other|foreground-only-media|background-capable-media|communications|alerts|sound-effects|game-effects|game-media|game-chat|speech|movie|media|far-field-speech|uniform-speech|voice-typing\n"
+         L"  --render-options=none|raw[|match-format|ambisonics|post-volume-loopback]\n"
          L"  --monitor=on|off\n"
          L"    off disables the render pipeline and skips render device validation\n"
          L"  --auto-align=on|off\n"
