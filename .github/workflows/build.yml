@@ -36,9 +36,20 @@ jobs:
           powershell -ExecutionPolicy Bypass -File tools\package_release_assets.ps1
           -ArtifactLabel build-${{ github.run_number }} -Config Release -BuildDir build-build -OutputDir artifacts
 
-      - name: Upload packaged artifacts
+      - name: Upload runnable binaries artifact
         uses: actions/upload-artifact@v4
         with:
-          name: build-assets-${{ github.run_number }}
+          name: build-binaries-${{ github.run_number }}
+          if-no-files-found: error
+          compression-level: 0
           path: |
-            artifacts/*.zip
+            artifacts/stage/binary/*
+
+      - name: Upload symbols artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-symbols-${{ github.run_number }}
+          if-no-files-found: error
+          compression-level: 0
+          path: |
+            artifacts/stage/symbols/*

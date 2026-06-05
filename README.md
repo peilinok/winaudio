@@ -240,14 +240,21 @@ powershell -ExecutionPolicy Bypass -File tools\run_hosted_stable_ctest.ps1 -Conf
 
 - 配置并构建 `Release`
 - 运行与 PR 相同的 hosted-stable 基线
-- 打包并上传以下 artifact：
-  - `WinAudio-build-<run_number>-windows-x64.zip`
-  - `WinAudio-build-<run_number>-windows-x64-symbols.zip`
+- 生成发布 zip（保存在 workflow 工作目录中，用于与正式 `Release` workflow 保持一致）
+- 上传以下可直接下载的 Actions artifact：
+  - `build-binaries-<run_number>`
+  - `build-symbols-<run_number>`
 
-其主包与符号包内容与 `Release` workflow 保持一致：
+下载 `build-binaries-<run_number>` 后只需要解压一次，目录内直接包含：
 
-- 主包：`winaudio.exe`、`winaudio_probe.exe`、`README.md`
-- 符号包：`winaudio.pdb`、`winaudio_probe.pdb`
+- `winaudio.exe`
+- `winaudio_probe.exe`
+- `README.md`
+
+`build-symbols-<run_number>` 内包含：
+
+- `winaudio.pdb`
+- `winaudio_probe.pdb`
 
 ### CLI 集成验证
 
