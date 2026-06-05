@@ -36,6 +36,11 @@ jobs:
           powershell -ExecutionPolicy Bypass -File tools\package_release_assets.ps1
           -ArtifactLabel build-${{ github.run_number }} -Config Release -BuildDir build-build -OutputDir artifacts
 
+      - name: Verify packaged runnable artifact
+        run: >
+          powershell -ExecutionPolicy Bypass -File tools\verify_packaged_artifact.ps1
+          -ArtifactDir artifacts\stage\binary
+
       - name: Upload runnable binaries artifact
         uses: actions/upload-artifact@v4
         with:

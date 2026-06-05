@@ -241,6 +241,7 @@ powershell -ExecutionPolicy Bypass -File tools\run_hosted_stable_ctest.ps1 -Conf
 - 配置并构建 `Release`
 - 运行与 PR 相同的 hosted-stable 基线
 - 生成发布 zip（保存在 workflow 工作目录中，用于与正式 `Release` workflow 保持一致）
+- 在上传前直接验证单层二进制 artifact 中的 `winaudio_probe.exe` 可启动并可执行 `--help`/`devices`
 - 上传以下可直接下载的 Actions artifact：
   - `build-binaries-<run_number>`
   - `build-symbols-<run_number>`
