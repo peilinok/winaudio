@@ -1,9 +1,24 @@
 #include "app/probe_cli.h"
 #include "audio/backends/real_backends.h"
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+
 namespace winaudio {
 
 namespace {
+
+std::wstring GetEnvironmentValue(const wchar_t* name) {
+  const DWORD size = ::GetEnvironmentVariableW(name, nullptr, 0);
+  if (size == 0) {
+    return {};
+  }
+  std::wstring value(static_cast<size_t>(size - 1), L'\0');
+  ::GetEnvironmentVariableW(name, value.data(), size);
+  return value;
+}
 
 std::wstring SanitizeForCli(const std::wstring& value) {
   std::wstring sanitized;
@@ -452,11 +467,55 @@ bool ParseProbeCliOptions(const std::vector<std::wstring>& args,
     } else if (key == L"--delay-ms") {
       options->config.render.fixed_delay_ms =
           static_cast<uint32_t>(std::stoul(value));
+    } else if (key == L"--rtc") {
+      if (!ParseOnOffValue(value, &options->config.rtc.enabled)) {
+        return false;
+      }
+    } else if (key == L"--rtc-app-id") {
+      options->config.rtc.app_id = value;
+    } else if (key == L"--rtc-token") {
+      options->config.rtc.token = value;
+    } else if (key == L"--rtc-channel") {
+      options->config.rtc.channel_id = value;
+    } else if (key == L"--rtc-uid") {
+      options->config.rtc.uid = static_cast<uint32_t>(std::stoul(value));
+    } else if (key == L"--rtc-publish") {
+      if (!ParseOnOffValue(value, &options->config.rtc.publish_capture_audio)) {
+        return false;
+      }
+    } else if (key == L"--rtc-publish-rate") {
+      options->config.rtc.publish_sample_rate =
+          static_cast<uint32_t>(std::stoul(value));
+    } else if (key == L"--rtc-publish-channels") {
+      options->config.rtc.publish_channels =
+          static_cast<uint16_t>(std::stoul(value));
+    } else if (key == L"--rtc-duration-ms") {
+      options->rtc_duration_ms =
+          static_cast<uint32_t>(std::stoul(value));
     } else {
       return false;
     }
   }
 
+  if (options->mode == L"rtc") {
+    if (options->config.rtc.app_id.empty()) {
+      options->config.rtc.app_id = GetEnvironmentValue(L"WINAUDIO_AGORA_APP_ID");
+    }
+    if (options->config.rtc.token.empty()) {
+      options->config.rtc.token = GetEnvironmentValue(L"WINAUDIO_AGORA_TOKEN");
+    }
+    if (options->config.rtc.channel_id.empty()) {
+      options->config.rtc.channel_id =
+          GetEnvironmentValue(L"WINAUDIO_AGORA_CHANNEL");
+    }
+    if (options->config.rtc.uid == 0) {
+      const auto uid_text = GetEnvironmentValue(L"WINAUDIO_AGORA_UID");
+      if (!uid_text.empty()) {
+        options->config.rtc.uid =
+            static_cast<uint32_t>(std::stoul(uid_text));
+      }
+    }
+  }
   if ((options->config.capture.source_mode ==
            AudioSourceMode::ApplicationLoopback ||
        options->config.capture.source_mode ==
@@ -469,11 +528,13 @@ bool ParseProbeCliOptions(const std::vector<std::wstring>& args,
 }
 
 std::wstring BuildProbeCliUsageText() {
-  return L"Usage: winaudio_probe.exe [quick|matrix|devices] [options]\n"
+  return L"Usage: winaudio_probe.exe [quick|matrix|devices|capture-open|rtc] [options]\n"
          L"\nModes:\n"
          L"  quick   Run a single probe\n"
          L"  matrix  Run the probe matrix\n"
+         L"  capture-open  Find capture parameter combinations that can really start\n"
          L"  devices List available devices\n"
+         L"  rtc     Run a local capture session and publish to Agora RTC\n"
          L"\nCommon options:\n"
          L"  --capture-backend=wasapi|wave\n"
          L"  --render-backend=wasapi|wave\n"
@@ -516,6 +577,18 @@ std::wstring BuildProbeCliUsageText() {
          L"  --dump=on|off\n"
          L"  --dump-type=wav|pcm\n"
          L"  --dump-path=<path>\n"
+         L"\nRTC options:\n"
+         L"  --rtc=on|off\n"
+         L"  --rtc-app-id=<id>\n"
+         L"  --rtc-token=<token>\n"
+         L"  --rtc-channel=<name>\n"
+         L"  --rtc-uid=<n>\n"
+         L"  --rtc-publish=on|off\n"
+         L"  --rtc-publish-rate=16000|32000|44100|48000\n"
+         L"  --rtc-publish-channels=1|2\n"
+         L"  --rtc-duration-ms=<n>\n"
+         L"    rtc credentials can also come from env: WINAUDIO_AGORA_APP_ID,\n"
+         L"    WINAUDIO_AGORA_TOKEN, WINAUDIO_AGORA_CHANNEL, WINAUDIO_AGORA_UID\n"
          L"\nMatrix options:\n"
          L"  --matrix-source=mic|loopback|both\n"
          L"  --matrix-capture-backend=wasapi|wave|both\n"

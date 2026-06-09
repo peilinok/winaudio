@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "audio/audio_types.h"
+#include "rtc/agora_rtc_types.h"
 
 namespace winaudio {
 
@@ -22,6 +23,7 @@ struct SessionConfiguration {
   RenderConfig render {};
   bool follow_default_devices = false;
   bool auto_align_render_format = true;
+  AgoraRtcConfig rtc {};
 };
 
 struct SessionDiagnostics {

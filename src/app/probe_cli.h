@@ -20,6 +20,7 @@ struct ProbeCliOptions {
   std::wstring matrix_delay = L"both";
   std::wstring matrix_buffer = L"both";
   std::wstring application_loopback_target_value;
+  uint32_t rtc_duration_ms = 5000;
 };
 
 bool ParseProbeCliOptions(const std::vector<std::wstring>& args,

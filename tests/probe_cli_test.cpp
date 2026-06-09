@@ -2,6 +2,11 @@
 #include <string>
 #include <vector>
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+
 #include "app/probe_cli.h"
 #include "audio/backends/real_backends.h"
 
@@ -195,6 +200,19 @@ bool TestParseDevicesMode() {
   return options.mode == L"devices";
 }
 
+bool TestParseCaptureOpenMode() {
+  const std::vector<std::wstring> args = {
+      L"capture-open",
+  };
+
+  ProbeCliOptions options;
+  if (!ParseProbeCliOptions(args, &options)) {
+    return false;
+  }
+
+  return options.mode == L"capture-open";
+}
+
 bool TestParseDeviceNameFormatOverride() {
   const std::vector<std::wstring> args = {
       L"devices",
@@ -330,13 +348,75 @@ bool TestParseMatrixWasapiShareOverride() {
          options.matrix_wasapi_share == L"shared";
 }
 
+bool TestParseRtcModeOverrides() {
+  const std::vector<std::wstring> args = {
+      L"rtc",
+      L"--rtc=on",
+      L"--rtc-app-id=test-app",
+      L"--rtc-token=test-token",
+      L"--rtc-channel=test-channel",
+      L"--rtc-uid=42",
+      L"--rtc-publish=on",
+      L"--rtc-publish-rate=16000",
+      L"--rtc-publish-channels=1",
+      L"--rtc-duration-ms=2500",
+  };
+
+  ProbeCliOptions options;
+  if (!ParseProbeCliOptions(args, &options)) {
+    return false;
+  }
+
+  return options.mode == L"rtc" &&
+         options.config.rtc.enabled == true &&
+         options.config.rtc.app_id == L"test-app" &&
+         options.config.rtc.token == L"test-token" &&
+         options.config.rtc.channel_id == L"test-channel" &&
+         options.config.rtc.uid == 42 &&
+         options.config.rtc.publish_capture_audio == true &&
+         options.config.rtc.publish_sample_rate == 16000 &&
+         options.config.rtc.publish_channels == 1 &&
+         options.rtc_duration_ms == 2500;
+}
+
+bool TestParseRtcModeReadsEnvironmentFallbacks() {
+  SetEnvironmentVariableW(L"WINAUDIO_AGORA_APP_ID", L"env-app");
+  SetEnvironmentVariableW(L"WINAUDIO_AGORA_CHANNEL", L"env-channel");
+  SetEnvironmentVariableW(L"WINAUDIO_AGORA_UID", L"77");
+
+  const std::vector<std::wstring> args = {
+      L"rtc",
+      L"--rtc=on",
+      L"--rtc-publish=on",
+  };
+
+  ProbeCliOptions options;
+  const bool parsed = ParseProbeCliOptions(args, &options);
+
+  SetEnvironmentVariableW(L"WINAUDIO_AGORA_APP_ID", nullptr);
+  SetEnvironmentVariableW(L"WINAUDIO_AGORA_CHANNEL", nullptr);
+  SetEnvironmentVariableW(L"WINAUDIO_AGORA_UID", nullptr);
+
+  if (!parsed) {
+    return false;
+  }
+
+  return options.mode == L"rtc" &&
+         options.config.rtc.enabled == true &&
+         options.config.rtc.app_id == L"env-app" &&
+         options.config.rtc.channel_id == L"env-channel" &&
+         options.config.rtc.uid == 77;
+}
+
 bool TestUsageTextIncludesDevicesAndDeviceIds() {
   const auto usage = BuildProbeCliUsageText();
-  return usage.find(L"Usage: winaudio_probe.exe [quick|matrix|devices] [options]") !=
+  return usage.find(L"Usage: winaudio_probe.exe [quick|matrix|devices|capture-open|rtc] [options]") !=
              std::wstring::npos &&
          usage.find(L"Modes:\n  quick   Run a single probe") != std::wstring::npos &&
          usage.find(L"  matrix  Run the probe matrix") != std::wstring::npos &&
+         usage.find(L"  capture-open  Find capture parameter combinations that can really start") != std::wstring::npos &&
          usage.find(L"  devices List available devices") != std::wstring::npos &&
+         usage.find(L"  rtc     Run a local capture session and publish to Agora RTC") != std::wstring::npos &&
          usage.find(L"--source=mic|loopback|app-process-loopback|app-loopback") != std::wstring::npos &&
          usage.find(L"--app-loopback-process-id=<pid>") !=
              std::wstring::npos &&
@@ -362,6 +442,13 @@ bool TestUsageTextIncludesDevicesAndDeviceIds() {
              std::wstring::npos &&
          usage.find(L"--render-options=none|raw[|match-format|ambisonics|post-volume-loopback]") !=
              std::wstring::npos &&
+         usage.find(L"--rtc-app-id=<id>") != std::wstring::npos &&
+         usage.find(L"--rtc-token=<token>") != std::wstring::npos &&
+         usage.find(L"--rtc-channel=<name>") != std::wstring::npos &&
+         usage.find(L"--rtc-uid=<n>") != std::wstring::npos &&
+         usage.find(L"--rtc-duration-ms=<n>") != std::wstring::npos &&
+         usage.find(L"WINAUDIO_AGORA_APP_ID") != std::wstring::npos &&
+         usage.find(L"WINAUDIO_AGORA_CHANNEL") != std::wstring::npos &&
          usage.find(L"--matrix-capture-backend=wasapi|wave|both") != std::wstring::npos &&
          usage.find(L"--matrix-align=on|off|both") != std::wstring::npos &&
          usage.find(L"--matrix-profile=pcm16-48k-stereo|pcm24-44k-mono|both") != std::wstring::npos &&
@@ -443,6 +530,7 @@ int main() {
       {"ParseRejectsUnknownOverride", &TestParseRejectsUnknownOverride},
       {"ParseHelpMode", &TestParseHelpMode},
       {"ParseDevicesMode", &TestParseDevicesMode},
+      {"ParseCaptureOpenMode", &TestParseCaptureOpenMode},
       {"ParseDeviceNameFormatOverride", &TestParseDeviceNameFormatOverride},
       {"ParseMatrixSourceOverride", &TestParseMatrixSourceOverride},
       {"ParseMatrixCaptureBackendOverride", &TestParseMatrixCaptureBackendOverride},
@@ -452,6 +540,9 @@ int main() {
       {"ParseMatrixBufferOverride", &TestParseMatrixBufferOverride},
       {"ParseMatrixWasapiShareOverride", &TestParseMatrixWasapiShareOverride},
       {"ParseMatrixRenderBackendOverride", &TestParseMatrixRenderBackendOverride},
+      {"ParseRtcModeOverrides", &TestParseRtcModeOverrides},
+      {"ParseRtcModeReadsEnvironmentFallbacks",
+       &TestParseRtcModeReadsEnvironmentFallbacks},
       {"UsageTextIncludesDevicesAndDeviceIds",
        &TestUsageTextIncludesDevicesAndDeviceIds},
       {"BuildProbeCliDeviceLineSanitizesFriendlyName",

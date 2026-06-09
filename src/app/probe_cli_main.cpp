@@ -79,6 +79,14 @@ int wmain(int argc, wchar_t** argv) {
   model.SetDumpFileType(options.config.capture.dump_file_type);
   model.SetDumpPath(options.config.capture.dump_path);
   model.SetFixedDelayMs(options.config.render.fixed_delay_ms);
+  model.SetRtcEnabled(options.config.rtc.enabled);
+  model.SetRtcAppId(options.config.rtc.app_id);
+  model.SetRtcToken(options.config.rtc.token);
+  model.SetRtcChannelId(options.config.rtc.channel_id);
+  model.SetRtcUid(options.config.rtc.uid);
+  model.SetRtcPublishCaptureAudio(options.config.rtc.publish_capture_audio);
+  model.SetRtcPublishSampleRate(options.config.rtc.publish_sample_rate);
+  model.SetRtcPublishChannels(options.config.rtc.publish_channels);
   model.SetApplicationLoopbackTarget(
       options.config.capture.application_loopback_target_kind,
       options.config.capture.application_loopback_target_value);
@@ -122,6 +130,12 @@ int wmain(int argc, wchar_t** argv) {
 
   if (options.mode == L"quick") {
     const bool ok = model.RunQuickProbe();
+    std::wcout << NormalizeProbeCliTextForConsole(model.probe_text()) << L"\n";
+    return ok ? 0 : 2;
+  }
+
+  if (options.mode == L"capture-open") {
+    const bool ok = model.RunCaptureOpenProbe();
     std::wcout << NormalizeProbeCliTextForConsole(model.probe_text()) << L"\n";
     return ok ? 0 : 2;
   }
@@ -208,6 +222,35 @@ int wmain(int argc, wchar_t** argv) {
     }
     std::wcout << NormalizeProbeCliTextForConsole(model.probe_text()) << L"\n";
     return ok ? 0 : 3;
+  }
+
+  if (options.mode == L"rtc") {
+    if (!options.config.rtc.enabled) {
+      std::wcerr << L"RTC mode requires --rtc=on\n";
+      return 5;
+    }
+    if (!model.Start()) {
+      std::wcerr << NormalizeProbeCliTextForConsole(model.diagnostics_text()) << L"\n";
+      std::wcerr << NormalizeProbeCliTextForConsole(model.rtc_text()) << L"\n";
+      return 6;
+    }
+
+    int ticks = 0;
+    bool ok = true;
+    const int max_ticks =
+        std::max<int>(1, static_cast<int>(options.rtc_duration_ms / 10));
+    while (ticks < max_ticks) {
+      if (!model.Tick()) {
+        ok = false;
+        break;
+      }
+      ++ticks;
+      Sleep(10);
+    }
+    model.Stop();
+    std::wcout << NormalizeProbeCliTextForConsole(model.rtc_text()) << L"\n";
+    std::wcout << NormalizeProbeCliTextForConsole(model.diagnostics_text()) << L"\n";
+    return ok ? 0 : 7;
   }
 
   std::wcerr << NormalizeProbeCliTextForConsole(BuildProbeCliUsageText());

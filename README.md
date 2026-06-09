@@ -14,6 +14,7 @@ WinAudio 是一个面向 Windows 的音频链路验证与诊断项目，提供 G
 - 支持 `Probe Matrix`，用于批量覆盖多组后端、格式、延迟、缓冲区和共享模式组合。
 - 支持设备枚举，包括普通采集/渲染设备和 loopback 视角下的渲染端点。
 - 支持监控播放开关、render auto-align、dump 到 `WAV`/`PCM` 等配置项。
+- 支持可选的 Agora RTC 旁路发布模式，可将本地采集结果发布到声网频道。
 - GUI 中提供会话摘要、运行诊断、能力说明、波形可视化和最近日志。
 
 ## 项目结构
@@ -118,6 +119,29 @@ powershell -ExecutionPolicy Bypass -File tools\invoke_msbuild_safe.ps1 -PrintEnv
 ```powershell
 .\build\Debug\winaudio_probe.exe quick --monitor=off
 ```
+
+使用 Agora RTC 旁路发布本地采集：
+
+```powershell
+.\build\Debug\winaudio_probe.exe rtc --rtc=on --rtc-app-id="<app-id>" --rtc-token="<token>" --rtc-channel="<channel>" --rtc-uid=42 --rtc-publish=on --rtc-publish-rate=16000 --rtc-publish-channels=1 --rtc-duration-ms=5000 --monitor=off
+```
+
+也可以通过环境变量提供凭证与频道信息：
+
+```powershell
+$env:WINAUDIO_AGORA_APP_ID="your-app-id"
+$env:WINAUDIO_AGORA_CHANNEL="your-channel"
+$env:WINAUDIO_AGORA_UID="42"
+.\build\Debug\winaudio_probe.exe rtc --rtc=on --rtc-publish=on --rtc-publish-rate=16000 --rtc-publish-channels=1 --rtc-duration-ms=5000 --monitor=off
+```
+
+说明：
+
+- `rtc` 模式仍复用当前本地采集链路，不会把 Agora 作为第三种本地音频 backend。
+- 当前实现优先支持“本地采集 -> Agora RTC 发布”，不包含远端订阅与远端本地回放。
+- CLI 和文本输出不会明文回显 `--rtc-token`。
+- 默认构建不会启用 Agora SDK；需要显式打开 `-DWINAUDIO_ENABLE_AGORA_SDK=ON`。
+- 可以通过环境变量 `WINAUDIO_AGORA_SDK_ROOT` 指向 `Agora Native SDK for Windows` 的 `sdk` 目录。
 
 执行矩阵探测：
 

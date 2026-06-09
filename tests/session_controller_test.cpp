@@ -452,7 +452,7 @@ bool TestCaptureStartFailureIncludesContextAndHint() {
   SessionConfiguration config;
   config.capture.backend = AudioBackendType::Wasapi;
   config.capture.source_mode = AudioSourceMode::MicrophoneCapture;
-  config.capture.device_id = L"wasapi:cap:test-mic";
+  config.capture.device_id = L"WASAPI:Capture:Default Capture";
   config.capture.format.sample_rate = 44100;
   config.capture.format.channels = 1;
   config.capture.format.sample_type = AudioSampleType::PcmInt16;
@@ -466,7 +466,7 @@ bool TestCaptureStartFailureIncludesContextAndHint() {
          stats.last_error_message.find(L"backend=WASAPI") != std::wstring::npos &&
          stats.last_error_message.find(L"source=Microphone") !=
              std::wstring::npos &&
-         stats.last_error_message.find(L"device=wasapi:cap:test-mic") !=
+         stats.last_error_message.find(L"device=WASAPI:Capture:Default Capture") !=
              std::wstring::npos &&
          stats.last_error_message.find(L"requested=44100 Hz / 1 ch / PCM16") !=
              std::wstring::npos &&
@@ -478,6 +478,40 @@ bool TestCaptureStartFailureIncludesContextAndHint() {
          stats.last_error_message.find(
              L"hint=The requested capture format was not accepted by the device or share mode") !=
              std::wstring::npos;
+}
+
+bool TestRtcJoinLeaveControlsPublishing() {
+  AudioSessionController controller(std::make_unique<StubAudioBackendFactory>());
+  if (!controller.Initialize()) {
+    return false;
+  }
+
+  RecordingSink sink;
+  SessionConfiguration config;
+  config.render.fixed_delay_ms = 0;
+  if (!controller.Start(config, &sink)) {
+    return false;
+  }
+
+  AgoraRtcConfig rtc_config;
+  rtc_config.enabled = true;
+  rtc_config.app_id = L"app";
+  rtc_config.channel_id = L"channel";
+  rtc_config.publish_capture_audio = true;
+  if (!controller.JoinRtc(rtc_config)) {
+    return false;
+  }
+  if (!controller.rtc_stats().joined) {
+    return false;
+  }
+  if (!controller.Tick() || controller.rtc_stats().push_calls == 0) {
+    return false;
+  }
+
+  controller.LeaveRtc();
+  const auto left_stats = controller.rtc_stats();
+  controller.Stop();
+  return !left_stats.joined && left_stats.connection_state == L"Left";
 }
 
 bool TestSystemLoopbackDisablesMonitorPlayback() {
@@ -541,6 +575,8 @@ int main() {
        &TestApplicationLoopbackCanStartWithStubWhenTargetProvided},
       {"CaptureStartFailureIncludesContextAndHint",
        &TestCaptureStartFailureIncludesContextAndHint},
+      {"RtcJoinLeaveControlsPublishing",
+       &TestRtcJoinLeaveControlsPublishing},
   };
 
   for (const auto& test : tests) {

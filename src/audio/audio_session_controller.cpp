@@ -218,8 +218,9 @@ bool AudioSessionController::Start(const SessionConfiguration& config,
       backend_factory_->CreateRenderAdapter(effective_config.render.backend);
   resampler_ = CreateAudioResampler();
   dump_writer_ = std::make_unique<WavDumpWriter>();
+  rtc_publisher_ = CreateAgoraRtcPublisher();
 
-  if (!capture_adapter_ || !render_adapter_ || !resampler_) {
+  if (!capture_adapter_ || !render_adapter_ || !resampler_ || !rtc_publisher_) {
     SetLastError(L"create-components", L"Failed to create one or more audio components.");
     Log(L"Failed to create one or more audio components.");
     return false;
@@ -440,6 +441,23 @@ bool AudioSessionController::Start(const SessionConfiguration& config,
     }
   }
 
+  if (effective_config.rtc.enabled &&
+      !JoinRtc(effective_config.rtc)) {
+    if (effective_config.render.monitor_enabled) {
+      render_adapter_->Stop();
+    }
+    capture_adapter_->Stop();
+    const auto rtc_stats = rtc_publisher_->stats();
+    SetLastError(
+        rtc_stats.last_error_stage.empty() ? L"rtc-start"
+                                           : rtc_stats.last_error_stage,
+        rtc_stats.last_error_message.empty()
+            ? std::wstring(L"Failed to start RTC publisher.")
+            : rtc_stats.last_error_message);
+    Log(L"Failed to start RTC publisher.");
+    return false;
+  }
+
   if (effective_config.capture.dump_enabled) {
     std::filesystem::path dump_path = effective_config.capture.dump_path.empty()
                                           ? BuildDefaultDumpPath()
@@ -513,10 +531,47 @@ void AudioSessionController::Stop() {
   if (dump_writer_) {
     dump_writer_->Close();
   }
+  if (rtc_publisher_) {
+    rtc_publisher_->Stop();
+  }
   running_ = false;
   if (sink_ != nullptr) {
     sink_->OnSessionStateChanged(L"Stopped");
   }
+}
+
+bool AudioSessionController::JoinRtc(const AgoraRtcConfig& config) {
+  if (runtime_capture_format_.sample_rate == 0 || !rtc_publisher_) {
+    return false;
+  }
+  config_.rtc = config;
+  if (!rtc_publisher_->Initialize(config_.rtc)) {
+    const auto rtc_stats = rtc_publisher_->stats();
+    SetLastError(L"rtc-init", rtc_stats.last_error_message);
+    Log(L"Failed to initialize RTC publisher.");
+    return false;
+  }
+  if (!rtc_publisher_->Start(runtime_capture_format_)) {
+    const auto rtc_stats = rtc_publisher_->stats();
+    SetLastError(
+        rtc_stats.last_error_stage.empty() ? L"rtc-start"
+                                           : rtc_stats.last_error_stage,
+        rtc_stats.last_error_message.empty()
+            ? std::wstring(L"Failed to start RTC publisher.")
+            : rtc_stats.last_error_message);
+    Log(L"Failed to start RTC publisher.");
+    return false;
+  }
+  Log(L"RTC channel join requested.");
+  return true;
+}
+
+void AudioSessionController::LeaveRtc() {
+  config_.rtc.enabled = false;
+  if (rtc_publisher_) {
+    rtc_publisher_->Stop();
+  }
+  Log(L"RTC channel leave requested.");
 }
 
 bool AudioSessionController::Tick() {
@@ -539,6 +594,22 @@ bool AudioSessionController::Tick() {
 
   if (dump_writer_ && dump_writer_->is_open()) {
     dump_writer_->Write(*capture_chunk);
+  }
+
+  if (config_.rtc.enabled && rtc_publisher_ != nullptr &&
+      rtc_publisher_->stats().joined) {
+    if (!rtc_publisher_->PublishChunk(*capture_chunk)) {
+      const auto rtc_stats = rtc_publisher_->stats();
+      SetLastError(
+          rtc_stats.last_error_stage.empty() ? L"rtc-publish"
+                                             : rtc_stats.last_error_stage,
+          rtc_stats.last_error_message.empty()
+              ? std::wstring(L"RTC publisher rejected audio chunk.")
+              : rtc_stats.last_error_message);
+      Log(L"RTC publisher rejected audio chunk.");
+      UpdateStats();
+      return false;
+    }
   }
 
   if (!config_.render.monitor_enabled) {
@@ -596,6 +667,13 @@ bool AudioSessionController::is_running() const {
 
 const SessionDiagnostics& AudioSessionController::diagnostics() const {
   return diagnostics_;
+}
+
+AgoraRtcStats AudioSessionController::rtc_stats() const {
+  if (!rtc_publisher_) {
+    return {};
+  }
+  return rtc_publisher_->stats();
 }
 
 void AudioSessionController::Log(const std::wstring& line) {

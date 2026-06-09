@@ -8,6 +8,7 @@
 #include "audio/pipeline/signal_analyzer.h"
 #include "audio/pipeline/wav_dump_writer.h"
 #include "audio/resample/audio_resampler.h"
+#include "rtc/agora_rtc_publisher.h"
 
 namespace winaudio {
 
@@ -21,9 +22,12 @@ class AudioSessionController {
   bool Start(const SessionConfiguration& config, ISessionEventSink* sink);
   void Stop();
   bool Tick();
+  bool JoinRtc(const AgoraRtcConfig& config);
+  void LeaveRtc();
 
   [[nodiscard]] bool is_running() const;
   [[nodiscard]] const SessionDiagnostics& diagnostics() const;
+  [[nodiscard]] AgoraRtcStats rtc_stats() const;
 
  private:
   void Log(const std::wstring& line);
@@ -37,6 +41,7 @@ class AudioSessionController {
   std::unique_ptr<IAudioResampler> resampler_;
   std::unique_ptr<AudioRingBuffer> ring_buffer_;
   std::unique_ptr<WavDumpWriter> dump_writer_;
+  std::unique_ptr<AgoraRtcPublisher> rtc_publisher_;
 
   SessionConfiguration config_ {};
   SessionDiagnostics diagnostics_ {};

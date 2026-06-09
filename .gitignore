@@ -1,8 +1,4 @@
 build/
-build-cli/
-build-gui/
-build-hwtest/
-build-ci/
-build-release/
-build-build/
 artifacts/
+third_party/agora-sdk/
+docs/

@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cwchar>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <thread>
@@ -34,6 +35,7 @@ constexpr int kOuterMargin = 16;
 constexpr int kSectionGap = 14;
 constexpr int kButtonHeight = 30;
 constexpr int kButtonGap = 12;
+constexpr int kToolbarTitleWidth = 138;
 constexpr int kComboHeight = 24;
 constexpr int kComboMinVisibleItems = 12;
 constexpr int kEditHeight = 24;
@@ -54,6 +56,7 @@ constexpr int kButtonStop = 1002;
 constexpr int kButtonRefresh = 1003;
 constexpr int kButtonProbe = 1004;
 constexpr int kButtonProbeMatrix = 1005;
+constexpr int kButtonCaptureOpenProbe = 1030;
 constexpr int kTabInfoPages = 1006;
 constexpr int kComboCaptureBackend = 1101;
 constexpr int kComboRenderBackend = 1102;
@@ -84,6 +87,13 @@ constexpr int kEditRenderBufferMs = 1116;
 constexpr int kCheckboxMonitor = 1117;
 constexpr int kCheckboxFollowDefaults = 1118;
 constexpr int kCheckboxAutoAlignRender = 1122;
+constexpr int kButtonRtcJoinLeave = 1132;
+constexpr int kStaticRtcStatus = 1133;
+constexpr int kEditRtcAppId = 1134;
+constexpr int kEditRtcChannel = 1135;
+constexpr int kEditRtcUid = 1136;
+constexpr int kEditRtcToken = 1137;
+constexpr int kButtonLogsConsoleToggle = 1138;
 constexpr int kAutomationCaptureLabel = 1901;
 constexpr int kAutomationDeviceCountLine = 1902;
 constexpr int kAutomationSummaryText = 1903;
@@ -98,7 +108,7 @@ constexpr int kVisibleProbeText = 1954;
 constexpr int kVisibleRecentLogsText = 1955;
 constexpr int kOverviewSnapshotLabel = 1956;
 constexpr int kOverviewSummaryLabel = 1957;
-constexpr int kOverviewLogsLabel = 1958;
+constexpr int kVisibleRtcText = 1959;
 
 struct WindowContext {
   ScopedCoInitialize com {};
@@ -108,6 +118,7 @@ struct WindowContext {
   HWND refresh_button = nullptr;
   HWND probe_button = nullptr;
   HWND probe_matrix_button = nullptr;
+  HWND capture_open_probe_button = nullptr;
   HWND capture_backend_combo = nullptr;
   HWND render_backend_combo = nullptr;
   HWND source_mode_combo = nullptr;
@@ -137,6 +148,12 @@ struct WindowContext {
   HWND monitor_checkbox = nullptr;
   HWND follow_defaults_checkbox = nullptr;
   HWND auto_align_render_checkbox = nullptr;
+  HWND rtc_join_leave_button = nullptr;
+  HWND rtc_status_label = nullptr;
+  HWND rtc_app_id_edit = nullptr;
+  HWND rtc_channel_edit = nullptr;
+  HWND rtc_uid_edit = nullptr;
+  HWND rtc_token_edit = nullptr;
   HWND automation_capture_label = nullptr;
   HWND automation_device_count_line = nullptr;
   HWND automation_summary_text = nullptr;
@@ -146,13 +163,14 @@ struct WindowContext {
   HWND info_tabs = nullptr;
   HWND overview_snapshot_label = nullptr;
   HWND overview_summary_label = nullptr;
-  HWND overview_logs_label = nullptr;
   HWND visible_snapshot_text = nullptr;
   HWND visible_summary_text = nullptr;
   HWND visible_diagnostics_text = nullptr;
   HWND visible_capability_text = nullptr;
   HWND visible_probe_text = nullptr;
+  HWND logs_console_toggle_button = nullptr;
   HWND visible_recent_logs_text = nullptr;
+  HWND visible_rtc_text = nullptr;
   HFONT panel_text_font = nullptr;
   HFONT panel_mono_font = nullptr;
   HFONT panel_header_font = nullptr;
@@ -171,11 +189,16 @@ struct WindowContext {
   std::wstring last_visible_capability_text {};
   std::wstring last_visible_probe_text {};
   std::wstring last_visible_recent_logs_text {};
+  std::wstring last_visible_rtc_text {};
+  HWND console_window = nullptr;
+  HANDLE console_output_handle = nullptr;
+  uint64_t last_console_log_count = 0;
   DeviceNotificationClient* device_notifications = nullptr;
   bool probe_running = false;
   ProbeUiMode probe_mode = ProbeUiMode::None;
   std::jthread probe_thread {};
   bool shutting_down = false;
+  bool logs_console_open = false;
   bool audio_timer_enabled = false;
   bool ui_timer_enabled = false;
 };
@@ -229,12 +252,20 @@ struct ConfigPanelLayout {
   int format_row3_label_y = 0;
   int output_left = 0;
   int output_inner_width = 0;
+  int output_left_width = 0;
+  int output_right_left = 0;
+  int output_right_width = 0;
   int output_label_y = 0;
   int output_label_y2 = 0;
   int output_label_y3 = 0;
   int row5_y = 0;
   int row6_y = 0;
   int row7_y = 0;
+  int rtc_row1_y = 0;
+  int rtc_row2_y = 0;
+  int rtc_row3_y = 0;
+  int rtc_token_y = 0;
+  int rtc_uid_width = 92;
   int dump_checkbox_width = 0;
   int dump_type_width = 0;
   int dump_path_width = 0;
@@ -408,7 +439,136 @@ bool ShouldRunAudioTimer(const WindowContext* context) {
 
 bool ShouldRunUiTimer(const WindowContext* context) {
   return context != nullptr &&
-         (context->probe_running || IsSessionActive(context));
+         (context->probe_running || IsSessionActive(context) ||
+          context->logs_console_open);
+}
+
+std::wstring BuildLogsConsoleButtonText(bool console_open) {
+  return console_open ? L"Close Console" : L"Open Console";
+}
+
+std::wstring BuildRecentLogsPanelText(const LogSnapshot& snapshot) {
+  if (snapshot.lines.empty()) {
+    return L"No recent logs yet.";
+  }
+
+  std::wstring log_text;
+  for (auto it = snapshot.lines.rbegin(); it != snapshot.lines.rend(); ++it) {
+    if (!log_text.empty()) {
+      log_text += L"\r\n";
+    }
+    log_text += *it;
+  }
+  return log_text;
+}
+
+void UpdateLogsConsoleButtonText(WindowContext* context) {
+  if (context == nullptr || context->logs_console_toggle_button == nullptr) {
+    return;
+  }
+  SetControlText(context->logs_console_toggle_button,
+                 BuildLogsConsoleButtonText(context->logs_console_open).c_str());
+}
+
+void DisableConsoleCloseButton(HWND console_window) {
+  if (console_window == nullptr) {
+    return;
+  }
+  HMENU system_menu = GetSystemMenu(console_window, FALSE);
+  if (system_menu == nullptr) {
+    return;
+  }
+  EnableMenuItem(system_menu, SC_CLOSE, MF_BYCOMMAND | MF_GRAYED);
+  DrawMenuBar(console_window);
+}
+
+void CloseLogsConsole(WindowContext* context) {
+  if (context == nullptr) {
+    return;
+  }
+
+  context->console_output_handle = nullptr;
+  context->console_window = nullptr;
+  context->last_console_log_count = 0;
+  if (context->logs_console_open) {
+    FreeConsole();
+  }
+  context->logs_console_open = false;
+  UpdateLogsConsoleButtonText(context);
+}
+
+bool OpenLogsConsole(WindowContext* context, HWND owner) {
+  if (context == nullptr) {
+    return false;
+  }
+  if (context->logs_console_open) {
+    if (context->console_window != nullptr) {
+      ShowWindow(context->console_window, SW_SHOW);
+      SetForegroundWindow(context->console_window);
+    }
+    return true;
+  }
+
+  if (!AllocConsole()) {
+    MessageBoxW(owner, L"Failed to open the logs console.", L"WinAudio",
+                MB_OK | MB_ICONERROR);
+    return false;
+  }
+
+  SetConsoleTitleW(L"WinAudio Logs");
+  context->console_window = GetConsoleWindow();
+  DisableConsoleCloseButton(context->console_window);
+  context->console_output_handle = GetStdHandle(STD_OUTPUT_HANDLE);
+  if (context->console_output_handle == nullptr ||
+      context->console_output_handle == INVALID_HANDLE_VALUE) {
+    MessageBoxW(owner, L"Failed to initialize the logs console output handle.",
+                L"WinAudio", MB_OK | MB_ICONERROR);
+    CloseLogsConsole(context);
+    return false;
+  }
+
+  context->last_console_log_count = context->model.log_snapshot().total_count;
+  context->logs_console_open = true;
+  UpdateLogsConsoleButtonText(context);
+  return true;
+}
+
+bool WriteRecentLogsToConsole(WindowContext* context, const LogSnapshot& snapshot) {
+  if (context == nullptr || !context->logs_console_open ||
+      context->console_output_handle == nullptr ||
+      context->console_output_handle == INVALID_HANDLE_VALUE) {
+    return false;
+  }
+
+  if (snapshot.total_count <= context->last_console_log_count) {
+    context->last_console_log_count = snapshot.total_count;
+    return false;
+  }
+
+  const uint64_t new_log_count =
+      snapshot.total_count - context->last_console_log_count;
+  const size_t available_lines = snapshot.lines.size();
+  const size_t lines_to_write = static_cast<size_t>(
+      std::min<uint64_t>(new_log_count, static_cast<uint64_t>(available_lines)));
+  if (lines_to_write == 0) {
+    context->last_console_log_count = snapshot.total_count;
+    return false;
+  }
+
+  const size_t start_index = available_lines - lines_to_write;
+  bool wrote_anything = false;
+  for (size_t index = start_index; index < available_lines; ++index) {
+    const std::wstring line = snapshot.lines[index] + L"\r\n";
+    DWORD written = 0;
+    if (!WriteConsoleW(context->console_output_handle, line.c_str(),
+                       static_cast<DWORD>(line.size()), &written, nullptr)) {
+      CloseLogsConsole(context);
+      return false;
+    }
+    wrote_anything = true;
+  }
+  context->last_console_log_count = snapshot.total_count;
+  return wrote_anything;
 }
 
 void UpdateTimerState(HWND hwnd, WindowContext* context) {
@@ -479,9 +639,10 @@ AppLayout CalculateAppLayout(const RECT& client_rect) {
 enum class InfoTabPage {
   Overview = 0,
   Diagnostics = 1,
-  Capabilities = 2,
-  Probe = 3,
-  Logs = 4,
+  Rtc = 2,
+  Capabilities = 3,
+  Probe = 4,
+  Logs = 5,
 };
 
 InfoTabPage GetActiveInfoTabPage(WindowContext* context) {
@@ -844,6 +1005,32 @@ std::wstring FormatProbePanelText(const std::wstring& text) {
   return formatted;
 }
 
+std::wstring BuildRtcJoinButtonLabel(const AgoraRtcConfig& config,
+                                     const AgoraRtcStats& stats) {
+  return (config.enabled || stats.joined) ? L"LeaveChannel" : L"JoinChannel";
+}
+
+std::wstring BuildRtcStatusLabel(const SessionConfiguration& config,
+                                 const std::wstring& session_state,
+                                 const AgoraRtcStats& stats) {
+  if (stats.joined) {
+    return L"Status: Joined";
+  }
+  if (!stats.last_error_message.empty()) {
+    return L"Status: Error";
+  }
+  if (stats.join_attempted) {
+    return L"Status: Joining";
+  }
+  if (config.rtc.enabled && session_state != L"Running") {
+    return L"Status: Pending session start";
+  }
+  if (config.rtc.enabled) {
+    return L"Status: Join requested";
+  }
+  return L"Status: Not joined";
+}
+
 ConfigPanelLayout CalculateConfigPanelLayout(const RECT& rect) {
   ConfigPanelLayout layout {};
   const int section_inset = 16;
@@ -892,16 +1079,25 @@ ConfigPanelLayout CalculateConfigPanelLayout(const RECT& rect) {
 
   layout.output_left = layout.output_rect.left + section_inset;
   layout.output_inner_width = RectWidth(layout.output_rect) - (section_inset * 2);
+  layout.output_left_width = std::clamp((layout.output_inner_width * 50) / 100,
+                                        580, layout.output_inner_width - 360);
+  layout.output_right_left = layout.output_left + layout.output_left_width + inner_gap;
+  layout.output_right_width =
+      layout.output_inner_width - layout.output_left_width - inner_gap;
   layout.output_label_y = layout.output_rect.top + 30;
   layout.row5_y = layout.output_rect.top + 48;
   layout.output_label_y2 = layout.output_rect.top + 74;
   layout.row6_y = layout.output_rect.top + 92;
   layout.output_label_y3 = layout.output_rect.top + 118;
   layout.row7_y = layout.output_rect.top + 136;
+  layout.rtc_row1_y = layout.output_rect.top + 38;
+  layout.rtc_row2_y = layout.output_rect.top + 82;
+  layout.rtc_row3_y = layout.output_rect.top + 116;
+  layout.rtc_token_y = layout.output_rect.top + 150;
   layout.dump_checkbox_width = 146;
   layout.dump_type_width = 160;
   layout.dump_path_width =
-      layout.output_inner_width - layout.dump_checkbox_width -
+      layout.output_left_width - layout.dump_checkbox_width -
       layout.dump_type_width - (inner_gap * 2);
   layout.buffer_width = 140;
   layout.monitor_width = 168;
@@ -924,17 +1120,41 @@ void LayoutChildControls(HWND hwnd, WindowContext* context) {
   const int inner_gap = 12;
 
   const int button_y = config_layout.toolbar_rect.top + 8;
-  int x = config_layout.toolbar_rect.left + 8;
-  MoveControl(context->start_button, MakeRect(x, button_y, 128, kButtonHeight));
-  x += 128 + kButtonGap;
-  MoveControl(context->stop_button, MakeRect(x, button_y, 92, kButtonHeight));
-  x += 92 + kButtonGap;
-  MoveControl(context->refresh_button, MakeRect(x, button_y, 140, kButtonHeight));
-  x += 140 + kButtonGap;
-  MoveControl(context->probe_button, MakeRect(x, button_y, 150, kButtonHeight));
-  x += 150 + kButtonGap;
+  const int toolbar_button_left =
+      config_layout.toolbar_rect.left + kToolbarTitleWidth + 16;
+  const int toolbar_right = config_layout.toolbar_rect.right - 8;
+  const int available_button_width =
+      std::max(0, toolbar_right - toolbar_button_left - (kButtonGap * 5));
+  const int start_width = std::clamp((available_button_width * 17) / 100, 96, 128);
+  const int stop_width = std::clamp((available_button_width * 12) / 100, 72, 92);
+  const int refresh_width =
+      std::clamp((available_button_width * 18) / 100, 112, 140);
+  const int quick_probe_width =
+      std::clamp((available_button_width * 19) / 100, 118, 150);
+  const int matrix_width =
+      std::clamp((available_button_width * 20) / 100, 128, 162);
+  const int capture_open_width =
+      std::clamp(available_button_width - start_width - stop_width -
+                     refresh_width - quick_probe_width - matrix_width,
+                 154, 178);
+
+  int x = toolbar_button_left;
+  MoveControl(context->start_button,
+              MakeRect(x, button_y, start_width, kButtonHeight));
+  x += start_width + kButtonGap;
+  MoveControl(context->stop_button, MakeRect(x, button_y, stop_width, kButtonHeight));
+  x += stop_width + kButtonGap;
+  MoveControl(context->refresh_button,
+              MakeRect(x, button_y, refresh_width, kButtonHeight));
+  x += refresh_width + kButtonGap;
+  MoveControl(context->probe_button,
+              MakeRect(x, button_y, quick_probe_width, kButtonHeight));
+  x += quick_probe_width + kButtonGap;
   MoveControl(context->probe_matrix_button,
-              MakeRect(x, button_y, 162, kButtonHeight));
+              MakeRect(x, button_y, matrix_width, kButtonHeight));
+  x += matrix_width + kButtonGap;
+  MoveControl(context->capture_open_probe_button,
+              MakeRect(x, button_y, capture_open_width, kButtonHeight));
 
   x = config_layout.route_left;
   MoveControl(context->capture_backend_combo,
@@ -1056,6 +1276,29 @@ void LayoutChildControls(HWND hwnd, WindowContext* context) {
                        config_layout.row7_y, config_layout.auto_align_width,
                        kEditHeight));
 
+  MoveControl(context->rtc_join_leave_button,
+              MakeRect(config_layout.output_right_left, config_layout.rtc_row1_y,
+                       132, kButtonHeight));
+  MoveControl(context->rtc_status_label,
+              MakeRect(config_layout.output_right_left + 144, config_layout.rtc_row1_y + 4,
+                       config_layout.output_right_width - 144, 20));
+  MoveControl(context->rtc_app_id_edit,
+              MakeRect(config_layout.output_right_left, config_layout.rtc_row2_y,
+                       config_layout.output_right_width, kEditHeight));
+  MoveControl(context->rtc_channel_edit,
+              MakeRect(config_layout.output_right_left, config_layout.rtc_row3_y,
+                       config_layout.output_right_width - config_layout.rtc_uid_width -
+                           inner_gap,
+                       kEditHeight));
+  MoveControl(context->rtc_uid_edit,
+              MakeRect(config_layout.output_right_left + config_layout.output_right_width -
+                           config_layout.rtc_uid_width,
+                       config_layout.rtc_row3_y, config_layout.rtc_uid_width,
+                       kEditHeight));
+  MoveControl(context->rtc_token_edit,
+              MakeRect(config_layout.output_right_left, config_layout.rtc_token_y,
+                       config_layout.output_right_width, kEditHeight));
+
   MoveControl(context->info_tabs, layout.info_tabs_rect);
   const RECT page_rect = GetTabPageRect(context->info_tabs);
   const int page_width = RectWidth(page_rect);
@@ -1071,61 +1314,60 @@ void LayoutChildControls(HWND hwnd, WindowContext* context) {
 
   const int overview_header_top = page_top + page_inset;
   const int overview_text_top = overview_header_top + 22;
-  const int overview_vertical_budget =
-      std::max(184, page_height - (page_inset * 2));
-  const int overview_top_height =
-      std::clamp((overview_vertical_budget * 43) / 100, 80,
-                 std::max(80, overview_vertical_budget - 108));
-  const int logs_label_top = overview_text_top + overview_top_height + 10;
-  const int logs_top = logs_label_top + 22;
-  const int logs_height =
-      std::max(60, page_top + page_height - page_inset - logs_top);
+  const int overview_text_height =
+      std::max(80, page_height - (page_inset * 2) - 22);
+  const int logs_button_width = 124;
+  const int logs_button_height = kButtonHeight;
+  const int logs_header_top = page_top + page_inset;
+  const int logs_text_top = logs_header_top + logs_button_height + 12;
+  const int logs_text_height =
+      std::max(60, page_top + page_height - page_inset - logs_text_top);
 
   MoveControl(context->overview_snapshot_label,
               MakeRect(page_left + page_inset, overview_header_top, column_width,
                        label_height));
   MoveControl(context->visible_snapshot_text,
               MakeRect(page_left + page_inset, overview_text_top, column_width,
-                       overview_top_height));
+                       overview_text_height));
   MoveControl(context->overview_summary_label,
               MakeRect(right_left, overview_header_top, right_width, label_height));
   MoveControl(context->visible_summary_text,
-              MakeRect(right_left, overview_text_top, right_width, overview_top_height));
-  MoveControl(context->overview_logs_label,
-              MakeRect(page_left + page_inset, logs_label_top,
-                       page_width - (page_inset * 2), label_height));
+              MakeRect(right_left, overview_text_top, right_width, overview_text_height));
+  MoveControl(context->logs_console_toggle_button,
+              MakeRect(page_left + page_width - page_inset - logs_button_width,
+                       logs_header_top, logs_button_width, logs_button_height));
   MoveControl(context->visible_recent_logs_text,
-              MakeRect(page_left + page_inset, logs_top,
-                       page_width - (page_inset * 2), logs_height));
+              MakeRect(page_left + page_inset, logs_text_top,
+                       page_width - (page_inset * 2), logs_text_height));
   MoveControl(context->visible_capability_text,
               MakeRect(page_left + page_inset, page_top + page_inset,
                        page_width - (page_inset * 2), page_height - (page_inset * 2)));
   MoveControl(context->visible_probe_text,
               MakeRect(page_left + page_inset, page_top + page_inset,
                        page_width - (page_inset * 2), page_height - (page_inset * 2)));
+  MoveControl(context->visible_rtc_text,
+              MakeRect(page_left + page_inset, page_top + page_inset,
+                       page_width - (page_inset * 2), page_height - (page_inset * 2)));
 
   const auto active_page = GetActiveInfoTabPage(context);
   const bool show_overview = active_page == InfoTabPage::Overview;
   const bool show_diagnostics = active_page == InfoTabPage::Diagnostics;
+  const bool show_rtc = active_page == InfoTabPage::Rtc;
   const bool show_capabilities = active_page == InfoTabPage::Capabilities;
   const bool show_probe = active_page == InfoTabPage::Probe;
   const bool show_logs = active_page == InfoTabPage::Logs;
 
   SetControlVisible(context->overview_snapshot_label, show_overview);
   SetControlVisible(context->overview_summary_label, show_overview);
-  SetControlVisible(context->overview_logs_label, show_overview);
   SetControlVisible(context->visible_snapshot_text, show_overview);
   SetControlVisible(context->visible_summary_text, show_overview);
-  SetControlVisible(context->visible_recent_logs_text, show_overview || show_logs);
+  SetControlVisible(context->logs_console_toggle_button, show_logs);
+  SetControlVisible(context->visible_recent_logs_text, show_logs);
   SetControlVisible(context->visible_diagnostics_text, show_diagnostics);
+  SetControlVisible(context->visible_rtc_text, show_rtc);
   SetControlVisible(context->visible_capability_text, show_capabilities);
   SetControlVisible(context->visible_probe_text, show_probe);
 
-  if (show_logs) {
-    MoveControl(context->visible_recent_logs_text,
-                MakeRect(page_left + page_inset, page_top + page_inset,
-                         page_width - (page_inset * 2), page_height - (page_inset * 2)));
-  }
   if (show_diagnostics) {
     MoveControl(context->visible_diagnostics_text,
                 MakeRect(page_left + page_inset, page_top + page_inset,
@@ -1136,6 +1378,7 @@ void LayoutChildControls(HWND hwnd, WindowContext* context) {
   UpdateReadOnlyPanelTextRect(context->visible_recent_logs_text);
   UpdateReadOnlyPanelTextRect(context->visible_summary_text);
   UpdateReadOnlyPanelTextRect(context->visible_diagnostics_text);
+  UpdateReadOnlyPanelTextRect(context->visible_rtc_text);
   UpdateReadOnlyPanelTextRect(context->visible_capability_text);
   UpdateReadOnlyPanelTextRect(context->visible_probe_text);
 }
@@ -1169,6 +1412,10 @@ void ApplyControlAvailability(WindowContext* context) {
       (!busy && session_state != L"Running") ? TRUE : FALSE;
   const BOOL stop_enabled =
       (!busy && session_state == L"Running") ? TRUE : FALSE;
+  const auto rtc_stats = context->model.rtc_stats();
+  const BOOL rtc_config_edit_enabled =
+      (!busy && !rtc_stats.joined) ? TRUE : FALSE;
+  const BOOL rtc_button_enabled = busy ? FALSE : TRUE;
 
   if (context->start_button != nullptr) {
     EnableWindow(context->start_button, start_enabled);
@@ -1181,6 +1428,7 @@ void ApplyControlAvailability(WindowContext* context) {
       context->refresh_button,
       context->probe_button,
       context->probe_matrix_button,
+      context->capture_open_probe_button,
       context->capture_backend_combo,
       context->app_loopback_process_edit,
       context->dump_checkbox,
@@ -1214,6 +1462,21 @@ void ApplyControlAvailability(WindowContext* context) {
   if (context->monitor_checkbox != nullptr) {
     EnableWindow(context->monitor_checkbox,
                  (!busy && !system_loopback) ? TRUE : FALSE);
+  }
+  if (context->rtc_join_leave_button != nullptr) {
+    EnableWindow(context->rtc_join_leave_button, rtc_button_enabled);
+  }
+  if (context->rtc_app_id_edit != nullptr) {
+    EnableWindow(context->rtc_app_id_edit, rtc_config_edit_enabled);
+  }
+  if (context->rtc_channel_edit != nullptr) {
+    EnableWindow(context->rtc_channel_edit, rtc_config_edit_enabled);
+  }
+  if (context->rtc_uid_edit != nullptr) {
+    EnableWindow(context->rtc_uid_edit, rtc_config_edit_enabled);
+  }
+  if (context->rtc_token_edit != nullptr) {
+    EnableWindow(context->rtc_token_edit, rtc_config_edit_enabled);
   }
   if (context->render_device_combo != nullptr) {
     EnableWindow(context->render_device_combo, render_device_combo_enabled);
@@ -1250,6 +1513,8 @@ void SetProbeUiBusy(WindowContext* context, bool busy) {
   SetWindowTextW(context->probe_button, BuildProbeButtonLabel(busy).c_str());
   SetWindowTextW(context->probe_matrix_button,
                  BuildProbeMatrixButtonLabel(busy).c_str());
+  SetWindowTextW(context->capture_open_probe_button,
+                 BuildCaptureOpenProbeButtonLabel(busy).c_str());
 }
 
 bool SyncAutomationTextMirrors(WindowContext* context) {
@@ -1258,6 +1523,7 @@ bool SyncAutomationTextMirrors(WindowContext* context) {
   }
 
   bool changed = false;
+  const auto log_snapshot = context->model.log_snapshot();
 
   const auto devices = context->model.devices();
   const auto source_mode = context->model.configuration().capture.source_mode;
@@ -1327,23 +1593,13 @@ bool SyncAutomationTextMirrors(WindowContext* context) {
     changed = changed || previous != context->last_visible_probe_text;
   }
   if (context->visible_recent_logs_text != nullptr) {
-    std::wstring log_text;
-    const auto& logs = context->model.logs();
-    if (logs.empty()) {
-      log_text = L"No recent logs yet.";
-    } else {
-      for (auto it = logs.rbegin(); it != logs.rend(); ++it) {
-        if (!log_text.empty()) {
-          log_text += L"\r\n";
-        }
-        log_text += *it;
-      }
-    }
     const auto previous = context->last_visible_recent_logs_text;
     SetEditTextIfChanged(context->visible_recent_logs_text,
-                         context->last_visible_recent_logs_text, log_text);
+                         context->last_visible_recent_logs_text,
+                         BuildRecentLogsPanelText(log_snapshot));
     changed = changed || previous != context->last_visible_recent_logs_text;
   }
+  WriteRecentLogsToConsole(context, log_snapshot);
   if (context->automation_auto_align_note != nullptr) {
     const auto text = BuildAutoAlignExplanatoryNoteText();
     const auto previous = context->last_automation_auto_align_note;
@@ -1358,6 +1614,24 @@ bool SyncAutomationTextMirrors(WindowContext* context) {
                          FormatCapabilityPanelText(context->model.capability_text()));
     changed = changed || previous != context->last_visible_capability_text;
   }
+  if (context->visible_rtc_text != nullptr) {
+    const auto previous = context->last_visible_rtc_text;
+    SetEditTextIfChanged(context->visible_rtc_text,
+                         context->last_visible_rtc_text,
+                         context->model.rtc_text());
+    changed = changed || previous != context->last_visible_rtc_text;
+  }
+  if (context->rtc_join_leave_button != nullptr &&
+      context->rtc_status_label != nullptr) {
+    const auto config = context->model.configuration();
+    const auto rtc_stats = context->model.rtc_stats();
+    SetControlText(context->rtc_join_leave_button,
+                   BuildRtcJoinButtonLabel(config.rtc, rtc_stats).c_str());
+    SetControlText(context->rtc_status_label,
+                   BuildRtcStatusLabel(config, context->model.session_state(),
+                                       rtc_stats).c_str());
+  }
+  UpdateLogsConsoleButtonText(context);
 
   return changed;
 }
@@ -1792,6 +2066,16 @@ void SyncUiFromModel(WindowContext* context) {
                config.follow_default_devices ? BST_CHECKED : BST_UNCHECKED, 0);
   SendMessageW(context->auto_align_render_checkbox, BM_SETCHECK,
                config.auto_align_render_format ? BST_CHECKED : BST_UNCHECKED, 0);
+  const auto rtc_stats = context->model.rtc_stats();
+  SetControlText(context->rtc_join_leave_button,
+                 BuildRtcJoinButtonLabel(config.rtc, rtc_stats).c_str());
+  SetControlText(context->rtc_status_label,
+                 BuildRtcStatusLabel(config, context->model.session_state(),
+                                     rtc_stats).c_str());
+  SetControlText(context->rtc_app_id_edit, config.rtc.app_id.c_str());
+  SetControlText(context->rtc_channel_edit, config.rtc.channel_id.c_str());
+  SetControlText(context->rtc_uid_edit, std::to_wstring(config.rtc.uid).c_str());
+  SetControlText(context->rtc_token_edit, config.rtc.token.c_str());
   SetControlVisible(context->capture_device_combo, !application_loopback);
   SetControlVisible(context->app_loopback_process_edit, application_loopback);
   ApplyControlAvailability(context);
@@ -1898,7 +2182,10 @@ void DrawConfigLabels(HDC hdc, const RECT& rect, AudioSourceMode source_mode) {
 
   TextOutW(hdc, layout.output_rect.left + section_inset, layout.output_label_y,
            L"Dump Path", 9);
-  TextOutW(hdc, layout.output_rect.right - 160, layout.output_label_y,
+  TextOutW(hdc,
+           layout.output_left + layout.dump_path_width + layout.dump_checkbox_width +
+               (inner_gap * 2),
+           layout.output_label_y,
            L"Dump Type", 9);
   TextOutW(hdc, layout.output_rect.left + section_inset, layout.output_label_y2,
            L"Cap Buffer (ms)", 15);
@@ -1907,6 +2194,17 @@ void DrawConfigLabels(HDC hdc, const RECT& rect, AudioSourceMode source_mode) {
            layout.output_label_y2, L"Ren Buffer (ms)", 15);
   TextOutW(hdc, layout.output_rect.left + section_inset, layout.output_label_y3,
            L"Session Flags", 13);
+  TextOutW(hdc, layout.output_right_left, layout.output_rect.top + 10,
+           L"RTC Session", 11);
+  TextOutW(hdc, layout.output_right_left, layout.rtc_row2_y - 14,
+           L"App ID", 6);
+  TextOutW(hdc, layout.output_right_left, layout.rtc_row3_y - 14,
+           L"Channel", 7);
+  TextOutW(hdc,
+           layout.output_right_left + layout.output_right_width - layout.rtc_uid_width,
+           layout.rtc_row3_y - 14, L"UID", 3);
+  TextOutW(hdc, layout.output_right_left, layout.rtc_token_y - 14,
+           L"Token", 5);
 }
 
 void DrawConfigLabels(HDC hdc, const RECT& client_rect, WindowContext* context) {
@@ -2072,6 +2370,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
           L"BUTTON", L"Run Probe Matrix", WS_TABSTOP | WS_VISIBLE | WS_CHILD, 544,
           16, 150, 28, hwnd, ControlIdToMenu(kButtonProbeMatrix), nullptr,
           nullptr);
+      owned_context->capture_open_probe_button = CreateWindowW(
+          L"BUTTON", L"Find Capture Params", WS_TABSTOP | WS_VISIBLE | WS_CHILD,
+          706, 16, 150, 28, hwnd, ControlIdToMenu(kButtonCaptureOpenProbe),
+          nullptr, nullptr);
       owned_context->capture_backend_combo = CreateWindowW(
           L"COMBOBOX", nullptr, WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST, 16, 76,
           180, 200, hwnd, ControlIdToMenu(kComboCaptureBackend), nullptr,
@@ -2186,6 +2488,25 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
           L"BUTTON", L"Auto-align render",
           WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 700, 356, 184, 24, hwnd,
           ControlIdToMenu(kCheckboxAutoAlignRender), nullptr, nullptr);
+      owned_context->rtc_join_leave_button = CreateWindowW(
+          L"BUTTON", L"JoinChannel", WS_TABSTOP | WS_CHILD | WS_VISIBLE, 700,
+          386, 132, 28, hwnd, ControlIdToMenu(kButtonRtcJoinLeave), nullptr,
+          nullptr);
+      owned_context->rtc_status_label = CreateWindowW(
+          L"STATIC", L"Status: Not joined", WS_CHILD | WS_VISIBLE, 844, 390,
+          220, 20, hwnd, ControlIdToMenu(kStaticRtcStatus), nullptr, nullptr);
+      owned_context->rtc_app_id_edit = CreateWindowW(
+          L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL, 700,
+          446, 200, 24, hwnd, ControlIdToMenu(kEditRtcAppId), nullptr, nullptr);
+      owned_context->rtc_channel_edit = CreateWindowW(
+          L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL, 700,
+          476, 140, 24, hwnd, ControlIdToMenu(kEditRtcChannel), nullptr, nullptr);
+      owned_context->rtc_uid_edit = CreateWindowW(
+          L"EDIT", L"0", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL, 850,
+          476, 60, 24, hwnd, ControlIdToMenu(kEditRtcUid), nullptr, nullptr);
+      owned_context->rtc_token_edit = CreateWindowW(
+          L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL, 700,
+          506, 200, 24, hwnd, ControlIdToMenu(kEditRtcToken), nullptr, nullptr);
       owned_context->automation_capture_label = CreateWindowW(
           L"STATIC", L"", WS_CHILD, 0, 0, 0, 0, hwnd,
           ControlIdToMenu(kAutomationCaptureLabel), nullptr, nullptr);
@@ -2213,9 +2534,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
       owned_context->overview_summary_label = CreateWindowW(
           L"STATIC", L"Configured Summary", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, hwnd,
           ControlIdToMenu(kOverviewSummaryLabel), nullptr, nullptr);
-      owned_context->overview_logs_label = CreateWindowW(
-          L"STATIC", L"Recent Logs", WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, hwnd,
-          ControlIdToMenu(kOverviewLogsLabel), nullptr, nullptr);
       owned_context->visible_snapshot_text = CreateWindowExW(
           WS_EX_CLIENTEDGE, L"EDIT", L"",
           WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY |
@@ -2246,11 +2564,20 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
               WS_VSCROLL,
           0, 0, 0, 0, hwnd, ControlIdToMenu(kVisibleProbeText), nullptr,
           nullptr);
+      owned_context->logs_console_toggle_button = CreateWindowW(
+          L"BUTTON", L"Open Console", WS_TABSTOP | WS_CHILD, 0, 0, 0, 0, hwnd,
+          ControlIdToMenu(kButtonLogsConsoleToggle), nullptr, nullptr);
       owned_context->visible_recent_logs_text = CreateWindowExW(
           WS_EX_CLIENTEDGE, L"EDIT", L"",
           WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY |
               WS_VSCROLL,
           0, 0, 0, 0, hwnd, ControlIdToMenu(kVisibleRecentLogsText), nullptr,
+          nullptr);
+      owned_context->visible_rtc_text = CreateWindowExW(
+          WS_EX_CLIENTEDGE, L"EDIT", L"",
+          WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY |
+              WS_VSCROLL,
+          0, 0, 0, 0, hwnd, ControlIdToMenu(kVisibleRtcText), nullptr,
           nullptr);
       owned_context->panel_text_font = CreatePanelTextFont();
       owned_context->panel_mono_font = CreatePanelMonoFont();
@@ -2260,6 +2587,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
       ConfigureReadOnlyPanelEdit(owned_context->visible_snapshot_text);
       ConfigureReadOnlyPanelEdit(owned_context->visible_summary_text);
       ConfigureReadOnlyPanelEdit(owned_context->visible_diagnostics_text);
+      ConfigureReadOnlyPanelEdit(owned_context->visible_rtc_text);
       ConfigureReadOnlyPanelEdit(owned_context->visible_capability_text);
       ConfigureReadOnlyPanelEdit(owned_context->visible_probe_text);
       ConfigureReadOnlyPanelEdit(owned_context->visible_recent_logs_text);
@@ -2298,30 +2626,35 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
       tab_item.pszText = diagnostics_text;
       SendMessageW(owned_context->info_tabs, TCM_INSERTITEMW, 1,
                    reinterpret_cast<LPARAM>(&tab_item));
+      wchar_t rtc_text[] = L"RTC";
+      tab_item.pszText = rtc_text;
+      SendMessageW(owned_context->info_tabs, TCM_INSERTITEMW, 2,
+                   reinterpret_cast<LPARAM>(&tab_item));
       wchar_t capabilities_text[] = L"Capabilities";
       tab_item.pszText = capabilities_text;
-      SendMessageW(owned_context->info_tabs, TCM_INSERTITEMW, 2,
+      SendMessageW(owned_context->info_tabs, TCM_INSERTITEMW, 3,
                    reinterpret_cast<LPARAM>(&tab_item));
       wchar_t probe_text[] = L"Probe";
       tab_item.pszText = probe_text;
-      SendMessageW(owned_context->info_tabs, TCM_INSERTITEMW, 3,
+      SendMessageW(owned_context->info_tabs, TCM_INSERTITEMW, 4,
                    reinterpret_cast<LPARAM>(&tab_item));
       wchar_t logs_text[] = L"Logs";
       tab_item.pszText = logs_text;
-      SendMessageW(owned_context->info_tabs, TCM_INSERTITEMW, 4,
+      SendMessageW(owned_context->info_tabs, TCM_INSERTITEMW, 5,
                    reinterpret_cast<LPARAM>(&tab_item));
       TabCtrl_SetCurSel(owned_context->info_tabs, 0);
       ApplyPanelTextFont(owned_context->visible_snapshot_text, owned_context->panel_text_font);
       ApplyPanelTextFont(owned_context->visible_summary_text, owned_context->panel_text_font);
       ApplyPanelTextFont(owned_context->visible_diagnostics_text, owned_context->panel_mono_font);
+      ApplyPanelTextFont(owned_context->visible_rtc_text, owned_context->panel_mono_font);
       ApplyPanelTextFont(owned_context->visible_capability_text, owned_context->panel_mono_font);
       ApplyPanelTextFont(owned_context->visible_probe_text, owned_context->panel_mono_font);
       ApplyPanelTextFont(owned_context->visible_recent_logs_text, owned_context->panel_text_font);
+      ApplyPanelTextFont(owned_context->logs_console_toggle_button,
+                         owned_context->panel_text_font);
       ApplyPanelTextFont(owned_context->overview_snapshot_label,
                          owned_context->panel_header_font);
       ApplyPanelTextFont(owned_context->overview_summary_label,
-                         owned_context->panel_header_font);
-      ApplyPanelTextFont(owned_context->overview_logs_label,
                          owned_context->panel_header_font);
 
       PopulateBackendCombo(owned_context->capture_backend_combo);
@@ -2387,12 +2720,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
             edit == context->visible_recent_logs_text ||
             edit == context->visible_summary_text ||
             edit == context->visible_diagnostics_text ||
+            edit == context->visible_rtc_text ||
             edit == context->visible_capability_text ||
             edit == context->visible_probe_text;
         if (is_visible_panel) {
           auto hdc = reinterpret_cast<HDC>(w_param);
           const bool is_diagnostic_panel =
               edit == context->visible_diagnostics_text ||
+              edit == context->visible_rtc_text ||
               edit == context->visible_capability_text ||
               edit == context->visible_probe_text;
           SetBkColor(hdc, is_diagnostic_panel ? RGB(248, 251, 255)
@@ -2447,6 +2782,25 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
               PostMessageW(hwnd, kMessageProbeMatrixFinished, 0, 0);
             });
           }
+          return 0;
+        case kButtonCaptureOpenProbe:
+          if (!context->probe_running) {
+            context->probe_mode = ProbeUiMode::CaptureOpen;
+            SetProbeUiBusy(context, true);
+            SyncWindowState(hwnd, context);
+            context->probe_thread = std::jthread([hwnd, context]() {
+              context->model.RunCaptureOpenProbe();
+              PostMessageW(hwnd, kMessageProbeFinished, 0, 0);
+            });
+          }
+          return 0;
+        case kButtonLogsConsoleToggle:
+          if (context->logs_console_open) {
+            CloseLogsConsole(context);
+          } else if (OpenLogsConsole(context, hwnd)) {
+            WriteRecentLogsToConsole(context, context->model.log_snapshot());
+          }
+          SyncWindowState(hwnd, context);
           return 0;
         case kComboCaptureBackend:
           if (HIWORD(w_param) == CBN_SELCHANGE) {
@@ -2718,6 +3072,47 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
           SyncUiFromModel(context);
           RefreshWindowFromModel(hwnd, context);
           return 0;
+        case kButtonRtcJoinLeave: {
+          const auto config = context->model.configuration();
+          const auto rtc_stats = context->model.rtc_stats();
+          if (config.rtc.enabled || rtc_stats.joined) {
+            context->model.LeaveRtcChannel();
+          } else {
+            context->model.JoinRtcChannel();
+          }
+          SyncUiFromModel(context);
+          RefreshWindowFromModel(hwnd, context);
+          return 0;
+        }
+        case kEditRtcAppId:
+          if (HIWORD(w_param) == EN_CHANGE) {
+            context->model.SetRtcAppId(GetWindowTextString(context->rtc_app_id_edit));
+            SyncWindowState(hwnd, context);
+          }
+          return 0;
+        case kEditRtcChannel:
+          if (HIWORD(w_param) == EN_CHANGE) {
+            context->model.SetRtcChannelId(
+                GetWindowTextString(context->rtc_channel_edit));
+            SyncWindowState(hwnd, context);
+          }
+          return 0;
+        case kEditRtcUid:
+          if (HIWORD(w_param) == EN_CHANGE) {
+            const auto text = GetWindowTextString(context->rtc_uid_edit);
+            if (!text.empty()) {
+              context->model.SetRtcUid(
+                  static_cast<uint32_t>(std::wcstoul(text.c_str(), nullptr, 10)));
+              SyncWindowState(hwnd, context);
+            }
+          }
+          return 0;
+        case kEditRtcToken:
+          if (HIWORD(w_param) == EN_CHANGE) {
+            context->model.SetRtcToken(GetWindowTextString(context->rtc_token_edit));
+            SyncWindowState(hwnd, context);
+          }
+          return 0;
         default:
           break;
       }
@@ -2750,7 +3145,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
         ApplyControlAvailability(context);
         const bool mirrors_changed = SyncAutomationTextMirrors(context);
         const bool title_changed = UpdateWindowTitle(hwnd, context);
-        if (mirrors_changed || title_changed || context->probe_running || IsSessionActive(context)) {
+        if (mirrors_changed || title_changed || context->probe_running ||
+            IsSessionActive(context) || context->logs_console_open) {
           InvalidateRect(hwnd, nullptr, FALSE);
         }
         return 0;
@@ -2881,6 +3277,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
         }
         context->probe_running = false;
         context->probe_mode = ProbeUiMode::None;
+        CloseLogsConsole(context);
         context->model.Stop();
         if (context->device_notifications != nullptr) {
           context->device_notifications->Unregister();

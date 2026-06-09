@@ -223,7 +223,12 @@ std::wstring StubRenderAdapter::runtime_details() const {
 }
 
 StubAudioBackendFactory::StubAudioBackendFactory(Options options)
-    : options_(std::move(options)) {}
+    : options_(std::move(options)) {
+  g_stub_capture_preferred_format = options_.capture_preferred_format;
+  g_stub_render_preferred_format = options_.render_preferred_format;
+  g_stub_capture_start_error = options_.capture_start_error;
+  g_stub_render_format_error = options_.render_format_error;
+}
 
 std::unique_ptr<IAudioCaptureAdapter> StubAudioBackendFactory::CreateCaptureAdapter(
     AudioBackendType backend) {

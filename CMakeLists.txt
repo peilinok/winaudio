@@ -24,6 +24,41 @@ option(
   "Register the GUI smoke validation entrypoint as an opt-in CTest item."
   OFF
 )
+option(
+  WINAUDIO_ENABLE_AGORA_SDK
+  "Enable real Agora Windows SDK integration."
+  OFF
+)
+
+set(WINAUDIO_AGORA_SDK_ROOT_DEFAULT
+    "${CMAKE_SOURCE_DIR}/third_party/agora-sdk/4.2.6.142_oopz/Agora_Native_SDK_for_Windows_FULL/sdk")
+set(WINAUDIO_AGORA_SDK_ROOT
+    "$ENV{WINAUDIO_AGORA_SDK_ROOT}"
+    CACHE PATH
+    "Path to the Agora Native SDK for Windows sdk directory.")
+
+if(NOT WINAUDIO_AGORA_SDK_ROOT)
+  set(WINAUDIO_AGORA_SDK_ROOT "${WINAUDIO_AGORA_SDK_ROOT_DEFAULT}")
+endif()
+
+set(WINAUDIO_AGORA_HIGH_LEVEL_INCLUDE_DIR
+    "${WINAUDIO_AGORA_SDK_ROOT}/high_level_api/include")
+set(WINAUDIO_AGORA_LOW_LEVEL_INCLUDE_DIR
+    "${WINAUDIO_AGORA_SDK_ROOT}/low_level_api/include")
+
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+  set(WINAUDIO_AGORA_BIN_DIR "${WINAUDIO_AGORA_SDK_ROOT}/x86_64")
+else()
+  set(WINAUDIO_AGORA_BIN_DIR "${WINAUDIO_AGORA_SDK_ROOT}/x86")
+endif()
+
+if(WINAUDIO_ENABLE_AGORA_SDK)
+  if(NOT EXISTS "${WINAUDIO_AGORA_SDK_ROOT}/high_level_api/include/IAgoraRtcEngine.h")
+    message(FATAL_ERROR
+      "WINAUDIO_ENABLE_AGORA_SDK=ON but WINAUDIO_AGORA_SDK_ROOT is invalid: ${WINAUDIO_AGORA_SDK_ROOT}")
+  endif()
+  file(GLOB WINAUDIO_AGORA_RUNTIME_DLLS "${WINAUDIO_AGORA_BIN_DIR}/*.dll")
+endif()
 
 add_library(winaudio_core
   src/audio/audio_types.cpp
@@ -41,9 +76,22 @@ add_library(winaudio_core
   src/app/device_notification_client.cpp
   src/app/probe_cli_options.cpp
   src/app/probe_ui_text.cpp
+  src/rtc/agora_rtc_types.cpp
+  src/rtc/agora_rtc_publisher.cpp
 )
 
 target_include_directories(winaudio_core PUBLIC src)
+
+if(WINAUDIO_ENABLE_AGORA_SDK)
+  target_include_directories(winaudio_core PRIVATE
+    "${WINAUDIO_AGORA_HIGH_LEVEL_INCLUDE_DIR}"
+    "${WINAUDIO_AGORA_LOW_LEVEL_INCLUDE_DIR}")
+  target_compile_definitions(winaudio_core PRIVATE WINAUDIO_ENABLE_AGORA_SDK=1)
+  target_link_libraries(winaudio_core PUBLIC
+    "${WINAUDIO_AGORA_BIN_DIR}/agora_rtc_sdk.dll.lib"
+  )
+endif()
+
 target_link_libraries(winaudio_core PUBLIC
   ole32
   mmdevapi
@@ -104,6 +152,25 @@ add_executable(winaudio_probe
 )
 
 target_link_libraries(winaudio_probe PRIVATE winaudio_core)
+
+if(WINAUDIO_ENABLE_AGORA_SDK)
+  set(WINAUDIO_AGORA_RUNTIME_TARGETS
+    core_pipeline_test
+    session_controller_test
+    wave_format_utils_test
+    app_model_text_test
+    probe_cli_test
+    probe_ui_text_test
+    winaudio
+    winaudio_probe)
+  foreach(target_name IN LISTS WINAUDIO_AGORA_RUNTIME_TARGETS)
+    add_custom_command(TARGET ${target_name} POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:${target_name}>
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+              ${WINAUDIO_AGORA_RUNTIME_DLLS}
+              $<TARGET_FILE_DIR:${target_name}>)
+  endforeach()
+endif()
 
 add_test(NAME core_pipeline_test COMMAND core_pipeline_test)
 add_test(NAME session_controller_test COMMAND session_controller_test)

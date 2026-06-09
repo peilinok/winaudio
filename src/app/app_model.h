@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -7,6 +8,11 @@
 #include "audio/audio_session_controller.h"
 
 namespace winaudio {
+
+struct LogSnapshot {
+  uint64_t total_count = 0;
+  std::vector<std::wstring> lines;
+};
 
 class AppModel final : public ISessionEventSink {
  public:
@@ -49,6 +55,16 @@ class AppModel final : public ISessionEventSink {
   void SetMonitorEnabled(bool enabled);
   void SetFollowDefaultDevices(bool enabled);
   void SetAutoAlignRenderFormat(bool enabled);
+  void SetRtcEnabled(bool enabled);
+  void SetRtcAppId(const std::wstring& app_id);
+  void SetRtcToken(const std::wstring& token);
+  void SetRtcChannelId(const std::wstring& channel_id);
+  void SetRtcUid(uint32_t uid);
+  void SetRtcPublishCaptureAudio(bool enabled);
+  void SetRtcPublishSampleRate(uint32_t sample_rate);
+  void SetRtcPublishChannels(uint16_t channels);
+  bool JoinRtcChannel();
+  void LeaveRtcChannel();
   void HandleDefaultDeviceRefresh();
   void RecordProbeResult(const std::wstring& stage,
                          uint32_t ticks,
@@ -63,6 +79,7 @@ class AppModel final : public ISessionEventSink {
   bool RunQuickProbe();
   void RecordProbeBatchResult(const std::vector<std::wstring>& lines);
   bool RunProbeMatrix();
+  bool RunCaptureOpenProbe();
   bool RunProbeMatrixForSources(const std::vector<AudioSourceMode>& source_modes);
   bool RunProbeMatrixFiltered(
       const std::vector<AudioSourceMode>& source_modes,
@@ -84,14 +101,17 @@ class AppModel final : public ISessionEventSink {
   [[nodiscard]] SessionConfiguration configuration() const;
   [[nodiscard]] DeviceEnumerationSnapshot devices() const;
   [[nodiscard]] SessionRuntimeStats stats() const;
+  [[nodiscard]] AgoraRtcStats rtc_stats() const;
   [[nodiscard]] std::vector<WaveformEnvelopePoint> capture_waveform() const;
   [[nodiscard]] std::vector<WaveformEnvelopePoint> render_waveform() const;
   [[nodiscard]] std::vector<std::wstring> logs() const;
+  [[nodiscard]] LogSnapshot log_snapshot() const;
   [[nodiscard]] std::wstring session_state() const;
   [[nodiscard]] std::wstring summary_text() const;
   [[nodiscard]] std::wstring diagnostics_text() const;
   [[nodiscard]] std::wstring capability_text() const;
   [[nodiscard]] std::wstring probe_text() const;
+  [[nodiscard]] std::wstring rtc_text() const;
 
   void OnLogLine(const std::wstring& line) override;
   void OnStatsUpdated(const SessionRuntimeStats& stats) override;
@@ -117,6 +137,7 @@ class AppModel final : public ISessionEventSink {
   std::vector<WaveformEnvelopePoint> capture_waveform_;
   std::vector<WaveformEnvelopePoint> render_waveform_;
   std::vector<std::wstring> logs_;
+  uint64_t log_total_count_ = 0;
   std::wstring session_state_ = L"Idle";
   bool non_loopback_monitor_preference_ = true;
   std::wstring capability_text_cache_;

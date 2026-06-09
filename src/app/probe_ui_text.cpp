@@ -22,6 +22,8 @@ std::wstring BuildWindowTitleText(ProbeUiMode probe_mode,
     title += L" | Quick Probe Running";
   } else if (probe_mode == ProbeUiMode::Matrix) {
     title += L" | Probe Matrix Running";
+  } else if (probe_mode == ProbeUiMode::CaptureOpen) {
+    title += L" | Capture Open Probe Running";
   } else {
     title += L" | " + session_state;
   }
@@ -36,6 +38,10 @@ std::wstring BuildProbeButtonLabel(bool busy) {
 
 std::wstring BuildProbeMatrixButtonLabel(bool busy) {
   return busy ? L"Probe Matrix Running..." : L"Run Probe Matrix";
+}
+
+std::wstring BuildCaptureOpenProbeButtonLabel(bool busy) {
+  return busy ? L"Capture Open Running..." : L"Find Capture Params";
 }
 
 std::wstring BuildAutoAlignExplanatoryNoteText() {
