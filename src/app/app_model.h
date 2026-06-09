@@ -63,6 +63,7 @@ class AppModel final : public ISessionEventSink {
   bool RunQuickProbe();
   void RecordProbeBatchResult(const std::vector<std::wstring>& lines);
   bool RunProbeMatrix();
+  bool RunCaptureOpenProbe();
   bool RunProbeMatrixForSources(const std::vector<AudioSourceMode>& source_modes);
   bool RunProbeMatrixFiltered(
       const std::vector<AudioSourceMode>& source_modes,

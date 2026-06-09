@@ -469,10 +469,11 @@ bool ParseProbeCliOptions(const std::vector<std::wstring>& args,
 }
 
 std::wstring BuildProbeCliUsageText() {
-  return L"Usage: winaudio_probe.exe [quick|matrix|devices] [options]\n"
+  return L"Usage: winaudio_probe.exe [quick|matrix|devices|capture-open] [options]\n"
          L"\nModes:\n"
          L"  quick   Run a single probe\n"
          L"  matrix  Run the probe matrix\n"
+         L"  capture-open  Find capture parameter combinations that can really start\n"
          L"  devices List available devices\n"
          L"\nCommon options:\n"
          L"  --capture-backend=wasapi|wave\n"

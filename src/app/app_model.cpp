@@ -634,6 +634,186 @@ bool AppModel::RunProbeMatrix() {
       {L"cap40-ren40", L"cap80-ren120"});
 }
 
+bool AppModel::RunCaptureOpenProbe() {
+  const bool was_running = session_state() == L"Running";
+  std::vector<std::wstring> lines;
+  const SessionConfiguration base = configuration_;
+
+  struct ProbeProfile {
+    const wchar_t* label;
+    AudioSampleType sample_type;
+    uint32_t sample_rate;
+    uint16_t channels;
+  };
+  const std::vector<ProbeProfile> profiles = {
+      {L"PCM16-48k-stereo", AudioSampleType::PcmInt16, 48000, 2},
+      {L"PCM16-44k-mono", AudioSampleType::PcmInt16, 44100, 1},
+      {L"Float32-48k-stereo", AudioSampleType::Float32, 48000, 2},
+      {L"PCM24-44k-mono", AudioSampleType::PcmInt24, 44100, 1},
+  };
+  struct BufferProfile {
+    const wchar_t* label;
+    uint32_t capture_buffer_ms;
+  };
+  const std::vector<BufferProfile> buffer_profiles = {
+      {L"cap40", 40},
+      {L"cap80", 80},
+  };
+  struct WasapiModeProfile {
+    WasapiShareMode share_mode;
+    WasapiDriveMode drive_mode;
+  };
+  const std::vector<WasapiModeProfile> wasapi_mode_profiles = {
+      {WasapiShareMode::Shared, WasapiDriveMode::EventDriven},
+      {WasapiShareMode::Shared, WasapiDriveMode::TimerDriven},
+      {WasapiShareMode::Exclusive, WasapiDriveMode::TimerDriven},
+  };
+
+  const auto source_mode = base.capture.source_mode;
+  const auto capture_backend = base.capture.backend;
+  const auto capture_modes =
+      capture_backend == AudioBackendType::Wasapi
+          ? wasapi_mode_profiles
+          : std::vector<WasapiModeProfile> {
+                {WasapiShareMode::Shared, WasapiDriveMode::EventDriven}};
+  for (const auto& capture_mode : capture_modes) {
+    if (source_mode == AudioSourceMode::SystemLoopback &&
+        capture_mode.share_mode == WasapiShareMode::Exclusive) {
+      continue;
+    }
+    for (const auto& buffer_profile : buffer_profiles) {
+      for (const auto& profile : profiles) {
+            {
+              std::scoped_lock lock(mutex_);
+              ClearWaveformCachesLocked();
+            }
+
+            SessionConfiguration probe = base;
+            probe.render.monitor_enabled = false;
+            probe.auto_align_render_format = false;
+            probe.capture.dump_enabled = true;
+            probe.capture.dump_path.clear();
+            probe.capture.buffer_duration_ms = buffer_profile.capture_buffer_ms;
+            probe.capture.format.sample_type = profile.sample_type;
+            probe.capture.format.sample_rate = profile.sample_rate;
+            probe.capture.format.channels = profile.channels;
+            probe.capture.format.normalize();
+            probe.render.backend = AudioBackendType::Wasapi;
+            probe.render.format = probe.capture.format;
+            probe.render.format.normalize();
+            if (capture_backend == AudioBackendType::Wasapi) {
+              probe.capture.wasapi_share_mode = capture_mode.share_mode;
+              probe.capture.wasapi_drive_mode = capture_mode.drive_mode;
+            }
+
+            const std::wstring requested_capture_mode =
+                capture_backend == AudioBackendType::Wasapi
+                    ? std::wstring(L"WASAPI ") +
+                          ToWideString(probe.capture.wasapi_share_mode) + L" / " +
+                          ToWideString(probe.capture.wasapi_drive_mode)
+                    : std::wstring(L"WAVE API Callback");
+            const std::wstring requested_capture_device_id =
+                probe.capture.device_id.empty() ? std::wstring(L"default")
+                                                : probe.capture.device_id;
+            std::wstring line = L"CaptureOpen | source=" +
+                                ToWideString(source_mode) + L" | profile=" +
+                                profile.label + L" | buf=" + buffer_profile.label +
+                                L" | " + ToWideString(capture_backend) + L" | cap-req=" +
+                                requested_capture_mode + L" | cap-dev=" +
+                                requested_capture_device_id + L": ";
+
+            const bool started = controller_.Start(probe, this);
+            if (!started) {
+              const auto stats = controller_.diagnostics().stats;
+              line += L"FAIL";
+              if (!stats.last_error_stage.empty()) {
+                line += L" [" + stats.last_error_stage + L"]";
+              }
+              if (!stats.last_error_message.empty()) {
+                line += L" {" + stats.last_error_message + L"}";
+              }
+              lines.push_back(line);
+              continue;
+            }
+
+            bool ok = true;
+            int ticks = 0;
+            bool saw_capture_wave = false;
+            const int min_probe_ticks = 8;
+            const int max_probe_ticks = 80;
+            for (int index = 0; index < max_probe_ticks; ++index) {
+              if (!controller_.Tick()) {
+                ok = false;
+                break;
+              }
+              ++ticks;
+              const auto capture_wave = capture_waveform();
+              saw_capture_wave = !capture_wave.empty();
+              if (ticks >= min_probe_ticks && saw_capture_wave) {
+                break;
+              }
+              if (UsesRealBackendFactory()) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+              }
+            }
+            const auto stats = controller_.diagnostics().stats;
+            const auto dump_path = stats.dump_path;
+            controller_.Stop();
+
+            uint64_t dump_bytes = 0;
+            if (!dump_path.empty()) {
+              std::filesystem::path dump_file_path(dump_path);
+              std::error_code ec;
+              if (std::filesystem::exists(dump_file_path, ec)) {
+                dump_bytes = static_cast<uint64_t>(
+                    std::filesystem::file_size(dump_file_path, ec));
+                std::filesystem::remove(dump_file_path, ec);
+              }
+            }
+
+            if (!ok) {
+              line += L"TICK_FAIL";
+              if (!stats.last_error_stage.empty()) {
+                line += L" [" + stats.last_error_stage + L"]";
+              }
+              if (!stats.last_error_message.empty()) {
+                line += L" {" + stats.last_error_message + L"}";
+              }
+            } else if (!saw_capture_wave) {
+              line += L"CAPTURE_MISSING";
+            } else if (DescribeDumpStatus(dump_bytes) != L"data") {
+              line += L"DUMP_HEADER_ONLY";
+            } else {
+              line += L"PASS";
+            }
+            line += L" | ticks=" + std::to_wstring(ticks);
+            line += L" | cap-wave=" +
+                    std::wstring(saw_capture_wave ? L"seen" : L"missing");
+            line += L" | dump-bytes=" + std::to_wstring(dump_bytes);
+            line += L" | dump-status=" + DescribeDumpStatus(dump_bytes);
+            if (!stats.requested_capture_format.empty()) {
+              line += L" | requested=" + stats.requested_capture_format;
+            }
+            if (!stats.negotiated_capture_format.empty()) {
+              line += L" | negotiated=" + stats.negotiated_capture_format;
+            }
+            if (!stats.actual_capture_backend_mode.empty()) {
+              line += L" | cap-mode=" + stats.actual_capture_backend_mode;
+            }
+            lines.push_back(line);
+          }
+    }
+  }
+
+  RecordProbeBatchResult(lines);
+  if (was_running) {
+    controller_.Start(configuration_, this);
+  }
+  return std::any_of(lines.begin(), lines.end(), [](const std::wstring& line) {
+    return line.find(L": PASS") != std::wstring::npos;
+  });
+}
+
 bool AppModel::RunProbeMatrixForSources(
     const std::vector<AudioSourceMode>& source_modes) {
   return RunProbeMatrixFiltered(
@@ -1240,6 +1420,90 @@ std::wstring AppModel::diagnostics_text() const {
       BuildActiveCaptureRuntimeDiagnosticsLabelText() + stats_.capture_runtime_details +
       L"\r\n" +
       BuildActiveRenderRuntimeDiagnosticsLabelText() + stats_.render_runtime_details;
+  const bool capture_open_probe =
+      !probe_batch_lines_.empty() &&
+      std::all_of(probe_batch_lines_.begin(), probe_batch_lines_.end(),
+                  [](const std::wstring& line) {
+                    return line.find(L"CaptureOpen | ") == 0;
+                  });
+  if (capture_open_probe) {
+    std::wstring first_success;
+    std::wstring recommended_mode;
+    std::wstring recommended_format;
+    std::wstring recommended_buffer;
+    std::map<std::wstring, int> stage_counts;
+    for (const auto& line : probe_batch_lines_) {
+      if (first_success.empty() && line.find(L": PASS") != std::wstring::npos) {
+        first_success = line;
+        const auto mode_pos = line.find(L"cap-req=");
+        const auto mode_end =
+            mode_pos == std::wstring::npos ? std::wstring::npos
+                                           : line.find(L" | ", mode_pos);
+        if (mode_pos != std::wstring::npos) {
+          recommended_mode = line.substr(
+              mode_pos + 8,
+              (mode_end == std::wstring::npos ? line.size() : mode_end) -
+                  (mode_pos + 8));
+        }
+        const auto requested_pos = line.find(L"requested=");
+        const auto requested_end =
+            requested_pos == std::wstring::npos ? std::wstring::npos
+                                                : line.find(L" | ", requested_pos);
+        if (requested_pos != std::wstring::npos) {
+          recommended_format = line.substr(
+              requested_pos + 10,
+              (requested_end == std::wstring::npos ? line.size() : requested_end) -
+                  (requested_pos + 10));
+        }
+        const auto buffer_pos = line.find(L"buf=");
+        const auto buffer_end =
+            buffer_pos == std::wstring::npos ? std::wstring::npos
+                                             : line.find(L" | ", buffer_pos);
+        if (buffer_pos != std::wstring::npos) {
+          auto buffer_key = line.substr(
+              buffer_pos + 4,
+              (buffer_end == std::wstring::npos ? line.size() : buffer_end) -
+                  (buffer_pos + 4));
+          if (buffer_key == L"cap40") {
+            recommended_buffer = L"40 ms";
+          } else if (buffer_key == L"cap80") {
+            recommended_buffer = L"80 ms";
+          } else {
+            recommended_buffer = buffer_key;
+          }
+        }
+      }
+      const auto stage_begin = line.find(L"[");
+      const auto stage_end =
+          stage_begin == std::wstring::npos ? std::wstring::npos
+                                            : line.find(L"]", stage_begin + 1);
+      if (stage_begin != std::wstring::npos &&
+          stage_end != std::wstring::npos &&
+          stage_end > stage_begin + 1) {
+        const auto stage =
+            line.substr(stage_begin + 1, stage_end - stage_begin - 1);
+        ++stage_counts[stage];
+      }
+    }
+    text += L"\r\nRecommended capture open: ";
+    if (first_success.empty()) {
+      text += L"no working tested combination yet";
+    } else {
+      text += recommended_mode;
+      if (!recommended_format.empty()) {
+        text += L" | " + recommended_format;
+      }
+      if (!recommended_buffer.empty()) {
+        text += L" | buffer " + recommended_buffer;
+      }
+    }
+    if (!stage_counts.empty()) {
+      text += L"\r\nCapture open failure clusters:";
+      for (const auto& [stage, count] : stage_counts) {
+        text += L" " + stage + L"=" + std::to_wstring(count);
+      }
+    }
+  }
   if (stats_.active_requested_wasapi_mode_present) {
     text += L"\r\n" + BuildActiveCaptureWasapiRequestDiagnosticsLabelText() +
             stats_.requested_capture_wasapi_mode;
@@ -1331,6 +1595,70 @@ std::wstring AppModel::probe_text() const {
       L"- Use Start Session for sustained validation\r\n"
       L"- Short probe status is stored here when available";
   if (!probe_batch_lines_.empty()) {
+    const bool capture_open_probe =
+        std::all_of(probe_batch_lines_.begin(), probe_batch_lines_.end(),
+                    [](const std::wstring& line) {
+                      return line.find(L"CaptureOpen | ") == 0;
+                    });
+    if (capture_open_probe) {
+      int pass_count = 0;
+      int fail_count = 0;
+      int capture_missing_count = 0;
+      int dump_header_only_count = 0;
+      int tick_fail_count = 0;
+      std::map<std::wstring, int> stage_counts;
+      std::wstring first_success;
+      for (const auto& line : probe_batch_lines_) {
+        if (line.find(L": PASS") != std::wstring::npos) {
+          ++pass_count;
+          if (first_success.empty()) {
+            first_success = line;
+          }
+        } else if (line.find(L"CAPTURE_MISSING") != std::wstring::npos) {
+          ++capture_missing_count;
+        } else if (line.find(L"DUMP_HEADER_ONLY") != std::wstring::npos) {
+          ++dump_header_only_count;
+        } else if (line.find(L"TICK_FAIL") != std::wstring::npos) {
+          ++tick_fail_count;
+        } else if (line.find(L": FAIL") != std::wstring::npos) {
+          ++fail_count;
+        }
+        const auto stage_begin = line.find(L"[");
+        const auto stage_end =
+            stage_begin == std::wstring::npos
+                ? std::wstring::npos
+                : line.find(L"]", stage_begin + 1);
+        if (stage_begin != std::wstring::npos &&
+            stage_end != std::wstring::npos &&
+            stage_end > stage_begin + 1) {
+          const auto stage =
+              line.substr(stage_begin + 1, stage_end - stage_begin - 1);
+          ++stage_counts[stage];
+        }
+      }
+
+      text += L"\r\n- Last capture-open probe";
+      text += L"\r\n- CaptureOpenSummary: PASS=" + std::to_wstring(pass_count) +
+              L" FAIL=" + std::to_wstring(fail_count) +
+              L" CAPTURE_MISSING=" + std::to_wstring(capture_missing_count) +
+              L" DUMP_HEADER_ONLY=" + std::to_wstring(dump_header_only_count) +
+              L" TICK_FAIL=" + std::to_wstring(tick_fail_count);
+      if (!first_success.empty()) {
+        text += L"\r\n- CaptureOpenHint: first working capture combination:";
+        text += L"\r\n  " + first_success;
+      } else {
+        text += L"\r\n- CaptureOpenHint: no tested capture combination completed successfully; inspect the clustered failure stages below.";
+      }
+      for (const auto& [stage, count] : stage_counts) {
+        text += L"\r\n- CaptureOpenStage: " + stage + L"=" +
+                std::to_wstring(count);
+      }
+      for (const auto& line : probe_batch_lines_) {
+        text += L"\r\n  " + line;
+      }
+      return text;
+    }
+
     int pass_count = 0;
     int fail_count = 0;
     int source_mode_fail_count = 0;

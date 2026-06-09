@@ -126,6 +126,12 @@ int wmain(int argc, wchar_t** argv) {
     return ok ? 0 : 2;
   }
 
+  if (options.mode == L"capture-open") {
+    const bool ok = model.RunCaptureOpenProbe();
+    std::wcout << NormalizeProbeCliTextForConsole(model.probe_text()) << L"\n";
+    return ok ? 0 : 2;
+  }
+
   if (options.mode == L"matrix") {
     bool ok = false;
     std::vector<AudioBackendType> capture_backends;

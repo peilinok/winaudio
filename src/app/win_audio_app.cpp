@@ -54,6 +54,7 @@ constexpr int kButtonStop = 1002;
 constexpr int kButtonRefresh = 1003;
 constexpr int kButtonProbe = 1004;
 constexpr int kButtonProbeMatrix = 1005;
+constexpr int kButtonCaptureOpenProbe = 1030;
 constexpr int kTabInfoPages = 1006;
 constexpr int kComboCaptureBackend = 1101;
 constexpr int kComboRenderBackend = 1102;
@@ -108,6 +109,7 @@ struct WindowContext {
   HWND refresh_button = nullptr;
   HWND probe_button = nullptr;
   HWND probe_matrix_button = nullptr;
+  HWND capture_open_probe_button = nullptr;
   HWND capture_backend_combo = nullptr;
   HWND render_backend_combo = nullptr;
   HWND source_mode_combo = nullptr;
@@ -935,6 +937,9 @@ void LayoutChildControls(HWND hwnd, WindowContext* context) {
   x += 150 + kButtonGap;
   MoveControl(context->probe_matrix_button,
               MakeRect(x, button_y, 162, kButtonHeight));
+  x += 162 + kButtonGap;
+  MoveControl(context->capture_open_probe_button,
+              MakeRect(x, button_y, 154, kButtonHeight));
 
   x = config_layout.route_left;
   MoveControl(context->capture_backend_combo,
@@ -1181,6 +1186,7 @@ void ApplyControlAvailability(WindowContext* context) {
       context->refresh_button,
       context->probe_button,
       context->probe_matrix_button,
+      context->capture_open_probe_button,
       context->capture_backend_combo,
       context->app_loopback_process_edit,
       context->dump_checkbox,
@@ -1250,6 +1256,8 @@ void SetProbeUiBusy(WindowContext* context, bool busy) {
   SetWindowTextW(context->probe_button, BuildProbeButtonLabel(busy).c_str());
   SetWindowTextW(context->probe_matrix_button,
                  BuildProbeMatrixButtonLabel(busy).c_str());
+  SetWindowTextW(context->capture_open_probe_button,
+                 BuildCaptureOpenProbeButtonLabel(busy).c_str());
 }
 
 bool SyncAutomationTextMirrors(WindowContext* context) {
@@ -2072,6 +2080,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
           L"BUTTON", L"Run Probe Matrix", WS_TABSTOP | WS_VISIBLE | WS_CHILD, 544,
           16, 150, 28, hwnd, ControlIdToMenu(kButtonProbeMatrix), nullptr,
           nullptr);
+      owned_context->capture_open_probe_button = CreateWindowW(
+          L"BUTTON", L"Find Capture Params", WS_TABSTOP | WS_VISIBLE | WS_CHILD,
+          706, 16, 150, 28, hwnd, ControlIdToMenu(kButtonCaptureOpenProbe),
+          nullptr, nullptr);
       owned_context->capture_backend_combo = CreateWindowW(
           L"COMBOBOX", nullptr, WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST, 16, 76,
           180, 200, hwnd, ControlIdToMenu(kComboCaptureBackend), nullptr,
@@ -2445,6 +2457,17 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT message, WPARAM w_param,
             context->probe_thread = std::jthread([hwnd, context]() {
               context->model.RunProbeMatrix();
               PostMessageW(hwnd, kMessageProbeMatrixFinished, 0, 0);
+            });
+          }
+          return 0;
+        case kButtonCaptureOpenProbe:
+          if (!context->probe_running) {
+            context->probe_mode = ProbeUiMode::CaptureOpen;
+            SetProbeUiBusy(context, true);
+            SyncWindowState(hwnd, context);
+            context->probe_thread = std::jthread([hwnd, context]() {
+              context->model.RunCaptureOpenProbe();
+              PostMessageW(hwnd, kMessageProbeFinished, 0, 0);
             });
           }
           return 0;

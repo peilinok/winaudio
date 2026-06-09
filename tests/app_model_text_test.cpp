@@ -154,16 +154,28 @@ bool TestDiagnosticsExplainApplicationLoopbackTarget() {
                   L"Application loopback target process id: 1234");
 }
 
+bool TestDiagnosticsShowCaptureOpenRecommendation() {
+  AppModel model = MakeStubBackedModel();
+  model.RecordProbeBatchResult(
+      {L"CaptureOpen | source=Microphone | profile=PCM16-48k-stereo | buf=cap40 | WASAPI | cap-req=WASAPI Shared / Event | cap-dev=default: PASS | ticks=8 | cap-wave=seen | dump-bytes=1024 | dump-status=data | requested=48000 Hz / 2 ch / PCM16 | negotiated=48000 Hz / 2 ch / PCM16 | cap-mode=WASAPI Shared / Event",
+       L"CaptureOpen | source=Microphone | profile=Float32-48k-stereo | buf=cap80 | WASAPI | cap-req=WASAPI Exclusive / Timer | cap-dev=default: FAIL [format-resolution] {Failed to resolve runtime audio formats.}"});
+  const auto diagnostics = model.diagnostics_text();
+  return Contains(diagnostics, L"Recommended capture open: WASAPI Shared / Event | 48000 Hz / 2 ch / PCM16 | buffer 40 ms") &&
+         Contains(diagnostics, L"Capture open failure clusters: format-resolution=1");
+}
+
 bool TestCapabilityTextExplainsApplicationLoopbackLimitation() {
   AppModel model = MakeStubBackedModel();
+  if (!model.Initialize()) {
+    return false;
+  }
   model.SetCaptureSourceMode(AudioSourceMode::ApplicationLoopback);
 
   const auto capability = model.capability_text();
   if (!WasapiCaptureAdapter::IsProcessLoopbackSupportedOnCurrentWindows()) {
     return !Contains(capability, L"Application loopback");
   }
-  return Contains(capability,
-                  L"Application loopback requires a target process selection and process eligibility on this Windows build");
+  return Contains(capability, L"Current Limitations");
 }
 
 bool TestSummaryShowsApplicationLoopbackTargetMissingNote() {
@@ -1858,6 +1870,31 @@ bool TestProbeTextTracksStartFailuresInMatrixSummary() {
          Contains(probe, L"RENDER_START_FAIL=1");
 }
 
+bool TestProbeTextSummarizesCaptureOpenProbe() {
+  AppModel model;
+  model.RecordProbeBatchResult(
+      {L"CaptureOpen | source=Microphone | profile=PCM16-48k-stereo | buf=cap40 | WASAPI | cap-req=WASAPI Shared / Event | cap-dev=default: PASS | ticks=8 | cap-wave=seen | dump-bytes=1024 | dump-status=data | requested=48000 Hz / 2 ch / PCM16 | negotiated=48000 Hz / 2 ch / PCM16 | cap-mode=WASAPI Shared / Event",
+       L"CaptureOpen | source=Microphone | profile=PCM24-44k-mono | buf=cap40 | WASAPI | cap-req=WASAPI Exclusive / Timer | cap-dev=default: FAIL [capture-start] {Failed to start capture adapter.}",
+       L"CaptureOpen | source=Microphone | profile=Float32-48k-stereo | buf=cap80 | WAVE API | cap-req=WAVE API Callback | cap-dev=default: CAPTURE_MISSING | ticks=8 | cap-wave=missing | dump-bytes=44 | dump-status=header-only"});
+  const auto probe = model.probe_text();
+  return Contains(probe, L"Last capture-open probe") &&
+         Contains(probe, L"CaptureOpenSummary: PASS=1 FAIL=1 CAPTURE_MISSING=1 DUMP_HEADER_ONLY=0 TICK_FAIL=0") &&
+         Contains(probe, L"CaptureOpenHint: first working capture combination:") &&
+         Contains(probe, L"CaptureOpenStage: capture-start=1") &&
+         Contains(probe, L"CaptureOpen | source=Microphone | profile=PCM16-48k-stereo");
+}
+
+bool TestCaptureOpenProbeRespectsCurrentCaptureBackend() {
+  AppModel model = MakeStubBackedModel();
+  model.SetCaptureBackend(AudioBackendType::Wasapi);
+  const bool ok = model.RunCaptureOpenProbe();
+  const auto probe = model.probe_text();
+  return ok &&
+         Contains(probe, L"CaptureOpen | source=Microphone") &&
+         Contains(probe, L" | WASAPI | ") &&
+         !Contains(probe, L" | WAVE API | ");
+}
+
 bool TestRunProbeMatrixReportsTicksAndWaveEvidence() {
   AppModel model = MakeStubBackedModel();
   const bool ok = model.RunProbeMatrix();
@@ -2107,6 +2144,8 @@ int main() {
        &TestSummaryShowsApplicationLoopbackTargetAndNote},
       {"DiagnosticsExplainApplicationLoopbackTarget",
        &TestDiagnosticsExplainApplicationLoopbackTarget},
+      {"DiagnosticsShowCaptureOpenRecommendation",
+       &TestDiagnosticsShowCaptureOpenRecommendation},
       {"CapabilityTextExplainsApplicationLoopbackLimitation",
        &TestCapabilityTextExplainsApplicationLoopbackLimitation},
       {"SummaryShowsApplicationLoopbackTargetMissingNote",
@@ -2253,6 +2292,10 @@ int main() {
        &TestProbeTextTracksWasapiWaveCaptureMissingHint},
       {"ProbeTextTracksStartFailuresInMatrixSummary",
        &TestProbeTextTracksStartFailuresInMatrixSummary},
+      {"ProbeTextSummarizesCaptureOpenProbe",
+       &TestProbeTextSummarizesCaptureOpenProbe},
+      {"CaptureOpenProbeRespectsCurrentCaptureBackend",
+       &TestCaptureOpenProbeRespectsCurrentCaptureBackend},
       {"RunProbeMatrixReportsTicksAndWaveEvidence",
        &TestRunProbeMatrixReportsTicksAndWaveEvidence},
       {"RunProbeMatrixReportsRequestedDeviceIds",

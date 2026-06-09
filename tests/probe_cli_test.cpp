@@ -195,6 +195,19 @@ bool TestParseDevicesMode() {
   return options.mode == L"devices";
 }
 
+bool TestParseCaptureOpenMode() {
+  const std::vector<std::wstring> args = {
+      L"capture-open",
+  };
+
+  ProbeCliOptions options;
+  if (!ParseProbeCliOptions(args, &options)) {
+    return false;
+  }
+
+  return options.mode == L"capture-open";
+}
+
 bool TestParseDeviceNameFormatOverride() {
   const std::vector<std::wstring> args = {
       L"devices",
@@ -332,10 +345,11 @@ bool TestParseMatrixWasapiShareOverride() {
 
 bool TestUsageTextIncludesDevicesAndDeviceIds() {
   const auto usage = BuildProbeCliUsageText();
-  return usage.find(L"Usage: winaudio_probe.exe [quick|matrix|devices] [options]") !=
+  return usage.find(L"Usage: winaudio_probe.exe [quick|matrix|devices|capture-open] [options]") !=
              std::wstring::npos &&
          usage.find(L"Modes:\n  quick   Run a single probe") != std::wstring::npos &&
          usage.find(L"  matrix  Run the probe matrix") != std::wstring::npos &&
+         usage.find(L"  capture-open  Find capture parameter combinations that can really start") != std::wstring::npos &&
          usage.find(L"  devices List available devices") != std::wstring::npos &&
          usage.find(L"--source=mic|loopback|app-process-loopback|app-loopback") != std::wstring::npos &&
          usage.find(L"--app-loopback-process-id=<pid>") !=
@@ -443,6 +457,7 @@ int main() {
       {"ParseRejectsUnknownOverride", &TestParseRejectsUnknownOverride},
       {"ParseHelpMode", &TestParseHelpMode},
       {"ParseDevicesMode", &TestParseDevicesMode},
+      {"ParseCaptureOpenMode", &TestParseCaptureOpenMode},
       {"ParseDeviceNameFormatOverride", &TestParseDeviceNameFormatOverride},
       {"ParseMatrixSourceOverride", &TestParseMatrixSourceOverride},
       {"ParseMatrixCaptureBackendOverride", &TestParseMatrixCaptureBackendOverride},

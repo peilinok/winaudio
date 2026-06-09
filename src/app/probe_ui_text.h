@@ -10,6 +10,7 @@ enum class ProbeUiMode {
   None,
   Quick,
   Matrix,
+  CaptureOpen,
 };
 
 std::wstring BuildWindowTitleText(ProbeUiMode probe_mode,
@@ -20,6 +21,7 @@ std::wstring BuildWindowTitleFormatText(const std::wstring& negotiated_format,
                                         const std::wstring& configured_format);
 std::wstring BuildProbeButtonLabel(bool busy);
 std::wstring BuildProbeMatrixButtonLabel(bool busy);
+std::wstring BuildCaptureOpenProbeButtonLabel(bool busy);
 std::wstring BuildAutoAlignExplanatoryNoteText();
 std::wstring BuildEffectiveRenderRequestSummaryText(
     const std::wstring& effective_render_request);

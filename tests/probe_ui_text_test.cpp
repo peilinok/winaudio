@@ -40,6 +40,15 @@ bool TestBuildWindowTitleMatrixBusy() {
          L"WinAudio Demo | Probe Matrix Running | Capture 44100 Hz / 1 ch / PCM16 | Render 48000 Hz / 2 ch / Float32";
 }
 
+bool TestBuildWindowTitleCaptureOpenBusy() {
+  const auto title =
+      BuildWindowTitleText(ProbeUiMode::CaptureOpen, L"Running",
+                           L"44100 Hz / 1 ch / PCM16",
+                           L"48000 Hz / 2 ch / Float32");
+  return title ==
+         L"WinAudio Demo | Capture Open Probe Running | Capture 44100 Hz / 1 ch / PCM16 | Render 48000 Hz / 2 ch / Float32";
+}
+
 bool TestBuildProbeButtonLabel() {
   return BuildProbeButtonLabel(false) == L"Run Quick Probe" &&
          BuildProbeButtonLabel(true) == L"Quick Probe Running...";
@@ -48,6 +57,11 @@ bool TestBuildProbeButtonLabel() {
 bool TestBuildProbeMatrixButtonLabel() {
   return BuildProbeMatrixButtonLabel(false) == L"Run Probe Matrix" &&
          BuildProbeMatrixButtonLabel(true) == L"Probe Matrix Running...";
+}
+
+bool TestBuildCaptureOpenProbeButtonLabel() {
+  return BuildCaptureOpenProbeButtonLabel(false) == L"Find Capture Params" &&
+         BuildCaptureOpenProbeButtonLabel(true) == L"Capture Open Running...";
 }
 
 bool TestBuildAutoAlignExplanatoryNoteText() {
@@ -276,8 +290,12 @@ int main() {
       {"BuildWindowTitleFormatText", &TestBuildWindowTitleFormatText},
       {"BuildWindowTitleQuickBusy", &TestBuildWindowTitleQuickBusy},
       {"BuildWindowTitleMatrixBusy", &TestBuildWindowTitleMatrixBusy},
+      {"BuildWindowTitleCaptureOpenBusy",
+       &TestBuildWindowTitleCaptureOpenBusy},
       {"BuildProbeButtonLabel", &TestBuildProbeButtonLabel},
       {"BuildProbeMatrixButtonLabel", &TestBuildProbeMatrixButtonLabel},
+      {"BuildCaptureOpenProbeButtonLabel",
+       &TestBuildCaptureOpenProbeButtonLabel},
       {"BuildAutoAlignExplanatoryNoteText",
        &TestBuildAutoAlignExplanatoryNoteText},
       {"BuildEffectiveRenderRequestSummaryText",
