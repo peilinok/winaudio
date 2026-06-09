@@ -31,6 +31,7 @@ namespace {
 
 std::optional<AudioFormatSpec> g_stub_capture_preferred_format;
 std::optional<AudioFormatSpec> g_stub_render_preferred_format;
+std::wstring g_stub_capture_start_error;
 std::wstring g_stub_render_format_error;
 
 }  // namespace
@@ -84,6 +85,12 @@ std::optional<AudioFormatSpec> StubCaptureAdapter::GetPreferredFormat(
 bool StubCaptureAdapter::Start(const CaptureConfig& config,
                                const AudioFormatSpec& runtime_format,
                                ISessionEventSink* sink) {
+  last_error_.clear();
+  if (!g_stub_capture_start_error.empty()) {
+    last_error_ = g_stub_capture_start_error;
+    started_ = false;
+    return false;
+  }
   started_ = true;
   runtime_format_ = runtime_format;
   runtime_format_.normalize();
@@ -132,7 +139,7 @@ std::optional<AudioFrameChunk> StubCaptureAdapter::ReadChunk() {
 }
 
 std::wstring StubCaptureAdapter::last_error() const {
-  return {};
+  return last_error_;
 }
 
 std::wstring StubCaptureAdapter::runtime_mode() const {
@@ -221,6 +228,7 @@ StubAudioBackendFactory::StubAudioBackendFactory(Options options)
 std::unique_ptr<IAudioCaptureAdapter> StubAudioBackendFactory::CreateCaptureAdapter(
     AudioBackendType backend) {
   g_stub_capture_preferred_format = options_.capture_preferred_format;
+  g_stub_capture_start_error = options_.capture_start_error;
   return std::make_unique<StubCaptureAdapter>(backend);
 }
 

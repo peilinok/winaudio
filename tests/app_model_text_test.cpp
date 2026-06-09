@@ -1851,7 +1851,7 @@ bool TestProbeTextTracksWasapiWaveCaptureMissingHint() {
 bool TestProbeTextTracksStartFailuresInMatrixSummary() {
   AppModel model;
   model.RecordProbeBatchResult(
-      {L"Microphone | align=off | delay=0ms | buf=cap40-ren40 | profile=PCM16-48k-stereo | WASAPI -> WASAPI: FAIL | cap-req=WASAPI Shared / Event | ren-req=WASAPI Shared / Event [capture-start] {Failed to start capture adapter.}",
+      {L"Microphone | align=off | delay=0ms | buf=cap40-ren40 | profile=PCM16-48k-stereo | WASAPI -> WASAPI: FAIL | cap-req=WASAPI Shared / Event | ren-req=WASAPI Shared / Event [capture-start] {Failed to start capture adapter. backend=WASAPI, source=Microphone, device=default, requested=48000 Hz / 2 ch / Float32, negotiated=48000 Hz / 2 ch / Float32, wasapi=Shared / Event / Communications / Raw. backend-detail=Initialize: AUDCLNT_E_UNSUPPORTED_FORMAT. hint=The requested capture format was not accepted by the device or share mode}",
        L"Microphone | align=off | delay=0ms | buf=cap40-ren40 | profile=PCM24-44k-mono | WASAPI -> WASAPI: FAIL | cap-req=WASAPI Shared / Event | ren-req=WASAPI Shared / Event [render-start] {Failed to start render adapter.}"});
   const auto probe = model.probe_text();
   return Contains(probe, L"CAPTURE_START_FAIL=1") &&

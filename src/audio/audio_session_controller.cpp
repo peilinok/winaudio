@@ -62,6 +62,112 @@ std::wstring HumanizeFormatResolutionFailure(const std::wstring& detail) {
   return detail;
 }
 
+std::wstring HumanizeCaptureStartFailure(const std::wstring& detail) {
+  if (detail == L"resolve-device") {
+    return L"target capture device could not be resolved at start time";
+  }
+  if (detail == L"activate-iaudioclient") {
+    return L"IAudioClient activation failed while starting capture";
+  }
+  if (detail == L"query-iaudioclient2") {
+    return L"IAudioClient2 is unavailable, so client properties could not be applied";
+  }
+  if (detail.find(L"SetClientProperties: AUDCLNT_E_UNSUPPORTED_FORMAT") !=
+      std::wstring::npos) {
+    return L"WASAPI client properties or stream options were rejected for this capture path";
+  }
+  if (detail.find(L"SetClientProperties:") == 0) {
+    return L"WASAPI client properties were rejected while starting capture";
+  }
+  if (detail.find(L"Initialize: AUDCLNT_E_UNSUPPORTED_FORMAT") == 0) {
+    return L"The requested capture format was not accepted by the device or share mode";
+  }
+  if (detail.find(L"Initialize: AUDCLNT_E_DEVICE_INVALIDATED") == 0) {
+    return L"The capture device became unavailable while the stream was being initialized";
+  }
+  if (detail.find(L"Initialize: AUDCLNT_E_WRONG_ENDPOINT_TYPE") == 0) {
+    return L"The selected endpoint type does not match the requested capture path";
+  }
+  if (detail.find(L"Initialize: AUDCLNT_E_BUFFER_SIZE_NOT_ALIGNED") == 0) {
+    return L"The requested WASAPI buffer size was not aligned for this device";
+  }
+  if (detail.find(L"Initialize:") == 0) {
+    return L"WASAPI stream initialization failed for the negotiated capture format";
+  }
+  if (detail.find(L"GetService(IAudioCaptureClient)") == 0) {
+    return L"IAudioCaptureClient service acquisition failed after stream initialization";
+  }
+  if (detail.find(L"Start: AUDCLNT_E_DEVICE_INVALIDATED") == 0) {
+    return L"The capture device became unavailable when the stream was starting";
+  }
+  if (detail.find(L"Start:") == 0) {
+    return L"The capture stream could not be started after initialization";
+  }
+  if (detail == L"wave-loopback-device-not-found") {
+    return L"the requested loopback capture device was not available";
+  }
+  if (detail.find(L"waveInOpen: WAVERR_BADFORMAT") == 0) {
+    return L"The negotiated WAVE input format was rejected by the driver";
+  }
+  if (detail.find(L"waveInOpen: MMSYSERR_ALLOCATED") == 0) {
+    return L"The WAVE input device is already in use by another client";
+  }
+  if (detail.find(L"waveInOpen: MMSYSERR_BADDEVICEID") == 0) {
+    return L"The WAVE input device id is invalid";
+  }
+  if (detail.find(L"waveInOpen:") == 0) {
+    return L"waveInOpen failed for the negotiated capture format";
+  }
+  if (detail == L"waveInPrepareHeader/waveInAddBuffer") {
+    return L"The WAVE input buffers could not be prepared or queued";
+  }
+  if (detail.find(L"waveInStart:") == 0) {
+    return L"The WAVE input stream could not be started after opening the device";
+  }
+  return {};
+}
+
+std::wstring BuildCaptureStartFailureDetail(
+    const CaptureConfig& config,
+    const AudioFormatSpec& runtime_format,
+    const std::wstring& requested_format_text,
+    const std::wstring& negotiated_format_text,
+    const std::wstring& capture_error) {
+  std::wstring detail = L"Failed to start capture adapter.";
+  detail += L" backend=" + ToWideString(config.backend);
+  detail += L", source=" + ToWideString(config.source_mode);
+  detail += L", device=" +
+            (config.device_id.empty() ? std::wstring(L"default")
+                                      : config.device_id);
+  detail += L", requested=" + requested_format_text;
+  detail += L", negotiated=" +
+            (negotiated_format_text.empty() ? DescribeAudioFormat(runtime_format)
+                                            : negotiated_format_text);
+  detail += L", wasapi=" + ToWideString(config.wasapi_share_mode) + L" / " +
+            ToWideString(config.wasapi_drive_mode) + L" / " +
+            ToWideString(config.wasapi_stream_category) + L" / " +
+            ToWideString(config.wasapi_stream_options);
+  if (config.source_mode == AudioSourceMode::ApplicationProcessLoopback ||
+      config.source_mode == AudioSourceMode::ApplicationLoopback) {
+    detail += L", app-target=" +
+              (config.application_loopback_target_value.empty()
+                   ? std::wstring(L"<empty>")
+                   : config.application_loopback_target_value);
+  }
+  if (!capture_error.empty()) {
+    detail += L". backend-detail=" + capture_error;
+    const auto humanized = HumanizeCaptureStartFailure(capture_error);
+    if (!humanized.empty()) {
+      detail += L". hint=" + humanized;
+    }
+    const auto app_loopback_reason = HumanizeAppLoopbackFailure(capture_error);
+    if (!app_loopback_reason.empty()) {
+      detail += L". loopback=" + app_loopback_reason;
+    }
+  }
+  return detail;
+}
+
 }  // namespace
 
 AudioSessionController::AudioSessionController(
@@ -316,7 +422,10 @@ bool AudioSessionController::Start(const SessionConfiguration& config,
             ? std::wstring(L"app-loopback-start")
             : std::wstring(L"capture-start");
     SetLastError(error_stage,
-                 L"Failed to start capture adapter. " + capture_error);
+                 BuildCaptureStartFailureDetail(
+                     effective_config.capture, runtime_capture_format_,
+                     diagnostics_.stats.requested_capture_format,
+                     diagnostics_.stats.negotiated_capture_format, capture_error));
     Log(L"Failed to start capture adapter.");
     return false;
   }

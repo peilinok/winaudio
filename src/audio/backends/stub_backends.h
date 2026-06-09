@@ -28,6 +28,7 @@ class StubCaptureAdapter final : public IAudioCaptureAdapter {
   AudioBackendType backend_;
   AudioFormatSpec runtime_format_ {};
   std::wstring runtime_mode_;
+  std::wstring last_error_;
   bool started_ = false;
   uint64_t frame_cursor_ = 0;
 };
@@ -63,6 +64,7 @@ class StubAudioBackendFactory final : public IAudioBackendFactory {
   struct Options {
     std::optional<AudioFormatSpec> capture_preferred_format;
     std::optional<AudioFormatSpec> render_preferred_format;
+    std::wstring capture_start_error;
     std::wstring render_format_error;
   };
 

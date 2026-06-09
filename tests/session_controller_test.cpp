@@ -440,6 +440,46 @@ bool TestApplicationLoopbackCanStartWithStubWhenTargetProvided() {
   return stats.requested_capture_format == L"48000 Hz / 2 ch / Float32";
 }
 
+bool TestCaptureStartFailureIncludesContextAndHint() {
+  StubAudioBackendFactory::Options options;
+  options.capture_start_error = L"Initialize: AUDCLNT_E_UNSUPPORTED_FORMAT";
+  AudioSessionController controller(
+      std::make_unique<StubAudioBackendFactory>(options));
+  if (!controller.Initialize()) {
+    return false;
+  }
+
+  SessionConfiguration config;
+  config.capture.backend = AudioBackendType::Wasapi;
+  config.capture.source_mode = AudioSourceMode::MicrophoneCapture;
+  config.capture.device_id = L"wasapi:cap:test-mic";
+  config.capture.format.sample_rate = 44100;
+  config.capture.format.channels = 1;
+  config.capture.format.sample_type = AudioSampleType::PcmInt16;
+  config.capture.format.normalize();
+  config.render.backend = AudioBackendType::Wasapi;
+
+  const bool started = controller.Start(config, nullptr);
+  const auto& stats = controller.diagnostics().stats;
+  return !started &&
+         stats.last_error_stage == L"capture-start" &&
+         stats.last_error_message.find(L"backend=WASAPI") != std::wstring::npos &&
+         stats.last_error_message.find(L"source=Microphone") !=
+             std::wstring::npos &&
+         stats.last_error_message.find(L"device=wasapi:cap:test-mic") !=
+             std::wstring::npos &&
+         stats.last_error_message.find(L"requested=44100 Hz / 1 ch / PCM16") !=
+             std::wstring::npos &&
+         stats.last_error_message.find(L"negotiated=44100 Hz / 1 ch / PCM16") !=
+             std::wstring::npos &&
+         stats.last_error_message.find(
+             L"backend-detail=Initialize: AUDCLNT_E_UNSUPPORTED_FORMAT") !=
+             std::wstring::npos &&
+         stats.last_error_message.find(
+             L"hint=The requested capture format was not accepted by the device or share mode") !=
+             std::wstring::npos;
+}
+
 bool TestSystemLoopbackDisablesMonitorPlayback() {
   AudioSessionController controller(std::make_unique<StubAudioBackendFactory>());
   if (!controller.Initialize()) {
@@ -499,6 +539,8 @@ int main() {
        &TestApplicationLoopbackRequiresTargetProcess},
       {"ApplicationLoopbackCanStartWithStubWhenTargetProvided",
        &TestApplicationLoopbackCanStartWithStubWhenTargetProvided},
+      {"CaptureStartFailureIncludesContextAndHint",
+       &TestCaptureStartFailureIncludesContextAndHint},
   };
 
   for (const auto& test : tests) {
