@@ -30,6 +30,34 @@ option(
   OFF
 )
 
+set(WINAUDIO_DOTENV_PATH "${CMAKE_SOURCE_DIR}/.env")
+set(WINAUDIO_AGORA_SDK_URL_FROM_DOTENV "")
+if(EXISTS "${WINAUDIO_DOTENV_PATH}")
+  file(STRINGS "${WINAUDIO_DOTENV_PATH}" WINAUDIO_DOTENV_LINES)
+  foreach(line IN LISTS WINAUDIO_DOTENV_LINES)
+    string(STRIP "${line}" line)
+    if(line MATCHES "^WINAUDIO_AGORA_SDK_URL=(.*)$")
+      set(WINAUDIO_AGORA_SDK_URL_FROM_DOTENV "${CMAKE_MATCH_1}")
+      string(REGEX REPLACE "^\"(.*)\"$" "\\1"
+             WINAUDIO_AGORA_SDK_URL_FROM_DOTENV
+             "${WINAUDIO_AGORA_SDK_URL_FROM_DOTENV}")
+      string(REGEX REPLACE "^'(.*)'$" "\\1"
+             WINAUDIO_AGORA_SDK_URL_FROM_DOTENV
+             "${WINAUDIO_AGORA_SDK_URL_FROM_DOTENV}")
+    endif()
+  endforeach()
+endif()
+
+set(WINAUDIO_AGORA_SDK_URL_DEFAULT "${WINAUDIO_AGORA_SDK_URL_FROM_DOTENV}")
+if(DEFINED ENV{WINAUDIO_AGORA_SDK_URL} AND NOT "$ENV{WINAUDIO_AGORA_SDK_URL}" STREQUAL "")
+  set(WINAUDIO_AGORA_SDK_URL_DEFAULT "$ENV{WINAUDIO_AGORA_SDK_URL}")
+endif()
+
+set(WINAUDIO_AGORA_SDK_URL
+    "${WINAUDIO_AGORA_SDK_URL_DEFAULT}"
+    CACHE STRING
+    "URL for downloading the Agora Native SDK for Windows archive.")
+
 set(WINAUDIO_AGORA_SDK_ROOT_DEFAULT
     "${CMAKE_SOURCE_DIR}/third_party/agora-sdk/4.2.6.142_oopz/Agora_Native_SDK_for_Windows_FULL/sdk")
 set(WINAUDIO_AGORA_SDK_ROOT
@@ -37,7 +65,41 @@ set(WINAUDIO_AGORA_SDK_ROOT
     CACHE PATH
     "Path to the Agora Native SDK for Windows sdk directory.")
 
-if(NOT WINAUDIO_AGORA_SDK_ROOT)
+if(WINAUDIO_ENABLE_AGORA_SDK AND WINAUDIO_AGORA_SDK_URL)
+  set(WINAUDIO_AGORA_DOWNLOAD_DIR "${CMAKE_BINARY_DIR}/_deps/agora-sdk")
+  set(WINAUDIO_AGORA_ARCHIVE_PATH "${WINAUDIO_AGORA_DOWNLOAD_DIR}/agora-sdk.zip")
+  set(WINAUDIO_AGORA_EXTRACT_DIR "${WINAUDIO_AGORA_DOWNLOAD_DIR}/extract")
+  file(MAKE_DIRECTORY "${WINAUDIO_AGORA_DOWNLOAD_DIR}")
+  file(DOWNLOAD
+    "${WINAUDIO_AGORA_SDK_URL}"
+    "${WINAUDIO_AGORA_ARCHIVE_PATH}"
+    STATUS WINAUDIO_AGORA_DOWNLOAD_STATUS
+    SHOW_PROGRESS
+    TLS_VERIFY ON)
+  list(GET WINAUDIO_AGORA_DOWNLOAD_STATUS 0 WINAUDIO_AGORA_DOWNLOAD_CODE)
+  list(GET WINAUDIO_AGORA_DOWNLOAD_STATUS 1 WINAUDIO_AGORA_DOWNLOAD_MESSAGE)
+  if(NOT WINAUDIO_AGORA_DOWNLOAD_CODE EQUAL 0)
+    message(FATAL_ERROR
+      "Failed to download Agora SDK from ${WINAUDIO_AGORA_SDK_URL}: ${WINAUDIO_AGORA_DOWNLOAD_MESSAGE}")
+  endif()
+  file(REMOVE_RECURSE "${WINAUDIO_AGORA_EXTRACT_DIR}")
+  file(MAKE_DIRECTORY "${WINAUDIO_AGORA_EXTRACT_DIR}")
+  file(ARCHIVE_EXTRACT
+    INPUT "${WINAUDIO_AGORA_ARCHIVE_PATH}"
+    DESTINATION "${WINAUDIO_AGORA_EXTRACT_DIR}")
+  file(GLOB_RECURSE WINAUDIO_AGORA_SDK_ROOT_CANDIDATES
+       "${WINAUDIO_AGORA_EXTRACT_DIR}/*/sdk/high_level_api/include/IAgoraRtcEngine.h")
+  list(LENGTH WINAUDIO_AGORA_SDK_ROOT_CANDIDATES WINAUDIO_AGORA_SDK_ROOT_CANDIDATE_COUNT)
+  if(WINAUDIO_AGORA_SDK_ROOT_CANDIDATE_COUNT LESS 1)
+    message(FATAL_ERROR
+      "Downloaded Agora SDK archive did not contain a recognizable sdk directory.")
+  endif()
+  list(GET WINAUDIO_AGORA_SDK_ROOT_CANDIDATES 0 WINAUDIO_AGORA_SDK_HEADER_PATH)
+  get_filename_component(WINAUDIO_AGORA_HIGH_LEVEL_INCLUDE_DIR
+    "${WINAUDIO_AGORA_SDK_HEADER_PATH}" DIRECTORY)
+  get_filename_component(WINAUDIO_AGORA_SDK_ROOT
+    "${WINAUDIO_AGORA_HIGH_LEVEL_INCLUDE_DIR}/../.." ABSOLUTE)
+elseif(NOT WINAUDIO_AGORA_SDK_ROOT)
   set(WINAUDIO_AGORA_SDK_ROOT "${WINAUDIO_AGORA_SDK_ROOT_DEFAULT}")
 endif()
 
@@ -65,6 +127,7 @@ add_library(winaudio_core
   src/audio/audio_session_types.cpp
   src/audio/com_support.cpp
   src/audio/audio_session_controller.cpp
+  src/audio/rtc_sidecar.cpp
   src/audio/backends/real_backends.cpp
   src/audio/backends/stub_backends.cpp
   src/audio/backends/wave_format_utils.cpp
@@ -87,9 +150,6 @@ if(WINAUDIO_ENABLE_AGORA_SDK)
     "${WINAUDIO_AGORA_HIGH_LEVEL_INCLUDE_DIR}"
     "${WINAUDIO_AGORA_LOW_LEVEL_INCLUDE_DIR}")
   target_compile_definitions(winaudio_core PRIVATE WINAUDIO_ENABLE_AGORA_SDK=1)
-  target_link_libraries(winaudio_core PUBLIC
-    "${WINAUDIO_AGORA_BIN_DIR}/agora_rtc_sdk.dll.lib"
-  )
 endif()
 
 target_link_libraries(winaudio_core PUBLIC

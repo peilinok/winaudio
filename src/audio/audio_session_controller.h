@@ -1,10 +1,12 @@
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <optional>
 
 #include "audio/backends/audio_backend_interfaces.h"
 #include "audio/pipeline/audio_ring_buffer.h"
+#include "audio/rtc_sidecar.h"
 #include "audio/pipeline/signal_analyzer.h"
 #include "audio/pipeline/wav_dump_writer.h"
 #include "audio/resample/audio_resampler.h"
@@ -15,7 +17,9 @@ namespace winaudio {
 class AudioSessionController {
  public:
   explicit AudioSessionController(
-      std::unique_ptr<IAudioBackendFactory> backend_factory);
+      std::unique_ptr<IAudioBackendFactory> backend_factory,
+      AgoraRtcPublisherFactory rtc_publisher_factory = {});
+  ~AudioSessionController();
 
   bool Initialize();
   DeviceEnumerationSnapshot RefreshDevices(const SessionConfiguration& config);
@@ -28,20 +32,20 @@ class AudioSessionController {
   [[nodiscard]] bool is_running() const;
   [[nodiscard]] const SessionDiagnostics& diagnostics() const;
   [[nodiscard]] AgoraRtcStats rtc_stats() const;
+  [[nodiscard]] AgoraRtcRuntimeStatus rtc_runtime_status() const;
 
  private:
   void Log(const std::wstring& line);
   void SetLastError(const std::wstring& stage, const std::wstring& message);
   void UpdateStats();
   std::filesystem::path BuildDefaultDumpPath() const;
-
   std::unique_ptr<IAudioBackendFactory> backend_factory_;
+  std::unique_ptr<RtcSidecar> rtc_sidecar_;
   std::unique_ptr<IAudioCaptureAdapter> capture_adapter_;
   std::unique_ptr<IAudioRenderAdapter> render_adapter_;
   std::unique_ptr<IAudioResampler> resampler_;
   std::unique_ptr<AudioRingBuffer> ring_buffer_;
   std::unique_ptr<WavDumpWriter> dump_writer_;
-  std::unique_ptr<AgoraRtcPublisher> rtc_publisher_;
 
   SessionConfiguration config_ {};
   SessionDiagnostics diagnostics_ {};

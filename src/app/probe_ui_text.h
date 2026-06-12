@@ -2,7 +2,9 @@
 
 #include <string>
 
+#include "audio/audio_session_types.h"
 #include "audio/audio_types.h"
+#include "rtc/agora_rtc_types.h"
 
 namespace winaudio {
 
@@ -109,5 +111,26 @@ std::wstring BuildSelectedCaptureDeviceIdDiagnosticsLabelText(
     bool loopback_source);
 std::wstring BuildSelectedCaptureDeviceIdDiagnosticsLabelText(
     AudioSourceMode source_mode);
+
+std::wstring BuildRtcJoinStatusText(const AgoraRtcStats& stats,
+                                    bool rtc_enabled,
+                                    const std::wstring& session_state);
+std::wstring BuildRtcAvailabilityText(const AgoraRtcRuntimeStatus& runtime_status);
+std::wstring BuildRtcAvailabilityCodeText(const AgoraRtcRuntimeStatus& runtime_status);
+std::wstring BuildRtcDisableReasonText(const AgoraRtcRuntimeStatus& runtime_status);
+std::wstring BuildRtcJoinButtonLabelText(const AgoraRtcConfig& config,
+                                         const AgoraRtcStats& stats);
+std::wstring BuildRtcStatusLabelText(const SessionConfiguration& config,
+                                     const std::wstring& session_state,
+                                     const AgoraRtcStats& stats);
+bool IsRtcRuntimeAvailable(const AgoraRtcStats& stats);
+std::wstring BuildRtcText(const AgoraRtcConfig& config,
+                          const AgoraRtcStats& stats,
+                          const std::wstring& session_state);
+bool IsRtcCliSessionReady(const AgoraRtcStats& stats);
+bool HasRtcCliSessionFailed(const AgoraRtcStats& stats);
+std::wstring BuildRtcCapabilitySummaryText(
+    const AgoraRtcRuntimeStatus& runtime_status);
+std::wstring BuildRtcLimitationText(const AgoraRtcRuntimeStatus& runtime_status);
 
 }  // namespace winaudio

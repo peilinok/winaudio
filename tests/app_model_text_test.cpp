@@ -194,7 +194,9 @@ bool TestRtcTextMasksTokenAndShowsPublishSettings() {
   model.JoinRtcChannel();
 
   const auto rtc = model.rtc_text();
-  return Contains(rtc, L"RTC Join Status: Pending session start") &&
+  return Contains(rtc, L"RTC Join Status: Disabled") &&
+         Contains(rtc, L"RTC Availability: Disabled") &&
+         Contains(rtc, L"RTC Availability Code: not-built") &&
          Contains(rtc, L"RTC Publish Capture: Always on while joined") &&
          Contains(rtc, L"RTC App ID: demo-app") &&
          Contains(rtc, L"RTC Channel: demo-channel") &&
@@ -1471,6 +1473,7 @@ bool TestCapabilityTextExplainsCapabilitiesAndLimits() {
          Contains(capability, L"WASAPI devices expose Shared/Exclusive/Event/Timer") &&
          Contains(capability, L"WAVE devices expose Callback-buffer capability") &&
          Contains(capability, L"Capture and render formats are independently configurable") &&
+         Contains(capability, L"RTC integration: not built into this binary") &&
          Contains(capability, L"WASAPI loopback is shared-mode only") &&
          Contains(capability, L"Current Strategy") &&
          Contains(capability, L"Render auto-align makes the effective render request follow the capture format");
@@ -1717,6 +1720,24 @@ bool TestQuickProbeReportsRequestedDeviceIds() {
   const auto probe = model.probe_text();
   return Contains(probe, L"RequestedCaptureDeviceId: cap-dev-explicit") &&
          Contains(probe, L"RequestedRenderDeviceId: ren-dev-explicit");
+}
+
+bool TestQuickProbeWithRtcEnabledStillSucceedsWhenRtcUnavailable() {
+  AppModel model = MakeStubBackedModel();
+  model.SetRtcEnabled(true);
+  model.SetRtcAppId(L"demo-app");
+  model.SetRtcChannelId(L"demo-channel");
+  model.SetRtcPublishCaptureAudio(true);
+
+  const bool ok = model.RunQuickProbe();
+  const auto probe = model.probe_text();
+  const auto rtc = model.rtc_text();
+  return ok &&
+         Contains(probe, L"QuickSummary: success") &&
+         Contains(probe, L"Result: success") &&
+         Contains(rtc, L"RTC Join Status: Disabled") &&
+         Contains(rtc, L"RTC Availability: Disabled") &&
+         Contains(rtc, L"RTC Last Error Stage: rtc-runtime-unavailable");
 }
 
 bool TestQuickProbeExplainsLoopbackDeviceSelectionMismatch() {
@@ -2314,6 +2335,8 @@ int main() {
        &TestQuickProbeStartFailureStillShowsRequestedConfig},
       {"QuickProbeReportsRequestedDeviceIds",
        &TestQuickProbeReportsRequestedDeviceIds},
+      {"QuickProbeWithRtcEnabledStillSucceedsWhenRtcUnavailable",
+       &TestQuickProbeWithRtcEnabledStillSucceedsWhenRtcUnavailable},
       {"QuickProbeExplainsLoopbackDeviceSelectionMismatch",
        &TestQuickProbeExplainsLoopbackDeviceSelectionMismatch},
       {"QuickProbeExplainsApplicationLoopbackTargetFailure",

@@ -5,6 +5,13 @@
 
 namespace winaudio {
 
+struct AgoraRtcRuntimeStatus {
+  bool compiled_with_rtc_support = false;
+  bool runtime_available = false;
+  std::wstring availability_code;
+  std::wstring availability_reason;
+};
+
 struct AgoraRtcConfig {
   bool enabled = false;
   std::wstring app_id;
@@ -20,6 +27,7 @@ struct AgoraRtcStats {
   bool enabled = false;
   bool joined = false;
   bool join_attempted = false;
+  AgoraRtcRuntimeStatus runtime_status {};
   std::wstring connection_state;
   std::wstring channel_id;
   uint32_t uid = 0;

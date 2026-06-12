@@ -1005,32 +1005,6 @@ std::wstring FormatProbePanelText(const std::wstring& text) {
   return formatted;
 }
 
-std::wstring BuildRtcJoinButtonLabel(const AgoraRtcConfig& config,
-                                     const AgoraRtcStats& stats) {
-  return (config.enabled || stats.joined) ? L"LeaveChannel" : L"JoinChannel";
-}
-
-std::wstring BuildRtcStatusLabel(const SessionConfiguration& config,
-                                 const std::wstring& session_state,
-                                 const AgoraRtcStats& stats) {
-  if (stats.joined) {
-    return L"Status: Joined";
-  }
-  if (!stats.last_error_message.empty()) {
-    return L"Status: Error";
-  }
-  if (stats.join_attempted) {
-    return L"Status: Joining";
-  }
-  if (config.rtc.enabled && session_state != L"Running") {
-    return L"Status: Pending session start";
-  }
-  if (config.rtc.enabled) {
-    return L"Status: Join requested";
-  }
-  return L"Status: Not joined";
-}
-
 ConfigPanelLayout CalculateConfigPanelLayout(const RECT& rect) {
   ConfigPanelLayout layout {};
   const int section_inset = 16;
@@ -1413,9 +1387,11 @@ void ApplyControlAvailability(WindowContext* context) {
   const BOOL stop_enabled =
       (!busy && session_state == L"Running") ? TRUE : FALSE;
   const auto rtc_stats = context->model.rtc_stats();
+  const bool rtc_runtime_available = IsRtcRuntimeAvailable(rtc_stats);
   const BOOL rtc_config_edit_enabled =
-      (!busy && !rtc_stats.joined) ? TRUE : FALSE;
-  const BOOL rtc_button_enabled = busy ? FALSE : TRUE;
+      (!busy && !rtc_stats.joined && rtc_runtime_available) ? TRUE : FALSE;
+  const BOOL rtc_button_enabled =
+      (!busy && rtc_runtime_available) ? TRUE : FALSE;
 
   if (context->start_button != nullptr) {
     EnableWindow(context->start_button, start_enabled);
@@ -1626,10 +1602,10 @@ bool SyncAutomationTextMirrors(WindowContext* context) {
     const auto config = context->model.configuration();
     const auto rtc_stats = context->model.rtc_stats();
     SetControlText(context->rtc_join_leave_button,
-                   BuildRtcJoinButtonLabel(config.rtc, rtc_stats).c_str());
+                   BuildRtcJoinButtonLabelText(config.rtc, rtc_stats).c_str());
     SetControlText(context->rtc_status_label,
-                   BuildRtcStatusLabel(config, context->model.session_state(),
-                                       rtc_stats).c_str());
+                   BuildRtcStatusLabelText(config, context->model.session_state(),
+                                           rtc_stats).c_str());
   }
   UpdateLogsConsoleButtonText(context);
 
@@ -2068,10 +2044,10 @@ void SyncUiFromModel(WindowContext* context) {
                config.auto_align_render_format ? BST_CHECKED : BST_UNCHECKED, 0);
   const auto rtc_stats = context->model.rtc_stats();
   SetControlText(context->rtc_join_leave_button,
-                 BuildRtcJoinButtonLabel(config.rtc, rtc_stats).c_str());
+                 BuildRtcJoinButtonLabelText(config.rtc, rtc_stats).c_str());
   SetControlText(context->rtc_status_label,
-                 BuildRtcStatusLabel(config, context->model.session_state(),
-                                     rtc_stats).c_str());
+                 BuildRtcStatusLabelText(config, context->model.session_state(),
+                                         rtc_stats).c_str());
   SetControlText(context->rtc_app_id_edit, config.rtc.app_id.c_str());
   SetControlText(context->rtc_channel_edit, config.rtc.channel_id.c_str());
   SetControlText(context->rtc_uid_edit, std::to_wstring(config.rtc.uid).c_str());

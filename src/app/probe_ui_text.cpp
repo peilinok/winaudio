@@ -466,4 +466,139 @@ std::wstring BuildSelectedCaptureDeviceIdDiagnosticsLabelText(
   return L"Selected capture id: ";
 }
 
+std::wstring BuildRtcJoinStatusText(const AgoraRtcStats& stats,
+                                    bool rtc_enabled,
+                                    const std::wstring& session_state) {
+  const auto runtime_status = stats.runtime_status;
+  if (!runtime_status.runtime_available) {
+    return L"Disabled";
+  }
+  if (stats.joined) {
+    return L"Joined";
+  }
+  if (!stats.last_error_message.empty()) {
+    return L"Error";
+  }
+  if (stats.join_attempted) {
+    return L"Joining";
+  }
+  if (rtc_enabled && session_state != L"Running") {
+    return L"Pending session start";
+  }
+  if (rtc_enabled) {
+    return L"Join requested";
+  }
+  return L"Not joined";
+}
+
+std::wstring BuildRtcAvailabilityText(const AgoraRtcRuntimeStatus& runtime_status) {
+  return runtime_status.runtime_available ? L"Available" : L"Disabled";
+}
+
+std::wstring BuildRtcAvailabilityCodeText(const AgoraRtcRuntimeStatus& runtime_status) {
+  return runtime_status.availability_code.empty() ? std::wstring(L"(none)")
+                                                  : runtime_status.availability_code;
+}
+
+std::wstring BuildRtcDisableReasonText(const AgoraRtcRuntimeStatus& runtime_status) {
+  return runtime_status.availability_reason.empty()
+             ? std::wstring(L"(none)")
+             : runtime_status.availability_reason;
+}
+
+bool IsRtcRuntimeAvailable(const AgoraRtcStats& stats) {
+  return stats.runtime_status.runtime_available;
+}
+
+std::wstring BuildRtcJoinButtonLabelText(const AgoraRtcConfig& config,
+                                         const AgoraRtcStats& stats) {
+  if (!IsRtcRuntimeAvailable(stats)) {
+    return L"RTC Disabled";
+  }
+  return (config.enabled || stats.joined) ? L"LeaveChannel" : L"JoinChannel";
+}
+
+std::wstring BuildRtcStatusLabelText(const SessionConfiguration& config,
+                                     const std::wstring& session_state,
+                                     const AgoraRtcStats& stats) {
+  return L"Status: " +
+         BuildRtcJoinStatusText(stats, config.rtc.enabled, session_state);
+}
+
+std::wstring BuildRtcText(const AgoraRtcConfig& config,
+                          const AgoraRtcStats& stats,
+                          const std::wstring& session_state) {
+  const auto runtime_status = stats.runtime_status;
+  std::wstring text =
+      L"RTC Join Status: " +
+      BuildRtcJoinStatusText(stats, config.enabled, session_state);
+  text += L"\r\nRTC Availability: " +
+          BuildRtcAvailabilityText(runtime_status);
+  text += L"\r\nRTC Availability Code: " +
+          BuildRtcAvailabilityCodeText(runtime_status);
+  text += L"\r\nRTC Disable Reason: " +
+          BuildRtcDisableReasonText(runtime_status);
+  text += L"\r\nRTC App ID: " +
+          (config.app_id.empty() ? std::wstring(L"(not set)") : config.app_id);
+  text += L"\r\nRTC Channel: " +
+          (config.channel_id.empty() ? std::wstring(L"(not set)")
+                                     : config.channel_id);
+  text += L"\r\nRTC UID: " + std::to_wstring(config.uid);
+  text += L"\r\nRTC Token: " + MaskAgoraToken(config.token);
+  text += L"\r\nRTC Publish Capture: Always on while joined";
+  text += L"\r\nRTC Publish Format: " +
+          std::to_wstring(config.publish_sample_rate) + L" Hz / " +
+          std::to_wstring(config.publish_channels) + L" ch / PCM16";
+  text += L"\r\nRTC Joined: " + std::wstring(stats.joined ? L"Yes" : L"No");
+  text += L"\r\nRTC Join Attempted: " +
+          std::wstring(stats.join_attempted ? L"Yes" : L"No");
+  text += L"\r\nRTC Connection State: " +
+          (stats.connection_state.empty() ? std::wstring(L"(none)")
+                                          : stats.connection_state);
+  text += L"\r\nRTC Push Calls: " + std::to_wstring(stats.push_calls);
+  text += L"\r\nRTC Pushed Frames: " + std::to_wstring(stats.pushed_frames);
+  text += L"\r\nRTC SDK Version: " +
+          (stats.sdk_version.empty() ? std::wstring(L"(unknown)")
+                                     : stats.sdk_version);
+  text += L"\r\nRTC Last Error Stage: " +
+          (stats.last_error_stage.empty() ? std::wstring(L"(none)")
+                                          : stats.last_error_stage);
+  text += L"\r\nRTC Last Error Message: " +
+          (stats.last_error_message.empty() ? std::wstring(L"(none)")
+                                            : stats.last_error_message);
+  return text;
+}
+
+bool IsRtcCliSessionReady(const AgoraRtcStats& stats) {
+  return stats.joined;
+}
+
+bool HasRtcCliSessionFailed(const AgoraRtcStats& stats) {
+  return !stats.joined;
+}
+
+std::wstring BuildRtcCapabilitySummaryText(
+    const AgoraRtcRuntimeStatus& runtime_status) {
+  if (!runtime_status.compiled_with_rtc_support) {
+    return L"\r\n- RTC integration: not built into this binary";
+  }
+  if (!runtime_status.runtime_available) {
+    return L"\r\n- RTC integration: built but currently disabled"
+           L"\r\n- RTC disable reason: " +
+           BuildRtcDisableReasonText(runtime_status);
+  }
+  return L"\r\n- RTC integration: available";
+}
+
+std::wstring BuildRtcLimitationText(const AgoraRtcRuntimeStatus& runtime_status) {
+  if (runtime_status.compiled_with_rtc_support &&
+      !runtime_status.runtime_available) {
+    return L"\r\n- RTC features are disabled until agora_rtc_sdk.dll is available at runtime";
+  }
+  if (!runtime_status.compiled_with_rtc_support) {
+    return L"\r\n- RTC features require a build with WINAUDIO_ENABLE_AGORA_SDK=ON";
+  }
+  return {};
+}
+
 }  // namespace winaudio

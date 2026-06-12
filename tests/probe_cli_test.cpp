@@ -449,6 +449,7 @@ bool TestUsageTextIncludesDevicesAndDeviceIds() {
          usage.find(L"--rtc-duration-ms=<n>") != std::wstring::npos &&
          usage.find(L"WINAUDIO_AGORA_APP_ID") != std::wstring::npos &&
          usage.find(L"WINAUDIO_AGORA_CHANNEL") != std::wstring::npos &&
+         usage.find(L"WINAUDIO_AGORA_SDK_URL") != std::wstring::npos &&
          usage.find(L"--matrix-capture-backend=wasapi|wave|both") != std::wstring::npos &&
          usage.find(L"--matrix-align=on|off|both") != std::wstring::npos &&
          usage.find(L"--matrix-profile=pcm16-48k-stereo|pcm24-44k-mono|both") != std::wstring::npos &&

@@ -102,6 +102,7 @@ class AppModel final : public ISessionEventSink {
   [[nodiscard]] DeviceEnumerationSnapshot devices() const;
   [[nodiscard]] SessionRuntimeStats stats() const;
   [[nodiscard]] AgoraRtcStats rtc_stats() const;
+  [[nodiscard]] AgoraRtcRuntimeStatus rtc_runtime_status() const;
   [[nodiscard]] std::vector<WaveformEnvelopePoint> capture_waveform() const;
   [[nodiscard]] std::vector<WaveformEnvelopePoint> render_waveform() const;
   [[nodiscard]] std::vector<std::wstring> logs() const;

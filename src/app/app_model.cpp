@@ -54,6 +54,10 @@ bool AppModel::Initialize() {
   if (!controller_.Initialize()) {
     return false;
   }
+  const auto rtc_runtime = controller_.rtc_runtime_status();
+  if (!rtc_runtime.runtime_available) {
+    OnLogLine(rtc_runtime.availability_reason);
+  }
   RefreshDevices();
   RefreshCapabilitySnapshot();
   return true;
@@ -379,6 +383,15 @@ void AppModel::SetRtcPublishChannels(uint16_t channels) {
 }
 
 bool AppModel::JoinRtcChannel() {
+  const auto rtc_runtime = controller_.rtc_runtime_status();
+  if (!rtc_runtime.runtime_available) {
+    {
+      std::scoped_lock lock(mutex_);
+      configuration_.rtc.enabled = false;
+    }
+    OnLogLine(rtc_runtime.availability_reason);
+    return false;
+  }
   SessionConfiguration config_copy;
   bool session_running = false;
   {
@@ -1311,6 +1324,10 @@ SessionRuntimeStats AppModel::stats() const {
 
 AgoraRtcStats AppModel::rtc_stats() const {
   return controller_.rtc_stats();
+}
+
+AgoraRtcRuntimeStatus AppModel::rtc_runtime_status() const {
+  return controller_.rtc_runtime_status();
 }
 
 std::vector<WaveformEnvelopePoint> AppModel::capture_waveform() const {
@@ -2261,49 +2278,7 @@ std::wstring AppModel::probe_text() const {
 
 std::wstring AppModel::rtc_text() const {
   std::scoped_lock lock(mutex_);
-  const auto rtc_stats = controller_.rtc_stats();
-  std::wstring join_status = L"Not joined";
-  if (rtc_stats.joined) {
-    join_status = L"Joined";
-  } else if (!rtc_stats.last_error_message.empty()) {
-    join_status = L"Error";
-  } else if (rtc_stats.join_attempted) {
-    join_status = L"Joining";
-  } else if (configuration_.rtc.enabled && session_state_ != L"Running") {
-    join_status = L"Pending session start";
-  } else if (configuration_.rtc.enabled) {
-    join_status = L"Join requested";
-  }
-  std::wstring text = L"RTC Join Status: " + join_status;
-  text += L"\r\nRTC App ID: " +
-          (configuration_.rtc.app_id.empty() ? std::wstring(L"(not set)")
-                                             : configuration_.rtc.app_id);
-  text += L"\r\nRTC Channel: " +
-          (configuration_.rtc.channel_id.empty() ? std::wstring(L"(not set)")
-                                                 : configuration_.rtc.channel_id);
-  text += L"\r\nRTC UID: " + std::to_wstring(configuration_.rtc.uid);
-  text += L"\r\nRTC Token: " + MaskAgoraToken(configuration_.rtc.token);
-  text += L"\r\nRTC Publish Capture: Always on while joined";
-  text += L"\r\nRTC Publish Format: " + std::to_wstring(configuration_.rtc.publish_sample_rate) +
-          L" Hz / " + std::to_wstring(configuration_.rtc.publish_channels) + L" ch / PCM16";
-  text += L"\r\nRTC Joined: " + std::wstring(rtc_stats.joined ? L"Yes" : L"No");
-  text += L"\r\nRTC Join Attempted: " +
-          std::wstring(rtc_stats.join_attempted ? L"Yes" : L"No");
-  text += L"\r\nRTC Connection State: " +
-          (rtc_stats.connection_state.empty() ? std::wstring(L"(none)")
-                                              : rtc_stats.connection_state);
-  text += L"\r\nRTC Push Calls: " + std::to_wstring(rtc_stats.push_calls);
-  text += L"\r\nRTC Pushed Frames: " + std::to_wstring(rtc_stats.pushed_frames);
-  text += L"\r\nRTC SDK Version: " +
-          (rtc_stats.sdk_version.empty() ? std::wstring(L"(unknown)")
-                                         : rtc_stats.sdk_version);
-  text += L"\r\nRTC Last Error Stage: " +
-          (rtc_stats.last_error_stage.empty() ? std::wstring(L"(none)")
-                                              : rtc_stats.last_error_stage);
-  text += L"\r\nRTC Last Error Message: " +
-          (rtc_stats.last_error_message.empty() ? std::wstring(L"(none)")
-                                                : rtc_stats.last_error_message);
-  return text;
+  return BuildRtcText(configuration_.rtc, controller_.rtc_stats(), session_state_);
 }
 
 void AppModel::ClearWaveformCachesLocked() {
@@ -2380,12 +2355,15 @@ void AppModel::OnDevicesUpdated(const DeviceEnumerationSnapshot& snapshot) {
 
 void AppModel::RefreshCapabilitySnapshot() {
   std::scoped_lock lock(mutex_);
+  const auto rtc_runtime = controller_.rtc_runtime_status();
   std::wstring text =
       L"Current Capabilities\r\n"
       L"- WASAPI devices expose Shared/Exclusive/Event/Timer capability flags\r\n"
       L"- WAVE devices expose Callback-buffer capability\r\n"
       L"- Requested and negotiated formats are tracked independently\r\n"
       L"- Capture and render formats are independently configurable";
+
+  text += BuildRtcCapabilitySummaryText(rtc_runtime);
 
   if (!devices_.capture_devices.empty()) {
     text += L"\r\n- Capture devices visible: " +
@@ -2417,6 +2395,7 @@ void AppModel::RefreshCapabilitySnapshot() {
   } else {
     text += L"\r\n- Device/driver format support still varies by actual hardware";
   }
+  text += BuildRtcLimitationText(rtc_runtime);
 
   text += L"\r\n\r\nCurrent Strategy";
   if (configuration_.auto_align_render_format) {

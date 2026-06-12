@@ -2,3 +2,7 @@ build/
 artifacts/
 third_party/agora-sdk/
 docs/
+!docs/
+docs/*
+!docs/architecture.md
+.env

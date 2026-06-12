@@ -277,6 +277,92 @@ bool TestBuildSelectedCaptureDeviceIdDiagnosticsLabelText() {
              L"Selected app-loopback id: ";
 }
 
+bool TestBuildRtcTextHelpers() {
+  AgoraRtcConfig config;
+  config.enabled = true;
+  config.app_id = L"demo-app";
+  config.channel_id = L"demo-channel";
+  config.uid = 42;
+  config.token = L"secret-token";
+  config.publish_sample_rate = 16000;
+  config.publish_channels = 1;
+
+  AgoraRtcStats stats;
+  stats.runtime_status.runtime_available = false;
+  stats.runtime_status.availability_code = L"not-built";
+  stats.runtime_status.availability_reason =
+      L"RTC integration was not compiled into this build.";
+  stats.last_error_stage = L"rtc-runtime-unavailable";
+  stats.last_error_message =
+      L"RTC integration was not compiled into this build.";
+
+  const auto text = BuildRtcText(config, stats, L"Idle");
+  const SessionConfiguration session_config {.rtc = config};
+  const bool ok =
+      BuildRtcJoinStatusText(stats, true, L"Idle") == L"Disabled" &&
+      BuildRtcAvailabilityText(stats.runtime_status) == L"Disabled" &&
+      BuildRtcAvailabilityCodeText(stats.runtime_status) == L"not-built" &&
+      BuildRtcDisableReasonText(stats.runtime_status) ==
+          L"RTC integration was not compiled into this build." &&
+      BuildRtcJoinButtonLabelText(config, stats) == L"RTC Disabled" &&
+      BuildRtcStatusLabelText(session_config, L"Idle", stats) ==
+          L"Status: Disabled" &&
+      !IsRtcRuntimeAvailable(stats) &&
+      !IsRtcCliSessionReady(stats) &&
+      HasRtcCliSessionFailed(stats) &&
+      text.find(L"RTC Join Status: Disabled") != std::wstring::npos &&
+      text.find(L"RTC Token: ********oken") != std::wstring::npos;
+  if (!ok) {
+    std::wcerr << L"RTC_HELPER_TEXT:\n" << text << L"\n";
+    std::wcerr << L"JOIN_STATUS=" << BuildRtcJoinStatusText(stats, true, L"Idle")
+               << L"\n";
+    std::wcerr << L"JOIN_BUTTON=" << BuildRtcJoinButtonLabelText(config, stats)
+               << L"\n";
+    std::wcerr << L"STATUS_LABEL="
+               << BuildRtcStatusLabelText(session_config, L"Idle", stats)
+               << L"\n";
+  }
+  return ok;
+}
+
+bool TestBuildRtcCapabilityHelpers() {
+  AgoraRtcRuntimeStatus not_built;
+  not_built.compiled_with_rtc_support = false;
+  not_built.runtime_available = false;
+  not_built.availability_code = L"not-built";
+  not_built.availability_reason =
+      L"RTC integration was not compiled into this build.";
+
+  AgoraRtcRuntimeStatus disabled;
+  disabled.compiled_with_rtc_support = true;
+  disabled.runtime_available = false;
+  disabled.availability_code = L"dll-missing";
+  disabled.availability_reason =
+      L"Unable to load agora_rtc_sdk.dll. RTC features are disabled.";
+
+  AgoraRtcRuntimeStatus available;
+  available.compiled_with_rtc_support = true;
+  available.runtime_available = true;
+  available.availability_code = L"available";
+  available.availability_reason = L"Agora RTC runtime is available.";
+
+  return BuildRtcCapabilitySummaryText(not_built).find(
+             L"RTC integration: not built into this binary") !=
+             std::wstring::npos &&
+         BuildRtcCapabilitySummaryText(disabled).find(
+             L"RTC integration: built but currently disabled") !=
+             std::wstring::npos &&
+         BuildRtcCapabilitySummaryText(available).find(
+             L"RTC integration: available") != std::wstring::npos &&
+         BuildRtcLimitationText(not_built).find(
+             L"RTC features require a build with WINAUDIO_ENABLE_AGORA_SDK=ON") !=
+             std::wstring::npos &&
+         BuildRtcLimitationText(disabled).find(
+             L"RTC features are disabled until agora_rtc_sdk.dll is available at runtime") !=
+             std::wstring::npos &&
+         BuildRtcLimitationText(available).empty();
+}
+
 }  // namespace
 
 int main() {
@@ -329,6 +415,8 @@ int main() {
        &TestBuildSelectedCaptureDeviceDiagnosticsLabelText},
       {"BuildSelectedCaptureDeviceIdDiagnosticsLabelText",
        &TestBuildSelectedCaptureDeviceIdDiagnosticsLabelText},
+      {"BuildRtcTextHelpers", &TestBuildRtcTextHelpers},
+      {"BuildRtcCapabilityHelpers", &TestBuildRtcCapabilityHelpers},
   };
 
   for (const auto& test : tests) {

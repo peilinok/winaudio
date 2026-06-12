@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "app/probe_cli.h"
+#include "app/probe_ui_text.h"
 #include "audio/backends/real_backends.h"
 #include "audio/com_support.h"
 
@@ -229,9 +230,21 @@ int wmain(int argc, wchar_t** argv) {
       std::wcerr << L"RTC mode requires --rtc=on\n";
       return 5;
     }
+    const auto rtc_runtime = model.rtc_runtime_status();
+    if (!rtc_runtime.runtime_available) {
+      std::wcerr << NormalizeProbeCliTextForConsole(model.rtc_text()) << L"\n";
+      return 8;
+    }
     if (!model.Start()) {
       std::wcerr << NormalizeProbeCliTextForConsole(model.diagnostics_text()) << L"\n";
       std::wcerr << NormalizeProbeCliTextForConsole(model.rtc_text()) << L"\n";
+      return 6;
+    }
+    const auto rtc_after_start = model.rtc_stats();
+    if (!IsRtcCliSessionReady(rtc_after_start)) {
+      model.Stop();
+      std::wcerr << NormalizeProbeCliTextForConsole(model.rtc_text()) << L"\n";
+      std::wcerr << NormalizeProbeCliTextForConsole(model.diagnostics_text()) << L"\n";
       return 6;
     }
 
@@ -241,6 +254,11 @@ int wmain(int argc, wchar_t** argv) {
         std::max<int>(1, static_cast<int>(options.rtc_duration_ms / 10));
     while (ticks < max_ticks) {
       if (!model.Tick()) {
+        ok = false;
+        break;
+      }
+      const auto rtc_stats = model.rtc_stats();
+      if (HasRtcCliSessionFailed(rtc_stats)) {
         ok = false;
         break;
       }

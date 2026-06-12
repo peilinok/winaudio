@@ -1,4 +1,5 @@
 #include <iostream>
+#include <memory>
 #include <vector>
 
 #include "audio/audio_session_controller.h"
@@ -46,6 +47,118 @@ class RecordingSink final : public ISessionEventSink {
   std::vector<WaveformEnvelopePoint> render_waveform;
   MeterValues capture_meter {};
   MeterValues render_meter {};
+};
+
+class FakeAgoraRtcPublisher final : public AgoraRtcPublisher {
+ public:
+  struct Behavior {
+    AgoraRtcRuntimeStatus runtime_status {};
+    bool initialize_ok = true;
+    bool start_ok = true;
+    bool join_on_start = true;
+    bool publish_ok = true;
+    std::wstring initialize_error_stage = L"rtc-init";
+    std::wstring initialize_error_message = L"Fake RTC initialize failed.";
+    std::wstring start_error_stage = L"rtc-start";
+    std::wstring start_error_message = L"Fake RTC start failed.";
+    std::wstring publish_error_stage = L"rtc-publish";
+    std::wstring publish_error_message = L"Fake RTC publish failed.";
+  };
+
+  explicit FakeAgoraRtcPublisher(Behavior behavior)
+      : behavior_(std::move(behavior)) {
+    stats_.runtime_status = behavior_.runtime_status;
+    if (!behavior_.runtime_status.runtime_available) {
+      stats_.connection_state = L"Disabled";
+      stats_.last_error_stage = L"rtc-runtime-unavailable";
+      stats_.last_error_message = behavior_.runtime_status.availability_reason;
+    }
+  }
+
+  AgoraRtcRuntimeStatus runtime_status() const override {
+    return behavior_.runtime_status;
+  }
+
+  bool Initialize(const AgoraRtcConfig& config) override {
+    config_ = config;
+    stats_ = {};
+    stats_.runtime_status = behavior_.runtime_status;
+    stats_.enabled = config.enabled;
+    stats_.channel_id = config.channel_id;
+    stats_.uid = config.uid;
+    stats_.publish_sample_rate = config.publish_sample_rate;
+    stats_.publish_channels = config.publish_channels;
+    if (!behavior_.runtime_status.runtime_available) {
+      stats_.connection_state = L"Disabled";
+      stats_.last_error_stage = L"rtc-runtime-unavailable";
+      stats_.last_error_message = behavior_.runtime_status.availability_reason;
+      return false;
+    }
+    if (!behavior_.initialize_ok) {
+      stats_.last_error_stage = behavior_.initialize_error_stage;
+      stats_.last_error_message = behavior_.initialize_error_message;
+      return false;
+    }
+    return true;
+  }
+
+  bool Start(const AudioFormatSpec& capture_format) override {
+    (void)capture_format;
+    if (!behavior_.runtime_status.runtime_available) {
+      stats_.joined = false;
+      stats_.join_attempted = false;
+      stats_.connection_state = L"Disabled";
+      stats_.last_error_stage = L"rtc-runtime-unavailable";
+      stats_.last_error_message = behavior_.runtime_status.availability_reason;
+      return false;
+    }
+    if (!behavior_.start_ok) {
+      stats_.joined = false;
+      stats_.join_attempted = true;
+      stats_.last_error_stage = behavior_.start_error_stage;
+      stats_.last_error_message = behavior_.start_error_message;
+      stats_.connection_state = L"Error";
+      return false;
+    }
+    started_ = true;
+    stats_.join_attempted = true;
+    stats_.joined = behavior_.join_on_start;
+    stats_.connection_state = stats_.joined ? L"FakeJoined" : L"Connecting";
+    return true;
+  }
+
+  void Stop() override {
+    started_ = false;
+    if (stats_.enabled) {
+      stats_.joined = false;
+      stats_.connection_state =
+          behavior_.runtime_status.runtime_available ? L"Left" : L"Disabled";
+    }
+  }
+
+  bool PublishChunk(const AudioFrameChunk& chunk) override {
+    if (!started_ || !stats_.joined) {
+      return false;
+    }
+    stats_.push_calls += 1;
+    if (!behavior_.publish_ok) {
+      stats_.last_error_stage = behavior_.publish_error_stage;
+      stats_.last_error_message = behavior_.publish_error_message;
+      stats_.joined = false;
+      stats_.connection_state = L"Error";
+      return false;
+    }
+    stats_.pushed_frames += chunk.frame_count();
+    return true;
+  }
+
+  AgoraRtcStats stats() const override { return stats_; }
+
+ private:
+  Behavior behavior_;
+  AgoraRtcConfig config_ {};
+  AgoraRtcStats stats_ {};
+  bool started_ = false;
 };
 
 bool TestRefreshDevicesReturnsBothDirections() {
@@ -480,8 +593,18 @@ bool TestCaptureStartFailureIncludesContextAndHint() {
              std::wstring::npos;
 }
 
-bool TestRtcJoinLeaveControlsPublishing() {
-  AudioSessionController controller(std::make_unique<StubAudioBackendFactory>());
+bool TestRtcJoinRejectsWhenRuntimeUnavailable() {
+  FakeAgoraRtcPublisher::Behavior behavior;
+  behavior.runtime_status.compiled_with_rtc_support = true;
+  behavior.runtime_status.runtime_available = false;
+  behavior.runtime_status.availability_code = L"dll-missing";
+  behavior.runtime_status.availability_reason =
+      L"Unable to load agora_rtc_sdk.dll. RTC features are disabled.";
+  AudioSessionController controller(
+      std::make_unique<StubAudioBackendFactory>(),
+      [behavior]() mutable {
+        return std::make_unique<FakeAgoraRtcPublisher>(behavior);
+      });
   if (!controller.Initialize()) {
     return false;
   }
@@ -498,20 +621,96 @@ bool TestRtcJoinLeaveControlsPublishing() {
   rtc_config.app_id = L"app";
   rtc_config.channel_id = L"channel";
   rtc_config.publish_capture_audio = true;
-  if (!controller.JoinRtc(rtc_config)) {
-    return false;
-  }
-  if (!controller.rtc_stats().joined) {
-    return false;
-  }
-  if (!controller.Tick() || controller.rtc_stats().push_calls == 0) {
+  const bool joined = controller.JoinRtc(rtc_config);
+  const auto rtc_stats = controller.rtc_stats();
+  const auto& stats = controller.diagnostics().stats;
+  controller.Stop();
+  return !joined &&
+         rtc_stats.runtime_status.runtime_available == false &&
+         rtc_stats.runtime_status.availability_code == L"dll-missing" &&
+         rtc_stats.last_error_stage == L"rtc-runtime-unavailable" &&
+         stats.last_error_stage.empty();
+}
+
+bool TestStartSucceedsWhenRtcRuntimeUnavailable() {
+  FakeAgoraRtcPublisher::Behavior behavior;
+  behavior.runtime_status.compiled_with_rtc_support = true;
+  behavior.runtime_status.runtime_available = false;
+  behavior.runtime_status.availability_code = L"dll-missing";
+  behavior.runtime_status.availability_reason =
+      L"Unable to load agora_rtc_sdk.dll. RTC features are disabled.";
+  AudioSessionController controller(
+      std::make_unique<StubAudioBackendFactory>(),
+      [behavior]() mutable {
+        return std::make_unique<FakeAgoraRtcPublisher>(behavior);
+      });
+  if (!controller.Initialize()) {
     return false;
   }
 
-  controller.LeaveRtc();
-  const auto left_stats = controller.rtc_stats();
+  RecordingSink sink;
+  SessionConfiguration config;
+  config.render.fixed_delay_ms = 0;
+  config.rtc.enabled = true;
+  config.rtc.app_id = L"app";
+  config.rtc.channel_id = L"channel";
+  config.rtc.publish_capture_audio = true;
+
+  const bool started = controller.Start(config, &sink);
+  const auto rtc_stats = controller.rtc_stats();
+  const auto& stats = controller.diagnostics().stats;
   controller.Stop();
-  return !left_stats.joined && left_stats.connection_state == L"Left";
+  return started &&
+         rtc_stats.joined == false &&
+         rtc_stats.last_error_stage == L"rtc-runtime-unavailable" &&
+         stats.last_error_stage.empty();
+}
+
+bool TestRtcPublishFailureDoesNotFailMainSession() {
+  FakeAgoraRtcPublisher::Behavior behavior;
+  behavior.runtime_status.compiled_with_rtc_support = true;
+  behavior.runtime_status.runtime_available = true;
+  behavior.runtime_status.availability_code = L"available";
+  behavior.runtime_status.availability_reason = L"Agora RTC runtime is available.";
+  behavior.publish_ok = false;
+  AudioSessionController controller(
+      std::make_unique<StubAudioBackendFactory>(),
+      [behavior]() mutable {
+        return std::make_unique<FakeAgoraRtcPublisher>(behavior);
+      });
+  if (!controller.Initialize()) {
+    return false;
+  }
+
+  RecordingSink sink;
+  SessionConfiguration config;
+  config.render.fixed_delay_ms = 0;
+  config.rtc.enabled = true;
+  config.rtc.app_id = L"app";
+  config.rtc.channel_id = L"channel";
+  config.rtc.publish_capture_audio = true;
+
+  if (!controller.Start(config, &sink)) {
+    return false;
+  }
+  const bool tick_ok = controller.Tick();
+  const auto rtc_stats = controller.rtc_stats();
+  const auto& stats = controller.diagnostics().stats;
+  const auto logs = sink.logs;
+  controller.Stop();
+  bool saw_log = false;
+  for (const auto& line : logs) {
+    if (line.find(L"RTC sidecar disabled after publish failure:") !=
+        std::wstring::npos) {
+      saw_log = true;
+      break;
+    }
+  }
+  return tick_ok &&
+         rtc_stats.joined == false &&
+         rtc_stats.last_error_stage == L"rtc-publish" &&
+         stats.last_error_stage.empty() &&
+         saw_log;
 }
 
 bool TestSystemLoopbackDisablesMonitorPlayback() {
@@ -575,8 +774,12 @@ int main() {
        &TestApplicationLoopbackCanStartWithStubWhenTargetProvided},
       {"CaptureStartFailureIncludesContextAndHint",
        &TestCaptureStartFailureIncludesContextAndHint},
-      {"RtcJoinLeaveControlsPublishing",
-       &TestRtcJoinLeaveControlsPublishing},
+      {"RtcJoinRejectsWhenRuntimeUnavailable",
+       &TestRtcJoinRejectsWhenRuntimeUnavailable},
+      {"StartSucceedsWhenRtcRuntimeUnavailable",
+       &TestStartSucceedsWhenRtcRuntimeUnavailable},
+      {"RtcPublishFailureDoesNotFailMainSession",
+       &TestRtcPublishFailureDoesNotFailMainSession},
   };
 
   for (const auto& test : tests) {

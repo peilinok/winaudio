@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -14,6 +15,7 @@ class AgoraRtcPublisher {
  public:
   virtual ~AgoraRtcPublisher() = default;
 
+  [[nodiscard]] virtual AgoraRtcRuntimeStatus runtime_status() const = 0;
   virtual bool Initialize(const AgoraRtcConfig& config) = 0;
   virtual bool Start(const AudioFormatSpec& capture_format) = 0;
   virtual void Stop() = 0;
@@ -21,6 +23,9 @@ class AgoraRtcPublisher {
   virtual AgoraRtcStats stats() const = 0;
 };
 
+using AgoraRtcPublisherFactory = std::function<std::unique_ptr<AgoraRtcPublisher>()>;
+
+AgoraRtcRuntimeStatus GetAgoraRtcRuntimeStatus();
 std::unique_ptr<AgoraRtcPublisher> CreateAgoraRtcPublisher();
 
 }  // namespace winaudio

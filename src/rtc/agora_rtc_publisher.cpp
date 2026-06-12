@@ -10,7 +10,10 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <mutex>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "rtc/agora_rtc_types.h"
@@ -33,9 +36,9 @@ using agora::agora_refptr;
 using agora::base::AgoraServiceConfiguration;
 using agora::base::IAgoraService;
 using agora::rtc::AUDIO_SCENARIO_DEFAULT;
-using agora::rtc::BYTES_PER_SAMPLE;
 using agora::rtc::CLIENT_ROLE_BROADCASTER;
 using agora::rtc::CONNECTION_CHANGED_REASON_TYPE;
+using agora::rtc::IAudioPcmDataSender;
 using agora::rtc::ILocalAudioTrack;
 using agora::rtc::ILocalUser;
 using agora::rtc::IMediaNodeFactory;
@@ -44,7 +47,100 @@ using agora::rtc::IRtcConnectionObserver;
 using agora::rtc::RtcConnectionConfiguration;
 using agora::rtc::TConnectionInfo;
 using agora::rtc::TWO_BYTES_PER_SAMPLE;
-using agora::rtc::IAudioPcmDataSender;
+
+using CreateAgoraServiceFn = IAgoraService* (__cdecl*)();
+using GetAgoraSdkVersionFn = const char* (__cdecl*)(int* build);
+
+struct AgoraRtcRuntimeSnapshot {
+  AgoraRtcRuntimeStatus status;
+  HMODULE module = nullptr;
+  CreateAgoraServiceFn create_service = nullptr;
+  GetAgoraSdkVersionFn get_sdk_version = nullptr;
+};
+
+std::wstring BuildLastErrorMessage(const std::wstring& prefix) {
+  const DWORD error = GetLastError();
+  if (error == 0) {
+    return prefix;
+  }
+
+  LPWSTR buffer = nullptr;
+  const DWORD flags = FORMAT_MESSAGE_ALLOCATE_BUFFER |
+                      FORMAT_MESSAGE_FROM_SYSTEM |
+                      FORMAT_MESSAGE_IGNORE_INSERTS;
+  const DWORD size = FormatMessageW(flags, nullptr, error, 0,
+                                    reinterpret_cast<LPWSTR>(&buffer), 0,
+                                    nullptr);
+  std::wstring message = prefix + L" (Win32=" + std::to_wstring(error) + L")";
+  if (size > 0 && buffer != nullptr) {
+    std::wstring system_text(buffer, size);
+    while (!system_text.empty() &&
+           (system_text.back() == L'\r' || system_text.back() == L'\n' ||
+            system_text.back() == L' ')) {
+      system_text.pop_back();
+    }
+    if (!system_text.empty()) {
+      message += L": " + system_text;
+    }
+  }
+  if (buffer != nullptr) {
+    LocalFree(buffer);
+  }
+  return message;
+}
+
+AgoraRtcRuntimeSnapshot ProbeAgoraRtcRuntime() {
+  AgoraRtcRuntimeSnapshot snapshot;
+  snapshot.status.compiled_with_rtc_support = true;
+
+  HMODULE module = LoadLibraryW(L"agora_rtc_sdk.dll");
+  if (module == nullptr) {
+    snapshot.status.runtime_available = false;
+    snapshot.status.availability_code = L"dll-missing";
+    snapshot.status.availability_reason =
+        BuildLastErrorMessage(
+            L"Unable to load agora_rtc_sdk.dll. RTC features are disabled.");
+    return snapshot;
+  }
+
+  auto create_service = reinterpret_cast<CreateAgoraServiceFn>(
+      GetProcAddress(module, "createAgoraService"));
+  if (create_service == nullptr) {
+    snapshot.status.runtime_available = false;
+    snapshot.status.availability_code = L"entrypoint-missing";
+    snapshot.status.availability_reason =
+        BuildLastErrorMessage(
+            L"Missing createAgoraService entry point in agora_rtc_sdk.dll. RTC features are disabled.");
+    FreeLibrary(module);
+    return snapshot;
+  }
+
+  auto get_sdk_version = reinterpret_cast<GetAgoraSdkVersionFn>(
+      GetProcAddress(module, "getAgoraSdkVersion"));
+  if (get_sdk_version == nullptr) {
+    snapshot.status.runtime_available = false;
+    snapshot.status.availability_code = L"entrypoint-missing";
+    snapshot.status.availability_reason =
+        BuildLastErrorMessage(
+            L"Missing getAgoraSdkVersion entry point in agora_rtc_sdk.dll. RTC features are disabled.");
+    FreeLibrary(module);
+    return snapshot;
+  }
+
+  snapshot.status.runtime_available = true;
+  snapshot.status.availability_code = L"available";
+  snapshot.status.availability_reason =
+      L"Agora RTC runtime is available.";
+  snapshot.module = module;
+  snapshot.create_service = create_service;
+  snapshot.get_sdk_version = get_sdk_version;
+  return snapshot;
+}
+
+const AgoraRtcRuntimeSnapshot& GetAgoraRtcRuntimeSnapshotInternal() {
+  static const AgoraRtcRuntimeSnapshot snapshot = ProbeAgoraRtcRuntime();
+  return snapshot;
+}
 #endif
 
 std::string Narrow(const std::wstring& value) {
@@ -57,8 +153,8 @@ std::string Narrow(const std::wstring& value) {
     return {};
   }
   std::string result(static_cast<size_t>(size - 1), '\0');
-  WideCharToMultiByte(CP_UTF8, 0, value.c_str(), -1, result.data(), size, nullptr,
-                      nullptr);
+  WideCharToMultiByte(CP_UTF8, 0, value.c_str(), -1, result.data(), size,
+                      nullptr, nullptr);
   return result;
 }
 
@@ -83,6 +179,16 @@ int16_t FloatToPcm16(float sample) {
   rounded = std::clamp<long>(rounded, std::numeric_limits<int16_t>::min(),
                              std::numeric_limits<int16_t>::max());
   return static_cast<int16_t>(rounded);
+}
+
+AgoraRtcRuntimeStatus BuildNotBuiltStatus() {
+  AgoraRtcRuntimeStatus status;
+  status.compiled_with_rtc_support = false;
+  status.runtime_available = false;
+  status.availability_code = L"not-built";
+  status.availability_reason =
+      L"RTC integration was not compiled into this build.";
+  return status;
 }
 
 #if defined(WINAUDIO_ENABLE_AGORA_SDK)
@@ -194,11 +300,14 @@ class AgoraRtcConnectionObserver final : public IRtcConnectionObserver {
     (void)reason;
   }
 
-  void onTransportStats(const agora::rtc::RtcStats& stats) override { (void)stats; }
+  void onTransportStats(const agora::rtc::RtcStats& stats) override {
+    (void)stats;
+  }
 
-  void onChangeRoleSuccess(agora::rtc::CLIENT_ROLE_TYPE oldRole,
-                           agora::rtc::CLIENT_ROLE_TYPE newRole,
-                           const agora::rtc::ClientRoleOptions& newRoleOptions) override {
+  void onChangeRoleSuccess(
+      agora::rtc::CLIENT_ROLE_TYPE oldRole,
+      agora::rtc::CLIENT_ROLE_TYPE newRole,
+      const agora::rtc::ClientRoleOptions& newRoleOptions) override {
     (void)oldRole;
     (void)newRoleOptions;
     if (stats_ != nullptr) {
@@ -207,8 +316,9 @@ class AgoraRtcConnectionObserver final : public IRtcConnectionObserver {
     }
   }
 
-  void onChangeRoleFailure(agora::rtc::CLIENT_ROLE_CHANGE_FAILED_REASON reason,
-                           agora::rtc::CLIENT_ROLE_TYPE currentRole) override {
+  void onChangeRoleFailure(
+      agora::rtc::CLIENT_ROLE_CHANGE_FAILED_REASON reason,
+      agora::rtc::CLIENT_ROLE_TYPE currentRole) override {
     if (stats_ != nullptr) {
       stats_->last_error_stage = L"rtc-role";
       stats_->last_error_message =
@@ -229,22 +339,40 @@ class AgoraRtcConnectionObserver final : public IRtcConnectionObserver {
 
 class RealAgoraRtcPublisher final : public AgoraRtcPublisher {
  public:
-  RealAgoraRtcPublisher() = default;
+  RealAgoraRtcPublisher() : runtime_status_(GetAgoraRtcRuntimeStatus()) {
+    stats_.runtime_status = runtime_status_;
+  }
   ~RealAgoraRtcPublisher() override { Stop(); }
+
+  AgoraRtcRuntimeStatus runtime_status() const override {
+    return runtime_status_;
+  }
 
   bool Initialize(const AgoraRtcConfig& config) override {
     config_ = config;
     stats_ = {};
+    stats_.runtime_status = runtime_status_;
     stats_.enabled = config.enabled;
     stats_.channel_id = config.channel_id;
     stats_.uid = config.uid;
     stats_.publish_sample_rate = config.publish_sample_rate;
     stats_.publish_channels = config.publish_channels;
+    if (!runtime_status_.runtime_available) {
+      SetError(L"rtc-runtime-unavailable", runtime_status_.availability_reason);
+      stats_.connection_state = L"Disabled";
+      return false;
+    }
     return true;
   }
 
   bool Start(const AudioFormatSpec& capture_format) override {
     Stop();
+    stats_.runtime_status = runtime_status_;
+    if (!runtime_status_.runtime_available) {
+      SetError(L"rtc-runtime-unavailable", runtime_status_.availability_reason);
+      stats_.connection_state = L"Disabled";
+      return false;
+    }
     if (!config_.enabled || !config_.publish_capture_audio) {
       return true;
     }
@@ -266,11 +394,13 @@ class RealAgoraRtcPublisher final : public AgoraRtcPublisher {
     resampler_ = CreateAudioResampler();
     if (!resampler_ ||
         !resampler_->Configure(capture_format, publish_format_)) {
-      SetError(L"rtc-resampler", L"Failed to configure Agora publish resampler.");
+      SetError(L"rtc-resampler",
+               L"Failed to configure Agora publish resampler.");
       return false;
     }
 
-    service_ = ::createAgoraService();
+    const auto& snapshot = GetAgoraRtcRuntimeSnapshotInternal();
+    service_ = snapshot.create_service ? snapshot.create_service() : nullptr;
     if (service_ == nullptr) {
       SetError(L"rtc-init", L"createAgoraService returned null.");
       return false;
@@ -295,7 +425,8 @@ class RealAgoraRtcPublisher final : public AgoraRtcPublisher {
     }
 
     int sdk_build = 0;
-    const char* sdk_version = ::getAgoraSdkVersion(&sdk_build);
+    const char* sdk_version =
+        snapshot.get_sdk_version ? snapshot.get_sdk_version(&sdk_build) : nullptr;
     if (sdk_version != nullptr) {
       stats_.sdk_version =
           Widen(sdk_version) + L" build=" + std::to_wstring(sdk_build);
@@ -328,7 +459,8 @@ class RealAgoraRtcPublisher final : public AgoraRtcPublisher {
     connection_config.autoSubscribeVideo = false;
     connection_config.enableAudioRecordingOrPlayout = false;
     connection_config.clientRoleType = CLIENT_ROLE_BROADCASTER;
-    connection_config.channelProfile = agora::CHANNEL_PROFILE_LIVE_BROADCASTING;
+    connection_config.channelProfile =
+        agora::CHANNEL_PROFILE_LIVE_BROADCASTING;
     connection_ = service_->createRtcConnection(connection_config);
     if (!connection_) {
       SetError(L"rtc-init", L"Failed to create IRtcConnection.");
@@ -385,7 +517,11 @@ class RealAgoraRtcPublisher final : public AgoraRtcPublisher {
     started_ = false;
     if (stats_.enabled) {
       stats_.joined = false;
-      stats_.connection_state = L"Left";
+      if (runtime_status_.runtime_available) {
+        stats_.connection_state = L"Left";
+      } else {
+        stats_.connection_state = L"Disabled";
+      }
     }
     pcm16_buffer_.clear();
     if (local_user_ != nullptr && local_audio_track_) {
@@ -418,7 +554,8 @@ class RealAgoraRtcPublisher final : public AgoraRtcPublisher {
     auto publish_chunk = resampler_ ? resampler_->Resample(chunk)
                                     : std::optional<AudioFrameChunk>{chunk};
     if (!publish_chunk.has_value()) {
-      SetError(L"rtc-publish", L"Resampler failed before sendAudioPcmData.");
+      SetError(L"rtc-publish",
+               L"Resampler failed before sendAudioPcmData.");
       return false;
     }
     if (publish_chunk->frame_count() == 0) {
@@ -428,13 +565,14 @@ class RealAgoraRtcPublisher final : public AgoraRtcPublisher {
     pcm16_buffer_.resize(publish_chunk->interleaved_samples.size());
     for (size_t index = 0; index < publish_chunk->interleaved_samples.size();
          ++index) {
-      pcm16_buffer_[index] = FloatToPcm16(publish_chunk->interleaved_samples[index]);
+      pcm16_buffer_[index] =
+          FloatToPcm16(publish_chunk->interleaved_samples[index]);
     }
 
     const int result = pcm_sender_->sendAudioPcmData(
-        pcm16_buffer_.data(), 0, 0,
-        publish_chunk->frame_count(), TWO_BYTES_PER_SAMPLE,
-        publish_format_.channels, publish_format_.sample_rate);
+        pcm16_buffer_.data(), 0, 0, publish_chunk->frame_count(),
+        TWO_BYTES_PER_SAMPLE, publish_format_.channels,
+        publish_format_.sample_rate);
     stats_.push_calls += 1;
     if (result != 0) {
       SetError(L"rtc-publish",
@@ -454,6 +592,7 @@ class RealAgoraRtcPublisher final : public AgoraRtcPublisher {
     stats_.last_error_message = message;
   }
 
+  AgoraRtcRuntimeStatus runtime_status_ {};
   AgoraRtcConfig config_ {};
   AgoraRtcStats stats_ {};
   std::unique_ptr<AgoraRtcConnectionObserver> observer_;
@@ -472,19 +611,48 @@ class RealAgoraRtcPublisher final : public AgoraRtcPublisher {
 
 class StubAgoraRtcPublisher final : public AgoraRtcPublisher {
  public:
+  explicit StubAgoraRtcPublisher(AgoraRtcRuntimeStatus runtime_status)
+      : runtime_status_(std::move(runtime_status)) {
+    stats_.runtime_status = runtime_status_;
+    if (!runtime_status_.runtime_available) {
+      stats_.connection_state = L"Disabled";
+      stats_.last_error_stage = L"rtc-runtime-unavailable";
+      stats_.last_error_message = runtime_status_.availability_reason;
+    }
+  }
+
+  AgoraRtcRuntimeStatus runtime_status() const override {
+    return runtime_status_;
+  }
+
   bool Initialize(const AgoraRtcConfig& config) override {
     config_ = config;
     stats_ = {};
+    stats_.runtime_status = runtime_status_;
     stats_.enabled = config.enabled;
     stats_.channel_id = config.channel_id;
     stats_.uid = config.uid;
     stats_.publish_sample_rate = config.publish_sample_rate;
     stats_.publish_channels = config.publish_channels;
+    if (!runtime_status_.runtime_available) {
+      stats_.connection_state = L"Disabled";
+      stats_.last_error_stage = L"rtc-runtime-unavailable";
+      stats_.last_error_message = runtime_status_.availability_reason;
+      return false;
+    }
     return true;
   }
 
   bool Start(const AudioFormatSpec& capture_format) override {
     (void)capture_format;
+    if (!runtime_status_.runtime_available) {
+      stats_.joined = false;
+      stats_.join_attempted = false;
+      stats_.connection_state = L"Disabled";
+      stats_.last_error_stage = L"rtc-runtime-unavailable";
+      stats_.last_error_message = runtime_status_.availability_reason;
+      return false;
+    }
     started_ = config_.enabled;
     stats_.joined = started_;
     stats_.join_attempted = started_;
@@ -496,7 +664,8 @@ class StubAgoraRtcPublisher final : public AgoraRtcPublisher {
     started_ = false;
     if (stats_.enabled) {
       stats_.joined = false;
-      stats_.connection_state = L"Left";
+      stats_.connection_state =
+          runtime_status_.runtime_available ? L"Left" : L"Disabled";
     }
   }
 
@@ -512,6 +681,7 @@ class StubAgoraRtcPublisher final : public AgoraRtcPublisher {
   AgoraRtcStats stats() const override { return stats_; }
 
  private:
+  AgoraRtcRuntimeStatus runtime_status_ {};
   AgoraRtcConfig config_ {};
   AgoraRtcStats stats_ {};
   bool started_ = false;
@@ -519,11 +689,23 @@ class StubAgoraRtcPublisher final : public AgoraRtcPublisher {
 
 }  // namespace
 
+AgoraRtcRuntimeStatus GetAgoraRtcRuntimeStatus() {
+#if defined(WINAUDIO_ENABLE_AGORA_SDK)
+  return GetAgoraRtcRuntimeSnapshotInternal().status;
+#else
+  return BuildNotBuiltStatus();
+#endif
+}
+
 std::unique_ptr<AgoraRtcPublisher> CreateAgoraRtcPublisher() {
 #if defined(WINAUDIO_ENABLE_AGORA_SDK)
-  return std::make_unique<RealAgoraRtcPublisher>();
+  const auto runtime_status = GetAgoraRtcRuntimeStatus();
+  if (runtime_status.runtime_available) {
+    return std::make_unique<RealAgoraRtcPublisher>();
+  }
+  return std::make_unique<StubAgoraRtcPublisher>(runtime_status);
 #else
-  return std::make_unique<StubAgoraRtcPublisher>();
+  return std::make_unique<StubAgoraRtcPublisher>(BuildNotBuiltStatus());
 #endif
 }
 
