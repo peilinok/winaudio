@@ -24,7 +24,18 @@ WinAudio 是一个面向 Windows 的音频链路验证与诊断项目，提供 G
 - `src/ui`：GUI 波形绘制。
 - `tests`：单元测试、文本语义测试、CLI 解析测试、控制器测试。
 - `tools`：构建包装脚本、收敛检查、CLI 集成验证、GUI smoke、硬件验证。
-- `docs`：收敛审计、GUI 手工核对清单、问题与积压说明。
+- `docs`：架构文档、收敛审计、GUI 手工核对清单、问题与积压说明。
+
+## Architecture
+
+如果你正在接手这个仓库，建议先看 `docs/architecture.md`，再回到 README 的构建和运行章节。
+
+- 架构总览文档：`docs/architecture.md`
+- 当前实现以 `winaudio_core` 为共享核心库，`winaudio` 和 `winaudio_probe` 只是两层不同入口。
+- `AppModel` 负责共享配置、状态快照、probe 编排和 GUI/CLI 共享语义。
+- `AudioSessionController` 只负责主音频链路：capture、render、resampler、dump、ring buffer。
+- RTC 已收敛为可选 sidecar：`RtcSidecar` 与 `AgoraRtcPublisher` 负责加入、发布、错误降级；非 `rtc` 专用模式不会因为 RTC 不可用而失败。
+- `probe_ui_text` 负责 GUI/CLI 公共文本和 RTC 展示 helper，减少入口层直接拼接 RTC 状态文本。
 
 ## 环境要求
 
@@ -141,7 +152,13 @@ $env:WINAUDIO_AGORA_UID="42"
 - 当前实现优先支持“本地采集 -> Agora RTC 发布”，不包含远端订阅与远端本地回放。
 - CLI 和文本输出不会明文回显 `--rtc-token`。
 - 默认构建不会启用 Agora SDK；需要显式打开 `-DWINAUDIO_ENABLE_AGORA_SDK=ON`。
-- 可以通过环境变量 `WINAUDIO_AGORA_SDK_ROOT` 指向 `Agora Native SDK for Windows` 的 `sdk` 目录。
+- 构建启用 Agora SDK 后，可以通过环境变量 `WINAUDIO_AGORA_SDK_URL` 或根目录 `.env` 中的 `WINAUDIO_AGORA_SDK_URL` 提供 SDK 下载链接，且环境变量优先级更高。
+- 如果没有提供 `WINAUDIO_AGORA_SDK_URL`，也可以继续通过环境变量 `WINAUDIO_AGORA_SDK_ROOT` 指向本地 `Agora Native SDK for Windows` 的 `sdk` 目录。
+- `.env` / `.env.*` 仅用于本地构建配置，不应提交真实私有链接或凭据；仓库通过 `.gitignore` 忽略这些本地配置文件。
+- 推荐基于仓库根目录的 `.env.example` 创建本地 `.env`，仅填写你自己的私有配置。
+- RTC 运行库在程序启动时按动态加载方式自检；如果 `agora_rtc_sdk.dll` 缺失或入口不可用，RTC 会降级为可选 sidecar 并在 GUI/文本状态中显示禁用原因。
+- `quick`、`matrix`、`capture-open` 和普通 GUI 会话不会因为 RTC 不可用而失败；它们会继续验证主音频链路。
+- `winaudio_probe rtc` 仍是 RTC 专用验证入口；运行库缺失、加入失败或运行中发布失败都会明确返回非零退出码。
 
 执行矩阵探测：
 
@@ -393,6 +410,7 @@ PowerShell 脚本是本项目的一等验证入口。新增构建或验证入口
 
 ## 参考文档
 
+- `docs\architecture.md`
 - `docs\convergence-audit-2026-05-29.md`
 - `docs\gui-manual-verification-checklist-2026-05-29.md`
 - `docs\convergence-must-fix-2026-05-29.md`

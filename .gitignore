@@ -6,3 +6,5 @@ docs/
 docs/*
 !docs/architecture.md
 .env
+.env.*
+!.env.example
