@@ -189,6 +189,7 @@ bool TestRtcTextMasksTokenAndShowsPublishSettings() {
   model.SetRtcToken(L"abcdef-token");
   model.SetRtcChannelId(L"demo-channel");
   model.SetRtcUid(42);
+  model.SetRtcPublishCaptureAudio(false);
   model.SetRtcPublishSampleRate(16000);
   model.SetRtcPublishChannels(1);
   model.JoinRtcChannel();
@@ -197,7 +198,7 @@ bool TestRtcTextMasksTokenAndShowsPublishSettings() {
   return Contains(rtc, L"RTC Join Status: Disabled") &&
          Contains(rtc, L"RTC Availability: Disabled") &&
          Contains(rtc, L"RTC Availability Code: not-built") &&
-         Contains(rtc, L"RTC Publish Capture: Always on while joined") &&
+         Contains(rtc, L"RTC Publish Capture: Off") &&
          Contains(rtc, L"RTC App ID: demo-app") &&
          Contains(rtc, L"RTC Channel: demo-channel") &&
          Contains(rtc, L"RTC UID: 42") &&

@@ -284,6 +284,7 @@ bool TestBuildRtcTextHelpers() {
   config.channel_id = L"demo-channel";
   config.uid = 42;
   config.token = L"secret-token";
+  config.publish_capture_audio = false;
   config.publish_sample_rate = 16000;
   config.publish_channels = 1;
 
@@ -311,7 +312,8 @@ bool TestBuildRtcTextHelpers() {
       !IsRtcCliSessionReady(stats) &&
       HasRtcCliSessionFailed(stats) &&
       text.find(L"RTC Join Status: Disabled") != std::wstring::npos &&
-      text.find(L"RTC Token: ********oken") != std::wstring::npos;
+      text.find(L"RTC Token: ********oken") != std::wstring::npos &&
+      text.find(L"RTC Publish Capture: Off") != std::wstring::npos;
   if (!ok) {
     std::wcerr << L"RTC_HELPER_TEXT:\n" << text << L"\n";
     std::wcerr << L"JOIN_STATUS=" << BuildRtcJoinStatusText(stats, true, L"Idle")
@@ -323,6 +325,27 @@ bool TestBuildRtcTextHelpers() {
                << L"\n";
   }
   return ok;
+}
+
+bool TestBuildRtcTextHelpersShowJoiningWithoutFailure() {
+  AgoraRtcConfig config;
+  config.enabled = true;
+  config.publish_capture_audio = true;
+
+  AgoraRtcStats stats;
+  stats.runtime_status.runtime_available = true;
+  stats.runtime_status.availability_code = L"available";
+  stats.runtime_status.availability_reason = L"Agora RTC runtime is available.";
+  stats.join_attempted = true;
+  stats.joined = false;
+  stats.connection_state = L"Connecting";
+
+  const auto text = BuildRtcText(config, stats, L"Running");
+  return BuildRtcJoinStatusText(stats, true, L"Running") == L"Joining" &&
+         !IsRtcCliSessionReady(stats) &&
+         !HasRtcCliSessionFailed(stats) &&
+         text.find(L"RTC Join Status: Joining") != std::wstring::npos &&
+         text.find(L"RTC Publish Capture: On while joined") != std::wstring::npos;
 }
 
 bool TestBuildRtcCapabilityHelpers() {
@@ -416,6 +439,8 @@ int main() {
       {"BuildSelectedCaptureDeviceIdDiagnosticsLabelText",
        &TestBuildSelectedCaptureDeviceIdDiagnosticsLabelText},
       {"BuildRtcTextHelpers", &TestBuildRtcTextHelpers},
+      {"BuildRtcTextHelpersShowJoiningWithoutFailure",
+       &TestBuildRtcTextHelpersShowJoiningWithoutFailure},
       {"BuildRtcCapabilityHelpers", &TestBuildRtcCapabilityHelpers},
   };
 

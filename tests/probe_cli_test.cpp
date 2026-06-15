@@ -381,6 +381,7 @@ bool TestParseRtcModeOverrides() {
 
 bool TestParseRtcModeReadsEnvironmentFallbacks() {
   SetEnvironmentVariableW(L"WINAUDIO_AGORA_APP_ID", L"env-app");
+  SetEnvironmentVariableW(L"WINAUDIO_AGORA_TOKEN", L"env-token");
   SetEnvironmentVariableW(L"WINAUDIO_AGORA_CHANNEL", L"env-channel");
   SetEnvironmentVariableW(L"WINAUDIO_AGORA_UID", L"77");
 
@@ -394,6 +395,7 @@ bool TestParseRtcModeReadsEnvironmentFallbacks() {
   const bool parsed = ParseProbeCliOptions(args, &options);
 
   SetEnvironmentVariableW(L"WINAUDIO_AGORA_APP_ID", nullptr);
+  SetEnvironmentVariableW(L"WINAUDIO_AGORA_TOKEN", nullptr);
   SetEnvironmentVariableW(L"WINAUDIO_AGORA_CHANNEL", nullptr);
   SetEnvironmentVariableW(L"WINAUDIO_AGORA_UID", nullptr);
 
@@ -404,6 +406,7 @@ bool TestParseRtcModeReadsEnvironmentFallbacks() {
   return options.mode == L"rtc" &&
          options.config.rtc.enabled == true &&
          options.config.rtc.app_id == L"env-app" &&
+         options.config.rtc.token == L"env-token" &&
          options.config.rtc.channel_id == L"env-channel" &&
          options.config.rtc.uid == 77;
 }
@@ -448,6 +451,7 @@ bool TestUsageTextIncludesDevicesAndDeviceIds() {
          usage.find(L"--rtc-uid=<n>") != std::wstring::npos &&
          usage.find(L"--rtc-duration-ms=<n>") != std::wstring::npos &&
          usage.find(L"WINAUDIO_AGORA_APP_ID") != std::wstring::npos &&
+         usage.find(L"WINAUDIO_AGORA_TOKEN") != std::wstring::npos &&
          usage.find(L"WINAUDIO_AGORA_CHANNEL") != std::wstring::npos &&
          usage.find(L"WINAUDIO_AGORA_SDK_URL") != std::wstring::npos &&
          usage.find(L"--matrix-capture-backend=wasapi|wave|both") != std::wstring::npos &&

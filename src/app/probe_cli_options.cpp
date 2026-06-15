@@ -15,8 +15,9 @@ std::wstring GetEnvironmentValue(const wchar_t* name) {
   if (size == 0) {
     return {};
   }
-  std::wstring value(static_cast<size_t>(size - 1), L'\0');
+  std::wstring value(static_cast<size_t>(size), L'\0');
   ::GetEnvironmentVariableW(name, value.data(), size);
+  value.pop_back();
   return value;
 }
 

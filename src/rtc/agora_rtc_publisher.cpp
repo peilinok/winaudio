@@ -152,9 +152,10 @@ std::string Narrow(const std::wstring& value) {
   if (size <= 1) {
     return {};
   }
-  std::string result(static_cast<size_t>(size - 1), '\0');
+  std::string result(static_cast<size_t>(size), '\0');
   WideCharToMultiByte(CP_UTF8, 0, value.c_str(), -1, result.data(), size,
                       nullptr, nullptr);
+  result.pop_back();
   return result;
 }
 
@@ -166,8 +167,9 @@ std::wstring Widen(const char* value) {
   if (wide_size <= 1) {
     return {};
   }
-  std::wstring result(static_cast<size_t>(wide_size - 1), L'\0');
+  std::wstring result(static_cast<size_t>(wide_size), L'\0');
   MultiByteToWideChar(CP_UTF8, 0, value, -1, result.data(), wide_size);
+  result.pop_back();
   return result;
 }
 
@@ -508,7 +510,7 @@ class RealAgoraRtcPublisher final : public AgoraRtcPublisher {
     }
 
     started_ = true;
-    stats_.joined = true;
+    stats_.joined = false;
     stats_.connection_state = L"Connecting";
     return true;
   }

@@ -24,7 +24,7 @@ WinAudio 是一个面向 Windows 的音频链路验证与诊断项目，提供 G
 - `src/ui`：GUI 波形绘制。
 - `tests`：单元测试、文本语义测试、CLI 解析测试、控制器测试。
 - `tools`：构建包装脚本、收敛检查、CLI 集成验证、GUI smoke、硬件验证。
-- `docs`：架构文档、收敛审计、GUI 手工核对清单、问题与积压说明。
+- `docs`：当前维护的架构文档与后续补充说明。
 
 ## Architecture
 
@@ -411,10 +411,6 @@ PowerShell 脚本是本项目的一等验证入口。新增构建或验证入口
 ## 参考文档
 
 - `docs\architecture.md`
-- `docs\convergence-audit-2026-05-29.md`
-- `docs\gui-manual-verification-checklist-2026-05-29.md`
-- `docs\convergence-must-fix-2026-05-29.md`
-- `docs\convergence-backlog-2026-05-29.md`
 
 ## 当前状态摘要
 

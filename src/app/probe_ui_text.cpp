@@ -545,7 +545,9 @@ std::wstring BuildRtcText(const AgoraRtcConfig& config,
                                      : config.channel_id);
   text += L"\r\nRTC UID: " + std::to_wstring(config.uid);
   text += L"\r\nRTC Token: " + MaskAgoraToken(config.token);
-  text += L"\r\nRTC Publish Capture: Always on while joined";
+  text += L"\r\nRTC Publish Capture: " +
+          std::wstring(config.publish_capture_audio ? L"On while joined"
+                                                    : L"Off");
   text += L"\r\nRTC Publish Format: " +
           std::to_wstring(config.publish_sample_rate) + L" Hz / " +
           std::to_wstring(config.publish_channels) + L" ch / PCM16";
@@ -574,7 +576,7 @@ bool IsRtcCliSessionReady(const AgoraRtcStats& stats) {
 }
 
 bool HasRtcCliSessionFailed(const AgoraRtcStats& stats) {
-  return !stats.joined;
+  return !stats.last_error_message.empty();
 }
 
 std::wstring BuildRtcCapabilitySummaryText(

@@ -240,24 +240,20 @@ int wmain(int argc, wchar_t** argv) {
       std::wcerr << NormalizeProbeCliTextForConsole(model.rtc_text()) << L"\n";
       return 6;
     }
-    const auto rtc_after_start = model.rtc_stats();
-    if (!IsRtcCliSessionReady(rtc_after_start)) {
-      model.Stop();
-      std::wcerr << NormalizeProbeCliTextForConsole(model.rtc_text()) << L"\n";
-      std::wcerr << NormalizeProbeCliTextForConsole(model.diagnostics_text()) << L"\n";
-      return 6;
-    }
-
     int ticks = 0;
     bool ok = true;
     const int max_ticks =
         std::max<int>(1, static_cast<int>(options.rtc_duration_ms / 10));
+    bool rtc_ready = false;
     while (ticks < max_ticks) {
       if (!model.Tick()) {
         ok = false;
         break;
       }
       const auto rtc_stats = model.rtc_stats();
+      if (IsRtcCliSessionReady(rtc_stats)) {
+        rtc_ready = true;
+      }
       if (HasRtcCliSessionFailed(rtc_stats)) {
         ok = false;
         break;
@@ -268,6 +264,9 @@ int wmain(int argc, wchar_t** argv) {
     model.Stop();
     std::wcout << NormalizeProbeCliTextForConsole(model.rtc_text()) << L"\n";
     std::wcout << NormalizeProbeCliTextForConsole(model.diagnostics_text()) << L"\n";
+    if (!rtc_ready) {
+      return 7;
+    }
     return ok ? 0 : 7;
   }
 
