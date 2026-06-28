@@ -74,11 +74,15 @@
     <ClInclude Include="AudioFormat.h" />
     <ClInclude Include="RingBuffer.h" />
     <ClInclude Include="WavFile.h" />
+    <ClInclude Include="ComUtil.h" />
+    <ClInclude Include="IAudioBackend.h" />
+    <ClInclude Include="DeviceEnumerator.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AudioFormat.cpp" />
     <ClCompile Include="RingBuffer.cpp" />
     <ClCompile Include="WavFile.cpp" />
+    <ClCompile Include="DeviceEnumerator.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

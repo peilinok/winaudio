@@ -1,0 +1,39 @@
+#pragma once
+#include <string>
+#include <vector>
+#include "AudioFormat.h"
+#include "Result.h"
+
+namespace wa {
+
+class RingBuffer;
+
+enum class DataFlow { Capture, Render };
+using DeviceId = std::wstring;     // MMDevice id; empty string = default endpoint
+
+struct DeviceInfo {
+    DeviceId     id;
+    std::wstring name;
+    DataFlow     flow = DataFlow::Render;
+    bool         isDefault = false;
+    AudioFormat  mixFormat{};       // shared-mode mix format
+};
+
+struct BackendStats {
+    AudioFormat actualFormat{};
+    uint32_t    bufferFrames = 0;
+    uint64_t    overruns = 0;
+    uint64_t    underruns = 0;
+};
+
+class IAudioBackend {
+public:
+    virtual ~IAudioBackend() = default;
+    virtual Result open(const DeviceId& id, const AudioFormat& fmt, RingBuffer* ring) = 0;
+    virtual Result start() = 0;
+    virtual void   stop() = 0;
+    virtual void   close() = 0;
+    virtual BackendStats stats() const = 0;
+};
+
+} // namespace wa
