@@ -24,7 +24,9 @@ WinAudio 是一个小巧的 Windows 音频测试工具，用于用多种音频�
 - **WinAudioCore / WinAudioCli**：纯 **Win32 + STL，零第三方依赖**
   （WAV 读写、CLI 解析、日志、单测断言全部自写）。
 - **WinAudioGui**：破例引入 **Dear ImGui**（渲染后端 `imgui_impl_win32` +
-  `imgui_impl_dx11`，DX11 属 Windows SDK）。第三方依赖**仅限 GUI 前端**。
+  `imgui_impl_dx11`，DX11 属 Windows SDK）。
+- 第三方依赖**仅出现在 GUI 前端（Dear ImGui）与测试工程（gtest）**；
+  WinAudioCore 与 WinAudioCli 保持纯 Win32 + STL 零依赖。
 - 前端定位：**GUI(Dear ImGui) 为主**，CLI 最小化（调试/脚本入口）。
 
 ## 3. 首批范围（MVP）与分阶段
@@ -196,8 +198,9 @@ CLI 只把同一套 Engine 调用包成命令行 + 定时 `poll()` 打印，不�
 - **Wav I/O 单测**：写出再读回 round-trip 比对；坏头/截断文件容错。
 - **后端**：loopback 半自动验证（capture wav 后 play wav 人工确认，或采集默认渲染
   端点 loopback 比对）。依赖真实声卡，归手动/集成测试。
-- **测试框架**：零第三方下，自写极小断言宏 + `WinAudioTests.exe` 工程聚合运行
-  （不引入 gtest）。
+- **测试框架**：**gtest**，`WinAudioTests.exe` 工程链接 gtest 并聚合运行。
+  gtest 源码 vendored 于 `third_party/googletest/`，**仅 `WinAudioTests` 工程引用**；
+  Core/Cli 仍保持纯 Win32+STL 零依赖。
 
 ## 12. 工程结构（目标）
 
@@ -206,7 +209,8 @@ WinAudio.sln
   WinAudioCore.vcxproj    静态库, 纯 Win32+STL
   WinAudioCli.vcxproj     控制台 exe, 链接 Core
   WinAudioGui.vcxproj     窗口 exe, 链接 Core + Dear ImGui + DX11
-  WinAudioTests.vcxproj   控制台 exe, 自写断言, 链接 Core
+  WinAudioTests.vcxproj   控制台 exe, gtest, 链接 Core
   third_party/imgui/      Dear ImGui 源码(仅 GUI 工程引用)
+  third_party/googletest/ gtest 源码(仅 Tests 工程引用)
 ```
 （首次搭建后按实际文件名校正 CLAUDE.md 中的命令与产物路径。）
