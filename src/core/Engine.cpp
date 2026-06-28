@@ -52,30 +52,46 @@ std::vector<DeviceInfo> Engine::enumerate(DataFlow flow) {
 
 Result Engine::startCapture(BackendKind, const DeviceId& id, const std::wstring& wavPath) {
     stop();
-    ring_ = std::make_unique<RingBuffer>(kRingBytes);
-    backend_ = std::make_unique<WasapiSharedCapture>();
-    Result r = backend_->open(id, AudioFormat{}, ring_.get());
-    if (!r) return r;
-    r = backend_->start();
-    if (!r) return r;
-    running_.store(true);
-    startTick_ = GetTickCount64();
-    { std::lock_guard<std::mutex> lk(mtx_); status_ = {}; status_.state = EngineState::Capturing; }
-    pump_ = std::thread(&Engine::captureLoop, this, wavPath);
-    return Result::Ok();
+    try {
+        ring_ = std::make_unique<RingBuffer>(kRingBytes);
+        backend_ = std::make_unique<WasapiSharedCapture>();
+        Result r = backend_->open(id, AudioFormat{}, ring_.get());
+        if (!r) return r;
+        r = backend_->start();
+        if (!r) return r;
+        running_.store(true);
+        startTick_ = GetTickCount64();
+        { std::lock_guard<std::mutex> lk(mtx_); status_ = {}; status_.state = EngineState::Capturing; }
+        pump_ = std::thread(&Engine::captureLoop, this, wavPath);
+        return Result::Ok();
+    } catch (const std::exception& e) {
+        stop();
+        std::lock_guard<std::mutex> lk(mtx_);
+        status_.state = EngineState::Error;
+        status_.message = e.what();
+        return Result::Fail(-1, e.what());
+    }
 }
 
 Result Engine::startPlayback(BackendKind, const DeviceId& id, const std::wstring& wavPath) {
     stop();
-    ring_ = std::make_unique<RingBuffer>(kRingBytes);
-    backend_ = std::make_unique<WasapiSharedRender>();
-    Result r = backend_->open(id, AudioFormat{}, ring_.get());
-    if (!r) return r;
-    running_.store(true);
-    startTick_ = GetTickCount64();
-    { std::lock_guard<std::mutex> lk(mtx_); status_ = {}; status_.state = EngineState::Playing; }
-    pump_ = std::thread(&Engine::playbackLoop, this, wavPath);
-    return Result::Ok();
+    try {
+        ring_ = std::make_unique<RingBuffer>(kRingBytes);
+        backend_ = std::make_unique<WasapiSharedRender>();
+        Result r = backend_->open(id, AudioFormat{}, ring_.get());
+        if (!r) return r;
+        running_.store(true);
+        startTick_ = GetTickCount64();
+        { std::lock_guard<std::mutex> lk(mtx_); status_ = {}; status_.state = EngineState::Playing; }
+        pump_ = std::thread(&Engine::playbackLoop, this, wavPath);
+        return Result::Ok();
+    } catch (const std::exception& e) {
+        stop();
+        std::lock_guard<std::mutex> lk(mtx_);
+        status_.state = EngineState::Error;
+        status_.message = e.what();
+        return Result::Fail(-1, e.what());
+    }
 }
 
 void Engine::stop() {
@@ -127,7 +143,16 @@ void Engine::playbackLoop(std::wstring wavPath) {
         return;
     }
     AudioFormat fmt = reader.format();
-    backend_->start(); // render thread uses device mix format; feed best-effort
+    {
+        Result r = backend_->start();
+        if (!r) {
+            std::lock_guard<std::mutex> lk(mtx_);
+            status_.state = EngineState::Error;
+            status_.message = r.message;
+            running_.store(false);
+            return;
+        }
+    }
     std::vector<uint8_t> buf(16384);
     bool fileDone = false;
     while (running_.load()) {

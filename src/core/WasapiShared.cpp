@@ -27,6 +27,7 @@ Result WasapiSharedCapture::start() {
         return Result::Fail(static_cast<long>(GetLastError()),
                             "WasapiSharedCapture::start: CreateEventW failed");
     }
+    { std::lock_guard<std::mutex> lk(readyMtx_); ready_ = false; startResult_ = Result::Ok(); }
     try {
         thread_ = std::thread(&WasapiSharedCapture::threadMain, this);
     } catch (const std::system_error& e) {
@@ -36,7 +37,15 @@ Result WasapiSharedCapture::start() {
         return Result::Fail(static_cast<long>(e.code().value()),
                             "WasapiSharedCapture::start: failed to launch capture thread");
     }
-    return Result::Ok();
+    // Wait until the worker has finished its device-init attempt and published actualFormat_.
+    Result r;
+    {
+        std::unique_lock<std::mutex> lk(readyMtx_);
+        readyCv_.wait(lk, [this] { return ready_; });
+        r = startResult_;
+    }
+    if (!r) stop(); // worker already returned after signalling; join + cleanup
+    return r;
 }
 
 void WasapiSharedCapture::stop() {
@@ -63,22 +72,32 @@ BackendStats WasapiSharedCapture::stats() const {
 void WasapiSharedCapture::threadMain() {
     ComInitGuard com; // this thread's own MTA apartment
 
+    auto signalReady = [this](Result res) {
+        { std::lock_guard<std::mutex> lk(readyMtx_); startResult_ = res; ready_ = true; }
+        if (!res) running_.store(false);
+        readyCv_.notify_one();
+    };
+
     ComPtr<IMMDeviceEnumerator> e;
-    if (FAILED(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
+    HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
             __uuidof(IMMDeviceEnumerator),
-            reinterpret_cast<void**>(e.GetAddressOf())))) { running_ = false; return; }
+            reinterpret_cast<void**>(e.GetAddressOf()));
+    if (FAILED(hr)) { signalReady(HrToResult(hr, "WasapiSharedCapture: CoCreateInstance")); return; }
 
     ComPtr<IMMDevice> dev;
-    HRESULT hr = deviceId_.empty()
+    hr = deviceId_.empty()
         ? e->GetDefaultAudioEndpoint(eCapture, eConsole, &dev)
         : e->GetDevice(deviceId_.c_str(), &dev);
-    if (FAILED(hr)) { running_ = false; return; }
+    if (FAILED(hr)) { signalReady(HrToResult(hr, "WasapiSharedCapture: GetDefaultAudioEndpoint")); return; }
 
-    if (FAILED(dev->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
-            reinterpret_cast<void**>(client_.GetAddressOf())))) { running_ = false; return; }
+    hr = dev->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
+            reinterpret_cast<void**>(client_.GetAddressOf()));
+    if (FAILED(hr)) { signalReady(HrToResult(hr, "WasapiSharedCapture: Activate")); return; }
 
     WAVEFORMATEX* mix = nullptr;
-    if (FAILED(client_->GetMixFormat(&mix)) || !mix) { running_ = false; return; }
+    hr = client_->GetMixFormat(&mix);
+    if (FAILED(hr)) { signalReady(HrToResult(hr, "WasapiSharedCapture: GetMixFormat")); return; }
+    if (!mix) { signalReady(Result::Fail(-1, "WasapiSharedCapture: GetMixFormat returned null")); return; }
     actualFormat_ = AudioFormat::fromWaveFormat(mix);
     const uint32_t frameBytes = actualFormat_.blockAlign();
 
@@ -86,14 +105,21 @@ void WasapiSharedCapture::threadMain() {
     hr = client_->Initialize(AUDCLNT_SHAREMODE_SHARED,
                              AUDCLNT_STREAMFLAGS_EVENTCALLBACK, dur, 0, mix, nullptr);
     CoTaskMemFree(mix);
-    if (FAILED(hr)) { running_ = false; return; }
+    if (FAILED(hr)) { signalReady(HrToResult(hr, "WasapiSharedCapture: Initialize")); return; }
 
-    if (FAILED(client_->GetBufferSize(&bufferFrames_))) { running_ = false; return; }
-    if (FAILED(client_->SetEventHandle(static_cast<HANDLE>(hEvent_)))) { running_ = false; return; }
-    if (FAILED(client_->GetService(__uuidof(IAudioCaptureClient),
-            reinterpret_cast<void**>(capture_.GetAddressOf())))) { running_ = false; return; }
+    hr = client_->GetBufferSize(&bufferFrames_);
+    if (FAILED(hr)) { signalReady(HrToResult(hr, "WasapiSharedCapture: GetBufferSize")); return; }
+    hr = client_->SetEventHandle(static_cast<HANDLE>(hEvent_));
+    if (FAILED(hr)) { signalReady(HrToResult(hr, "WasapiSharedCapture: SetEventHandle")); return; }
+    hr = client_->GetService(__uuidof(IAudioCaptureClient),
+            reinterpret_cast<void**>(capture_.GetAddressOf()));
+    if (FAILED(hr)) { signalReady(HrToResult(hr, "WasapiSharedCapture: GetService")); return; }
 
-    if (FAILED(client_->Start())) { running_ = false; return; }
+    hr = client_->Start();
+    if (FAILED(hr)) { signalReady(HrToResult(hr, "WasapiSharedCapture: Start")); return; }
+
+    signalReady(Result::Ok()); // device ready; actualFormat_/bufferFrames_ are now valid
+
     while (running_.load()) {
         WaitForSingleObject(static_cast<HANDLE>(hEvent_), 200);
         UINT32 packet = 0;
@@ -138,6 +164,7 @@ Result WasapiSharedRender::start() {
         return Result::Fail(static_cast<long>(GetLastError()),
                             "WasapiSharedRender::start: CreateEventW failed");
     }
+    { std::lock_guard<std::mutex> lk(readyMtx_); ready_ = false; startResult_ = Result::Ok(); }
     try {
         thread_ = std::thread(&WasapiSharedRender::threadMain, this);
     } catch (const std::system_error& e) {
@@ -147,7 +174,15 @@ Result WasapiSharedRender::start() {
         return Result::Fail(static_cast<long>(e.code().value()),
                             "WasapiSharedRender::start: failed to launch render thread");
     }
-    return Result::Ok();
+    // Wait until the worker has finished its device-init attempt and published actualFormat_.
+    Result r;
+    {
+        std::unique_lock<std::mutex> lk(readyMtx_);
+        readyCv_.wait(lk, [this] { return ready_; });
+        r = startResult_;
+    }
+    if (!r) stop(); // worker already returned after signalling; join + cleanup
+    return r;
 }
 
 void WasapiSharedRender::stop() {
@@ -174,22 +209,32 @@ BackendStats WasapiSharedRender::stats() const {
 void WasapiSharedRender::threadMain() {
     ComInitGuard com; // this thread's own MTA apartment
 
+    auto signalReady = [this](Result res) {
+        { std::lock_guard<std::mutex> lk(readyMtx_); startResult_ = res; ready_ = true; }
+        if (!res) running_.store(false);
+        readyCv_.notify_one();
+    };
+
     ComPtr<IMMDeviceEnumerator> e;
-    if (FAILED(CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
+    HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
             __uuidof(IMMDeviceEnumerator),
-            reinterpret_cast<void**>(e.GetAddressOf())))) { running_ = false; return; }
+            reinterpret_cast<void**>(e.GetAddressOf()));
+    if (FAILED(hr)) { signalReady(HrToResult(hr, "WasapiSharedRender: CoCreateInstance")); return; }
 
     ComPtr<IMMDevice> dev;
-    HRESULT hr = deviceId_.empty()
+    hr = deviceId_.empty()
         ? e->GetDefaultAudioEndpoint(eRender, eConsole, &dev)
         : e->GetDevice(deviceId_.c_str(), &dev);
-    if (FAILED(hr)) { running_ = false; return; }
+    if (FAILED(hr)) { signalReady(HrToResult(hr, "WasapiSharedRender: GetDefaultAudioEndpoint")); return; }
 
-    if (FAILED(dev->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
-            reinterpret_cast<void**>(client_.GetAddressOf())))) { running_ = false; return; }
+    hr = dev->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
+            reinterpret_cast<void**>(client_.GetAddressOf()));
+    if (FAILED(hr)) { signalReady(HrToResult(hr, "WasapiSharedRender: Activate")); return; }
 
     WAVEFORMATEX* mix = nullptr;
-    if (FAILED(client_->GetMixFormat(&mix)) || !mix) { running_ = false; return; }
+    hr = client_->GetMixFormat(&mix);
+    if (FAILED(hr)) { signalReady(HrToResult(hr, "WasapiSharedRender: GetMixFormat")); return; }
+    if (!mix) { signalReady(Result::Fail(-1, "WasapiSharedRender: GetMixFormat returned null")); return; }
     actualFormat_ = AudioFormat::fromWaveFormat(mix);
     const uint32_t frameBytes = actualFormat_.blockAlign();
 
@@ -197,19 +242,26 @@ void WasapiSharedRender::threadMain() {
     hr = client_->Initialize(AUDCLNT_SHAREMODE_SHARED,
                              AUDCLNT_STREAMFLAGS_EVENTCALLBACK, dur, 0, mix, nullptr);
     CoTaskMemFree(mix);
-    if (FAILED(hr)) { running_ = false; return; }
+    if (FAILED(hr)) { signalReady(HrToResult(hr, "WasapiSharedRender: Initialize")); return; }
 
-    if (FAILED(client_->GetBufferSize(&bufferFrames_))) { running_ = false; return; }
-    if (FAILED(client_->SetEventHandle(static_cast<HANDLE>(hEvent_)))) { running_ = false; return; }
-    if (FAILED(client_->GetService(__uuidof(IAudioRenderClient),
-            reinterpret_cast<void**>(render_.GetAddressOf())))) { running_ = false; return; }
+    hr = client_->GetBufferSize(&bufferFrames_);
+    if (FAILED(hr)) { signalReady(HrToResult(hr, "WasapiSharedRender: GetBufferSize")); return; }
+    hr = client_->SetEventHandle(static_cast<HANDLE>(hEvent_));
+    if (FAILED(hr)) { signalReady(HrToResult(hr, "WasapiSharedRender: SetEventHandle")); return; }
+    hr = client_->GetService(__uuidof(IAudioRenderClient),
+            reinterpret_cast<void**>(render_.GetAddressOf()));
+    if (FAILED(hr)) { signalReady(HrToResult(hr, "WasapiSharedRender: GetService")); return; }
 
     // Pre-roll one buffer of silence so the stream starts cleanly.
     BYTE* buf = nullptr;
     if (SUCCEEDED(render_->GetBuffer(bufferFrames_, &buf)))
         render_->ReleaseBuffer(bufferFrames_, AUDCLNT_BUFFERFLAGS_SILENT);
 
-    if (FAILED(client_->Start())) { running_ = false; return; }
+    hr = client_->Start();
+    if (FAILED(hr)) { signalReady(HrToResult(hr, "WasapiSharedRender: Start")); return; }
+
+    signalReady(Result::Ok()); // device ready; actualFormat_/bufferFrames_ are now valid
+
     std::vector<uint8_t> scratch;
     while (running_.load()) {
         WaitForSingleObject(static_cast<HANDLE>(hEvent_), 200);

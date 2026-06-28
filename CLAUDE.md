@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 WinAudio 是一个小巧的 Windows 音频测试工具，用于对系统音频设备做采集、播放等测试。
 
 **MVP 已完成。** 当前代码库包含 4 个项目：
-- **WinAudioCore**（`src/core`）：静纯 C++ 静态库，零外部依赖（仅 Win32 + STL）；提供后端抽象（`IAudioBackend`）、设备枚举（`DeviceEnumerator`）、WASAPI-Shared 采集/播放、WAV 读写、环形缓冲区（RingBuffer）、引擎（Engine）。
+- **WinAudioCore**（`src/core`）：纯 C++ 静态库，零外部依赖（仅 Win32 + STL）；提供后端抽象（`IAudioBackend`）、设备枚举（`DeviceEnumerator`）、WASAPI-Shared 采集/播放、WAV 读写、环形缓冲区（RingBuffer）、引擎（Engine）。
 - **WinAudioCli**（`src/cli`）：最小化命令行前端，支持 `list` / `capture` / `play` 子命令。
 - **WinAudioGui**（`src/gui`）：Dear ImGui + DX11 GUI 前端，为首选交互方式。
 - **WinAudioTests**（`src/tests`）：gtest 单元测试套件，覆盖核心模块（RingBuffer、AudioFormat、WAV）。
@@ -23,7 +23,7 @@ WinAudio 是一个小巧的 Windows 音频测试工具，用于对系统音频�
   - **设备枚举**：`IMMDeviceEnumerator` 枚举、查询默认设备与端点属性。
   - **WAV 读写**：采集落盘 / 播放读取，支持标准 RIFF WAVE 格式。
   - **环形缓冲区**：SPSC 设计，线程安全，带 xrun 计数。
-  - **错误处理**：`Result<T>` 类型、HRESULT 规范化、COM RAII 与线程安全。
+  - **错误处理**：`Result` 类型、HRESULT 规范化、COM RAII 与线程安全。
 - 能力范围（后续阶段）：
   - waveIn / waveOut（MME API 后端）。
   - WASAPI-Exclusive（独占模式）。
@@ -65,12 +65,12 @@ $MSBuild = "D:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Curr
   - `IAudioBackend` 接口：统一的采集/播放生命周期（open → start → poll → stop → close）。
   - `AudioFormat`：统一的 PCM 格式（采样率、位深、声道）与 `WAVEFORMATEX` 转换。
   - `DeviceEnumerator`：基于 `IMMDeviceEnumerator`，枚举设备、查询默认端点。
-  - `WasapiBackend`：WASAPI-Shared 实现，事件驱动采集、周期拉取播放，SPSC RingBuffer 解耦。
-  - `RingBuffer`：SPSC 设计，原子操作，xrun 计数，支持 pollSnapshot()。
+  - `WasapiSharedCapture / WasapiSharedRender`：WASAPI-Shared 实现，事件驱动采集、周期拉取播放，SPSC RingBuffer 解耦。
+  - `RingBuffer`：SPSC 设计，原子操作，xrun 计数。
   - `WavReader` / `WavWriter`：标准 RIFF WAVE 格式支持，错误处理（坏头部检测）。
   - `Engine`：高层驱动，汇总设备 + 后端 + 数据源/汇，poll() 生成快照（电平、xrun、状态）。
 - **COM 与线程安全**：`CoInitializeEx` 包装（RAII）；WASAPI 线程模型约定；原子操作与互斥锁。
-- **错误处理**：`Result<T>` 类型，HRESULT 到 string 映射，用户友好报错。
+- **错误处理**：`Result` 类型，HRESULT 到 string 映射，用户友好报错。
 
 ## 约定
 

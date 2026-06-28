@@ -1,5 +1,7 @@
 #pragma once
 #include <atomic>
+#include <condition_variable>
+#include <mutex>
 #include <thread>
 #include "IAudioBackend.h"
 #include "ComUtil.h"
@@ -30,6 +32,11 @@ private:
     void*       hEvent_ = nullptr;       // HANDLE
     ComPtr<IAudioClient>        client_;
     ComPtr<IAudioCaptureClient> capture_;
+
+    std::mutex              readyMtx_;
+    std::condition_variable readyCv_;
+    bool                    ready_ = false;
+    Result                  startResult_ = Result::Ok();
 };
 
 class WasapiSharedRender : public IAudioBackend {
@@ -52,6 +59,11 @@ private:
     void*       hEvent_ = nullptr;       // HANDLE
     ComPtr<IAudioClient>       client_;
     ComPtr<IAudioRenderClient> render_;
+
+    std::mutex              readyMtx_;
+    std::condition_variable readyCv_;
+    bool                    ready_ = false;
+    Result                  startResult_ = Result::Ok();
 };
 
 } // namespace wa
