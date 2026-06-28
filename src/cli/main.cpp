@@ -1,0 +1,88 @@
+#include <cstdio>
+#include <string>
+#include <vector>
+#include "Engine.h"
+#include "DeviceEnumerator.h"
+#include "ComUtil.h"
+
+using namespace wa;
+
+static void usage() {
+    std::printf(
+        "WinAudioCli list [--render|--capture]\n"
+        "WinAudioCli capture --out <file.wav> [--device <id>] [--seconds N]\n"
+        "WinAudioCli play    --in  <file.wav> [--device <id>]\n");
+}
+
+static std::wstring arg(int argc, wchar_t** argv, const wchar_t* key) {
+    for (int i = 1; i < argc - 1; ++i)
+        if (std::wcscmp(argv[i], key) == 0) return argv[i + 1];
+    return L"";
+}
+static bool has(int argc, wchar_t** argv, const wchar_t* key) {
+    for (int i = 1; i < argc; ++i) if (std::wcscmp(argv[i], key) == 0) return true;
+    return false;
+}
+
+int wmain(int argc, wchar_t** argv) {
+    if (argc < 2) { usage(); return 1; }
+    ComInitGuard com;
+    std::wstring cmd = argv[1];
+
+    if (cmd == L"list") {
+        DataFlow flow = has(argc, argv, L"--capture") ? DataFlow::Capture : DataFlow::Render;
+        DeviceEnumerator de;
+        std::vector<DeviceInfo> devs;
+        Result r = de.enumerate(flow, devs);
+        if (!r) { std::printf("enumerate failed: %s\n", r.message.c_str()); return 2; }
+        for (auto& d : devs) {
+            std::wprintf(L"%s %s  [%u Hz %u ch %s]\n",
+                d.isDefault ? L"*" : L" ", d.name.c_str(),
+                d.mixFormat.sampleRate, d.mixFormat.channels,
+                d.mixFormat.isFloat ? L"float" : L"pcm");
+            std::wprintf(L"     id=%s\n", d.id.c_str());
+        }
+        return 0;
+    }
+
+    Engine eng;
+    if (cmd == L"capture") {
+        std::wstring out = arg(argc, argv, L"--out");
+        if (out.empty()) { usage(); return 1; }
+        std::wstring id = arg(argc, argv, L"--device");
+        std::wstring secStr = arg(argc, argv, L"--seconds");
+        int seconds = secStr.empty() ? 5 : _wtoi(secStr.c_str());
+        Result r = eng.startCapture(BackendKind::WasapiShared, id, out);
+        if (!r) { std::printf("capture start failed: %s\n", r.message.c_str()); return 2; }
+        for (int i = 0; i < seconds * 10; ++i) {
+            Sleep(100);
+            EngineStatus s = eng.poll();
+            std::printf("\rL=%.2f R=%.2f over=%llu under=%llu  ",
+                s.levelL, s.levelR,
+                (unsigned long long)s.overruns, (unsigned long long)s.underruns);
+        }
+        eng.stop();
+        std::printf("\nwrote %ls\n", out.c_str());
+        return 0;
+    }
+
+    if (cmd == L"play") {
+        std::wstring in = arg(argc, argv, L"--in");
+        if (in.empty()) { usage(); return 1; }
+        std::wstring id = arg(argc, argv, L"--device");
+        Result r = eng.startPlayback(BackendKind::WasapiShared, id, in);
+        if (!r) { std::printf("play start failed: %s\n", r.message.c_str()); return 2; }
+        for (;;) {
+            Sleep(100);
+            EngineStatus s = eng.poll();
+            if (s.state == EngineState::Idle || s.state == EngineState::Error) break;
+            std::printf("\rplaying L=%.2f R=%.2f  ", s.levelL, s.levelR);
+        }
+        eng.stop();
+        std::printf("\ndone\n");
+        return 0;
+    }
+
+    usage();
+    return 1;
+}

@@ -3,10 +3,8 @@
 #include <thread>
 #include "IAudioBackend.h"
 #include "ComUtil.h"
-
-struct IAudioClient;
-struct IAudioCaptureClient;
-struct IAudioRenderClient;
+#include <mmdeviceapi.h>
+#include <audioclient.h>
 
 namespace wa {
 

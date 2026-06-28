@@ -10,3 +10,5 @@ x64/
 *.pdb
 *.ilk
 *.idb
+# Test audio files
+*.wav

@@ -1,0 +1,168 @@
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include "Engine.h"
+#include "WasapiShared.h"
+#include "WavFile.h"
+#include "DeviceEnumerator.h"
+#include "ComUtil.h"
+#include <windows.h>
+#include <algorithm>
+#include <cmath>
+
+namespace wa {
+
+namespace {
+constexpr size_t kRingBytes = 1 << 20; // 1 MiB
+
+// Compute peak level (0..1) for L/R from interleaved float32 or int16 PCM.
+void computeLevels(const uint8_t* data, size_t bytes, const AudioFormat& fmt,
+                   float& l, float& r) {
+    l = r = 0.f;
+    if (fmt.channels == 0) return;
+    const uint16_t ch = fmt.channels;
+    if (fmt.isFloat && fmt.bitsPerSample == 32) {
+        const float* s = reinterpret_cast<const float*>(data);
+        size_t n = bytes / 4;
+        for (size_t i = 0; i + ch <= n; i += ch) {
+            l = std::max(l, std::fabs(s[i]));
+            r = std::max(r, std::fabs(s[i + (ch > 1 ? 1 : 0)]));
+        }
+    } else if (!fmt.isFloat && fmt.bitsPerSample == 16) {
+        const int16_t* s = reinterpret_cast<const int16_t*>(data);
+        size_t n = bytes / 2;
+        for (size_t i = 0; i + ch <= n; i += ch) {
+            l = std::max(l, std::fabs(s[i] / 32768.f));
+            r = std::max(r, std::fabs(s[i + (ch > 1 ? 1 : 0)] / 32768.f));
+        }
+    }
+}
+} // namespace
+
+Engine::Engine() = default;
+Engine::~Engine() { stop(); }
+
+std::vector<DeviceInfo> Engine::enumerate(DataFlow flow) {
+    ComInitGuard com;
+    DeviceEnumerator de;
+    std::vector<DeviceInfo> out;
+    de.enumerate(flow, out);
+    return out;
+}
+
+Result Engine::startCapture(BackendKind, const DeviceId& id, const std::wstring& wavPath) {
+    stop();
+    ring_ = std::make_unique<RingBuffer>(kRingBytes);
+    backend_ = std::make_unique<WasapiSharedCapture>();
+    Result r = backend_->open(id, AudioFormat{}, ring_.get());
+    if (!r) return r;
+    r = backend_->start();
+    if (!r) return r;
+    running_.store(true);
+    startTick_ = GetTickCount64();
+    { std::lock_guard<std::mutex> lk(mtx_); status_ = {}; status_.state = EngineState::Capturing; }
+    pump_ = std::thread(&Engine::captureLoop, this, wavPath);
+    return Result::Ok();
+}
+
+Result Engine::startPlayback(BackendKind, const DeviceId& id, const std::wstring& wavPath) {
+    stop();
+    ring_ = std::make_unique<RingBuffer>(kRingBytes);
+    backend_ = std::make_unique<WasapiSharedRender>();
+    Result r = backend_->open(id, AudioFormat{}, ring_.get());
+    if (!r) return r;
+    running_.store(true);
+    startTick_ = GetTickCount64();
+    { std::lock_guard<std::mutex> lk(mtx_); status_ = {}; status_.state = EngineState::Playing; }
+    pump_ = std::thread(&Engine::playbackLoop, this, wavPath);
+    return Result::Ok();
+}
+
+void Engine::stop() {
+    running_.store(false);
+    if (pump_.joinable()) pump_.join();
+    if (backend_) backend_->stop();
+    backend_.reset();
+    ring_.reset();
+    std::lock_guard<std::mutex> lk(mtx_);
+    if (status_.state != EngineState::Error) status_.state = EngineState::Idle;
+}
+
+void Engine::captureLoop(std::wstring wavPath) {
+    // Backend already started; its actualFormat is known after start.
+    AudioFormat fmt = backend_->stats().actualFormat;
+    WavWriter writer;
+    if (!writer.open(wavPath, fmt)) {
+        std::lock_guard<std::mutex> lk(mtx_);
+        status_.state = EngineState::Error;
+        status_.message = "cannot open output wav";
+        running_.store(false);
+        return;
+    }
+    std::vector<uint8_t> buf(16384);
+    while (running_.load()) {
+        size_t got = ring_->read(buf.data(), buf.size());
+        if (got == 0) { Sleep(5); }
+        else {
+            writer.write(buf.data(), got);
+            float l, r; computeLevels(buf.data(), got, fmt, l, r);
+            std::lock_guard<std::mutex> lk(mtx_);
+            status_.levelL = l; status_.levelR = r;
+            status_.actualFormat = fmt;
+            status_.overruns = ring_->overruns();
+            status_.underruns = ring_->underruns();
+            status_.elapsedMs = static_cast<uint32_t>(GetTickCount64() - startTick_);
+        }
+    }
+    writer.close();
+}
+
+void Engine::playbackLoop(std::wstring wavPath) {
+    WavReader reader;
+    if (!reader.open(wavPath)) {
+        std::lock_guard<std::mutex> lk(mtx_);
+        status_.state = EngineState::Error;
+        status_.message = "cannot open input wav";
+        running_.store(false);
+        return;
+    }
+    AudioFormat fmt = reader.format();
+    backend_->start(); // render thread uses device mix format; feed best-effort
+    std::vector<uint8_t> buf(16384);
+    bool fileDone = false;
+    while (running_.load()) {
+        if (!fileDone) {
+            // keep the ring topped up
+            while (ring_->availableWrite() >= buf.size()) {
+                size_t got = reader.read(buf.data(), buf.size());
+                if (got == 0) { fileDone = true; break; }
+                ring_->write(buf.data(), got);
+                float l, r; computeLevels(buf.data(), got, fmt, l, r);
+                std::lock_guard<std::mutex> lk(mtx_);
+                status_.levelL = l; status_.levelR = r;
+            }
+        } else if (ring_->availableRead() == 0) {
+            break; // drained
+        }
+        {
+            std::lock_guard<std::mutex> lk(mtx_);
+            status_.actualFormat = backend_->stats().actualFormat;
+            status_.overruns = ring_->overruns();
+            status_.underruns = ring_->underruns();
+            status_.elapsedMs = static_cast<uint32_t>(GetTickCount64() - startTick_);
+        }
+        Sleep(5);
+    }
+    running_.store(false);
+    {
+        std::lock_guard<std::mutex> lk(mtx_);
+        if (status_.state != EngineState::Error) status_.state = EngineState::Idle;
+    }
+}
+
+EngineStatus Engine::poll() {
+    std::lock_guard<std::mutex> lk(mtx_);
+    return status_;
+}
+
+} // namespace wa
