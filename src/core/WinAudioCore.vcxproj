@@ -71,9 +71,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Result.h" />
+    <ClInclude Include="AudioFormat.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="_placeholder.cpp" />
+    <ClCompile Include="AudioFormat.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
