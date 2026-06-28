@@ -76,6 +76,7 @@
     <ClCompile Include="test_smoke.cpp" />
     <ClCompile Include="test_audioformat.cpp" />
     <ClCompile Include="test_ringbuffer.cpp" />
+    <ClCompile Include="test_wavfile.cpp" />
     <ClCompile Include="$(SolutionDir)third_party\googletest\googletest\src\gtest-all.cc">
       <AdditionalIncludeDirectories>$(SolutionDir)third_party\googletest\googletest\include;$(SolutionDir)third_party\googletest\googletest;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
