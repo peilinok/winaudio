@@ -88,12 +88,12 @@ void WasapiSharedCapture::threadMain() {
     CoTaskMemFree(mix);
     if (FAILED(hr)) { running_ = false; return; }
 
-    client_->GetBufferSize(&bufferFrames_);
-    client_->SetEventHandle(static_cast<HANDLE>(hEvent_));
+    if (FAILED(client_->GetBufferSize(&bufferFrames_))) { running_ = false; return; }
+    if (FAILED(client_->SetEventHandle(static_cast<HANDLE>(hEvent_)))) { running_ = false; return; }
     if (FAILED(client_->GetService(__uuidof(IAudioCaptureClient),
             reinterpret_cast<void**>(capture_.GetAddressOf())))) { running_ = false; return; }
 
-    client_->Start();
+    if (FAILED(client_->Start())) { running_ = false; return; }
     while (running_.load()) {
         WaitForSingleObject(static_cast<HANDLE>(hEvent_), 200);
         UINT32 packet = 0;
@@ -199,8 +199,8 @@ void WasapiSharedRender::threadMain() {
     CoTaskMemFree(mix);
     if (FAILED(hr)) { running_ = false; return; }
 
-    client_->GetBufferSize(&bufferFrames_);
-    client_->SetEventHandle(static_cast<HANDLE>(hEvent_));
+    if (FAILED(client_->GetBufferSize(&bufferFrames_))) { running_ = false; return; }
+    if (FAILED(client_->SetEventHandle(static_cast<HANDLE>(hEvent_)))) { running_ = false; return; }
     if (FAILED(client_->GetService(__uuidof(IAudioRenderClient),
             reinterpret_cast<void**>(render_.GetAddressOf())))) { running_ = false; return; }
 
@@ -209,7 +209,7 @@ void WasapiSharedRender::threadMain() {
     if (SUCCEEDED(render_->GetBuffer(bufferFrames_, &buf)))
         render_->ReleaseBuffer(bufferFrames_, AUDCLNT_BUFFERFLAGS_SILENT);
 
-    client_->Start();
+    if (FAILED(client_->Start())) { running_ = false; return; }
     std::vector<uint8_t> scratch;
     while (running_.load()) {
         WaitForSingleObject(static_cast<HANDLE>(hEvent_), 200);
