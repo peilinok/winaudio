@@ -77,12 +77,14 @@
     <ClInclude Include="ComUtil.h" />
     <ClInclude Include="IAudioBackend.h" />
     <ClInclude Include="DeviceEnumerator.h" />
+    <ClInclude Include="WasapiShared.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AudioFormat.cpp" />
     <ClCompile Include="RingBuffer.cpp" />
     <ClCompile Include="WavFile.cpp" />
     <ClCompile Include="DeviceEnumerator.cpp" />
+    <ClCompile Include="WasapiShared.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
