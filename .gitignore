@@ -1,0 +1,12 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+x64/
+*.user
+.vs/
+# MSBuild
+*.tlog
+*.log
+*.pdb
+*.ilk
+*.idb
