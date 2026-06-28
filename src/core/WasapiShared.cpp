@@ -3,6 +3,7 @@
 #include <mmdeviceapi.h>
 #include <audioclient.h>
 #include <vector>
+#include <system_error>
 
 namespace wa {
 
@@ -17,8 +18,23 @@ Result WasapiSharedCapture::open(const DeviceId& id, const AudioFormat& /*fmt*/,
 
 Result WasapiSharedCapture::start() {
     if (running_.exchange(true)) return Result::Ok();
+    // Close any handle left from a prior start()/stop() cycle before re-creating.
+    if (hEvent_) { CloseHandle(static_cast<HANDLE>(hEvent_)); hEvent_ = nullptr; }
     hEvent_ = CreateEventW(nullptr, FALSE, FALSE, nullptr);
-    thread_ = std::thread(&WasapiSharedCapture::threadMain, this);
+    if (!hEvent_) {
+        running_.store(false);
+        return Result::Fail(static_cast<long>(GetLastError()),
+                            "WasapiSharedCapture::start: CreateEventW failed");
+    }
+    try {
+        thread_ = std::thread(&WasapiSharedCapture::threadMain, this);
+    } catch (const std::system_error& e) {
+        CloseHandle(static_cast<HANDLE>(hEvent_));
+        hEvent_ = nullptr;
+        running_.store(false);
+        return Result::Fail(static_cast<long>(e.code().value()),
+                            "WasapiSharedCapture::start: failed to launch capture thread");
+    }
     return Result::Ok();
 }
 
