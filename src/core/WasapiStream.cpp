@@ -240,11 +240,13 @@ void WasapiRenderStream::runLoop() {
     const bool exclusive = isExclusive();
     std::vector<uint8_t> scratch;
     while (running_.load()) {
-        WaitForSingleObject(static_cast<HANDLE>(hEvent_), 200);
+        DWORD waitRc = WaitForSingleObject(static_cast<HANDLE>(hEvent_), 200);
         UINT32 frames;
         if (exclusive) {
-            // Exclusive event-driven: the whole buffer is refilled on each event;
-            // GetCurrentPadding is not used (it is unreliable in this mode).
+            // Exclusive event-driven: refill the whole buffer, but only on a real
+            // buffer-ready event. On a wait timeout, retry rather than calling
+            // GetBuffer prematurely (which would fail and kill the render thread).
+            if (waitRc != WAIT_OBJECT_0) continue;
             frames = bufferFrames_;
         } else {
             UINT32 padding = 0;
