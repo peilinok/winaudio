@@ -75,6 +75,7 @@
     <ClInclude Include="AudioFormat.h" />
     <ClInclude Include="Fft.h" />
     <ClInclude Include="RingBuffer.h" />
+    <ClInclude Include="SampleConvert.h" />
     <ClInclude Include="WavFile.h" />
     <ClInclude Include="ComUtil.h" />
     <ClInclude Include="IAudioBackend.h" />
@@ -87,6 +88,7 @@
     <ClCompile Include="AudioFormat.cpp" />
     <ClCompile Include="Fft.cpp" />
     <ClCompile Include="RingBuffer.cpp" />
+    <ClCompile Include="SampleConvert.cpp" />
     <ClCompile Include="WavFile.cpp" />
     <ClCompile Include="DeviceEnumerator.cpp" />
     <ClCompile Include="WasapiStream.cpp" />

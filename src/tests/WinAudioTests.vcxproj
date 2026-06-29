@@ -77,6 +77,7 @@
     <ClCompile Include="test_audioformat.cpp" />
     <ClCompile Include="test_fft.cpp" />
     <ClCompile Include="test_ringbuffer.cpp" />
+    <ClCompile Include="test_sampleconvert.cpp" />
     <ClCompile Include="test_wavfile.cpp" />
     <ClCompile Include="test_formatspec.cpp" />
     <ClCompile Include="$(SolutionDir)third_party\googletest\googletest\src\gtest-all.cc">
