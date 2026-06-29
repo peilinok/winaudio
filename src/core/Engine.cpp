@@ -71,7 +71,7 @@ Result Engine::probeFormat(BackendKind kind, DataFlow flow, const DeviceId& id,
     if (FAILED(hr)) return HrToResult(hr, "probeFormat: Activate");
     AUDCLNT_SHAREMODE sm = (kind == BackendKind::WasapiExclusive)
                                ? AUDCLNT_SHAREMODE_EXCLUSIVE : AUDCLNT_SHAREMODE_SHARED;
-    WAVEFORMATEXTENSIBLE wfx = fmt.toWaveFormatExtensible();
+    WAVEFORMATEXTENSIBLE wfx = toWaveFormatExtensible(fmt);
     WAVEFORMATEX* closest = nullptr;
     hr = client->IsFormatSupported(sm, reinterpret_cast<WAVEFORMATEX*>(&wfx),
                                    (sm == AUDCLNT_SHAREMODE_EXCLUSIVE) ? nullptr : &closest);

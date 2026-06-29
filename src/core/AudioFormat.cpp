@@ -2,18 +2,18 @@
 
 namespace wa {
 
-WAVEFORMATEXTENSIBLE AudioFormat::toWaveFormatExtensible() const {
+WAVEFORMATEXTENSIBLE toWaveFormatExtensible(const AudioFormat& f) {
     WAVEFORMATEXTENSIBLE w{};
     w.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
-    w.Format.nChannels = channels;
-    w.Format.nSamplesPerSec = sampleRate;
-    w.Format.wBitsPerSample = bitsPerSample;
-    w.Format.nBlockAlign = static_cast<WORD>(blockAlign());
-    w.Format.nAvgBytesPerSec = avgBytesPerSec();
+    w.Format.nChannels = f.channels;
+    w.Format.nSamplesPerSec = f.sampleRate;
+    w.Format.wBitsPerSample = f.bitsPerSample;
+    w.Format.nBlockAlign = static_cast<WORD>(f.blockAlign());
+    w.Format.nAvgBytesPerSec = f.avgBytesPerSec();
     w.Format.cbSize = sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX);
-    w.Samples.wValidBitsPerSample = bitsPerSample;
+    w.Samples.wValidBitsPerSample = f.bitsPerSample;
     // Standard speaker masks for common channel counts; 0 (unspecified) otherwise.
-    switch (channels) {
+    switch (f.channels) {
         case 1: w.dwChannelMask = SPEAKER_FRONT_CENTER; break;
         case 2: w.dwChannelMask = SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT; break;
         case 4: w.dwChannelMask = SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT
@@ -27,12 +27,12 @@ WAVEFORMATEXTENSIBLE AudioFormat::toWaveFormatExtensible() const {
                                 | SPEAKER_SIDE_LEFT  | SPEAKER_SIDE_RIGHT; break;
         default: w.dwChannelMask = 0; break; // unspecified speaker assignment
     }
-    w.SubFormat = isFloat ? KSDATAFORMAT_SUBTYPE_IEEE_FLOAT
-                          : KSDATAFORMAT_SUBTYPE_PCM;
+    w.SubFormat = f.isFloat ? KSDATAFORMAT_SUBTYPE_IEEE_FLOAT
+                            : KSDATAFORMAT_SUBTYPE_PCM;
     return w;
 }
 
-AudioFormat AudioFormat::fromWaveFormat(const WAVEFORMATEX* wf) {
+AudioFormat fromWaveFormat(const WAVEFORMATEX* wf) {
     AudioFormat f{};
     f.sampleRate = wf->nSamplesPerSec;
     f.channels = wf->nChannels;

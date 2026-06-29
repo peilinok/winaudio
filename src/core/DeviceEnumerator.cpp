@@ -32,7 +32,7 @@ Result readInfo(IMMDevice* dev, DataFlow flow, bool isDefault, DeviceInfo& info)
                                 reinterpret_cast<void**>(client.GetAddressOf())))) {
         WAVEFORMATEX* mix = nullptr;
         if (SUCCEEDED(client->GetMixFormat(&mix)) && mix) {
-            info.mixFormat = AudioFormat::fromWaveFormat(mix);
+            info.mixFormat = fromWaveFormat(mix);
             CoTaskMemFree(mix);
         }
     }
@@ -107,7 +107,7 @@ Result DeviceEnumerator::mixFormat(const DeviceId& id, AudioFormat& out) {
     WAVEFORMATEX* mix = nullptr;
     hr = client->GetMixFormat(&mix);
     if (FAILED(hr)) return HrToResult(hr, "GetMixFormat");
-    out = AudioFormat::fromWaveFormat(mix);
+    out = fromWaveFormat(mix);
     CoTaskMemFree(mix);
     return Result::Ok();
 }

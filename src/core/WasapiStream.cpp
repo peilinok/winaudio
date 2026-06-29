@@ -81,7 +81,7 @@ Result WasapiStream::prepareClient(IMMDevice* dev) {
         HRESULT hr = client_->GetMixFormat(&mix);
         if (FAILED(hr)) return HrToResult(hr, "WasapiStream: GetMixFormat");
         if (!mix) return Result::Fail(-1, "WasapiStream: GetMixFormat returned null");
-        actualFormat_ = AudioFormat::fromWaveFormat(mix);
+        actualFormat_ = fromWaveFormat(mix);
         frameBytes_ = actualFormat_.blockAlign();
         REFERENCE_TIME dur = 10'000'000 / 10; // 100 ms buffer
         hr = client_->Initialize(AUDCLNT_SHAREMODE_SHARED,
@@ -98,7 +98,7 @@ Result WasapiStream::prepareClient(IMMDevice* dev) {
     else return Result::Fail(-1, "WasapiStream: exclusive render requires an explicit format");
 
     int idx = selectSupportedFormat(candidates, [this](const AudioFormat& cand) {
-        WAVEFORMATEXTENSIBLE wfx = cand.toWaveFormatExtensible();
+        WAVEFORMATEXTENSIBLE wfx = toWaveFormatExtensible(cand);
         return client_->IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE,
                    reinterpret_cast<WAVEFORMATEX*>(&wfx), nullptr) == S_OK;
     });
@@ -113,7 +113,7 @@ Result WasapiStream::prepareClient(IMMDevice* dev) {
     client_->GetDevicePeriod(&defPer, &minPer);
     REFERENCE_TIME dur = minPer;
 
-    WAVEFORMATEXTENSIBLE wfx = actualFormat_.toWaveFormatExtensible();
+    WAVEFORMATEXTENSIBLE wfx = toWaveFormatExtensible(actualFormat_);
     HRESULT hr = client_->Initialize(AUDCLNT_SHAREMODE_EXCLUSIVE,
                      AUDCLNT_STREAMFLAGS_EVENTCALLBACK, dur, dur,
                      reinterpret_cast<WAVEFORMATEX*>(&wfx), nullptr);
@@ -126,7 +126,7 @@ Result WasapiStream::prepareClient(IMMDevice* dev) {
         HRESULT hr2 = dev->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
                           reinterpret_cast<void**>(client_.GetAddressOf()));
         if (FAILED(hr2)) return HrToResult(hr2, "WasapiStream: exclusive realign Activate");
-        WAVEFORMATEXTENSIBLE wfx2 = actualFormat_.toWaveFormatExtensible();
+        WAVEFORMATEXTENSIBLE wfx2 = toWaveFormatExtensible(actualFormat_);
         hr = client_->Initialize(AUDCLNT_SHAREMODE_EXCLUSIVE,
                  AUDCLNT_STREAMFLAGS_EVENTCALLBACK, dur, dur,
                  reinterpret_cast<WAVEFORMATEX*>(&wfx2), nullptr);
