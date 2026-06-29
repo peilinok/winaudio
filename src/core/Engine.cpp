@@ -2,7 +2,7 @@
 #define NOMINMAX
 #endif
 #include "Engine.h"
-#include "WasapiShared.h"
+#include "WasapiStream.h"
 #include "WavFile.h"
 #include "DeviceEnumerator.h"
 #include "ComUtil.h"
@@ -54,7 +54,7 @@ Result Engine::startCapture(BackendKind, const DeviceId& id, const std::wstring&
     stop();
     try {
         ring_ = std::make_unique<RingBuffer>(kRingBytes);
-        backend_ = std::make_unique<WasapiSharedCapture>();
+        backend_ = std::make_unique<WasapiCaptureStream>(WasapiMode::Shared, nullptr);
         Result r = backend_->open(id, AudioFormat{}, ring_.get());
         if (!r) return r;
         r = backend_->start();
@@ -77,7 +77,7 @@ Result Engine::startPlayback(BackendKind, const DeviceId& id, const std::wstring
     stop();
     try {
         ring_ = std::make_unique<RingBuffer>(kRingBytes);
-        backend_ = std::make_unique<WasapiSharedRender>();
+        backend_ = std::make_unique<WasapiRenderStream>(WasapiMode::Shared, nullptr);
         Result r = backend_->open(id, AudioFormat{}, ring_.get());
         if (!r) return r;
         running_.store(true);

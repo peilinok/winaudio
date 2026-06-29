@@ -77,7 +77,7 @@
     <ClInclude Include="ComUtil.h" />
     <ClInclude Include="IAudioBackend.h" />
     <ClInclude Include="DeviceEnumerator.h" />
-    <ClInclude Include="WasapiShared.h" />
+    <ClInclude Include="WasapiStream.h" />
     <ClInclude Include="Engine.h" />
     <ClInclude Include="FormatSpec.h" />
   </ItemGroup>
@@ -86,7 +86,7 @@
     <ClCompile Include="RingBuffer.cpp" />
     <ClCompile Include="WavFile.cpp" />
     <ClCompile Include="DeviceEnumerator.cpp" />
-    <ClCompile Include="WasapiShared.cpp" />
+    <ClCompile Include="WasapiStream.cpp" />
     <ClCompile Include="Engine.cpp" />
     <ClCompile Include="FormatSpec.cpp" />
   </ItemGroup>
