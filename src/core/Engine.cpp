@@ -73,7 +73,8 @@ Result Engine::probeFormat(BackendKind kind, DataFlow flow, const DeviceId& id,
                                ? AUDCLNT_SHAREMODE_EXCLUSIVE : AUDCLNT_SHAREMODE_SHARED;
     WAVEFORMATEXTENSIBLE wfx = fmt.toWaveFormatExtensible();
     WAVEFORMATEX* closest = nullptr;
-    hr = client->IsFormatSupported(sm, reinterpret_cast<WAVEFORMATEX*>(&wfx), &closest);
+    hr = client->IsFormatSupported(sm, reinterpret_cast<WAVEFORMATEX*>(&wfx),
+                                   (sm == AUDCLNT_SHAREMODE_EXCLUSIVE) ? nullptr : &closest);
     if (closest) CoTaskMemFree(closest);
     if (hr == S_OK) return Result::Ok();
     if (hr == S_FALSE) return Result::Fail(1, "format not supported exactly (closest available)");
@@ -108,6 +109,8 @@ Result Engine::startCapture(BackendKind kind, const DeviceId& id, const std::wst
 
 Result Engine::startPlayback(BackendKind kind, const DeviceId& id, const std::wstring& wavPath,
                              const AudioFormat* requested) {
+    if (kind == BackendKind::WasapiExclusive && requested == nullptr)
+        return Result::Fail(-1, "startPlayback: WASAPI-Exclusive requires an explicit format");
     stop();
     try {
         ring_ = std::make_unique<RingBuffer>(kRingBytes);
