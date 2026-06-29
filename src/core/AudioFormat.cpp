@@ -12,8 +12,21 @@ WAVEFORMATEXTENSIBLE AudioFormat::toWaveFormatExtensible() const {
     w.Format.nAvgBytesPerSec = avgBytesPerSec();
     w.Format.cbSize = sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX);
     w.Samples.wValidBitsPerSample = bitsPerSample;
-    w.dwChannelMask = (channels == 1) ? SPEAKER_FRONT_CENTER
-                                      : (SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT);
+    // Standard speaker masks for common channel counts; 0 (unspecified) otherwise.
+    switch (channels) {
+        case 1: w.dwChannelMask = SPEAKER_FRONT_CENTER; break;
+        case 2: w.dwChannelMask = SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT; break;
+        case 4: w.dwChannelMask = SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT
+                                | SPEAKER_BACK_LEFT  | SPEAKER_BACK_RIGHT; break;
+        case 6: w.dwChannelMask = SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT
+                                | SPEAKER_FRONT_CENTER | SPEAKER_LOW_FREQUENCY
+                                | SPEAKER_BACK_LEFT  | SPEAKER_BACK_RIGHT; break;
+        case 8: w.dwChannelMask = SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT
+                                | SPEAKER_FRONT_CENTER | SPEAKER_LOW_FREQUENCY
+                                | SPEAKER_BACK_LEFT  | SPEAKER_BACK_RIGHT
+                                | SPEAKER_SIDE_LEFT  | SPEAKER_SIDE_RIGHT; break;
+        default: w.dwChannelMask = 0; break; // unspecified speaker assignment
+    }
     w.SubFormat = isFloat ? KSDATAFORMAT_SUBTYPE_IEEE_FLOAT
                           : KSDATAFORMAT_SUBTYPE_PCM;
     return w;
