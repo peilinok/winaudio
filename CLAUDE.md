@@ -46,7 +46,7 @@ $MSBuild = "D:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Curr
 & $MSBuild src\core\WinAudioCore.vcxproj /t:Rebuild /p:Configuration=Debug /p:Platform=x64
 
 # 运行单元测试（gtest）
-.\x64\Debug\WinAudioTests.exe                          # 全部测试（22 个）
+.\x64\Debug\WinAudioTests.exe                          # 全部测试（23 个）
 .\x64\Debug\WinAudioTests.exe --gtest_filter=RingBuffer.*  # 筛选指定套件
 
 # ---- CLI 用法 ----
