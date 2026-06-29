@@ -97,9 +97,24 @@ Result WavReader::open(const std::wstring& path) {
             fmt_.channels = ch;
             fmt_.sampleRate = sr;
             fmt_.bitsPerSample = bps;
-            fmt_.isFloat = (fmtTag == 3);
-            // skip any extra fmt bytes
-            if (sz > 16) std::fseek(file_, static_cast<long>(sz - 16), SEEK_CUR);
+            uint32_t consumed = 16;
+            if (fmtTag == 0xFFFE /* WAVE_FORMAT_EXTENSIBLE */ && sz >= 40) {
+                // Layout after the 16 standard bytes: cbSize(2) wValidBitsPerSample(2)
+                // dwChannelMask(4) SubFormat GUID(16). The GUID's Data1 (first 4 bytes)
+                // is 1 for PCM, 3 for IEEE_FLOAT.
+                uint16_t cbSize = 0, validBits = 0;
+                uint32_t channelMask = 0, subData1 = 0;
+                if (!readPod(file_, cbSize) || !readPod(file_, validBits) ||
+                    !readPod(file_, channelMask) || !readPod(file_, subData1)) {
+                    close();
+                    return Result::Fail(-1, "WavReader: bad extensible fmt chunk");
+                }
+                fmt_.isFloat = (subData1 == 3);
+                consumed = 28; // 16 + cbSize(2) + validBits(2) + channelMask(4) + Data1(4)
+            } else {
+                fmt_.isFloat = (fmtTag == 3);
+            }
+            if (sz > consumed) std::fseek(file_, static_cast<long>(sz - consumed), SEEK_CUR);
             haveFmt = true;
         } else if (eq(id, "data")) {
             remaining_ = sz;

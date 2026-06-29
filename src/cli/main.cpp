@@ -118,7 +118,12 @@ int wmain(int argc, wchar_t** argv) {
             if (s.state == EngineState::Idle || s.state == EngineState::Error) break;
             std::printf("\rplaying L=%.2f R=%.2f  ", s.levelL, s.levelR);
         }
+        EngineStatus fin = eng.poll();
         eng.stop();
+        if (fin.state == EngineState::Error) {
+            std::printf("\nplay failed: %s\n", fin.message.c_str());
+            return 2;
+        }
         std::printf("\ndone\n");
         return 0;
     }

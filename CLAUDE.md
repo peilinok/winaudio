@@ -63,6 +63,8 @@ $MSBuild = "D:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Curr
 
 # 格式探测（检测设备是否支持指定格式）
 .\x64\Debug\WinAudioCli.exe probe --format 48000/16/2 [--device <id>] [--render|--capture] [--backend wasapi-shared|wasapi-exclusive]
+# 注：exclusive probe 精确反映独占可用性；shared probe 反映 WASAPI 共享混音器能否转换该格式，
+#     而本工具 shared 采集/播放始终用设备混音格式（不重采样），故 shared 的 SUPPORTED 不代表本工具会按该格式工作。
 
 # ---- GUI（首选） ----
 .\x64\Debug\WinAudioGui.exe

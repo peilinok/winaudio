@@ -56,7 +56,9 @@ std::vector<AudioFormat> defaultExclusiveCaptureCandidates() {
         {48000, 2, 16, false},
         {44100, 2, 16, false},
         {48000, 2, 24, false},
-        {48000, 2, 32, true},
+        {48000, 2, 32, false},  // 32-bit PCM
+        {48000, 2, 32, true},   // 32-bit float
+        {96000, 2, 24, false},
         {48000, 1, 16, false},
     };
 }
