@@ -33,6 +33,8 @@ protected:
     virtual void   runLoop() = 0;         // drain/feed loop; runs while running_
     virtual void   resetService() = 0;    // Reset() the service ComPtr (called from close())
 
+    bool isExclusive() const { return mode_ == WasapiMode::Exclusive; }
+
     // Scaffolding state visible to subclasses.
     RingBuffer* ring_ = nullptr;
     AudioFormat actualFormat_{};

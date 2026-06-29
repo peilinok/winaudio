@@ -237,13 +237,21 @@ void WasapiRenderStream::preRoll() {
 }
 
 void WasapiRenderStream::runLoop() {
+    const bool exclusive = isExclusive();
     std::vector<uint8_t> scratch;
     while (running_.load()) {
         WaitForSingleObject(static_cast<HANDLE>(hEvent_), 200);
-        UINT32 padding = 0;
-        if (FAILED(client_->GetCurrentPadding(&padding))) break;
-        UINT32 frames = bufferFrames_ - padding;
-        if (frames == 0) continue;
+        UINT32 frames;
+        if (exclusive) {
+            // Exclusive event-driven: the whole buffer is refilled on each event;
+            // GetCurrentPadding is not used (it is unreliable in this mode).
+            frames = bufferFrames_;
+        } else {
+            UINT32 padding = 0;
+            if (FAILED(client_->GetCurrentPadding(&padding))) break;
+            frames = bufferFrames_ - padding;
+            if (frames == 0) continue;
+        }
         BYTE* buf = nullptr;
         if (FAILED(render_->GetBuffer(frames, &buf))) break;
         const size_t want = static_cast<size_t>(frames) * frameBytes_;
