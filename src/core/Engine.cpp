@@ -109,14 +109,24 @@ Result Engine::startCapture(BackendKind kind, const DeviceId& id, const std::wst
 
 Result Engine::startPlayback(BackendKind kind, const DeviceId& id, const std::wstring& wavPath,
                              const AudioFormat* requested) {
-    if (kind == BackendKind::WasapiExclusive && requested == nullptr)
-        return Result::Fail(-1, "startPlayback: WASAPI-Exclusive requires an explicit format");
     stop();
     try {
+        // Exclusive playback must run at the WAV file's own format (there is no
+        // resampler); derive it from the file header instead of a UI/CLI value.
+        AudioFormat wavFmt{};
+        const AudioFormat* effReq = requested;
+        if (kind == BackendKind::WasapiExclusive) {
+            WavReader hdr;
+            Result hr = hdr.open(wavPath);
+            if (!hr) return hr;
+            wavFmt = hdr.format();
+            hdr.close();
+            effReq = &wavFmt;
+        }
         ring_ = std::make_unique<RingBuffer>(kRingBytes);
         WasapiMode mode = (kind == BackendKind::WasapiExclusive) ? WasapiMode::Exclusive
                                                                  : WasapiMode::Shared;
-        backend_ = std::make_unique<WasapiRenderStream>(mode, requested);
+        backend_ = std::make_unique<WasapiRenderStream>(mode, effReq);
         Result r = backend_->open(id, AudioFormat{}, ring_.get());
         if (!r) return r;
         running_.store(true);

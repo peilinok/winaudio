@@ -15,8 +15,7 @@ static void usage() {
         "WinAudioCli capture --out <file.wav> [--device <id>] [--seconds N]\n"
         "                    [--backend wasapi-shared|wasapi-exclusive] [--format 48000/16/2]\n"
         "WinAudioCli play    --in  <file.wav> [--device <id>]\n"
-        "                    [--backend wasapi-shared|wasapi-exclusive] [--format 48000/16/2]\n"
-        "                    (--format is REQUIRED for wasapi-exclusive, rejected for shared)\n"
+        "                    [--backend wasapi-shared|wasapi-exclusive]\n"
         "WinAudioCli probe   --format 48000/16/2 [--device <id>] [--render|--capture]\n"
         "                    [--backend wasapi-shared|wasapi-exclusive]\n");
 }
@@ -106,16 +105,12 @@ int wmain(int argc, wchar_t** argv) {
     if (cmd == L"play") {
         std::wstring in = arg(argc, argv, L"--in");
         if (in.empty()) { usage(); return 1; }
-        std::wstring id = arg(argc, argv, L"--device");
-        AudioFormat fmt{};
-        bool haveFmt = formatArg(argc, argv, fmt);
-        if (haveFmt && backendArg(argc, argv) != BackendKind::WasapiExclusive) {
-            std::printf("--format only applies to --backend wasapi-exclusive "
-                        "(shared mode uses the device mix format)\n");
+        if (has(argc, argv, L"--format")) {
+            std::printf("play: --format is not used (the format is read from the WAV file)\n");
             return 2;
         }
-        Result r = eng.startPlayback(backendArg(argc, argv), id, in,
-                                     haveFmt ? &fmt : nullptr);
+        std::wstring id = arg(argc, argv, L"--device");
+        Result r = eng.startPlayback(backendArg(argc, argv), id, in);
         if (!r) { std::printf("play start failed: %s\n", r.message.c_str()); return 2; }
         for (;;) {
             Sleep(100);

@@ -84,7 +84,7 @@ void AppUi::draw(wa::Engine& eng) {
             wa::AudioFormat f{};
             f.sampleRate = kRates[rateIdx_]; f.bitsPerSample = (uint16_t)kBits[bitsIdx_];
             f.channels = (uint16_t)kChans[chIdx_]; f.isFloat = isFloat_;
-            const wa::AudioFormat* req = exclusive ? &f : nullptr;
+            const wa::AudioFormat* req = (exclusive && flowIdx_ == 0) ? &f : nullptr;
             wa::Result r = (flowIdx_ == 0)
                 ? eng.startCapture(kind, id, path, req)
                 : eng.startPlayback(kind, id, path, req);
