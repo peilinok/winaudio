@@ -73,6 +73,7 @@
     <ClInclude Include="Result.h" />
     <ClInclude Include="AudioFormatDef.h" />
     <ClInclude Include="AudioFormat.h" />
+    <ClInclude Include="Fft.h" />
     <ClInclude Include="RingBuffer.h" />
     <ClInclude Include="WavFile.h" />
     <ClInclude Include="ComUtil.h" />
@@ -84,6 +85,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AudioFormat.cpp" />
+    <ClCompile Include="Fft.cpp" />
     <ClCompile Include="RingBuffer.cpp" />
     <ClCompile Include="WavFile.cpp" />
     <ClCompile Include="DeviceEnumerator.cpp" />
