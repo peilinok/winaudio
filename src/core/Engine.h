@@ -11,7 +11,7 @@
 namespace wa {
 
 enum class EngineState { Idle, Capturing, Playing, Error };
-enum class BackendKind { WasapiShared };
+enum class BackendKind { WasapiShared, WasapiExclusive };
 
 struct EngineStatus {
     EngineState state = EngineState::Idle;
@@ -33,8 +33,12 @@ public:
     ~Engine();
 
     std::vector<DeviceInfo> enumerate(DataFlow flow);
-    Result startCapture(BackendKind kind, const DeviceId& id, const std::wstring& wavPath);
-    Result startPlayback(BackendKind kind, const DeviceId& id, const std::wstring& wavPath);
+    Result startCapture(BackendKind kind, const DeviceId& id, const std::wstring& wavPath,
+                        const AudioFormat* requested = nullptr);
+    Result startPlayback(BackendKind kind, const DeviceId& id, const std::wstring& wavPath,
+                         const AudioFormat* requested = nullptr);
+    Result probeFormat(BackendKind kind, DataFlow flow, const DeviceId& id,
+                       const AudioFormat& fmt);
     void   stop();
     EngineStatus poll();
 

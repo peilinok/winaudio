@@ -6,6 +6,8 @@
 #include "WavFile.h"
 #include "DeviceEnumerator.h"
 #include "ComUtil.h"
+#include <mmdeviceapi.h>
+#include <audioclient.h>
 #include <windows.h>
 #include <algorithm>
 #include <cmath>
@@ -50,11 +52,42 @@ std::vector<DeviceInfo> Engine::enumerate(DataFlow flow) {
     return out;
 }
 
-Result Engine::startCapture(BackendKind, const DeviceId& id, const std::wstring& wavPath) {
+Result Engine::probeFormat(BackendKind kind, DataFlow flow, const DeviceId& id,
+                           const AudioFormat& fmt) {
+    ComInitGuard com;
+    ComPtr<IMMDeviceEnumerator> e;
+    HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
+            __uuidof(IMMDeviceEnumerator),
+            reinterpret_cast<void**>(e.GetAddressOf()));
+    if (FAILED(hr)) return HrToResult(hr, "probeFormat: CoCreateInstance");
+    ComPtr<IMMDevice> dev;
+    EDataFlow ef = (flow == DataFlow::Capture) ? eCapture : eRender;
+    hr = id.empty() ? e->GetDefaultAudioEndpoint(ef, eConsole, dev.GetAddressOf())
+                    : e->GetDevice(id.c_str(), dev.GetAddressOf());
+    if (FAILED(hr)) return HrToResult(hr, "probeFormat: GetDevice");
+    ComPtr<IAudioClient> client;
+    hr = dev->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
+            reinterpret_cast<void**>(client.GetAddressOf()));
+    if (FAILED(hr)) return HrToResult(hr, "probeFormat: Activate");
+    AUDCLNT_SHAREMODE sm = (kind == BackendKind::WasapiExclusive)
+                               ? AUDCLNT_SHAREMODE_EXCLUSIVE : AUDCLNT_SHAREMODE_SHARED;
+    WAVEFORMATEXTENSIBLE wfx = fmt.toWaveFormatExtensible();
+    WAVEFORMATEX* closest = nullptr;
+    hr = client->IsFormatSupported(sm, reinterpret_cast<WAVEFORMATEX*>(&wfx), &closest);
+    if (closest) CoTaskMemFree(closest);
+    if (hr == S_OK) return Result::Ok();
+    if (hr == S_FALSE) return Result::Fail(1, "format not supported exactly (closest available)");
+    return HrToResult(hr, "probeFormat: not supported");
+}
+
+Result Engine::startCapture(BackendKind kind, const DeviceId& id, const std::wstring& wavPath,
+                            const AudioFormat* requested) {
     stop();
     try {
         ring_ = std::make_unique<RingBuffer>(kRingBytes);
-        backend_ = std::make_unique<WasapiCaptureStream>(WasapiMode::Shared, nullptr);
+        WasapiMode mode = (kind == BackendKind::WasapiExclusive) ? WasapiMode::Exclusive
+                                                                 : WasapiMode::Shared;
+        backend_ = std::make_unique<WasapiCaptureStream>(mode, requested);
         Result r = backend_->open(id, AudioFormat{}, ring_.get());
         if (!r) return r;
         r = backend_->start();
@@ -73,11 +106,14 @@ Result Engine::startCapture(BackendKind, const DeviceId& id, const std::wstring&
     }
 }
 
-Result Engine::startPlayback(BackendKind, const DeviceId& id, const std::wstring& wavPath) {
+Result Engine::startPlayback(BackendKind kind, const DeviceId& id, const std::wstring& wavPath,
+                             const AudioFormat* requested) {
     stop();
     try {
         ring_ = std::make_unique<RingBuffer>(kRingBytes);
-        backend_ = std::make_unique<WasapiRenderStream>(WasapiMode::Shared, nullptr);
+        WasapiMode mode = (kind == BackendKind::WasapiExclusive) ? WasapiMode::Exclusive
+                                                                 : WasapiMode::Shared;
+        backend_ = std::make_unique<WasapiRenderStream>(mode, requested);
         Result r = backend_->open(id, AudioFormat{}, ring_.get());
         if (!r) return r;
         running_.store(true);
