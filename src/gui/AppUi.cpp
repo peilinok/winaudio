@@ -1,5 +1,6 @@
 #include "AppUi.h"
 #include "imgui.h"
+#include <cfloat>
 #include <string>
 
 static std::string wtou(const std::wstring& w) {
@@ -33,6 +34,8 @@ void AppUi::refreshDevices(wa::Engine& eng) {
 void AppUi::draw(wa::Engine& eng) {
     if (!devicesLoaded_) refreshDevices(eng);
 
+    // Keep the panel wide enough that the format-controls row never clips.
+    ImGui::SetNextWindowSizeConstraints(ImVec2(460.0f, 0.0f), ImVec2(FLT_MAX, FLT_MAX));
     ImGui::Begin("WinAudio");
 
     const char* backends[] = {"WASAPI-Shared", "WASAPI-Exclusive"};
@@ -55,8 +58,11 @@ void AppUi::draw(wa::Engine& eng) {
     }
 
     if (!exclusive) ImGui::BeginDisabled();
+    ImGui::SetNextItemWidth(76.0f);
     ImGui::Combo("Rate", &rateIdx_, kRatesS, IM_ARRAYSIZE(kRatesS)); ImGui::SameLine();
+    ImGui::SetNextItemWidth(50.0f);
     ImGui::Combo("Bits", &bitsIdx_, kBitsS, IM_ARRAYSIZE(kBitsS)); ImGui::SameLine();
+    ImGui::SetNextItemWidth(44.0f);
     ImGui::Combo("Ch", &chIdx_, kChansS, IM_ARRAYSIZE(kChansS)); ImGui::SameLine();
     ImGui::Checkbox("float", &isFloat_);
     if (ImGui::Button("Probe format")) {
