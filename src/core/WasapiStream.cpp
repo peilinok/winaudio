@@ -1,5 +1,6 @@
 #include "WasapiStream.h"
 #include "RingBuffer.h"
+#include "FormatSpec.h"
 #include <system_error>
 #include <cstring>
 
@@ -89,9 +90,49 @@ Result WasapiStream::prepareClient(IMMDevice* dev) {
         if (FAILED(hr)) return HrToResult(hr, "WasapiStream: Initialize(shared)");
         return Result::Ok();
     }
-    // Exclusive: implemented in Task 3.
-    (void)dev;
-    return Result::Fail(-1, "WasapiStream: exclusive mode not implemented");
+    // ---- Exclusive ----
+    // Candidate formats: the explicitly requested one, else (capture only) a fallback list.
+    std::vector<AudioFormat> candidates;
+    if (hasRequested_) candidates.push_back(requestedFormat_);
+    else if (dataFlow() == eCapture) candidates = defaultExclusiveCaptureCandidates();
+    else return Result::Fail(-1, "WasapiStream: exclusive render requires an explicit format");
+
+    int idx = selectSupportedFormat(candidates, [this](const AudioFormat& cand) {
+        WAVEFORMATEXTENSIBLE wfx = cand.toWaveFormatExtensible();
+        return client_->IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE,
+                   reinterpret_cast<WAVEFORMATEX*>(&wfx), nullptr) == S_OK;
+    });
+    if (idx < 0)
+        return Result::Fail(static_cast<long>(AUDCLNT_E_UNSUPPORTED_FORMAT),
+                            "WasapiStream: no supported exclusive format");
+
+    actualFormat_ = candidates[idx];
+    frameBytes_ = actualFormat_.blockAlign();
+
+    REFERENCE_TIME defPer = 0, minPer = 0;
+    client_->GetDevicePeriod(&defPer, &minPer);
+    REFERENCE_TIME dur = minPer;
+
+    WAVEFORMATEXTENSIBLE wfx = actualFormat_.toWaveFormatExtensible();
+    HRESULT hr = client_->Initialize(AUDCLNT_SHAREMODE_EXCLUSIVE,
+                     AUDCLNT_STREAMFLAGS_EVENTCALLBACK, dur, dur,
+                     reinterpret_cast<WAVEFORMATEX*>(&wfx), nullptr);
+    if (hr == AUDCLNT_E_BUFFER_SIZE_NOT_ALIGNED) {
+        UINT32 aligned = 0;
+        client_->GetBufferSize(&aligned);
+        dur = alignedBufferDuration100ns(actualFormat_.sampleRate, aligned);
+        // MSDN: the client must be rebuilt before re-Initializing with the aligned size.
+        client_.Reset();
+        HRESULT hr2 = dev->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
+                          reinterpret_cast<void**>(client_.GetAddressOf()));
+        if (FAILED(hr2)) return HrToResult(hr2, "WasapiStream: exclusive realign Activate");
+        WAVEFORMATEXTENSIBLE wfx2 = actualFormat_.toWaveFormatExtensible();
+        hr = client_->Initialize(AUDCLNT_SHAREMODE_EXCLUSIVE,
+                 AUDCLNT_STREAMFLAGS_EVENTCALLBACK, dur, dur,
+                 reinterpret_cast<WAVEFORMATEX*>(&wfx2), nullptr);
+    }
+    if (FAILED(hr)) return HrToResult(hr, "WasapiStream: Initialize(exclusive)");
+    return Result::Ok();
 }
 
 void WasapiStream::threadMain() {
