@@ -16,6 +16,13 @@ static std::wstring utow(const char* s) {
     return w;
 }
 
+static const int   kRates[] = {44100, 48000, 96000};
+static const char* kRatesS[] = {"44100", "48000", "96000"};
+static const int   kBits[]  = {16, 24, 32};
+static const char* kBitsS[] = {"16", "24", "32"};
+static const int   kChans[] = {1, 2};
+static const char* kChansS[]= {"1", "2"};
+
 void AppUi::refreshDevices(wa::Engine& eng) {
     wa::DataFlow flow = (flowIdx_ == 0) ? wa::DataFlow::Capture : wa::DataFlow::Render;
     devices_ = eng.enumerate(flow);
@@ -28,8 +35,9 @@ void AppUi::draw(wa::Engine& eng) {
 
     ImGui::Begin("WinAudio");
 
-    const char* backends[] = {"WASAPI-Shared"};
-    ImGui::Combo("Backend", &backendIdx_, backends, 1);
+    const char* backends[] = {"WASAPI-Shared", "WASAPI-Exclusive"};
+    ImGui::Combo("Backend", &backendIdx_, backends, 2);
+    const bool exclusive = (backendIdx_ == 1);
 
     int prevFlow = flowIdx_;
     ImGui::RadioButton("Capture", &flowIdx_, 0); ImGui::SameLine();
@@ -46,6 +54,22 @@ void AppUi::draw(wa::Engine& eng) {
         ImGui::EndListBox();
     }
 
+    if (!exclusive) ImGui::BeginDisabled();
+    ImGui::Combo("Rate", &rateIdx_, kRatesS, IM_ARRAYSIZE(kRatesS)); ImGui::SameLine();
+    ImGui::Combo("Bits", &bitsIdx_, kBitsS, IM_ARRAYSIZE(kBitsS)); ImGui::SameLine();
+    ImGui::Combo("Ch", &chIdx_, kChansS, IM_ARRAYSIZE(kChansS)); ImGui::SameLine();
+    ImGui::Checkbox("float", &isFloat_);
+    if (ImGui::Button("Probe format")) {
+        wa::AudioFormat f{};
+        f.sampleRate = kRates[rateIdx_]; f.bitsPerSample = (uint16_t)kBits[bitsIdx_];
+        f.channels = (uint16_t)kChans[chIdx_]; f.isFloat = isFloat_;
+        wa::DeviceId id = devices_.empty() ? L"" : devices_[deviceIdx_].id;
+        wa::DataFlow flow = (flowIdx_ == 0) ? wa::DataFlow::Capture : wa::DataFlow::Render;
+        wa::Result pr = eng.probeFormat(wa::BackendKind::WasapiExclusive, flow, id, f);
+        logLines_.push_back(std::string("probe ") + (pr ? "SUPPORTED" : "NOT SUPPORTED: " + pr.message));
+    }
+    if (!exclusive) ImGui::EndDisabled();
+
     ImGui::InputText("WAV file", wavPath_, sizeof(wavPath_));
 
     wa::EngineStatus st = eng.poll();
@@ -55,9 +79,15 @@ void AppUi::draw(wa::Engine& eng) {
         if (ImGui::Button("Start")) {
             wa::DeviceId id = devices_.empty() ? L"" : devices_[deviceIdx_].id;
             std::wstring path = utow(wavPath_);
+            wa::BackendKind kind = exclusive ? wa::BackendKind::WasapiExclusive
+                                             : wa::BackendKind::WasapiShared;
+            wa::AudioFormat f{};
+            f.sampleRate = kRates[rateIdx_]; f.bitsPerSample = (uint16_t)kBits[bitsIdx_];
+            f.channels = (uint16_t)kChans[chIdx_]; f.isFloat = isFloat_;
+            const wa::AudioFormat* req = exclusive ? &f : nullptr;
             wa::Result r = (flowIdx_ == 0)
-                ? eng.startCapture(wa::BackendKind::WasapiShared, id, path)
-                : eng.startPlayback(wa::BackendKind::WasapiShared, id, path);
+                ? eng.startCapture(kind, id, path, req)
+                : eng.startPlayback(kind, id, path, req);
             logLines_.push_back(r ? "started" : ("error: " + r.message));
         }
     } else {
