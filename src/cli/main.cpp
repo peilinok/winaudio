@@ -1,17 +1,23 @@
 #include <cstdio>
+#include <cstdlib>
 #include <string>
 #include <vector>
 #include "Engine.h"
 #include "DeviceEnumerator.h"
 #include "ComUtil.h"
+#include "FormatSpec.h"
 
 using namespace wa;
 
 static void usage() {
     std::printf(
-        "WinAudioCli list [--render|--capture]\n"
+        "WinAudioCli list  [--render|--capture]\n"
         "WinAudioCli capture --out <file.wav> [--device <id>] [--seconds N]\n"
-        "WinAudioCli play    --in  <file.wav> [--device <id>]\n");
+        "                    [--backend wasapi-shared|wasapi-exclusive] [--format 48000/16/2]\n"
+        "WinAudioCli play    --in  <file.wav> [--device <id>]\n"
+        "                    [--backend wasapi-shared|wasapi-exclusive]\n"
+        "WinAudioCli probe   --format 48000/16/2 [--device <id>] [--render|--capture]\n"
+        "                    [--backend wasapi-shared|wasapi-exclusive]\n");
 }
 
 static std::wstring arg(int argc, wchar_t** argv, const wchar_t* key) {
@@ -22,6 +28,28 @@ static std::wstring arg(int argc, wchar_t** argv, const wchar_t* key) {
 static bool has(int argc, wchar_t** argv, const wchar_t* key) {
     for (int i = 1; i < argc; ++i) if (std::wcscmp(argv[i], key) == 0) return true;
     return false;
+}
+
+static std::string narrow(const std::wstring& w) {
+    std::string s;
+    s.reserve(w.size());
+    for (wchar_t c : w) s += static_cast<char>(c); // format spec is ASCII
+    return s;
+}
+static BackendKind backendArg(int argc, wchar_t** argv) {
+    std::wstring b = arg(argc, argv, L"--backend");
+    return (b == L"wasapi-exclusive") ? BackendKind::WasapiExclusive
+                                      : BackendKind::WasapiShared;
+}
+// Returns true and fills `fmt` if --format present & valid; false if absent; exits(2) if invalid.
+static bool formatArg(int argc, wchar_t** argv, AudioFormat& fmt) {
+    std::wstring f = arg(argc, argv, L"--format");
+    if (f.empty()) return false;
+    if (!parseFormatSpec(narrow(f), fmt)) {
+        std::printf("invalid --format (want R/B/C[f], e.g. 48000/16/2)\n");
+        std::exit(2);
+    }
+    return true;
 }
 
 int wmain(int argc, wchar_t** argv) {
@@ -52,7 +80,10 @@ int wmain(int argc, wchar_t** argv) {
         std::wstring id = arg(argc, argv, L"--device");
         std::wstring secStr = arg(argc, argv, L"--seconds");
         int seconds = secStr.empty() ? 5 : _wtoi(secStr.c_str());
-        Result r = eng.startCapture(BackendKind::WasapiShared, id, out);
+        AudioFormat fmt{};
+        bool haveFmt = formatArg(argc, argv, fmt);
+        Result r = eng.startCapture(backendArg(argc, argv), id, out,
+                                    haveFmt ? &fmt : nullptr);
         if (!r) { std::printf("capture start failed: %s\n", r.message.c_str()); return 2; }
         for (int i = 0; i < seconds * 10; ++i) {
             Sleep(100);
@@ -70,7 +101,10 @@ int wmain(int argc, wchar_t** argv) {
         std::wstring in = arg(argc, argv, L"--in");
         if (in.empty()) { usage(); return 1; }
         std::wstring id = arg(argc, argv, L"--device");
-        Result r = eng.startPlayback(BackendKind::WasapiShared, id, in);
+        AudioFormat fmt{};
+        bool haveFmt = formatArg(argc, argv, fmt);
+        Result r = eng.startPlayback(backendArg(argc, argv), id, in,
+                                     haveFmt ? &fmt : nullptr);
         if (!r) { std::printf("play start failed: %s\n", r.message.c_str()); return 2; }
         for (;;) {
             Sleep(100);
@@ -81,6 +115,16 @@ int wmain(int argc, wchar_t** argv) {
         eng.stop();
         std::printf("\ndone\n");
         return 0;
+    }
+
+    if (cmd == L"probe") {
+        AudioFormat fmt{};
+        if (!formatArg(argc, argv, fmt)) { usage(); return 1; }
+        std::wstring id = arg(argc, argv, L"--device");
+        DataFlow flow = has(argc, argv, L"--capture") ? DataFlow::Capture : DataFlow::Render;
+        Result r = eng.probeFormat(backendArg(argc, argv), flow, id, fmt);
+        std::printf("%s: %s\n", r ? "SUPPORTED" : "NOT SUPPORTED", r.message.c_str());
+        return r ? 0 : 1;
     }
 
     usage();
