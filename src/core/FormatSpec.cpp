@@ -1,24 +1,36 @@
-#define _CRT_SECURE_NO_WARNINGS
 #include "FormatSpec.h"
-#include <cstdio>
-#include <cstdlib>
+#include <charconv>
 
 namespace wa {
 
 bool parseFormatSpec(const std::string& spec, AudioFormat& out) {
-    // <rate>/<bits>/<ch> with optional trailing 'f' on bits meaning float.
+    const char* p = spec.data();
+    const char* end = p + spec.size();
+
     unsigned rate = 0, bits = 0, ch = 0;
-    char tail = 0;
-    // sscanf returns the count of matched fields; require rate/bits/ch.
-    int n = std::sscanf(spec.c_str(), "%u/%u/%u%c", &rate, &bits, &ch, &tail);
-    if (n < 3) return false;
+    // from_chars rejects a leading sign/space for unsigned and gives an end pointer,
+    // so we can enforce strict structure and full-string consumption.
+    auto r1 = std::from_chars(p, end, rate);
+    if (r1.ec != std::errc() || r1.ptr == end || *r1.ptr != '/') return false;
+    p = r1.ptr + 1;
+    auto r2 = std::from_chars(p, end, bits);
+    if (r2.ec != std::errc() || r2.ptr == end || *r2.ptr != '/') return false;
+    p = r2.ptr + 1;
+    auto r3 = std::from_chars(p, end, ch);
+    if (r3.ec != std::errc()) return false;
+    p = r3.ptr;
+
     bool isFloat = false;
-    if (n == 4) {
-        if (tail == 'f' || tail == 'F') isFloat = true;
-        else return false; // any other trailing char is malformed
+    if (p != end) {
+        // The only permitted trailing character is a single 'f'/'F'.
+        if ((*p == 'f' || *p == 'F') && (p + 1) == end) isFloat = true;
+        else return false; // trailing garbage
     }
-    if (rate == 0 || ch == 0 || (bits != 8 && bits != 16 && bits != 24 && bits != 32))
-        return false;
+
+    if (rate == 0 || rate > 768000) return false;
+    if (ch == 0 || ch > 8) return false;
+    if (bits != 8 && bits != 16 && bits != 24 && bits != 32) return false;
+
     out.sampleRate = rate;
     out.bitsPerSample = static_cast<uint16_t>(bits);
     out.channels = static_cast<uint16_t>(ch);

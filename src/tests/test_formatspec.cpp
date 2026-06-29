@@ -26,8 +26,7 @@ TEST(FormatSpec, RejectsMalformed) {
 }
 
 TEST(FormatSpec, AlignedDurationFormula) {
-    // 10000.0 * 1000 / 48000 * 480 + 0.5 = 100000 (100ms in 100ns units = 1,000,000? )
-    // For 48000 Hz and 480 frames (10ms): 10000*1000/48000*480 = 100000 (100ns units) = 10 ms. round.
+    // 480 frames @ 48kHz = 10 ms = 100000 in 100-ns units.
     long long d = alignedBufferDuration100ns(48000, 480);
     EXPECT_EQ(d, 100000); // 10 ms in 100-ns units
 }
@@ -47,4 +46,13 @@ TEST(FormatSpec, CaptureCandidatesNonEmpty) {
     ASSERT_FALSE(c.empty());
     EXPECT_EQ(c.front().sampleRate, 48000u); // 48k/16/2 first
     EXPECT_EQ(c.front().bitsPerSample, 16);
+}
+
+TEST(FormatSpec, RejectsSignTrailingAndOutOfRange) {
+    AudioFormat f{};
+    EXPECT_FALSE(parseFormatSpec("-48000/16/2", f));    // leading sign
+    EXPECT_FALSE(parseFormatSpec("48000/16/70000", f)); // channels out of range
+    EXPECT_FALSE(parseFormatSpec("48000/32/2ff", f));   // trailing garbage after f
+    EXPECT_FALSE(parseFormatSpec("48000/16/2 ", f));    // trailing space
+    EXPECT_FALSE(parseFormatSpec("48000/16/2x", f));    // trailing junk
 }
