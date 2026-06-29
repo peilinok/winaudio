@@ -52,20 +52,17 @@ $MSBuild = "D:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Curr
 # ---- CLI 用法 ----
 
 # 枚举设备
-WinAudioCli list [--render|--capture]
+.\x64\Debug\WinAudioCli.exe list [--render|--capture]
 
-# 采集（Shared 默认；Exclusive 需指定 --format）
-WinAudioCli capture --out <file.wav> [--seconds N] [--device <id>] \
-            [--backend wasapi-shared|wasapi-exclusive] [--format 48000/16/2]
+# 采集（Shared 默认用设备混音格式；Exclusive 可用 --format 指定，省略时自动从候选列表协商）
+.\x64\Debug\WinAudioCli.exe capture --out <file.wav> [--seconds N] [--device <id>] [--backend wasapi-shared|wasapi-exclusive] [--format 48000/16/2]
 # 注：--format 仅对 wasapi-exclusive 有效；用于 shared 后端时报错退出。
 
 # 播放（格式从 WAV 文件头读取；不接受 --format）
-WinAudioCli play --in <file.wav> [--device <id>] \
-            [--backend wasapi-shared|wasapi-exclusive]
+.\x64\Debug\WinAudioCli.exe play --in <file.wav> [--device <id>] [--backend wasapi-shared|wasapi-exclusive]
 
 # 格式探测（检测设备是否支持指定格式）
-WinAudioCli probe --format 48000/16/2 [--device <id>] [--render|--capture] \
-            [--backend wasapi-shared|wasapi-exclusive]
+.\x64\Debug\WinAudioCli.exe probe --format 48000/16/2 [--device <id>] [--render|--capture] [--backend wasapi-shared|wasapi-exclusive]
 
 # ---- GUI（首选） ----
 .\x64\Debug\WinAudioGui.exe
