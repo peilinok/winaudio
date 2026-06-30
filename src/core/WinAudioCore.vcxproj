@@ -88,6 +88,7 @@
     <ClInclude Include="FormatSpec.h" />
     <ClInclude Include="ScopeBuffer.h" />
     <ClInclude Include="Analysis.h" />
+    <ClInclude Include="MonitorEngine.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DelayFifo.cpp" />
@@ -100,6 +101,7 @@
     <ClCompile Include="WasapiStream.cpp" />
     <ClCompile Include="Engine.cpp" />
     <ClCompile Include="FormatSpec.cpp" />
+    <ClCompile Include="MonitorEngine.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
