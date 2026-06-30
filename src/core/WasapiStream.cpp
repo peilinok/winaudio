@@ -187,6 +187,9 @@ WasapiCaptureStream::WasapiCaptureStream(WasapiMode mode, const AudioFormat* req
 WasapiCaptureStream::~WasapiCaptureStream() { close(); }
 
 Result WasapiCaptureStream::start() {
+    // Already running: the base start() is idempotent (returns Ok without relaunching).
+    // Do NOT rebuild pumpEvent_ here, or a pump already waiting on the prior handle breaks.
+    if (running_.load(std::memory_order_acquire)) return WasapiStream::start();
     if (pumpEvent_) { CloseHandle(static_cast<HANDLE>(pumpEvent_)); pumpEvent_ = nullptr; }
     pumpEvent_ = CreateEventW(nullptr, FALSE, FALSE, nullptr);
     if (!pumpEvent_) {
