@@ -84,6 +84,7 @@
     <ClCompile Include="test_wavfile.cpp" />
     <ClCompile Include="test_formatspec.cpp" />
     <ClCompile Include="test_scopebuffer.cpp" />
+    <ClCompile Include="test_analysis.cpp" />
     <ClCompile Include="$(SolutionDir)third_party\googletest\googletest\src\gtest-all.cc">
       <AdditionalIncludeDirectories>$(SolutionDir)third_party\googletest\googletest\include;$(SolutionDir)third_party\googletest\googletest;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
