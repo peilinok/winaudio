@@ -36,3 +36,9 @@ TEST(SampleConvert, PeakLevel) {
     float x[4] = {0.1f,-0.5f,0.3f,-0.2f};
     EXPECT_NEAR(peakLevel(x,4), 0.5f, 1e-6f);
 }
+TEST(SampleConvert, FloatToPcmInt32ClampsOverflow) {
+    AudioFormat f{48000,1,32,false};
+    float over[2] = {2.0f, -2.0f};                 // out of range -> must clamp, no impl-defined surprise
+    int32_t out[2]; floatToPcm(over, 2, f, reinterpret_cast<uint8_t*>(out));
+    EXPECT_EQ(out[0], INT32_MAX); EXPECT_EQ(out[1], INT32_MIN);
+}

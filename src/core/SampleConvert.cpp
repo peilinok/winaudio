@@ -89,7 +89,7 @@ void floatToPcm(const float* inInterleaved, size_t frames, const AudioFormat& f,
             p += 3;
         } else if (f.bitsPerSample == 32) {
             int64_t s = static_cast<int64_t>(
-                std::lround(static_cast<double>(x) * 2147483648.0));
+                std::llround(static_cast<double>(x) * 2147483648.0));
             s = std::clamp(s,
                 static_cast<int64_t>(-2147483648LL),
                 static_cast<int64_t>( 2147483647LL));
