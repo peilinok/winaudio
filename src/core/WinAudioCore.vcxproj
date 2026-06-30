@@ -49,6 +49,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Lib>
       <OutputFile>$(OutDir)WinAudioCore.lib</OutputFile>
@@ -64,12 +65,14 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Lib>
       <OutputFile>$(OutDir)WinAudioCore.lib</OutputFile>
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="DelayFifo.h" />
     <ClInclude Include="Result.h" />
     <ClInclude Include="AudioFormatDef.h" />
     <ClInclude Include="AudioFormat.h" />
@@ -86,6 +89,7 @@
     <ClInclude Include="ScopeBuffer.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="DelayFifo.cpp" />
     <ClCompile Include="AudioFormat.cpp" />
     <ClCompile Include="Fft.cpp" />
     <ClCompile Include="RingBuffer.cpp" />
