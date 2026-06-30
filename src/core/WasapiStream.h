@@ -65,6 +65,9 @@ class WasapiCaptureStream : public WasapiStream {
 public:
     WasapiCaptureStream(WasapiMode mode, const AudioFormat* requested);
     ~WasapiCaptureStream() override;
+    Result start() override;   // creates pumpEvent_ alongside hEvent_
+    void   close() override;   // closes pumpEvent_ after thread join
+    void*  dataReadyEvent() const override { return pumpEvent_; }
 protected:
     EDataFlow dataFlow() const override { return eCapture; }
     Result createService() override;
@@ -72,6 +75,7 @@ protected:
     void   resetService() override { capture_.Reset(); }
 private:
     ComPtr<IAudioCaptureClient> capture_;
+    void* pumpEvent_ = nullptr; // auto-reset event; signaled after each ring write
 };
 
 class WasapiRenderStream : public WasapiStream {

@@ -186,6 +186,23 @@ WasapiCaptureStream::WasapiCaptureStream(WasapiMode mode, const AudioFormat* req
 
 WasapiCaptureStream::~WasapiCaptureStream() { close(); }
 
+Result WasapiCaptureStream::start() {
+    if (pumpEvent_) { CloseHandle(static_cast<HANDLE>(pumpEvent_)); pumpEvent_ = nullptr; }
+    pumpEvent_ = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+    if (!pumpEvent_) {
+        return Result::Fail(static_cast<long>(GetLastError()),
+                            "WasapiCaptureStream::start: CreateEventW failed");
+    }
+    Result r = WasapiStream::start();
+    if (!r) { CloseHandle(static_cast<HANDLE>(pumpEvent_)); pumpEvent_ = nullptr; }
+    return r;
+}
+
+void WasapiCaptureStream::close() {
+    WasapiStream::close(); // stop() + join + close hEvent_ + resetService + client_.Reset()
+    if (pumpEvent_) { CloseHandle(static_cast<HANDLE>(pumpEvent_)); pumpEvent_ = nullptr; }
+}
+
 Result WasapiCaptureStream::createService() {
     HRESULT hr = client_->GetService(__uuidof(IAudioCaptureClient),
             reinterpret_cast<void**>(capture_.GetAddressOf()));
@@ -206,8 +223,10 @@ void WasapiCaptureStream::runLoop() {
                 static thread_local std::vector<uint8_t> zeros;
                 zeros.assign(bytes, 0);
                 ring_->write(zeros.data(), bytes);
+                if (pumpEvent_) SetEvent(static_cast<HANDLE>(pumpEvent_));
             } else if (data) {
                 ring_->write(data, bytes);
+                if (pumpEvent_) SetEvent(static_cast<HANDLE>(pumpEvent_));
             }
             capture_->ReleaseBuffer(frames);
         }

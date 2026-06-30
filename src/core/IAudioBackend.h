@@ -34,6 +34,10 @@ public:
     virtual void   stop() = 0;
     virtual void   close() = 0;
     virtual BackendStats stats() const = 0;
+
+    // Auto-reset event a monitor pump can wait on; signaled after each capture ring write.
+    // nullptr if the backend provides no such signal (default).
+    virtual void* dataReadyEvent() const { return nullptr; }
 };
 
 } // namespace wa
