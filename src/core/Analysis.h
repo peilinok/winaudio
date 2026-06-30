@@ -4,8 +4,7 @@
 namespace wa {
 // Advance analysis by fixed sample-count hops, decoupled from caller frame rate.
 // nextEndIdx==0 means "not started"; it is pre-seeded to (windowSize - hop) so the
-// first emit lands exactly at windowSize. Between calls, nextEndIdx holds the hop
-// boundary AFTER the last processed frame (i.e. the next frame to emit is at nextEndIdx).
+// first emit lands exactly at windowSize. Between calls, nextEndIdx holds the LAST emitted boundary (the next emission is at nextEndIdx + hop).
 // If more than maxCatchup hops are pending (caller fell far behind), FAST-FORWARD
 // nextEndIdx to skip stale hops, so it never spins through a huge backlog.
 // Returns the number of frames processed (onFrame calls).
@@ -33,8 +32,6 @@ size_t advanceAnalysis(uint64_t written, uint64_t& nextEndIdx, size_t windowSize
         onFrame(nextEndIdx);       // emit at new boundary
         ++processed;
     }
-    // Advance past the last processed frame so the next call resumes correctly.
-    nextEndIdx += uHop;
     return processed;
 }
 } // namespace wa
