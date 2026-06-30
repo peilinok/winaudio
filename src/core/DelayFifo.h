@@ -23,6 +23,7 @@ public:
     size_t   fillFrames()        const;  // instantaneous occupancy (frames)
     double   lowpassFillFrames() const;  // EMA-smoothed occupancy
     uint64_t driftFixes()        const;  // count of drop/dup corrections
+    size_t   targetFrames()      const { return targetFrames_; }
 
 private:
     size_t channels_;
@@ -41,7 +42,7 @@ private:
     std::vector<float> lastFrame_;  // last frame written to caller (channels floats)
 
     static constexpr double kAlpha           = 0.05;
-    static constexpr size_t kCrossFadeFrames = 32;
+    static constexpr size_t kCrossFadeFrames = 32;  // frames (32 samples mono, 64 stereo, etc.)
 };
 
 } // namespace wa
