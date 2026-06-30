@@ -83,6 +83,7 @@
     <ClInclude Include="WasapiStream.h" />
     <ClInclude Include="Engine.h" />
     <ClInclude Include="FormatSpec.h" />
+    <ClInclude Include="ScopeBuffer.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AudioFormat.cpp" />
