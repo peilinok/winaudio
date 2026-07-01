@@ -1,6 +1,8 @@
 #include "AppUi.h"
 #include "imgui.h"
 #include "implot.h"
+#include "Fft.h"
+#include "Analysis.h"
 #include <cfloat>
 #include <string>
 
@@ -225,6 +227,42 @@ void AppUi::drawMonitor(bool exclusive) {
             ImPlot::SetupAxes("s", "amp", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_None);
             ImPlot::SetupAxisLimits(ImAxis_Y1, -1.0, 1.0, ImGuiCond_Always);
             if (okR) ImPlot::PlotLine("ren", waveX_.data(), renderWave_.data(), n);
+            ImPlot::EndPlot();
+        }
+
+        // --- Frequency-domain spectrum curves (2048 Hann FFT, dBFS, log-X) ---
+        const size_t kWin = 2048, kHop = 512, kCatch = 8;
+        if (ms.sampleRate != specSr_) {                 // rebuild scratch + x-axis on rate change only
+            specSr_ = ms.sampleRate;
+            workCap_.resize(kWin); workRender_.resize(kWin); specWin_.resize(kWin);
+            freqAxis_.resize(kWin / 2 + 1);
+            for (size_t k = 0; k < freqAxis_.size(); ++k)
+                freqAxis_[k] = (float)((double)k * ms.sampleRate / kWin);   // bin k center freq (Hz)
+        }
+        uint64_t se = 0;
+        wa::advanceAnalysis(monitor_.capWritten(), nextCapEnd_, kWin, kHop, kCatch, [&](uint64_t){
+            if (monitor_.snapshotCapture(kWin, specWin_.data(), se))
+                wa::magnitudeSpectrumDb(specWin_.data(), kWin, workCap_.data(), magCap_);
+        });
+        wa::advanceAnalysis(monitor_.renderWritten(), nextRenderEnd_, kWin, kHop, kCatch, [&](uint64_t){
+            if (monitor_.snapshotRender(kWin, specWin_.data(), se))
+                wa::magnitudeSpectrumDb(specWin_.data(), kWin, workRender_.data(), magRender_);
+        });
+
+        if (ImPlot::BeginPlot("Capture spectrum", ImVec2(-1, 140))) {
+            ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Log10);
+            ImPlot::SetupAxisLimits(ImAxis_X1, 20.0, ms.sampleRate / 2.0, ImGuiCond_Always);
+            ImPlot::SetupAxisLimits(ImAxis_Y1, -96.0, 0.0, ImGuiCond_Always);
+            if (magCap_.size() > 1)                       // skip bin 0 (DC) -- undefined on log-X
+                ImPlot::PlotLine("cap", freqAxis_.data() + 1, magCap_.data() + 1, (int)magCap_.size() - 1);
+            ImPlot::EndPlot();
+        }
+        if (ImPlot::BeginPlot("Render spectrum", ImVec2(-1, 140))) {
+            ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Log10);
+            ImPlot::SetupAxisLimits(ImAxis_X1, 20.0, ms.sampleRate / 2.0, ImGuiCond_Always);
+            ImPlot::SetupAxisLimits(ImAxis_Y1, -96.0, 0.0, ImGuiCond_Always);
+            if (magRender_.size() > 1)
+                ImPlot::PlotLine("ren", freqAxis_.data() + 1, magRender_.data() + 1, (int)magRender_.size() - 1);
             ImPlot::EndPlot();
         }
     }

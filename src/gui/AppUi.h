@@ -1,4 +1,5 @@
 #pragma once
+#include <complex>
 #include <string>
 #include <vector>
 #include "Engine.h"
@@ -38,4 +39,11 @@ private:
     std::vector<float> capWave_, renderWave_, waveX_;  // reused each frame; no per-frame alloc
     uint32_t waveSr_ = 0;   // sample rate the buffers/x-axis were built for
     int      waveN_  = 0;   // window length in samples
+
+    // Spectrum analysis state (2048 Hann FFT, dBFS)
+    std::vector<std::complex<float>> workCap_, workRender_;  // FFT scratch (size 2048)
+    std::vector<float> specWin_;                             // 2048-sample snapshot window (reused)
+    std::vector<float> magCap_, magRender_, freqAxis_;       // mag* auto-sized by magnitudeSpectrumDb
+    uint64_t nextCapEnd_ = 0, nextRenderEnd_ = 0;            // advanceAnalysis cadence state
+    uint32_t specSr_ = 0;                                    // sr the freqAxis_/work bufs were built for
 };
