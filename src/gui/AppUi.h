@@ -35,4 +35,7 @@ private:
     int  capDevIdx_ = 0, renderDevIdx_ = 0;
     int  delayMs_ = 100;
     bool monitorStarted_ = false;
+    std::vector<float> capWave_, renderWave_, waveX_;  // reused each frame; no per-frame alloc
+    uint32_t waveSr_ = 0;   // sample rate the buffers/x-axis were built for
+    int      waveN_  = 0;   // window length in samples
 };

@@ -1,5 +1,6 @@
 #include "AppUi.h"
 #include "imgui.h"
+#include "implot.h"
 #include <cfloat>
 #include <string>
 
@@ -199,4 +200,32 @@ void AppUi::drawMonitor(bool exclusive) {
         (unsigned long long)ms.capXruns, (unsigned long long)ms.renderXruns);
     ImGui::ProgressBar(ms.capLevel,    ImVec2(-1, 0), "cap");
     ImGui::ProgressBar(ms.renderLevel, ImVec2(-1, 0), "ren");
+
+    // --- Time-domain waveforms (capture + delayed render), 50 ms window ---
+    if (monitorStarted_ && ms.sampleRate > 0) {
+        int n = (int)(0.05 * ms.sampleRate);           // 50 ms
+        if (n < 1) n = 1;
+        if (ms.sampleRate != waveSr_ || n != waveN_) { // rebuild only when rate/window changes
+            waveSr_ = ms.sampleRate; waveN_ = n;
+            capWave_.assign(n, 0.0f); renderWave_.assign(n, 0.0f);
+            waveX_.resize(n);
+            for (int i = 0; i < n; ++i) waveX_[i] = (float)i / (float)ms.sampleRate; // seconds
+        }
+        uint64_t endC = 0, endR = 0;
+        bool okC = monitor_.snapshotCapture((size_t)n, capWave_.data(),    endC);
+        bool okR = monitor_.snapshotRender ((size_t)n, renderWave_.data(), endR);
+
+        if (ImPlot::BeginPlot("Capture waveform", ImVec2(-1, 120))) {
+            ImPlot::SetupAxes("s", "amp", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_None);
+            ImPlot::SetupAxisLimits(ImAxis_Y1, -1.0, 1.0, ImGuiCond_Always);
+            if (okC) ImPlot::PlotLine("cap", waveX_.data(), capWave_.data(), n);
+            ImPlot::EndPlot();
+        }
+        if (ImPlot::BeginPlot("Render waveform (delayed)", ImVec2(-1, 120))) {
+            ImPlot::SetupAxes("s", "amp", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_None);
+            ImPlot::SetupAxisLimits(ImAxis_Y1, -1.0, 1.0, ImGuiCond_Always);
+            if (okR) ImPlot::PlotLine("ren", waveX_.data(), renderWave_.data(), n);
+            ImPlot::EndPlot();
+        }
+    }
 }
