@@ -39,48 +39,55 @@ Phase 1 实现了 **WASAPI-Shared 采集/播放**；Phase 2 新增了 **WASAPI-E
 
 ## 构建与运行
 
+本项目使用 **CMake**（Visual Studio 17 2022 生成器，保留 MSVC），命令行/批处理驱动，产物集中在 `build/`。
+
 ```powershell
-# msbuild 不在 PATH 中；使用 VS 2022 安装路径
-$MSBuild = "D:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe"
+# 构建（默认 Release；可传 Debug；--clean 先清后建）
+.\build.bat Debug
+.\build.bat Release
+.\build.bat Release --clean
 
-# Debug 构建
-& $MSBuild WinAudio.sln /p:Configuration=Debug /p:Platform=x64 /m
+# 运行测试（ctest，56 个）
+.\test.bat Debug          # 或 .\test.bat Release
+# 也可直接跑测试 exe：
+.\build\bin\Debug\WinAudioTests.exe
+.\build\bin\Debug\WinAudioTests.exe --gtest_filter=MonitorEngine.*
 
-# Release 构建
-& $MSBuild WinAudio.sln /p:Configuration=Release /p:Platform=x64 /m
+# 清理
+.\clean.bat
 
-# 单个工程重建（例如仅核心库）
-& $MSBuild src\core\WinAudioCore.vcxproj /t:Rebuild /p:Configuration=Debug /p:Platform=x64
+# 也可直接用 CMake / preset：
+cmake --preset vs2022
+cmake --build build --config Release -j
+```
 
-# 运行单元测试（gtest）
-.\x64\Debug\WinAudioTests.exe                          # 全部测试（55 个）
-# 测试套件：RingBuffer、AudioFormat、WavFile、FormatSpec、WasapiStream、
-#           Fft、SampleConvert、ScopeBuffer、DelayFifo、Analysis、MonitorEngine、Spectrogram
-.\x64\Debug\WinAudioTests.exe --gtest_filter=RingBuffer.*  # 筛选指定套件
+产物：`build\bin\<Config>\{WinAudioCli,WinAudioGui,WinAudioTests}.exe`、`build\lib\<Config>\WinAudioCore.lib`。
+若 `cmake` 不在 PATH，用 VS 自带的：`D:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin`。
 
+```powershell
 # ---- CLI 用法 ----
 
 # 枚举设备
-.\x64\Debug\WinAudioCli.exe list [--render|--capture]
+.\build\bin\Debug\WinAudioCli.exe list [--render|--capture]
 
 # 采集（Shared 默认用设备混音格式；Exclusive 可用 --format 指定，省略时自动从候选列表协商）
-.\x64\Debug\WinAudioCli.exe capture --out <file.wav> [--seconds N] [--device <id>] [--backend wasapi-shared|wasapi-exclusive] [--format 48000/16/2]
+.\build\bin\Debug\WinAudioCli.exe capture --out <file.wav> [--seconds N] [--device <id>] [--backend wasapi-shared|wasapi-exclusive] [--format 48000/16/2]
 # 注：--format 仅对 wasapi-exclusive 有效；用于 shared 后端时报错退出。
 
 # 播放（格式从 WAV 文件头读取；不接受 --format）
-.\x64\Debug\WinAudioCli.exe play --in <file.wav> [--device <id>] [--backend wasapi-shared|wasapi-exclusive]
+.\build\bin\Debug\WinAudioCli.exe play --in <file.wav> [--device <id>] [--backend wasapi-shared|wasapi-exclusive]
 
 # 格式探测（检测设备是否支持指定格式）
-.\x64\Debug\WinAudioCli.exe probe --format 48000/16/2 [--device <id>] [--render|--capture] [--backend wasapi-shared|wasapi-exclusive]
+.\build\bin\Debug\WinAudioCli.exe probe --format 48000/16/2 [--device <id>] [--render|--capture] [--backend wasapi-shared|wasapi-exclusive]
 # 注：exclusive probe 精确反映独占可用性；shared probe 反映 WASAPI 共享混音器能否转换该格式，
 #     而本工具 shared 采集/播放始终用设备混音格式（不重采样），故 shared 的 SUPPORTED 不代表本工具会按该格式工作。
 
 # 双流延迟监听（capture → delay → render，打印 cap/ren 状态、sr、fifo ms、drift、xrun）
-.\x64\Debug\WinAudioCli.exe monitor [--cap <id>] [--render <id>] [--delay-ms N] [--seconds N] [--backend wasapi-shared|wasapi-exclusive]
+.\build\bin\Debug\WinAudioCli.exe monitor [--cap <id>] [--render <id>] [--delay-ms N] [--seconds N] [--backend wasapi-shared|wasapi-exclusive]
 # 注：--cap 与 --render 设备的采样率须一致，否则报错退出。
 
 # ---- GUI（首选） ----
-.\x64\Debug\WinAudioGui.exe
+.\build\bin\Debug\WinAudioGui.exe
 # GUI 含后端选择器（Shared / Exclusive）；选 Exclusive 时，Rate/Bits/Ch/float 控件
 # 与"Probe format"按钮会启用（用于 capture 与 probe；playback 自动使用 WAV 格式）。
 # Monitor 模式：选择采集/播放设备后点击 Start，可查看采集和播放两路的时域波形、
