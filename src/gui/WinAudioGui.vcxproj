@@ -80,6 +80,7 @@
   <ItemGroup>
     <ClCompile Include="AppUi.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Spectrogram.cpp" />
   </ItemGroup>
   <!-- Dear ImGui core sources — warnings suppressed per-file -->
   <ItemGroup>

@@ -232,21 +232,26 @@ void AppUi::drawMonitor(bool exclusive) {
 
         // --- Frequency-domain spectrum curves (2048 Hann FFT, dBFS, log-X) ---
         const size_t kWin = 2048, kHop = 512, kCatch = 8;
+        const int kRows = 128, kCols = 200;
         if (ms.sampleRate != specSr_) {                 // rebuild scratch + x-axis on rate change only
             specSr_ = ms.sampleRate;
             workCap_.resize(kWin); workRender_.resize(kWin); specWin_.resize(kWin);
             freqAxis_.resize(kWin / 2 + 1);
             for (size_t k = 0; k < freqAxis_.size(); ++k)
                 freqAxis_[k] = (float)((double)k * ms.sampleRate / kWin);   // bin k center freq (Hz)
+            capSpec_    = std::make_unique<wa::Spectrogram>(kRows, kCols, 20.0, ms.sampleRate / 2.0, ms.sampleRate);
+            renderSpec_ = std::make_unique<wa::Spectrogram>(kRows, kCols, 20.0, ms.sampleRate / 2.0, ms.sampleRate);
         }
         uint64_t se = 0;
         wa::advanceAnalysis(monitor_.capWritten(), nextCapEnd_, kWin, kHop, kCatch, [&](uint64_t){
             if (monitor_.snapshotCapture(kWin, specWin_.data(), se))
                 wa::magnitudeSpectrumDb(specWin_.data(), kWin, workCap_.data(), magCap_);
+            capSpec_->pushColumn(magCap_);
         });
         wa::advanceAnalysis(monitor_.renderWritten(), nextRenderEnd_, kWin, kHop, kCatch, [&](uint64_t){
             if (monitor_.snapshotRender(kWin, specWin_.data(), se))
                 wa::magnitudeSpectrumDb(specWin_.data(), kWin, workRender_.data(), magRender_);
+            renderSpec_->pushColumn(magRender_);
         });
 
         if (ImPlot::BeginPlot("Capture spectrum", ImVec2(-1, 140))) {
@@ -265,5 +270,22 @@ void AppUi::drawMonitor(bool exclusive) {
                 ImPlot::PlotLine("ren", freqAxis_.data() + 1, magRender_.data() + 1, (int)magRender_.size() - 1);
             ImPlot::EndPlot();
         }
+
+        // --- Scrolling log-frequency spectrograms (heatmap, Viridis) ---
+        const double histSec = (double)kCols * 512.0 / ms.sampleRate; // cols * hop / sr
+        ImPlot::PushColormap(ImPlotColormap_Viridis);
+        if (capSpec_ && ImPlot::BeginPlot("Capture spectrogram", ImVec2(-1, 160))) {
+            ImPlot::PlotHeatmap("cap", capSpec_->data(), capSpec_->rows(), capSpec_->cols(),
+                -96.0, 0.0, nullptr,
+                ImPlotPoint(0, capSpec_->fmin()), ImPlotPoint(histSec, capSpec_->fmax()));
+            ImPlot::EndPlot();
+        }
+        if (renderSpec_ && ImPlot::BeginPlot("Render spectrogram", ImVec2(-1, 160))) {
+            ImPlot::PlotHeatmap("ren", renderSpec_->data(), renderSpec_->rows(), renderSpec_->cols(),
+                -96.0, 0.0, nullptr,
+                ImPlotPoint(0, renderSpec_->fmin()), ImPlotPoint(histSec, renderSpec_->fmax()));
+            ImPlot::EndPlot();
+        }
+        ImPlot::PopColormap();
     }
 }

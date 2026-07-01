@@ -1,9 +1,11 @@
 #pragma once
 #include <complex>
+#include <memory>
 #include <string>
 #include <vector>
 #include "Engine.h"
 #include "MonitorEngine.h"
+#include "Spectrogram.h"
 
 class AppUi {
 public:
@@ -46,4 +48,7 @@ private:
     std::vector<float> magCap_, magRender_, freqAxis_;       // mag* auto-sized by magnitudeSpectrumDb
     uint64_t nextCapEnd_ = 0, nextRenderEnd_ = 0;            // advanceAnalysis cadence state
     uint32_t specSr_ = 0;                                    // sr the freqAxis_/work bufs were built for
+
+    // Scrolling log-frequency spectrograms (Monitor mode only)
+    std::unique_ptr<wa::Spectrogram> capSpec_, renderSpec_;
 };
