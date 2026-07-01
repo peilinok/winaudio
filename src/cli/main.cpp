@@ -6,6 +6,7 @@
 #include "DeviceEnumerator.h"
 #include "ComUtil.h"
 #include "FormatSpec.h"
+#include "MonitorEngine.h"
 
 using namespace wa;
 
@@ -17,7 +18,18 @@ static void usage() {
         "WinAudioCli play    --in  <file.wav> [--device <id>]\n"
         "                    [--backend wasapi-shared|wasapi-exclusive]\n"
         "WinAudioCli probe   --format 48000/16/2 [--device <id>] [--render|--capture]\n"
+        "                    [--backend wasapi-shared|wasapi-exclusive]\n"
+        "WinAudioCli monitor [--cap <id>] [--render <id>] [--delay-ms N] [--seconds N]\n"
         "                    [--backend wasapi-shared|wasapi-exclusive]\n");
+}
+
+static const char* stateStr(wa::StreamState st) {
+    switch (st) {
+    case wa::StreamState::Idle:    return "Idle";
+    case wa::StreamState::Running: return "Running";
+    case wa::StreamState::Error:   return "Error";
+    default:                       return "?";
+    }
 }
 
 static std::wstring arg(int argc, wchar_t** argv, const wchar_t* key) {
@@ -136,6 +148,36 @@ int wmain(int argc, wchar_t** argv) {
         Result r = eng.probeFormat(backendArg(argc, argv), flow, id, fmt);
         std::printf("%s: %s\n", r ? "SUPPORTED" : "NOT SUPPORTED", r.message.c_str());
         return r ? 0 : 1;
+    }
+
+    if (cmd == L"monitor") {
+        std::wstring capId    = arg(argc, argv, L"--cap");
+        std::wstring renderId = arg(argc, argv, L"--render");
+        std::wstring delayStr = arg(argc, argv, L"--delay-ms");
+        std::wstring secStr   = arg(argc, argv, L"--seconds");
+        uint32_t delayMs = delayStr.empty() ? 100 : static_cast<uint32_t>(_wtoi(delayStr.c_str()));
+        int seconds      = secStr.empty()   ? 5   : _wtoi(secStr.c_str());
+
+        wa::MonitorEngine mon;
+        wa::Result r = mon.start(backendArg(argc, argv), capId, renderId, delayMs);
+        if (!r) { std::printf("monitor start failed: %s\n", r.message.c_str()); return 2; }
+        for (int i = 0; i < seconds * 5; ++i) {
+            Sleep(200);
+            wa::MonitorStatus s = mon.poll();
+            std::printf("\rcap=%s ren=%s  sr=%u  fifo=%.0fms  drift=%llu  xrun c/r=%llu/%llu   ",
+                stateStr(s.capState), stateStr(s.renderState), s.sampleRate,
+                s.fifoFillMs, (unsigned long long)s.driftFixes,
+                (unsigned long long)s.capXruns, (unsigned long long)s.renderXruns);
+            std::fflush(stdout);
+            if (s.overall == wa::StreamState::Error) {
+                std::printf("\nerr=%u\n", s.errorCode);
+                mon.stop();
+                return 2;
+            }
+        }
+        mon.stop();
+        std::printf("\ndone\n");
+        return 0;
     }
 
     usage();
