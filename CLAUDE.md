@@ -14,6 +14,8 @@ WinAudio 是一个小巧的 Windows 音频测试工具，用于对系统音频�
 
 Phase 1 实现了 **WASAPI-Shared 采集/播放**；Phase 2 新增了 **WASAPI-Exclusive（独占模式，低延迟）**；Phase 3 新增了**双流延迟监听直通（MonitorEngine）与实时 GUI 可视化（波形 + 频谱 + 声谱图）**。waveIn/waveOut 与格式转换/重采样留作后续阶段。
 
+**构建系统已迁移到 CMake（已完成）**：从手写 MSBuild（`.sln`/`.vcxproj`）迁移到 CMake（Visual Studio 17 2022 生成器，保留 MSVC；`build.bat`/`test.bat` 驱动，产物集中在 `build/`），零 C++ 源码改动。详见「技术选型」「构建与运行」。
+
 ## 技术选型
 
 - 语言/构建：**C++ + CMake**（Visual Studio 17 2022 生成器，保留 MSVC v143）；工程文件（`.sln`/`.vcxproj`）由 CMake 生成到 `build/`，命令行/批处理（`build.bat`）驱动，不依赖 VS IDE。
