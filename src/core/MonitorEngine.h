@@ -30,6 +30,7 @@ enum class MonitorError : uint32_t {
     RenderStart,
     RateMismatch,
     PumpLaunch,
+    InvalidDelay,
 };
 
 struct MonitorStatus {
@@ -117,6 +118,7 @@ private:
     std::atomic<uint64_t>    driftFixes_{0};
     std::atomic<uint64_t>    capXruns_{0};
     std::atomic<uint64_t>    renderXruns_{0};
+    std::atomic<uint64_t>    renderDropped_{0};
     std::atomic<float>       capLevel_{0.f};
     std::atomic<float>       renderLevel_{0.f};
     std::atomic<uint32_t>    errorCode_{0};

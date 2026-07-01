@@ -155,7 +155,9 @@ int wmain(int argc, wchar_t** argv) {
         std::wstring renderId = arg(argc, argv, L"--render");
         std::wstring delayStr = arg(argc, argv, L"--delay-ms");
         std::wstring secStr   = arg(argc, argv, L"--seconds");
-        uint32_t delayMs = delayStr.empty() ? 100 : static_cast<uint32_t>(_wtoi(delayStr.c_str()));
+        int dms = delayStr.empty() ? 100 : _wtoi(delayStr.c_str());
+        if (dms < 0) dms = 0;
+        uint32_t delayMs = static_cast<uint32_t>(dms);
         int seconds      = secStr.empty()   ? 5   : _wtoi(secStr.c_str());
 
         wa::MonitorEngine mon;

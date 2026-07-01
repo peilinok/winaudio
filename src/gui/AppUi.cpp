@@ -182,7 +182,10 @@ void AppUi::drawMonitor(bool exclusive) {
                                             : wa::BackendKind::WasapiShared;
             wa::Result r = monitor_.start(kind, capId, renId, (uint32_t)delayMs_);
             logLines_.push_back(r ? "monitor started" : ("monitor error: " + r.message));
-            if (r) monitorStarted_ = true;
+            if (r) {
+                monitorStarted_ = true;
+                nextCapEnd_ = 0; nextRenderEnd_ = 0; specSr_ = 0; waveSr_ = 0;
+            }
         }
     } else {
         if (ImGui::Button("Stop")) {
@@ -244,14 +247,16 @@ void AppUi::drawMonitor(bool exclusive) {
         }
         uint64_t se = 0;
         wa::advanceAnalysis(monitor_.capWritten(), nextCapEnd_, kWin, kHop, kCatch, [&](uint64_t){
-            if (monitor_.snapshotCapture(kWin, specWin_.data(), se))
+            if (monitor_.snapshotCapture(kWin, specWin_.data(), se)) {
                 wa::magnitudeSpectrumDb(specWin_.data(), kWin, workCap_.data(), magCap_);
-            capSpec_->pushColumn(magCap_);
+                capSpec_->pushColumn(magCap_);
+            }
         });
         wa::advanceAnalysis(monitor_.renderWritten(), nextRenderEnd_, kWin, kHop, kCatch, [&](uint64_t){
-            if (monitor_.snapshotRender(kWin, specWin_.data(), se))
+            if (monitor_.snapshotRender(kWin, specWin_.data(), se)) {
                 wa::magnitudeSpectrumDb(specWin_.data(), kWin, workRender_.data(), magRender_);
-            renderSpec_->pushColumn(magRender_);
+                renderSpec_->pushColumn(magRender_);
+            }
         });
 
         if (ImPlot::BeginPlot("Capture spectrum", ImVec2(-1, 140))) {

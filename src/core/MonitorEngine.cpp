@@ -74,12 +74,20 @@ Result MonitorEngine::start(BackendKind kind, const DeviceId& capId, const Devic
     driftFixes_.store(0, std::memory_order_relaxed);
     capXruns_.store(0, std::memory_order_relaxed);
     renderXruns_.store(0, std::memory_order_relaxed);
+    renderDropped_.store(0, std::memory_order_relaxed);
     capLevel_.store(0.f, std::memory_order_relaxed);
     renderLevel_.store(0.f, std::memory_order_relaxed);
     prefilled_.store(false, std::memory_order_relaxed);
     sampleRate_.store(0, std::memory_order_relaxed);
     delayMsAtomic_.store(0, std::memory_order_relaxed);
     renderBufMs_.store(0, std::memory_order_relaxed);
+
+    // Upper-bound guard: a pathologically large delayMs causes DelayFifo to allocate
+    // GBs of memory and throw std::bad_alloc (violates no-throw public API contract).
+    if (delayMs > 10000u)
+        return rollback(StreamState::Error, MonitorError::InvalidDelay,
+                        static_cast<long>(MonitorError::InvalidDelay),
+                        "MonitorEngine: delayMs exceeds maximum (10000 ms)");
 
     // --- Capture: build -> open -> start (its actualFormat is valid after start) ---
     captureRing_ = std::make_unique<RingBuffer>(kRingBytes);
@@ -231,8 +239,10 @@ void MonitorEngine::pumpLoop() {
                     const size_t freeBytes = renderRing_->availableWrite();
                     const size_t safeBytes = (std::min(wantBytes, freeBytes) / renderFrameBytes) * renderFrameBytes;
                     renderRing_->write(renderBytes_.data(), safeBytes);
+                    renderDropped_.fetch_add((wantBytes - safeBytes) / renderFrameBytes,
+                                            std::memory_order_relaxed);
                     // safeBytes <= freeBytes, so RingBuffer::write never truncates mid-frame; the
-                    // remaining wantBytes-safeBytes frames are dropped (rendered as an overrun).
+                    // remaining wantBytes-safeBytes frames are dropped and counted in renderDropped_.
                 }
             }
         }
@@ -244,7 +254,8 @@ void MonitorEngine::pumpLoop() {
         driftFixes_.store(delayFifo_->driftFixes(), std::memory_order_relaxed);
         capXruns_.store(captureRing_->overruns(), std::memory_order_relaxed);
         if (prefilled_.load(std::memory_order_relaxed))
-            renderXruns_.store(renderRing_->overruns(), std::memory_order_relaxed);
+            renderXruns_.store(renderDropped_.load(std::memory_order_relaxed),
+                               std::memory_order_relaxed);
     }
 }
 

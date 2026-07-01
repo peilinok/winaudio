@@ -247,3 +247,17 @@ TEST(MonitorEngine, StopJoinsCleanly) {
     eng.stop();
     EXPECT_EQ(eng.poll().overall, StreamState::Idle);
 }
+
+TEST(MonitorEngine, InvalidDelayRejected) {
+    // delayMs = 999999 vastly exceeds the 10-s cap; must return Fail without
+    // throwing (core no-throw-across-public-API contract).
+    FakeRig rig; // matching cap/render rates (48000/2/16 both)
+    MonitorEngine eng(rig.factory());
+
+    Result r = eng.start(BackendKind::WasapiShared, L"", L"", 999999u);
+
+    EXPECT_FALSE(static_cast<bool>(r));
+    MonitorStatus st = eng.poll();
+    EXPECT_EQ(st.overall, StreamState::Error);
+    EXPECT_EQ(st.errorCode, static_cast<uint32_t>(MonitorError::InvalidDelay));
+}
