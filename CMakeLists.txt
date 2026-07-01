@@ -28,4 +28,4 @@ add_subdirectory(third_party)
 add_subdirectory(src/core)
 add_subdirectory(src/cli)
 add_subdirectory(src/gui)
-# Tasks 3-4 each append one add_subdirectory line below (src/gui, src/tests).
+add_subdirectory(src/tests)
