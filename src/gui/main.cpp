@@ -91,9 +91,8 @@ int main(int, char**)
     // Our state
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
-    // WinAudio: UI and engine
+    // WinAudio: UI (owns both engine and monitor engine)
     static AppUi ui;
-    static wa::Engine engine;
 
     // Main loop
     bool done = false;
@@ -135,7 +134,7 @@ int main(int, char**)
         ImGui::NewFrame();
 
         // WinAudio: draw the application UI
-        ui.draw(engine);
+        ui.draw();
 
         // Rendering
         ImGui::Render();
@@ -150,8 +149,8 @@ int main(int, char**)
         g_SwapChainOccluded = (hr == DXGI_STATUS_OCCLUDED);
     }
 
-    // WinAudio: stop the engine so worker threads are joined before teardown
-    engine.stop();
+    // WinAudio: stop both engines so worker threads are joined before teardown
+    ui.stopAll();
 
     // Cleanup
     ImGui_ImplDX11_Shutdown();
