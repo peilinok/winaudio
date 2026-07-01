@@ -77,6 +77,9 @@ Result MonitorEngine::start(BackendKind kind, const DeviceId& capId, const Devic
     capLevel_.store(0.f, std::memory_order_relaxed);
     renderLevel_.store(0.f, std::memory_order_relaxed);
     prefilled_.store(false, std::memory_order_relaxed);
+    sampleRate_.store(0, std::memory_order_relaxed);
+    delayMsAtomic_.store(0, std::memory_order_relaxed);
+    renderBufMs_.store(0, std::memory_order_relaxed);
 
     // --- Capture: build -> open -> start (its actualFormat is valid after start) ---
     captureRing_ = std::make_unique<RingBuffer>(kRingBytes);
@@ -101,6 +104,9 @@ Result MonitorEngine::start(BackendKind kind, const DeviceId& capId, const Devic
                         "MonitorEngine: render factory returned null");
     if (Result r = renderBackend_->open(renderId, AudioFormat{}, renderRing_.get()); !r)
         return rollback(StreamState::Idle, MonitorError::RenderOpen, r.code, r.message);
+    // NOTE: render starts before the DelayFifo prefill. During prefill the render ring
+    // is empty and WasapiRenderStream zero-fills (silence = the intended delay). Benign on
+    // shared mode; exclusive-mode tolerance is verified on hardware in Task 9 (CLI monitor).
     if (Result r = renderBackend_->start(); !r)
         return rollback(StreamState::Idle, MonitorError::RenderStart, r.code, r.message);
     renderState_.store(StreamState::Running, std::memory_order_relaxed);
@@ -218,8 +224,15 @@ void MonitorEngine::pumpLoop() {
 
                     adaptChannels(popBuf_.data(), capCh, renderAdapt_.data(), renderCh, popped);
                     floatToPcm(renderAdapt_.data(), popped, renderFmt_, renderBytes_.data());
-                    // tryWrite: a short write means the render ring overran.
-                    renderRing_->write(renderBytes_.data(), popped * renderFrameBytes);
+                    // Frame-aligned write: clamp to available space in whole-frame units so
+                    // RingBuffer::write never truncates mid-frame (kRingBytes % renderFrameBytes
+                    // may be non-zero). Excess frames are dropped as a render overrun.
+                    const size_t wantBytes = static_cast<size_t>(popped) * renderFrameBytes;
+                    const size_t freeBytes = renderRing_->availableWrite();
+                    const size_t safeBytes = (std::min(wantBytes, freeBytes) / renderFrameBytes) * renderFrameBytes;
+                    renderRing_->write(renderBytes_.data(), safeBytes);
+                    // safeBytes <= freeBytes, so RingBuffer::write never truncates mid-frame; the
+                    // remaining wantBytes-safeBytes frames are dropped (rendered as an overrun).
                 }
             }
         }
