@@ -26,4 +26,5 @@ enable_testing()
 
 add_subdirectory(third_party)
 add_subdirectory(src/core)
-# Tasks 2-4 each append one add_subdirectory line below (src/cli, src/gui, src/tests).
+add_subdirectory(src/cli)
+# Tasks 3-4 each append one add_subdirectory line below (src/gui, src/tests).
