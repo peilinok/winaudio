@@ -16,7 +16,7 @@ Phase 1 实现了 **WASAPI-Shared 采集/播放**；Phase 2 新增了 **WASAPI-E
 
 ## 技术选型
 
-- 语言/构建：**C++ + MSBuild**，Visual Studio 解决方案（`WinAudio.sln`）+ 工程（`.vcxproj`）。
+- 语言/构建：**C++ + CMake**（Visual Studio 17 2022 生成器，保留 MSVC v143）；工程文件（`.sln`/`.vcxproj`）由 CMake 生成到 `build/`，命令行/批处理（`build.bat`）驱动，不依赖 VS IDE。
 - 形态：**CLI + GUI**；ImGui + DX11 为主交互，CLI 为轻量辅助。
 - 能力范围（已实现）：
   - **WASAPI-Shared**：`IAudioClient` 采集与播放，共享模式（多应用可并行使用设备，格式由设备混音格式决定）。
