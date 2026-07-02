@@ -187,8 +187,30 @@ void AppUi::drawChartsColumn() {
         }
     }
 
-    for (int id : chartOrder_)
+    for (int pos = 0; pos < (int)chartOrder_.size(); ++pos) {
+        int id = chartOrder_[pos];
+        ImGui::PushID(pos);
+        ImGui::Button("\xe2\x98\xb0");                       // drag handle (☰ U+2630)
+        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
+            ImGui::SetDragDropPayload("CHART_POS", &pos, sizeof(int));
+            ImGui::TextUnformatted(chartTitle(id));
+            ImGui::EndDragDropSource();
+        }
+        ImGui::SameLine(); ImGui::TextUnformatted(chartTitle(id));
         drawChartPanel(id);
+        if (ImGui::BeginDragDropTarget()) {
+            if (const ImGuiPayload* pl = ImGui::AcceptDragDropPayload("CHART_POS")) {
+                int from = *(const int*)pl->Data;
+                if (from != pos) {
+                    int moved = chartOrder_[from];
+                    chartOrder_.erase(chartOrder_.begin() + from);
+                    chartOrder_.insert(chartOrder_.begin() + pos, moved);
+                }
+            }
+            ImGui::EndDragDropTarget();
+        }
+        ImGui::PopID();
+    }
 }
 
 void AppUi::drawChartPanel(int id) {
