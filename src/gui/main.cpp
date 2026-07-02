@@ -1,5 +1,5 @@
 // Dear ImGui: standalone example application for DirectX 11
-// Adapted for WinAudio: drives wa::Engine via AppUi.
+// Adapted for WinAudio: runs the AppUi frame loop (monitor-only, driven by wa::MonitorEngine).
 
 // Learn about Dear ImGui:
 // - FAQ                  https://dearimgui.com/faq

@@ -9,7 +9,7 @@ WinAudio 是一个小巧的 Windows 音频测试工具，用于对系统音频�
 **Phase 3 已完成。** 当前代码库包含 4 个项目：
 - **WinAudioCore**（`src/core`）：纯 C++ 静态库，零外部依赖（仅 Win32 + STL）；提供后端抽象（`IAudioBackend`）、设备枚举（`DeviceEnumerator`）、WASAPI-Shared/Exclusive 采集/播放、WAV 读写、环形缓冲区（RingBuffer）、引擎（Engine）、双流延迟监听（MonitorEngine、DelayFifo）、FFT 分析（Fft、SampleConvert、ScopeBuffer、Analysis）。
 - **WinAudioCli**（`src/cli`）：最小化命令行前端，支持 `list` / `capture` / `play` / `probe` / `monitor` 子命令。
-- **WinAudioGui**（`src/gui`）：Dear ImGui + DX11 GUI 前端，为首选交互方式；含后端选择器（Shared/Exclusive）与格式控件，以及 **Monitor 模式**（时域波形 + log-X dBFS 频谱曲线 + 滚动 log 频率声谱图，对标 Audition 可视化风格）。
+- **WinAudioGui**（`src/gui`）：Dear ImGui + DX11 GUI 前端，为首选交互方式；**恒监听**（monitor-only），两列布局（左列：设备/控制/状态/日志；右列：波形+频谱+声谱图，可拖拽重排），"同步播放" checkbox 实时控制 render 流。
 - **WinAudioTests**（`src/tests`）：gtest 单元测试套件，覆盖核心模块（RingBuffer、AudioFormat、WAV、FormatSpec、WasapiStream 辅助函数、Fft、SampleConvert、ScopeBuffer、DelayFifo、Analysis、MonitorEngine、Spectrogram）。
 
 Phase 1 实现了 **WASAPI-Shared 采集/播放**；Phase 2 新增了 **WASAPI-Exclusive（独占模式，低延迟）**；Phase 3 新增了**双流延迟监听直通（MonitorEngine）与实时 GUI 可视化（波形 + 频谱 + 声谱图）**。waveIn/waveOut 与格式转换/重采样留作后续阶段。
@@ -90,10 +90,12 @@ cmake --build build --config Release -j
 
 # ---- GUI（首选） ----
 .\build\bin\Debug\WinAudioGui.exe
-# GUI 含后端选择器（Shared / Exclusive）；选 Exclusive 时，Rate/Bits/Ch/float 控件
-# 与"Probe format"按钮会启用（用于 capture 与 probe；playback 自动使用 WAV 格式）。
-# Monitor 模式：选择采集/播放设备后点击 Start，可查看采集和播放两路的时域波形、
-# log-X dBFS 频谱曲线（~1 kHz 全幅正弦波峰值约 0 dBFS）、滚动 log 频率声谱图；
+# GUI 为恒监听（monitor-only），无 Capture/Playback/Monitor 模式切换。
+# 两列布局：左列 = 设备 / 控制（含"同步播放" checkbox）/ 状态 / 日志；
+#           右列 = 波形 + 频谱 + 声谱图（可拖拽重排）。
+# "同步播放" checkbox：勾选 → 启动 render 流实时直通（采样率须与采集设备一致）；
+#                     取消勾选 → 停止 render 流并释放设备。
+# 选择采集设备后点击 Start，实时显示时域波形、log-X dBFS 频谱曲线、滚动 log 频率声谱图；
 # 状态行实时显示 fifo ms / drift，方便观察跨设备时钟漂移情况。
 ```
 
