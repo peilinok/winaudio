@@ -80,6 +80,7 @@ struct FakeRig {
 
     std::atomic<bool> capStopped{false};
     std::atomic<bool> renderStopped{false};
+    std::atomic<int>  renderOpenCount{0};  // increments each time render factory is called
     FakeBackend*      capPtr    = nullptr;
     FakeBackend*      renderPtr = nullptr;
 
@@ -90,6 +91,8 @@ struct FakeRig {
                 capPtr  = b.get();
                 return b;
             }
+            renderOpenCount.fetch_add(1, std::memory_order_relaxed);
+            renderStopped.store(false, std::memory_order_relaxed); // reset for each new backend
             auto b    = std::make_unique<FakeBackend>(renderFmt, renderFailStart, &renderStopped);
             renderPtr = b.get();
             return b;
@@ -136,6 +139,7 @@ TEST(MonitorEngine, RateMismatchFails) {
     EXPECT_NE(st.overall, StreamState::Running);
     EXPECT_EQ(st.overall, StreamState::Error);
     EXPECT_EQ(st.errorCode, static_cast<uint32_t>(MonitorError::RateMismatch));
+    EXPECT_EQ(st.capState, StreamState::Idle); // capture rolled back
     // Clean rollback: both fakes were stopped.
     EXPECT_TRUE(rig.capStopped.load());
     EXPECT_TRUE(rig.renderStopped.load());
@@ -148,9 +152,10 @@ TEST(MonitorEngine, PrefillThenRunning) {
     const uint32_t delayMs = 50;
     ASSERT_TRUE(static_cast<bool>(eng.start(BackendKind::WasapiShared, L"", L"", delayMs)));
 
-    // Before any capture data: not Running yet, and renderXruns not counted.
+    // overall is Running immediately after capture starts (not gated on prefill anymore).
+    // During the render prefill phase renderXruns must not be inflated.
     MonitorStatus st0 = eng.poll();
-    EXPECT_NE(st0.overall, StreamState::Running);
+    EXPECT_EQ(st0.overall, StreamState::Running);
     EXPECT_EQ(st0.renderXruns, 0u);
     ASSERT_NE(rig.capPtr, nullptr);
 
@@ -217,7 +222,7 @@ TEST(MonitorEngine, StartRollbackOnRenderFail) {
 
     EXPECT_FALSE(static_cast<bool>(r));
     MonitorStatus st = eng.poll();
-    EXPECT_EQ(st.overall, StreamState::Idle); // clean rollback to Idle
+    EXPECT_EQ(st.overall, StreamState::Error); // engage failure -> Error (capture rolled back)
     EXPECT_EQ(st.errorCode, static_cast<uint32_t>(MonitorError::RenderStart));
     EXPECT_TRUE(rig.capStopped.load()) << "capture backend must be stopped on rollback";
 }
@@ -260,4 +265,115 @@ TEST(MonitorEngine, InvalidDelayRejected) {
     MonitorStatus st = eng.poll();
     EXPECT_EQ(st.overall, StreamState::Error);
     EXPECT_EQ(st.errorCode, static_cast<uint32_t>(MonitorError::InvalidDelay));
+}
+
+// ---------------------------------------------------------------------------
+// Task 1 new tests: runtime playback toggle
+// ---------------------------------------------------------------------------
+
+TEST(MonitorEngine, PlaybackStartsDisabled) {
+    FakeRig rig; // 48000/2/16 both
+    MonitorEngine eng(rig.factory());
+
+    ASSERT_TRUE(static_cast<bool>(eng.start(BackendKind::WasapiShared, L"", L"", 50, false)));
+
+    // Render factory must NOT have been called.
+    EXPECT_EQ(rig.renderOpenCount.load(), 0);
+
+    MonitorStatus st = eng.poll();
+    EXPECT_EQ(st.capState, StreamState::Running);
+    EXPECT_EQ(st.overall, StreamState::Running);
+    EXPECT_EQ(st.renderState, StreamState::Idle);
+
+    eng.stop();
+}
+
+TEST(MonitorEngine, EnablePlaybackEngagesRender) {
+    FakeRig rig; // 48000/2/16 both
+    MonitorEngine eng(rig.factory());
+
+    ASSERT_TRUE(static_cast<bool>(eng.start(BackendKind::WasapiShared, L"", L"", 50, false)));
+    ASSERT_EQ(rig.renderOpenCount.load(), 0); // no render at start
+
+    // Enable playback and wake the pump with capture data.
+    eng.setPlaybackEnabled(true);
+
+    std::vector<int16_t> ramp(1024, 42);
+    auto pcm = makeRampPcm(ramp, rig.capFmt.channels);
+    ASSERT_NE(rig.capPtr, nullptr);
+    rig.capPtr->pushPcm(pcm.data(), pcm.size());
+
+    ASSERT_TRUE(waitFor([&] { return eng.poll().renderState == StreamState::Running; }))
+        << "renderState never reached Running after setPlaybackEnabled(true)";
+    EXPECT_GT(rig.renderOpenCount.load(), 0) << "render factory must have been called";
+    EXPECT_EQ(eng.poll().overall, StreamState::Running) << "capture must still be running";
+
+    eng.stop();
+}
+
+TEST(MonitorEngine, DisablePlaybackStopsRender) {
+    FakeRig rig; // 48000/2/16 both
+    MonitorEngine eng(rig.factory());
+
+    // Start with playback enabled; render is engaged synchronously in start().
+    ASSERT_TRUE(static_cast<bool>(eng.start(BackendKind::WasapiShared, L"", L"", 50, true)));
+    // renderState is set to Running in engageRender() before pump launch.
+    ASSERT_EQ(eng.poll().renderState, StreamState::Running);
+
+    // Push data to drive the pump, then disable playback.
+    ASSERT_NE(rig.capPtr, nullptr);
+    std::vector<int16_t> ramp(1024, 7);
+    auto pcm = makeRampPcm(ramp, rig.capFmt.channels);
+    rig.capPtr->pushPcm(pcm.data(), pcm.size());
+
+    eng.setPlaybackEnabled(false);
+    // Wake pump again so it observes wantPlayback_=false.
+    rig.capPtr->pushPcm(pcm.data(), pcm.size());
+
+    ASSERT_TRUE(waitFor([&] { return eng.poll().renderState == StreamState::Idle; }))
+        << "renderState never reached Idle after setPlaybackEnabled(false)";
+    EXPECT_TRUE(rig.renderStopped.load()) << "render stop() must have been called on disengage";
+
+    MonitorStatus st = eng.poll();
+    EXPECT_EQ(st.overall, StreamState::Running) << "capture must still be running after disengage";
+
+    // snapshotRender must not crash: renderScope_ is session-lifetime even when disengaged.
+    float buf[16] = {};
+    uint64_t endIdx = 0;
+    eng.snapshotRender(16, buf, endIdx); // must not crash (returns false/stale when idle)
+
+    eng.stop();
+}
+
+TEST(MonitorEngine, EnablePlaybackRateMismatch) {
+    FakeRig rig;
+    rig.capFmt    = {48000, 2, 16, false};
+    rig.renderFmt = {44100, 2, 16, false}; // mismatch
+
+    MonitorEngine eng(rig.factory());
+
+    // Start with playback disabled (skips synchronous engage -> capture succeeds).
+    ASSERT_TRUE(static_cast<bool>(eng.start(BackendKind::WasapiShared, L"", L"", 50, false)));
+    EXPECT_EQ(eng.poll().capState, StreamState::Running);
+
+    // Enable playback; pump will try engageRender() and detect rate mismatch.
+    eng.setPlaybackEnabled(true);
+
+    ASSERT_NE(rig.capPtr, nullptr);
+    std::vector<int16_t> ramp(1024, 3);
+    auto pcm = makeRampPcm(ramp, rig.capFmt.channels);
+    rig.capPtr->pushPcm(pcm.data(), pcm.size());
+
+    ASSERT_TRUE(waitFor([&] {
+        MonitorStatus s = eng.poll();
+        return s.renderState == StreamState::Error || s.renderState == StreamState::Running;
+    })) << "pump never settled render state after mismatch";
+
+    MonitorStatus st = eng.poll();
+    EXPECT_EQ(st.renderState, StreamState::Error);
+    EXPECT_EQ(st.errorCode, static_cast<uint32_t>(MonitorError::RateMismatch));
+    EXPECT_EQ(st.capState, StreamState::Running) << "capture must continue after render engage failure";
+    EXPECT_EQ(st.overall, StreamState::Running);
+
+    eng.stop();
 }

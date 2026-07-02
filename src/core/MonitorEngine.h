@@ -65,9 +65,10 @@ public:
     MonitorEngine& operator=(const MonitorEngine&) = delete;
 
     Result start(BackendKind kind, const DeviceId& capId, const DeviceId& renderId,
-                 uint32_t delayMs);
+                 uint32_t delayMs, bool playbackEnabled = true);   // 第5参默认 true = 旧行为
     void   stop();
     MonitorStatus poll();
+    void   setPlaybackEnabled(bool enabled);                        // 运行期实时开关（GUI 线程）
 
     bool snapshotCapture(size_t n, float* out, uint64_t& endIdxOut);
     bool snapshotRender (size_t n, float* out, uint64_t& endIdxOut);
@@ -81,8 +82,16 @@ private:
     Result rollback(StreamState finalState, MonitorError err, long code, std::string msg);
     std::unique_ptr<IAudioBackend> makeBackend(DataFlow flow, BackendKind kind,
                                                const AudioFormat* requested);
+    Result engageRender();      // pump 前(start) 或 pump 线程调用；开渲染+校验+建 FIFO/刮擦；失败原子(全关渲染)
+    void   disengageRender();   // 停+关渲染、释放设备、reset renderRing_/delayFifo_；不动 renderScope_
 
     BackendFactory factory_; // empty => build real WASAPI streams
+
+    // Run-const session parameters (set in start(), consumed in engageRender()).
+    BackendKind kind_{BackendKind::WasapiShared};
+    DeviceId    renderId_{};
+    uint32_t    delayMs_ = 0;
+    std::atomic<bool> wantPlayback_{false};
 
     std::unique_ptr<IAudioBackend> capBackend_;
     std::unique_ptr<IAudioBackend> renderBackend_;

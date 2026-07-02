@@ -11,6 +11,7 @@
 #define NOMINMAX
 #endif
 #include "MonitorEngine.h"
+#include "ComUtil.h"
 #include "DelayFifo.h"
 #include "RingBuffer.h"
 #include "SampleConvert.h"
@@ -62,9 +63,8 @@ Result MonitorEngine::rollback(StreamState finalState, MonitorError err, long co
 }
 
 Result MonitorEngine::start(BackendKind kind, const DeviceId& capId, const DeviceId& renderId,
-                            uint32_t delayMs) {
-    teardown(); // clean any prior run
-
+                            uint32_t delayMs, bool playbackEnabled) {
+    teardown();
     // Fresh status slate.
     overall_.store(StreamState::Idle, std::memory_order_relaxed);
     capState_.store(StreamState::Idle, std::memory_order_relaxed);
@@ -82,19 +82,18 @@ Result MonitorEngine::start(BackendKind kind, const DeviceId& capId, const Devic
     delayMsAtomic_.store(0, std::memory_order_relaxed);
     renderBufMs_.store(0, std::memory_order_relaxed);
 
-    // Upper-bound guard: a pathologically large delayMs causes DelayFifo to allocate
-    // GBs of memory and throw std::bad_alloc (violates no-throw public API contract).
     if (delayMs > 10000u)
         return rollback(StreamState::Error, MonitorError::InvalidDelay,
                         static_cast<long>(MonitorError::InvalidDelay),
                         "MonitorEngine: delayMs exceeds maximum (10000 ms)");
 
-    // --- Capture: build -> open -> start (its actualFormat is valid after start) ---
+    kind_ = kind; renderId_ = renderId; delayMs_ = delayMs;
+
+    // --- Capture (always) ---
     captureRing_ = std::make_unique<RingBuffer>(kRingBytes);
     capBackend_  = makeBackend(DataFlow::Capture, kind, nullptr);
     if (!capBackend_)
-        return rollback(StreamState::Idle, MonitorError::Factory, -1,
-                        "MonitorEngine: capture factory returned null");
+        return rollback(StreamState::Idle, MonitorError::Factory, -1, "MonitorEngine: capture factory null");
     if (Result r = capBackend_->open(capId, AudioFormat{}, captureRing_.get()); !r)
         return rollback(StreamState::Idle, MonitorError::CaptureOpen, r.code, r.message);
     if (Result r = capBackend_->start(); !r)
@@ -102,77 +101,41 @@ Result MonitorEngine::start(BackendKind kind, const DeviceId& capId, const Devic
     capState_.store(StreamState::Running, std::memory_order_relaxed);
     capFmt_ = capBackend_->stats().actualFormat;
 
-    // --- Render: build -> open -> start. Requested format = capFmt so a real
-    //     exclusive render is opened at the capture rate; shared render ignores it
-    //     and negotiates its own mix format, which the rate check below validates. ---
-    renderRing_    = std::make_unique<RingBuffer>(kRingBytes);
-    renderBackend_ = makeBackend(DataFlow::Render, kind, &capFmt_);
-    if (!renderBackend_)
-        return rollback(StreamState::Idle, MonitorError::Factory, -1,
-                        "MonitorEngine: render factory returned null");
-    if (Result r = renderBackend_->open(renderId, AudioFormat{}, renderRing_.get()); !r)
-        return rollback(StreamState::Idle, MonitorError::RenderOpen, r.code, r.message);
-    // NOTE: render starts before the DelayFifo prefill. During prefill the render ring
-    // is empty and WasapiRenderStream zero-fills (silence = the intended delay). Benign on
-    // shared mode; exclusive-mode tolerance is verified on hardware in Task 9 (CLI monitor).
-    if (Result r = renderBackend_->start(); !r)
-        return rollback(StreamState::Idle, MonitorError::RenderStart, r.code, r.message);
-    renderState_.store(StreamState::Running, std::memory_order_relaxed);
-    renderFmt_ = renderBackend_->stats().actualFormat;
+    const uint32_t sr = capFmt_.sampleRate;
+    capCh_         = capFmt_.channels ? capFmt_.channels : static_cast<uint16_t>(1);
+    capFrameBytes_ = capFmt_.blockAlign();
+    if (sr == 0 || capFrameBytes_ == 0)
+        return rollback(StreamState::Error, MonitorError::CaptureStart, -1, "MonitorEngine: invalid capture format");
 
-    // --- Rate check: no resampler, so capture and render must agree on rate. ---
-    if (capFmt_.sampleRate == 0 || capFmt_.sampleRate != renderFmt_.sampleRate)
-        return rollback(StreamState::Error, MonitorError::RateMismatch,
-                        static_cast<long>(MonitorError::RateMismatch),
-                        "MonitorEngine: capture/render sample-rate mismatch");
-
-    capCh_            = capFmt_.channels    ? capFmt_.channels    : static_cast<uint16_t>(1);
-    renderCh_         = renderFmt_.channels ? renderFmt_.channels : static_cast<uint16_t>(1);
-    capFrameBytes_    = capFmt_.blockAlign();
-    renderFrameBytes_ = renderFmt_.blockAlign();
-    if (capFrameBytes_ == 0 || renderFrameBytes_ == 0)
-        return rollback(StreamState::Error, MonitorError::RateMismatch, -1,
-                        "MonitorEngine: invalid frame size");
-
-    // --- Sizing: DelayFifo target = delayMs; prefill = delay + one render period. ---
-    const uint32_t     sr     = capFmt_.sampleRate;
-    const BackendStats rstats = renderBackend_->stats();
-    size_t periodFrames = rstats.bufferFrames ? rstats.bufferFrames : (sr / 100u); // ~10 ms
-    if (periodFrames == 0) periodFrames = 1;
-    const size_t delayFrames    = static_cast<size_t>(static_cast<uint64_t>(delayMs) * sr / 1000u);
-    prefillFrames_              = delayFrames + periodFrames;
-    const size_t capacityFrames = prefillFrames_ + sr + periodFrames; // generous headroom
-    size_t deadbandFrames       = periodFrames;                       // > 1 period of ring sawtooth
-    if (deadbandFrames < 64) deadbandFrames = 64;
-
-    delayFifo_    = std::make_unique<DelayFifo>(capCh_, delayFrames, capacityFrames, deadbandFrames);
+    // --- Session-lifetime buffers (allocated once; freed only in teardown) ---
     const size_t scopeCap = std::max<size_t>(static_cast<size_t>(sr) * 2u, 8192u);
     captureScope_ = std::make_unique<ScopeBuffer>(scopeCap);
-    renderScope_  = std::make_unique<ScopeBuffer>(scopeCap);
-
-    // Preallocate all pump scratch up front.
+    renderScope_  = std::make_unique<ScopeBuffer>(scopeCap);  // GUI reads every frame -> MUST stay alive
     maxChunkFrames_ = kMaxChunkFrames;
     capScratch_.assign(maxChunkFrames_ * capFrameBytes_, 0);
     capFloat_.assign(maxChunkFrames_ * capCh_, 0.f);
     capMono_.assign(maxChunkFrames_, 0.f);
-    popBuf_.assign(maxChunkFrames_ * capCh_, 0.f);
-    renderAdapt_.assign(maxChunkFrames_ * renderCh_, 0.f);
-    renderMono_.assign(maxChunkFrames_, 0.f);
-    renderBytes_.assign(maxChunkFrames_ * renderFrameBytes_, 0);
 
-    // Status scalars.
     sampleRate_.store(sr, std::memory_order_relaxed);
     delayMsAtomic_.store(delayMs, std::memory_order_relaxed);
-    renderBufMs_.store(rstats.bufferFrames
-                           ? static_cast<uint32_t>(static_cast<uint64_t>(rstats.bufferFrames) * 1000u / sr)
-                           : 0u,
-                       std::memory_order_relaxed);
-
     capDataReadyEvent_ = capBackend_->dataReadyEvent();
 
-    // --- Launch the pump. overall_ stays Idle until the pump finishes prefill. ---
+    // --- Optional render at start (synchronous engage -> full rollback on failure = CLI parity) ---
+    wantPlayback_.store(playbackEnabled, std::memory_order_relaxed);
+    if (playbackEnabled) {
+        if (Result r = engageRender(); !r) {
+            long code = r.code;
+            std::string msg = r.message;
+            MonitorError err = (code == static_cast<long>(MonitorError::RateMismatch))
+                                   ? MonitorError::RateMismatch : MonitorError::RenderStart;
+            return rollback(StreamState::Error, err, code, std::move(msg));   // stops capture too
+        }
+    }
+
+    // Capture is up -> engine Running (independent of render prefill).
+    overall_.store(StreamState::Running, std::memory_order_relaxed);
+
     running_.store(true, std::memory_order_release);
-    prefilled_.store(false, std::memory_order_relaxed);
     try {
         pump_ = std::thread(&MonitorEngine::pumpLoop, this);
     } catch (const std::exception& e) {
@@ -183,79 +146,147 @@ Result MonitorEngine::start(BackendKind kind, const DeviceId& capId, const Devic
     return Result::Ok();
 }
 
+Result MonitorEngine::engageRender() {
+    const uint32_t sr = capFmt_.sampleRate;
+    renderRing_    = std::make_unique<RingBuffer>(kRingBytes);            // per-engage
+    renderBackend_ = makeBackend(DataFlow::Render, kind_, &capFmt_);
+    if (!renderBackend_) { renderRing_.reset(); return Result::Fail(-1, "MonitorEngine: render factory null"); }
+    if (Result r = renderBackend_->open(renderId_, AudioFormat{}, renderRing_.get()); !r) {
+        renderBackend_.reset(); renderRing_.reset(); return Result::Fail(r.code, r.message);
+    }
+    if (Result r = renderBackend_->start(); !r) {
+        renderBackend_->stop(); renderBackend_.reset(); renderRing_.reset(); return Result::Fail(r.code, r.message);
+    }
+    renderFmt_ = renderBackend_->stats().actualFormat;
+    if (renderFmt_.sampleRate == 0 || renderFmt_.sampleRate != sr) {
+        renderBackend_->stop(); renderBackend_.reset(); renderRing_.reset();
+        return Result::Fail(static_cast<long>(MonitorError::RateMismatch),
+                            "MonitorEngine: capture/render sample-rate mismatch");
+    }
+    renderCh_         = renderFmt_.channels ? renderFmt_.channels : static_cast<uint16_t>(1);
+    renderFrameBytes_ = renderFmt_.blockAlign();
+    if (renderFrameBytes_ == 0) {
+        renderBackend_->stop(); renderBackend_.reset(); renderRing_.reset();
+        return Result::Fail(-1, "MonitorEngine: invalid render frame size");
+    }
+    const BackendStats rstats = renderBackend_->stats();
+    size_t periodFrames = rstats.bufferFrames ? rstats.bufferFrames : (sr / 100u);
+    if (periodFrames == 0) periodFrames = 1;
+    const size_t delayFrames    = static_cast<size_t>(static_cast<uint64_t>(delayMs_) * sr / 1000u);
+    prefillFrames_              = delayFrames + periodFrames;
+    const size_t capacityFrames = prefillFrames_ + sr + periodFrames;
+    size_t deadbandFrames       = periodFrames < 64 ? 64 : periodFrames;
+    delayFifo_ = std::make_unique<DelayFifo>(capCh_, delayFrames, capacityFrames, deadbandFrames);  // per-engage
+
+    popBuf_.assign(maxChunkFrames_ * capCh_, 0.f);
+    renderAdapt_.assign(maxChunkFrames_ * renderCh_, 0.f);
+    renderMono_.assign(maxChunkFrames_, 0.f);
+    renderBytes_.assign(maxChunkFrames_ * renderFrameBytes_, 0);
+
+    renderBufMs_.store(rstats.bufferFrames
+                           ? static_cast<uint32_t>(static_cast<uint64_t>(rstats.bufferFrames) * 1000u / sr) : 0u,
+                       std::memory_order_relaxed);
+    renderDropped_.store(0, std::memory_order_relaxed);
+    renderXruns_.store(0, std::memory_order_relaxed);
+    renderLevel_.store(0.f, std::memory_order_relaxed);
+    prefilled_.store(false, std::memory_order_relaxed);          // this engage's fill not done yet
+    renderState_.store(StreamState::Running, std::memory_order_relaxed); // device up (fills, then pops)
+    return Result::Ok();
+}
+
+void MonitorEngine::disengageRender() {
+    if (renderBackend_) renderBackend_->stop();
+    renderBackend_.reset();
+    renderRing_.reset();
+    delayFifo_.reset();
+    renderState_.store(StreamState::Idle, std::memory_order_relaxed);
+    renderLevel_.store(0.f, std::memory_order_relaxed);
+    renderBufMs_.store(0, std::memory_order_relaxed);
+    fifoFillMs_.store(0.f, std::memory_order_relaxed);
+    prefilled_.store(false, std::memory_order_relaxed);
+    // NOTE: renderScope_ is session-lifetime -> NOT touched here (GUI reads it every frame).
+}
+
+void MonitorEngine::setPlaybackEnabled(bool enabled) {
+    wantPlayback_.store(enabled, std::memory_order_release);   // pump converges to this next iteration
+}
+
 void MonitorEngine::pumpLoop() {
-    const uint16_t capCh            = capCh_;
-    const uint16_t renderCh         = renderCh_;
-    const uint32_t capFrameBytes    = capFrameBytes_;
-    const uint32_t renderFrameBytes = renderFrameBytes_;
-    const uint32_t sr               = capFmt_.sampleRate;
-    const size_t   maxFrames        = maxChunkFrames_;
-    HANDLE         evt              = static_cast<HANDLE>(capDataReadyEvent_);
+    ComInitGuard com;   // pump owns COM (it now does render backend COM lifetime on toggle)
+    const uint16_t capCh         = capCh_;
+    const uint32_t capFrameBytes = capFrameBytes_;
+    const uint32_t sr            = capFmt_.sampleRate;
+    const size_t   maxFrames     = maxChunkFrames_;
+    HANDLE         evt           = static_cast<HANDLE>(capDataReadyEvent_);
 
     while (running_.load(std::memory_order_acquire)) {
         if (evt) WaitForSingleObject(evt, kPumpWaitMs);
-        else     Sleep(5); // capture should always provide an event; defensive fallback
+        else     Sleep(5);
         if (!running_.load(std::memory_order_acquire)) break;
 
-        // Drain the capture ring in whole frames.
+        // --- Converge render lifecycle to wantPlayback_ (pump-thread only) ---
+        const bool want   = wantPlayback_.load(std::memory_order_acquire);
+        const bool active = (renderBackend_ != nullptr);
+        if (want && !active) {
+            if (Result r = engageRender(); !r) {
+                renderState_.store(StreamState::Error, std::memory_order_relaxed);
+                errorCode_.store(static_cast<uint32_t>(
+                    r.code == static_cast<long>(MonitorError::RateMismatch)
+                        ? MonitorError::RateMismatch : MonitorError::RenderStart),
+                    std::memory_order_relaxed);
+                wantPlayback_.store(false, std::memory_order_relaxed); // don't retry every wake
+                // capture continues untouched
+            }
+        } else if (!want && active) {
+            disengageRender();
+        }
+        const bool renderActive = (renderBackend_ != nullptr);
+        const uint16_t renderCh         = renderCh_;
+        const uint32_t renderFrameBytes = renderFrameBytes_;
+
+        // --- Drain capture in whole frames (capture path ALWAYS runs) ---
         for (;;) {
             if (!running_.load(std::memory_order_acquire)) break;
-            const size_t frames = readWholeFrames(*captureRing_, capScratch_.data(),
-                                                  capFrameBytes, maxFrames);
+            const size_t frames = readWholeFrames(*captureRing_, capScratch_.data(), capFrameBytes, maxFrames);
             if (frames == 0) break;
 
-            // Capture tap: float (keep channels), downmix to mono for the scope.
             pcmToFloat(capScratch_.data(), frames, capFmt_, capFloat_.data());
             downmixMono(capFloat_.data(), frames, capCh, capMono_.data());
             captureScope_->push(capMono_.data(), frames);
             capLevel_.store(peakLevel(capMono_.data(), frames), std::memory_order_relaxed);
 
-            // Into the delay line (keeps capture channels).
-            delayFifo_->pushFrames(capFloat_.data(), frames);
+            if (!renderActive) continue;   // capture-only: do not touch FIFO / render
 
+            delayFifo_->pushFrames(capFloat_.data(), frames);
             if (!prefilled_.load(std::memory_order_relaxed)) {
-                // Prefill phase: accumulate to delay + one render period, then go
-                // Running. Do NOT pop here -- the just-filled buffer IS the delay.
-                if (delayFifo_->fillFrames() >= prefillFrames_) {
+                if (delayFifo_->fillFrames() >= prefillFrames_)
                     prefilled_.store(true, std::memory_order_relaxed);
-                    overall_.store(StreamState::Running, std::memory_order_relaxed);
-                }
             } else {
-                // Steady state: pop ~as many frames as we pushed; the drift
-                // controller nudges occupancy back toward target.
                 const size_t popped = delayFifo_->popFrames(popBuf_.data(), frames);
                 if (popped > 0) {
                     downmixMono(popBuf_.data(), popped, capCh, renderMono_.data());
                     renderScope_->push(renderMono_.data(), popped);
-                    renderLevel_.store(peakLevel(renderMono_.data(), popped),
-                                       std::memory_order_relaxed);
-
+                    renderLevel_.store(peakLevel(renderMono_.data(), popped), std::memory_order_relaxed);
                     adaptChannels(popBuf_.data(), capCh, renderAdapt_.data(), renderCh, popped);
                     floatToPcm(renderAdapt_.data(), popped, renderFmt_, renderBytes_.data());
-                    // Frame-aligned write: clamp to available space in whole-frame units so
-                    // RingBuffer::write never truncates mid-frame (kRingBytes % renderFrameBytes
-                    // may be non-zero). Excess frames are dropped as a render overrun.
                     const size_t wantBytes = static_cast<size_t>(popped) * renderFrameBytes;
                     const size_t freeBytes = renderRing_->availableWrite();
                     const size_t safeBytes = (std::min(wantBytes, freeBytes) / renderFrameBytes) * renderFrameBytes;
                     renderRing_->write(renderBytes_.data(), safeBytes);
-                    renderDropped_.fetch_add((wantBytes - safeBytes) / renderFrameBytes,
-                                            std::memory_order_relaxed);
-                    // safeBytes <= freeBytes, so RingBuffer::write never truncates mid-frame; the
-                    // remaining wantBytes-safeBytes frames are dropped and counted in renderDropped_.
+                    renderDropped_.fetch_add((wantBytes - safeBytes) / renderFrameBytes, std::memory_order_relaxed);
                 }
             }
         }
 
-        // Publish status (cheap; once per wake-up).
-        fifoFillMs_.store(static_cast<float>(delayFifo_->lowpassFillFrames() * 1000.0 /
-                                             static_cast<double>(sr)),
-                          std::memory_order_relaxed);
-        driftFixes_.store(delayFifo_->driftFixes(), std::memory_order_relaxed);
+        // --- Publish status (guard render fields on renderActive) ---
         capXruns_.store(captureRing_->overruns(), std::memory_order_relaxed);
-        if (prefilled_.load(std::memory_order_relaxed))
-            renderXruns_.store(renderDropped_.load(std::memory_order_relaxed),
-                               std::memory_order_relaxed);
+        if (renderActive) {
+            fifoFillMs_.store(static_cast<float>(delayFifo_->lowpassFillFrames() * 1000.0 / (double)sr),
+                              std::memory_order_relaxed);
+            driftFixes_.store(delayFifo_->driftFixes(), std::memory_order_relaxed);
+            if (prefilled_.load(std::memory_order_relaxed))
+                renderXruns_.store(renderDropped_.load(std::memory_order_relaxed), std::memory_order_relaxed);
+        }
     }
 }
 
