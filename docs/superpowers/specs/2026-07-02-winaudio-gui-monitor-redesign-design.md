@@ -38,15 +38,15 @@ Result start(BackendKind kind, const DeviceId& capId, const DeviceId& renderId,
 
 ### 2.3 线程模型与 race-freedom（含 renderScope）
 - **谁碰什么**：
-  - `renderBackend_` + 每-engage 对象（`delayFifo_`、渲染刮擦、`renderFmt_` 等）：**只**由 (a) `start()` 内 pump 启动**之前**、(b) **pump 线程**触碰——二者时序不重叠（start 先开/建 → 启 pump；pump 初始化本地 `renderActive_` 匹配 start 是否已 engage；此后运行期 toggle 全在 pump）。GUI 线程从不碰这些。
-  - `renderScope_`/`renderRing_`：**全会话存活**，唯一生产者=pump，唯一消费者=GUI（沿用 `ScopeBuffer` seqlock / `RingBuffer` SPSC 契约）。engage/disengage 不重分配它们，故 GUI 每帧 `snapshotRender()` 安全（对象恒在）。
+  - `renderBackend_` + 每-engage 对象（`renderRing_`、`delayFifo_`、渲染刮擦、`renderFmt_` 等）：**只**由 (a) `start()` 内 pump 启动**之前**、(b) **pump 线程**触碰——二者时序不重叠（start 先开/建 → 启 pump；pump 初始化本地 `renderActive_` 匹配 start 是否已 engage；此后运行期 toggle 全在 pump）。GUI 线程从不碰这些。
+  - `renderScope_`：**全会话存活**（`start()` 建、仅 `teardown()` 释放），唯一生产者=pump、唯一消费者=GUI（`ScopeBuffer` seqlock 契约）。engage/disengage 不重分配它，故 GUI 每帧 `snapshotRender()` 安全（对象恒在）。`renderRing_` 则为**每-engage**（见上；`RingBuffer` SPSC，pump 写，GUI 从不读它——播放关闭时随 `disengageRender()` 释放，回收其内存）。
   - `poll()`：只读原子，从不碰 backend/ring/fifo/scope 对象指针。
 - **`setPlaybackEnabled`**：只设原子 `wantPlayback_`。pump 每轮比较 `wantPlayback_` 与本地 `renderActive_`：需开未开→`engageRender()`；需关在开→`disengageRender()`。toggle 在 ≤20ms 的 pump wait 内被观察到。
 - **`engageRender()`（返回 Result，失败原子）**：开渲染后端 → 读 `renderFmt_`、校验 ==采集采样率 → 推导渲染刮擦/`renderBufMs_`、依渲染周期 `make_unique<DelayFifo>` 并预填 `delayMs`（+≥1 render period）静音 → 置 `renderState=Running`、`renderActive_=true`。**任一步失败**：完全 stop+close 渲染后端（释放设备）、`renderActive_=false`、不留半开态、返回 Fail。
   - **失败策略不对称**：`start()`（playbackEnabled=true）调用 engage 失败 → 走现有 `rollback()`（**停采集、返回 Fail、状态回 Idle/Error**，CLI 语义：不匹配即整体启动失败、`capState=Idle`）；**pump**（运行期 toggle）engage 失败 → `renderState=Error`+`errorCode`+`wantPlayback_=false`，**采集继续**（不因一次播放尝试失败中断稳定采集）。
-- **`disengageRender()`**：stop+close 渲染后端（释放设备）、`renderActive_=false`、`renderLevel_=0`、`renderState=Idle`。**不**触碰 `renderScope_`/`renderRing_` 指针（保持存活，pump 停止向其推数据即可）。
+- **`disengageRender()`**：stop+close 渲染后端（释放设备）、reset `renderRing_`/`delayFifo_`/渲染刮擦（每-engage 对象）、`renderActive_=false`、`renderLevel_=0`、`renderState=Idle`。**不**触碰 `renderScope_` 指针（全会话存活，pump 停止向其推数据即可）。
 - **pump 的 COM**：pump 现在承担渲染 COM 生命周期（close→Release），给 pump 线程自带 `ComInitGuard`（MTA）——明确而非依赖偶发（现状 teardown 亦从非-COM 线程 Release，但 pump 显式持有更稳妥）。
-- **teardown / stop**：不变——`running_=false`→唤醒 pump→**join pump**→停采集→（若在）停渲染→释放全部（含全会话 scope/ring）。任何播放态下都安全；二次 stop 幂等；`if (renderBackend_)` 守卫处理已 disengage（null）态。
+- **teardown / stop**：不变——`running_=false`→唤醒 pump→**join pump**→停采集→（若在）停渲染→释放全部（含全会话 `renderScope_` 与最后一次 engage 的 `renderRing_`/`delayFifo_`）。任何播放态下都安全；二次 stop 幂等；`if (renderBackend_)` 守卫处理已 disengage（null）态。
 
 ### 2.4 测试（fake backend，无硬件）
 - `PlaybackStartsDisabled`：`start(...,false)` → `capState/overall=Running`（采集态，**非** Idle）、`renderState=Idle`、fake 渲染后端未 open。
