@@ -320,15 +320,27 @@ TEST(MonitorEngine, DisablePlaybackStopsRender) {
     // renderState is set to Running in engageRender() before pump launch.
     ASSERT_EQ(eng.poll().renderState, StreamState::Running);
 
-    // Push data to drive the pump, then disable playback.
     ASSERT_NE(rig.capPtr, nullptr);
-    std::vector<int16_t> ramp(1024, 7);
+
+    // Push enough frames to cross prefill (delay=50ms@48k=2400 + period(sr/100=480) = 2880)
+    // then confirm render scope advances, proving data has actually flowed to renderScope_.
+    const uint32_t bigBatch = 5000; // exceeds prefillFrames_ comfortably
+    std::vector<int16_t> ramp(bigBatch, 7);
     auto pcm = makeRampPcm(ramp, rig.capFmt.channels);
     rig.capPtr->pushPcm(pcm.data(), pcm.size());
 
+    ASSERT_TRUE(waitFor([&] { return eng.renderWritten() > 0; }))
+        << "renderWritten never advanced; prefill did not complete before disengage";
+
+    // Capture the monotonic baseline for the anti-UAF invariant check below.
+    const uint64_t wBefore = eng.renderWritten();
+    ASSERT_GT(wBefore, 0u);
+
     eng.setPlaybackEnabled(false);
-    // Wake pump again so it observes wantPlayback_=false.
-    rig.capPtr->pushPcm(pcm.data(), pcm.size());
+    // Wake pump so it observes wantPlayback_=false and calls disengageRender().
+    std::vector<int16_t> ramp2(1024, 7);
+    auto pcm2 = makeRampPcm(ramp2, rig.capFmt.channels);
+    rig.capPtr->pushPcm(pcm2.data(), pcm2.size());
 
     ASSERT_TRUE(waitFor([&] { return eng.poll().renderState == StreamState::Idle; }))
         << "renderState never reached Idle after setPlaybackEnabled(false)";
@@ -336,6 +348,12 @@ TEST(MonitorEngine, DisablePlaybackStopsRender) {
 
     MonitorStatus st = eng.poll();
     EXPECT_EQ(st.overall, StreamState::Running) << "capture must still be running after disengage";
+
+    // Anti-UAF invariant (invariant-1): renderScope_ is session-lifetime and is NEVER
+    // reset or reallocated inside disengageRender(). If it were wrongly reset, totalWritten()
+    // would fall back to 0, making this assertion fail and catching the regression.
+    EXPECT_GE(eng.renderWritten(), wBefore)
+        << "renderScope_ must be monotonic across disengage (anti-UAF invariant-1)";
 
     // snapshotRender must not crash: renderScope_ is session-lifetime even when disengaged.
     float buf[16] = {};

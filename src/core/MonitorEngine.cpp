@@ -203,6 +203,7 @@ void MonitorEngine::disengageRender() {
     renderLevel_.store(0.f, std::memory_order_relaxed);
     renderBufMs_.store(0, std::memory_order_relaxed);
     fifoFillMs_.store(0.f, std::memory_order_relaxed);
+    driftFixes_.store(0, std::memory_order_relaxed);
     prefilled_.store(false, std::memory_order_relaxed);
     // NOTE: renderScope_ is session-lifetime -> NOT touched here (GUI reads it every frame).
 }
