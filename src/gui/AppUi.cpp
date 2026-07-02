@@ -262,7 +262,10 @@ void AppUi::drawChartPanel(int id) {
             uint64_t endC = 0;
             const bool okC = monitor_.snapshotCapture((size_t)waveN_, capWave_.data(), endC);
             if (ImPlot::BeginPlot("Capture waveform", ImVec2(-1, 120))) {
-                ImPlot::SetupAxes("s", "amp", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_None);
+                // Fixed 50 ms window on X (Always) instead of AutoFit: avoids the [0,1] flicker on
+                // the first post-Start frames when no snapshot is ready yet.
+                ImPlot::SetupAxes("s", "amp");
+                ImPlot::SetupAxisLimits(ImAxis_X1, 0.0, (double)(waveN_ - 1) / (double)waveSr_, ImGuiCond_Always);
                 ImPlot::SetupAxisLimits(ImAxis_Y1, -1.0, 1.0, ImGuiCond_Always);
                 if (okC) ImPlot::PlotLine("cap", waveX_.data(), capWave_.data(), waveN_);
                 ImPlot::EndPlot();
@@ -285,7 +288,9 @@ void AppUi::drawChartPanel(int id) {
                 okR = monitor_.snapshotRender((size_t)waveN_, renderWave_.data(), endR);
             }
             if (ImPlot::BeginPlot("Render waveform (delayed)", ImVec2(-1, 120))) {
-                ImPlot::SetupAxes("s", "amp", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_None);
+                // Fixed 50 ms window on X (Always); see the Capture waveform note.
+                ImPlot::SetupAxes("s", "amp");
+                ImPlot::SetupAxisLimits(ImAxis_X1, 0.0, (double)(waveN_ - 1) / (double)waveSr_, ImGuiCond_Always);
                 ImPlot::SetupAxisLimits(ImAxis_Y1, -1.0, 1.0, ImGuiCond_Always);
                 if (okR) ImPlot::PlotLine("ren", waveX_.data(), renderWave_.data(), waveN_);
                 ImPlot::EndPlot();
