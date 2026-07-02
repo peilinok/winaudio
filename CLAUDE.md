@@ -49,7 +49,7 @@ Phase 1 实现了 **WASAPI-Shared 采集/播放**；Phase 2 新增了 **WASAPI-E
 .\build.bat Release
 .\build.bat Release --clean
 
-# 运行测试（ctest，56 个）
+# 运行测试（ctest，60 个）
 .\test.bat Debug          # 或 .\test.bat Release
 # 也可直接跑测试 exe：
 .\build\bin\Debug\WinAudioTests.exe
