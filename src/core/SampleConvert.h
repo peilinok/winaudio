@@ -1,7 +1,7 @@
 #pragma once
 #include <cstddef>
 #include <cstdint>
-#include "AudioFormat.h"
+#include "AudioFormatDef.h"  // AudioFormat struct only; windows-free for portable unit tests
 
 namespace wa {
 

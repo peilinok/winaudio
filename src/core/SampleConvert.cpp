@@ -2,8 +2,6 @@
 // /W4 notes:
 //   - int24 sign-extend uses arithmetic right-shift on int32_t (implementation-defined
 //     but universally correct on MSVC x64; the Int24NegativeSignExtend test guards correctness).
-//   - std::min avoided to prevent collision with the Windows SDK min() macro (from windows.h
-//     pulled in by AudioFormat.h); ternary used instead.
 //   - Explicit casts throughout to silence narrowing/signed-unsigned warnings.
 #include "SampleConvert.h"
 #include <algorithm>  // std::clamp
@@ -141,8 +139,7 @@ void adaptChannels(const float* in, uint16_t inCh, float* out, uint16_t outCh, s
         }
     } else {
         // General case: copy min(inCh, outCh) channels; zero-fill remainder.
-        // Ternary avoids std::min collision with the Windows SDK min() macro.
-        const uint16_t copyCount = (inCh < outCh) ? inCh : outCh;
+        const uint16_t copyCount = std::min(inCh, outCh);
         for (size_t fr = 0; fr < frames; ++fr) {
             const float* src = in  + fr * static_cast<size_t>(inCh);
             float*       dst = out + fr * static_cast<size_t>(outCh);
