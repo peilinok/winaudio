@@ -1,4 +1,5 @@
 #include "AppUi.h"
+#include "ComUtil.h"
 #include "imgui.h"
 #include "implot.h"
 #include "Fft.h"
@@ -13,145 +14,70 @@ static std::string wtou(const std::wstring& w) {
     WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), s.data(), n, nullptr, nullptr);
     return s;
 }
-static std::wstring utow(const char* s) {
-    int n = MultiByteToWideChar(CP_UTF8, 0, s, -1, nullptr, 0);
-    std::wstring w(n ? n - 1 : 0, 0);
-    MultiByteToWideChar(CP_UTF8, 0, s, -1, w.data(), n);
-    return w;
-}
-
-static const int   kRates[]  = {44100, 48000, 96000};
-static const char* kRatesS[] = {"44100", "48000", "96000"};
-static const int   kBits[]   = {16, 24, 32};
-static const char* kBitsS[]  = {"16", "24", "32"};
-static const int   kChans[]  = {1, 2};
-static const char* kChansS[] = {"1", "2"};
-
-void AppUi::refreshDevices() {
-    wa::DataFlow flow = (modeIdx_ == 0) ? wa::DataFlow::Capture : wa::DataFlow::Render;
-    devices_ = engine_.enumerate(flow);
-    deviceIdx_ = 0;
-    devicesLoaded_ = true;
-}
 
 void AppUi::refreshMonitorDevices() {
-    capDevices_    = engine_.enumerate(wa::DataFlow::Capture);
-    renderDevices_ = engine_.enumerate(wa::DataFlow::Render);
-    capDevIdx_ = 0;
+    wa::ComInitGuard com;   // REQUIRED: GUI thread has no COM; DeviceEnumerator needs it
+    capDevices_.clear();
+    renderDevices_.clear();
+    enumerator_.enumerate(wa::DataFlow::Capture, capDevices_);
+    enumerator_.enumerate(wa::DataFlow::Render,  renderDevices_);
+    capDevIdx_    = 0;
     renderDevIdx_ = 0;
     monitorDevicesLoaded_ = true;
 }
 
 void AppUi::stopAll() {
-    engine_.stop();
     monitor_.stop();
 }
 
+const char* AppUi::chartTitle(int id) {
+    switch (id) {
+    case 0: return "Capture waveform";
+    case 1: return "Render waveform (delayed)";
+    case 2: return "Capture spectrum";
+    case 3: return "Render spectrum";
+    case 4: return "Capture spectrogram";
+    case 5: return "Render spectrogram";
+    default: return "";
+    }
+}
+
 void AppUi::draw() {
-    ImGui::SetNextWindowSizeConstraints(ImVec2(460.0f, 0.0f), ImVec2(FLT_MAX, FLT_MAX));
+    // Poll once; detect renderState Running->non-Running to clear stale playback chart data.
+    ms_ = monitor_.poll();
+    const int curRenderState = (int)ms_.renderState;
+    if (prevRenderState_ == (int)wa::StreamState::Running &&
+        curRenderState  != (int)wa::StreamState::Running) {
+        magRender_.clear();
+        renderSpec_.reset();
+        nextRenderEnd_ = 0;
+        std::fill(renderWave_.begin(), renderWave_.end(), 0.f);
+    }
+    prevRenderState_ = curRenderState;
+
+    ImGui::SetNextWindowSizeConstraints(ImVec2(800, 400), ImVec2(FLT_MAX, FLT_MAX));
     ImGui::Begin("WinAudio");
 
-    const char* modes[] = {"Capture", "Playback", "Monitor"};
-    ImGui::Combo("Mode", &modeIdx_, modes, 3);
-    if (modeIdx_ != prevMode_) {
-        engine_.stop();
-        monitor_.stop();
-        monitorStarted_ = false;
-        devicesLoaded_ = false;  // re-enumerate for the new flow
-        prevMode_ = modeIdx_;
-    }
+    // Left column: Devices / Control / Status / Log
+    ImGui::BeginChild("left", ImVec2(360, 0), true);
+    drawLeftPanel();
+    ImGui::EndChild();
 
-    const char* backends[] = {"WASAPI-Shared", "WASAPI-Exclusive"};
-    ImGui::Combo("Backend", &backendIdx_, backends, 2);
-    const bool exclusive = (backendIdx_ == 1);
+    ImGui::SameLine();
 
-    if (modeIdx_ == 2) drawMonitor(exclusive);
-    else               drawSingleStream(exclusive);
-
-    ImGui::Separator();
-    ImGui::BeginChild("log", ImVec2(0, 120), true);
-    for (auto& l : logLines_) ImGui::TextUnformatted(l.c_str());
+    // Right column: six chart panels (fixed order in T2; T3 adds drag-reorder)
+    ImGui::BeginChild("charts", ImVec2(0, 0), true);
+    drawChartsColumn();
     ImGui::EndChild();
 
     ImGui::End();
 }
 
-void AppUi::drawSingleStream(bool exclusive) {
-    if (!devicesLoaded_) refreshDevices();
-
-    if (ImGui::Button("Refresh devices")) refreshDevices();
-
-    if (ImGui::BeginListBox("Devices")) {
-        for (int i = 0; i < (int)devices_.size(); ++i) {
-            std::string label = (devices_[i].isDefault ? "* " : "  ") + wtou(devices_[i].name);
-            if (ImGui::Selectable(label.c_str(), deviceIdx_ == i)) deviceIdx_ = i;
-        }
-        ImGui::EndListBox();
-    }
-
-    if (!exclusive) ImGui::BeginDisabled();
-    ImGui::SetNextItemWidth(76.0f);
-    ImGui::Combo("Rate", &rateIdx_, kRatesS, IM_ARRAYSIZE(kRatesS)); ImGui::SameLine();
-    ImGui::SetNextItemWidth(50.0f);
-    ImGui::Combo("Bits", &bitsIdx_, kBitsS, IM_ARRAYSIZE(kBitsS)); ImGui::SameLine();
-    ImGui::SetNextItemWidth(44.0f);
-    ImGui::Combo("Ch", &chIdx_, kChansS, IM_ARRAYSIZE(kChansS)); ImGui::SameLine();
-    ImGui::Checkbox("float", &isFloat_);
-    if (ImGui::Button("Probe format")) {
-        wa::AudioFormat f{};
-        f.sampleRate    = kRates[rateIdx_];
-        f.bitsPerSample = (uint16_t)kBits[bitsIdx_];
-        f.channels      = (uint16_t)kChans[chIdx_];
-        f.isFloat       = isFloat_;
-        wa::DeviceId id   = devices_.empty() ? L"" : devices_[deviceIdx_].id;
-        wa::DataFlow flow = (modeIdx_ == 0) ? wa::DataFlow::Capture : wa::DataFlow::Render;
-        wa::Result pr     = engine_.probeFormat(wa::BackendKind::WasapiExclusive, flow, id, f);
-        logLines_.push_back(std::string("probe ") + (pr ? "SUPPORTED" : "NOT SUPPORTED: " + pr.message));
-    }
-    if (!exclusive) ImGui::EndDisabled();
-
-    ImGui::InputText("WAV file", wavPath_, sizeof(wavPath_));
-
-    wa::EngineStatus st = engine_.poll();
-    bool busy = (st.state == wa::EngineState::Capturing || st.state == wa::EngineState::Playing);
-
-    if (!busy) {
-        if (ImGui::Button("Start")) {
-            wa::DeviceId id  = devices_.empty() ? L"" : devices_[deviceIdx_].id;
-            std::wstring path = utow(wavPath_);
-            wa::BackendKind kind = exclusive ? wa::BackendKind::WasapiExclusive
-                                             : wa::BackendKind::WasapiShared;
-            wa::AudioFormat f{};
-            f.sampleRate    = kRates[rateIdx_];
-            f.bitsPerSample = (uint16_t)kBits[bitsIdx_];
-            f.channels      = (uint16_t)kChans[chIdx_];
-            f.isFloat       = isFloat_;
-            const wa::AudioFormat* req = (exclusive && modeIdx_ == 0) ? &f : nullptr;
-            wa::Result r = (modeIdx_ == 0)
-                ? engine_.startCapture(kind, id, path, req)
-                : engine_.startPlayback(kind, id, path, req);
-            logLines_.push_back(r ? "started" : ("error: " + r.message));
-        }
-    } else {
-        if (ImGui::Button("Stop")) {
-            engine_.stop();
-            logLines_.push_back("stopped");
-        }
-    }
-
-    ImGui::SameLine();
-    const char* stateStr[] = {"Idle", "Capturing", "Playing", "Error"};
-    ImGui::Text("State: %s  %.1fs", stateStr[(int)st.state], st.elapsedMs / 1000.f);
-
-    ImGui::ProgressBar(st.levelL, ImVec2(-1, 0), "L");
-    ImGui::ProgressBar(st.levelR, ImVec2(-1, 0), "R");
-    ImGui::Text("overrun %llu  underrun %llu  fmt %u/%u/%u",
-        (unsigned long long)st.overruns, (unsigned long long)st.underruns,
-        st.actualFormat.sampleRate, st.actualFormat.bitsPerSample, st.actualFormat.channels);
-}
-
-void AppUi::drawMonitor(bool exclusive) {
+void AppUi::drawLeftPanel() {
     if (!monitorDevicesLoaded_) refreshMonitorDevices();
+
+    // --- Devices ---
+    ImGui::SeparatorText("Devices");
     if (ImGui::Button("Refresh devices")) refreshMonitorDevices();
 
     ImGui::TextUnformatted("Capture device");
@@ -172,15 +98,20 @@ void AppUi::drawMonitor(bool exclusive) {
         }
         ImGui::EndListBox();
     }
+
+    // --- Control ---
+    ImGui::SeparatorText("Control");
+    const char* backends[] = {"WASAPI-Shared", "WASAPI-Exclusive"};
+    ImGui::Combo("Backend", &backendIdx_, backends, 2);
     ImGui::SliderInt("Delay (ms)", &delayMs_, 0, 500);
 
     if (!monitorStarted_) {
         if (ImGui::Button("Start")) {
             wa::DeviceId capId = capDevices_.empty()    ? L"" : capDevices_[capDevIdx_].id;
             wa::DeviceId renId = renderDevices_.empty() ? L"" : renderDevices_[renderDevIdx_].id;
-            wa::BackendKind kind = exclusive ? wa::BackendKind::WasapiExclusive
-                                            : wa::BackendKind::WasapiShared;
-            wa::Result r = monitor_.start(kind, capId, renId, (uint32_t)delayMs_);
+            wa::BackendKind kind = (backendIdx_ == 1) ? wa::BackendKind::WasapiExclusive
+                                                      : wa::BackendKind::WasapiShared;
+            wa::Result r = monitor_.start(kind, capId, renId, (uint32_t)delayMs_, playbackEnabled_);
             logLines_.push_back(r ? "monitor started" : ("monitor error: " + r.message));
             if (r) {
                 monitorStarted_ = true;
@@ -195,102 +126,220 @@ void AppUi::drawMonitor(bool exclusive) {
         }
     }
 
-    wa::MonitorStatus ms = monitor_.poll();
+    // Playback checkbox — disabled until monitor is started
+    if (!monitorStarted_) ImGui::BeginDisabled();
+    if (ImGui::Checkbox("同步播放 (playback)", &playbackEnabled_))
+        monitor_.setPlaybackEnabled(playbackEnabled_);
+    if (!monitorStarted_) ImGui::EndDisabled();
+
+    // --- Status ---
+    ImGui::SeparatorText("Status");
     const char* ss[] = {"Idle", "Running", "Error"};
     ImGui::Text("overall=%s  cap=%s  ren=%s  sr=%u  delay=%ums",
-        ss[(int)ms.overall], ss[(int)ms.capState], ss[(int)ms.renderState],
-        ms.sampleRate, ms.delayMs);
+        ss[(int)ms_.overall], ss[(int)ms_.capState], ss[(int)ms_.renderState],
+        ms_.sampleRate, ms_.delayMs);
     ImGui::Text("fifo=%.0fms  drift=%llu  xrun c/r=%llu/%llu",
-        ms.fifoFillMs, (unsigned long long)ms.driftFixes,
-        (unsigned long long)ms.capXruns, (unsigned long long)ms.renderXruns);
-    ImGui::ProgressBar(ms.capLevel,    ImVec2(-1, 0), "cap");
-    ImGui::ProgressBar(ms.renderLevel, ImVec2(-1, 0), "ren");
+        ms_.fifoFillMs,
+        (unsigned long long)ms_.driftFixes,
+        (unsigned long long)ms_.capXruns,
+        (unsigned long long)ms_.renderXruns);
+    ImGui::ProgressBar(ms_.capLevel,    ImVec2(-1, 0), "cap");
+    ImGui::ProgressBar(ms_.renderLevel, ImVec2(-1, 0), "ren");
 
-    // --- Time-domain waveforms (capture + delayed render), 50 ms window ---
-    if (monitorStarted_ && ms.sampleRate > 0) {
-        int n = (int)(0.05 * ms.sampleRate);           // 50 ms
-        if (n < 1) n = 1;
-        if (ms.sampleRate != waveSr_ || n != waveN_) { // rebuild only when rate/window changes
-            waveSr_ = ms.sampleRate; waveN_ = n;
-            capWave_.assign(n, 0.0f); renderWave_.assign(n, 0.0f);
-            waveX_.resize(n);
-            for (int i = 0; i < n; ++i) waveX_[i] = (float)i / (float)ms.sampleRate; // seconds
-        }
-        uint64_t endC = 0, endR = 0;
-        bool okC = monitor_.snapshotCapture((size_t)n, capWave_.data(),    endC);
-        bool okR = monitor_.snapshotRender ((size_t)n, renderWave_.data(), endR);
+    // --- Log (fills remaining height) ---
+    ImGui::SeparatorText("Log");
+    ImGui::BeginChild("log", ImVec2(0, 0), true);
+    for (const auto& l : logLines_) ImGui::TextUnformatted(l.c_str());
+    ImGui::EndChild();
+}
 
-        if (ImPlot::BeginPlot("Capture waveform", ImVec2(-1, 120))) {
-            ImPlot::SetupAxes("s", "amp", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_None);
-            ImPlot::SetupAxisLimits(ImAxis_Y1, -1.0, 1.0, ImGuiCond_Always);
-            if (okC) ImPlot::PlotLine("cap", waveX_.data(), capWave_.data(), n);
-            ImPlot::EndPlot();
-        }
-        if (ImPlot::BeginPlot("Render waveform (delayed)", ImVec2(-1, 120))) {
-            ImPlot::SetupAxes("s", "amp", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_None);
-            ImPlot::SetupAxisLimits(ImAxis_Y1, -1.0, 1.0, ImGuiCond_Always);
-            if (okR) ImPlot::PlotLine("ren", waveX_.data(), renderWave_.data(), n);
-            ImPlot::EndPlot();
+void AppUi::drawChartsColumn() {
+    const uint32_t sr         = ms_.sampleRate;
+    const bool overallRunning = (ms_.overall == wa::StreamState::Running && sr > 0);
+
+    if (overallRunning) {
+        // Waveform buffers: rebuild when rate or 50-ms window size changes.
+        const int n = (int)(0.05 * (double)sr);
+        const int waveN = n > 0 ? n : 1;
+        if (sr != waveSr_ || waveN != waveN_) {
+            waveSr_ = sr; waveN_ = waveN;
+            capWave_.assign((size_t)waveN_, 0.f);
+            renderWave_.assign((size_t)waveN_, 0.f);
+            waveX_.resize((size_t)waveN_);
+            for (int i = 0; i < waveN_; ++i)
+                waveX_[(size_t)i] = (float)i / (float)sr;
         }
 
-        // --- Frequency-domain spectrum curves (2048 Hann FFT, dBFS, log-X) ---
-        const size_t kWin = 2048, kHop = 512, kCatch = 8;
-        const int kRows = 128, kCols = 200;
-        if (ms.sampleRate != specSr_) {                 // rebuild scratch + x-axis on rate change only
-            specSr_ = ms.sampleRate;
+        // Spectrum / spectrogram buffers: rebuild on rate change; recreate renderSpec_ if cleared.
+        const size_t kWin  = 2048;
+        const int    kRows = 128, kCols = 200;
+        if (sr != specSr_) {
+            specSr_ = sr;
             workCap_.resize(kWin); workRender_.resize(kWin); specWin_.resize(kWin);
             freqAxis_.resize(kWin / 2 + 1);
             for (size_t k = 0; k < freqAxis_.size(); ++k)
-                freqAxis_[k] = (float)((double)k * ms.sampleRate / kWin);   // bin k center freq (Hz)
-            capSpec_    = std::make_unique<wa::Spectrogram>(kRows, kCols, 20.0, ms.sampleRate / 2.0, ms.sampleRate);
-            renderSpec_ = std::make_unique<wa::Spectrogram>(kRows, kCols, 20.0, ms.sampleRate / 2.0, ms.sampleRate);
+                freqAxis_[k] = (float)((double)k * (double)sr / (double)kWin);
+            capSpec_    = std::make_unique<wa::Spectrogram>(kRows, kCols, 20.0, (double)sr / 2.0, sr);
+            renderSpec_ = std::make_unique<wa::Spectrogram>(kRows, kCols, 20.0, (double)sr / 2.0, sr);
+        } else if (!renderSpec_) {
+            // renderSpec_ was cleared by a playback-stop transition; recreate fresh.
+            renderSpec_ = std::make_unique<wa::Spectrogram>(kRows, kCols, 20.0, (double)specSr_ / 2.0, specSr_);
         }
-        uint64_t se = 0;
-        wa::advanceAnalysis(monitor_.capWritten(), nextCapEnd_, kWin, kHop, kCatch, [&](uint64_t){
-            if (monitor_.snapshotCapture(kWin, specWin_.data(), se)) {
-                wa::magnitudeSpectrumDb(specWin_.data(), kWin, workCap_.data(), magCap_);
-                capSpec_->pushColumn(magCap_);
-            }
-        });
-        wa::advanceAnalysis(monitor_.renderWritten(), nextRenderEnd_, kWin, kHop, kCatch, [&](uint64_t){
-            if (monitor_.snapshotRender(kWin, specWin_.data(), se)) {
-                wa::magnitudeSpectrumDb(specWin_.data(), kWin, workRender_.data(), magRender_);
-                renderSpec_->pushColumn(magRender_);
-            }
-        });
+    }
 
-        if (ImPlot::BeginPlot("Capture spectrum", ImVec2(-1, 140))) {
-            ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Log10);
-            ImPlot::SetupAxisLimits(ImAxis_X1, 20.0, ms.sampleRate / 2.0, ImGuiCond_Always);
-            ImPlot::SetupAxisLimits(ImAxis_Y1, -96.0, 0.0, ImGuiCond_Always);
-            if (magCap_.size() > 1)                       // skip bin 0 (DC) -- undefined on log-X
-                ImPlot::PlotLine("cap", freqAxis_.data() + 1, magCap_.data() + 1, (int)magCap_.size() - 1);
-            ImPlot::EndPlot();
-        }
-        if (ImPlot::BeginPlot("Render spectrum", ImVec2(-1, 140))) {
-            ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Log10);
-            ImPlot::SetupAxisLimits(ImAxis_X1, 20.0, ms.sampleRate / 2.0, ImGuiCond_Always);
-            ImPlot::SetupAxisLimits(ImAxis_Y1, -96.0, 0.0, ImGuiCond_Always);
-            if (magRender_.size() > 1)
-                ImPlot::PlotLine("ren", freqAxis_.data() + 1, magRender_.data() + 1, (int)magRender_.size() - 1);
-            ImPlot::EndPlot();
-        }
+    for (int id : chartOrder_)
+        drawChartPanel(id);
+}
 
-        // --- Scrolling log-frequency spectrograms (heatmap, Viridis) ---
-        const double histSec = (double)kCols * 512.0 / ms.sampleRate; // cols * hop / sr
-        ImPlot::PushColormap(ImPlotColormap_Viridis);
-        if (capSpec_ && ImPlot::BeginPlot("Capture spectrogram", ImVec2(-1, 160))) {
-            ImPlot::PlotHeatmap("cap", capSpec_->data(), capSpec_->rows(), capSpec_->cols(),
-                -96.0, 0.0, nullptr,
-                ImPlotPoint(0, capSpec_->fmin()), ImPlotPoint(histSec, capSpec_->fmax()));
-            ImPlot::EndPlot();
+void AppUi::drawChartPanel(int id) {
+    const uint32_t sr         = ms_.sampleRate;
+    const bool overallRunning = (ms_.overall    == wa::StreamState::Running && sr > 0);
+    const bool renderRunning  = (ms_.renderState == wa::StreamState::Running);
+
+    switch (id) {
+
+    case 0: { // Capture waveform
+        if (overallRunning && waveSr_ > 0) {
+            uint64_t endC = 0;
+            const bool okC = monitor_.snapshotCapture((size_t)waveN_, capWave_.data(), endC);
+            if (ImPlot::BeginPlot("Capture waveform", ImVec2(-1, 120))) {
+                ImPlot::SetupAxes("s", "amp", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_None);
+                ImPlot::SetupAxisLimits(ImAxis_Y1, -1.0, 1.0, ImGuiCond_Always);
+                if (okC) ImPlot::PlotLine("cap", waveX_.data(), capWave_.data(), waveN_);
+                ImPlot::EndPlot();
+            }
+        } else {
+            if (ImPlot::BeginPlot("Capture waveform", ImVec2(-1, 120))) {
+                ImPlot::SetupAxes("s", "amp", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_None);
+                ImPlot::SetupAxisLimits(ImAxis_Y1, -1.0, 1.0, ImGuiCond_Always);
+                ImPlot::EndPlot();
+            }
         }
-        if (renderSpec_ && ImPlot::BeginPlot("Render spectrogram", ImVec2(-1, 160))) {
-            ImPlot::PlotHeatmap("ren", renderSpec_->data(), renderSpec_->rows(), renderSpec_->cols(),
-                -96.0, 0.0, nullptr,
-                ImPlotPoint(0, renderSpec_->fmin()), ImPlotPoint(histSec, renderSpec_->fmax()));
-            ImPlot::EndPlot();
+        break;
+    }
+
+    case 1: { // Render waveform — data only when renderRunning
+        if (overallRunning && waveSr_ > 0) {
+            bool okR = false;
+            if (renderRunning) {
+                uint64_t endR = 0;
+                okR = monitor_.snapshotRender((size_t)waveN_, renderWave_.data(), endR);
+            }
+            if (ImPlot::BeginPlot("Render waveform (delayed)", ImVec2(-1, 120))) {
+                ImPlot::SetupAxes("s", "amp", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_None);
+                ImPlot::SetupAxisLimits(ImAxis_Y1, -1.0, 1.0, ImGuiCond_Always);
+                if (okR) ImPlot::PlotLine("ren", waveX_.data(), renderWave_.data(), waveN_);
+                ImPlot::EndPlot();
+            }
+        } else {
+            if (ImPlot::BeginPlot("Render waveform (delayed)", ImVec2(-1, 120))) {
+                ImPlot::SetupAxes("s", "amp", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_None);
+                ImPlot::SetupAxisLimits(ImAxis_Y1, -1.0, 1.0, ImGuiCond_Always);
+                ImPlot::EndPlot();
+            }
         }
-        ImPlot::PopColormap();
+        break;
+    }
+
+    case 2: { // Capture spectrum
+        if (overallRunning && specSr_ > 0) {
+            const size_t kWin = 2048, kHop = 512, kCatch = 8;
+            uint64_t se = 0;
+            wa::advanceAnalysis(monitor_.capWritten(), nextCapEnd_, kWin, kHop, kCatch, [&](uint64_t) {
+                if (monitor_.snapshotCapture(kWin, specWin_.data(), se)) {
+                    wa::magnitudeSpectrumDb(specWin_.data(), kWin, workCap_.data(), magCap_);
+                    if (capSpec_) capSpec_->pushColumn(magCap_);
+                }
+            });
+            if (ImPlot::BeginPlot("Capture spectrum", ImVec2(-1, 140))) {
+                ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Log10);
+                ImPlot::SetupAxisLimits(ImAxis_X1, 20.0, (double)sr / 2.0, ImGuiCond_Always);
+                ImPlot::SetupAxisLimits(ImAxis_Y1, -96.0, 0.0, ImGuiCond_Always);
+                if (magCap_.size() > 1)
+                    ImPlot::PlotLine("cap", freqAxis_.data() + 1, magCap_.data() + 1, (int)magCap_.size() - 1);
+                ImPlot::EndPlot();
+            }
+        } else {
+            if (ImPlot::BeginPlot("Capture spectrum", ImVec2(-1, 140))) {
+                ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Log10);
+                ImPlot::SetupAxisLimits(ImAxis_X1, 20.0, 24000.0, ImGuiCond_Always);
+                ImPlot::SetupAxisLimits(ImAxis_Y1, -96.0, 0.0, ImGuiCond_Always);
+                ImPlot::EndPlot();
+            }
+        }
+        break;
+    }
+
+    case 3: { // Render spectrum — data only when renderRunning
+        if (overallRunning && specSr_ > 0) {
+            if (renderRunning) {
+                const size_t kWin = 2048, kHop = 512, kCatch = 8;
+                uint64_t se = 0;
+                wa::advanceAnalysis(monitor_.renderWritten(), nextRenderEnd_, kWin, kHop, kCatch, [&](uint64_t) {
+                    if (monitor_.snapshotRender(kWin, specWin_.data(), se)) {
+                        wa::magnitudeSpectrumDb(specWin_.data(), kWin, workRender_.data(), magRender_);
+                        if (renderSpec_) renderSpec_->pushColumn(magRender_);
+                    }
+                });
+            }
+            if (ImPlot::BeginPlot("Render spectrum", ImVec2(-1, 140))) {
+                ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Log10);
+                ImPlot::SetupAxisLimits(ImAxis_X1, 20.0, (double)sr / 2.0, ImGuiCond_Always);
+                ImPlot::SetupAxisLimits(ImAxis_Y1, -96.0, 0.0, ImGuiCond_Always);
+                if (renderRunning && magRender_.size() > 1)
+                    ImPlot::PlotLine("ren", freqAxis_.data() + 1, magRender_.data() + 1, (int)magRender_.size() - 1);
+                ImPlot::EndPlot();
+            }
+        } else {
+            if (ImPlot::BeginPlot("Render spectrum", ImVec2(-1, 140))) {
+                ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Log10);
+                ImPlot::SetupAxisLimits(ImAxis_X1, 20.0, 24000.0, ImGuiCond_Always);
+                ImPlot::SetupAxisLimits(ImAxis_Y1, -96.0, 0.0, ImGuiCond_Always);
+                ImPlot::EndPlot();
+            }
+        }
+        break;
+    }
+
+    case 4: { // Capture spectrogram
+        if (overallRunning && capSpec_) {
+            const double histSec = 200.0 * 512.0 / (double)sr; // kCols * kHop / sr
+            ImPlot::PushColormap(ImPlotColormap_Viridis);
+            if (ImPlot::BeginPlot("Capture spectrogram", ImVec2(-1, 160))) {
+                ImPlot::PlotHeatmap("cap", capSpec_->data(), capSpec_->rows(), capSpec_->cols(),
+                    -96.0, 0.0, nullptr,
+                    ImPlotPoint(0, capSpec_->fmin()), ImPlotPoint(histSec, capSpec_->fmax()));
+                ImPlot::EndPlot();
+            }
+            ImPlot::PopColormap();
+        } else {
+            if (ImPlot::BeginPlot("Capture spectrogram", ImVec2(-1, 160))) {
+                ImPlot::EndPlot();
+            }
+        }
+        break;
+    }
+
+    case 5: { // Render spectrogram — data only when renderRunning
+        if (overallRunning && renderRunning && renderSpec_) {
+            const double histSec = 200.0 * 512.0 / (double)sr;
+            ImPlot::PushColormap(ImPlotColormap_Viridis);
+            if (ImPlot::BeginPlot("Render spectrogram", ImVec2(-1, 160))) {
+                ImPlot::PlotHeatmap("ren", renderSpec_->data(), renderSpec_->rows(), renderSpec_->cols(),
+                    -96.0, 0.0, nullptr,
+                    ImPlotPoint(0, renderSpec_->fmin()), ImPlotPoint(histSec, renderSpec_->fmax()));
+                ImPlot::EndPlot();
+            }
+            ImPlot::PopColormap();
+        } else {
+            if (ImPlot::BeginPlot("Render spectrogram", ImVec2(-1, 160))) {
+                ImPlot::EndPlot();
+            }
+        }
+        break;
+    }
+
+    default:
+        break;
     }
 }
