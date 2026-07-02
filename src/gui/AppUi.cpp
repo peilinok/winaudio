@@ -16,6 +16,15 @@ static std::string wtou(const std::wstring& w) {
     return s;
 }
 
+namespace {
+// Shared analysis / spectrogram constants (used by drawChartsColumn + drawChartPanel).
+constexpr size_t kFftWin   = 2048;  // FFT window length (samples)
+constexpr size_t kFftHop   = 512;   // hop between analysis frames = one spectrogram column
+constexpr size_t kCatchup  = 8;     // max analysis frames to fast-forward per poll
+constexpr int    kSpecRows = 128;   // spectrogram log-frequency rows
+constexpr int    kSpecCols = 200;   // spectrogram time columns (history width)
+} // namespace
+
 void AppUi::refreshMonitorDevices() {
     wa::ComInitGuard com;   // REQUIRED: GUI thread has no COM; DeviceEnumerator needs it
     capDevices_.clear();
@@ -172,19 +181,17 @@ void AppUi::drawChartsColumn() {
         }
 
         // Spectrum / spectrogram buffers: rebuild on rate change; recreate renderSpec_ if cleared.
-        const size_t kWin  = 2048;
-        const int    kRows = 128, kCols = 200;
         if (sr != specSr_) {
             specSr_ = sr;
-            workCap_.resize(kWin); workRender_.resize(kWin); specWin_.resize(kWin);
-            freqAxis_.resize(kWin / 2 + 1);
+            workCap_.resize(kFftWin); workRender_.resize(kFftWin); specWin_.resize(kFftWin);
+            freqAxis_.resize(kFftWin / 2 + 1);
             for (size_t k = 0; k < freqAxis_.size(); ++k)
-                freqAxis_[k] = (float)((double)k * (double)sr / (double)kWin);
-            capSpec_    = std::make_unique<wa::Spectrogram>(kRows, kCols, 20.0, (double)sr / 2.0, sr);
-            renderSpec_ = std::make_unique<wa::Spectrogram>(kRows, kCols, 20.0, (double)sr / 2.0, sr);
+                freqAxis_[k] = (float)((double)k * (double)sr / (double)kFftWin);
+            capSpec_    = std::make_unique<wa::Spectrogram>(kSpecRows, kSpecCols, 20.0, (double)sr / 2.0, sr);
+            renderSpec_ = std::make_unique<wa::Spectrogram>(kSpecRows, kSpecCols, 20.0, (double)sr / 2.0, sr);
         } else if (!renderSpec_) {
             // renderSpec_ was cleared by a playback-stop transition; recreate fresh.
-            renderSpec_ = std::make_unique<wa::Spectrogram>(kRows, kCols, 20.0, (double)specSr_ / 2.0, specSr_);
+            renderSpec_ = std::make_unique<wa::Spectrogram>(kSpecRows, kSpecCols, 20.0, (double)specSr_ / 2.0, specSr_);
         }
     }
 
@@ -295,11 +302,10 @@ void AppUi::drawChartPanel(int id) {
 
     case 2: { // Capture spectrum
         if (overallRunning && specSr_ > 0) {
-            const size_t kWin = 2048, kHop = 512, kCatch = 8;
             uint64_t se = 0;
-            wa::advanceAnalysis(monitor_.capWritten(), nextCapEnd_, kWin, kHop, kCatch, [&](uint64_t) {
-                if (monitor_.snapshotCapture(kWin, specWin_.data(), se)) {
-                    wa::magnitudeSpectrumDb(specWin_.data(), kWin, workCap_.data(), magCap_);
+            wa::advanceAnalysis(monitor_.capWritten(), nextCapEnd_, kFftWin, kFftHop, kCatchup, [&](uint64_t) {
+                if (monitor_.snapshotCapture(kFftWin, specWin_.data(), se)) {
+                    wa::magnitudeSpectrumDb(specWin_.data(), kFftWin, workCap_.data(), magCap_);
                     if (capSpec_) capSpec_->pushColumn(magCap_);
                 }
             });
@@ -325,11 +331,10 @@ void AppUi::drawChartPanel(int id) {
     case 3: { // Render spectrum — data only when renderRunning
         if (overallRunning && specSr_ > 0) {
             if (renderRunning) {
-                const size_t kWin = 2048, kHop = 512, kCatch = 8;
                 uint64_t se = 0;
-                wa::advanceAnalysis(monitor_.renderWritten(), nextRenderEnd_, kWin, kHop, kCatch, [&](uint64_t) {
-                    if (monitor_.snapshotRender(kWin, specWin_.data(), se)) {
-                        wa::magnitudeSpectrumDb(specWin_.data(), kWin, workRender_.data(), magRender_);
+                wa::advanceAnalysis(monitor_.renderWritten(), nextRenderEnd_, kFftWin, kFftHop, kCatchup, [&](uint64_t) {
+                    if (monitor_.snapshotRender(kFftWin, specWin_.data(), se)) {
+                        wa::magnitudeSpectrumDb(specWin_.data(), kFftWin, workRender_.data(), magRender_);
                         if (renderSpec_) renderSpec_->pushColumn(magRender_);
                     }
                 });
@@ -355,7 +360,7 @@ void AppUi::drawChartPanel(int id) {
 
     case 4: { // Capture spectrogram
         if (overallRunning && capSpec_) {
-            drawSpectrogramPanel("Capture spectrogram", capSpec_.get(), 200.0 * 512.0 / (double)sr);
+            drawSpectrogramPanel("Capture spectrogram", capSpec_.get(), (double)(kSpecCols * kFftHop) / (double)sr);
         } else {
             // Reserve the space but do NOT create the ImPlot plot pre-Start: an empty BeginPlot
             // would pin the axes and defeat the Once fit once data starts flowing.
@@ -366,7 +371,7 @@ void AppUi::drawChartPanel(int id) {
 
     case 5: { // Render spectrogram — data only when renderRunning
         if (overallRunning && renderRunning && renderSpec_) {
-            drawSpectrogramPanel("Render spectrogram", renderSpec_.get(), 200.0 * 512.0 / (double)sr);
+            drawSpectrogramPanel("Render spectrogram", renderSpec_.get(), (double)(kSpecCols * kFftHop) / (double)sr);
         } else {
             // Reserve the space but do NOT create the ImPlot plot when playback is off (see above).
             ImGui::Dummy(ImVec2(ImGui::GetContentRegionAvail().x, 160.0f));
