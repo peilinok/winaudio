@@ -42,12 +42,24 @@ TEST(Fft, SilenceFloored) {
 }
 
 TEST(Fft, ImpulseApproximatelyFlat) {
+    // A single windowed impulse at the window CENTER transforms to a flat magnitude spectrum
+    // (|FFT of a delta| is constant across bins). Placement matters: the Hann window zeros
+    // index 0, so an impulse at x[0] vanishes -- the old version asserted only isfinite and
+    // was vacuous.
     const size_t N = 1024;
-    std::vector<float> x(N, 0.0f); x[0] = 1.0f;
+    std::vector<float> x(N, 0.0f);
+    x[N / 2] = 1.0f;
     std::vector<std::complex<float>> work(N);
     std::vector<float> mag;
     magnitudeSpectrumDb(x.data(), N, work.data(), mag);
-    // Hann zeros x[0] weight ~0 at i=0; use impulse at center instead for a real flatness check:
-    // (kept minimal) just assert no NaN and finite
-    for (float d : mag) EXPECT_TRUE(std::isfinite(d));
+    ASSERT_EQ(mag.size(), N / 2 + 1);
+    // Interior bins (excluding DC and Nyquist, which are not doubled by the single-sided
+    // scaling) must be flat to within a tight band, and clearly above the floor.
+    float lo = mag[1], hi = mag[1];
+    for (size_t k = 1; k < N / 2; ++k) {
+        if (mag[k] < lo) lo = mag[k];
+        if (mag[k] > hi) hi = mag[k];
+    }
+    EXPECT_LT(hi - lo, 0.1f);     // spectrally flat
+    EXPECT_GT(mag[1], -60.0f);    // real energy present (not floored)
 }
