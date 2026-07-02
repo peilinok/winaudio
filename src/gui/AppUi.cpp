@@ -23,7 +23,22 @@ constexpr size_t kFftHop   = 512;   // hop between analysis frames = one spectro
 constexpr size_t kCatchup  = 8;     // max analysis frames to fast-forward per poll
 constexpr int    kSpecRows = 128;   // spectrogram log-frequency rows
 constexpr int    kSpecCols = 200;   // spectrogram time columns (history width)
+// Chart panel heights (px) — tall enough that Y-axis tick labels don't overlap.
+constexpr float  kWaveH     = 160.0f;  // waveform
+constexpr float  kSpectrumH = 190.0f;  // spectrum
+constexpr float  kSpectroH  = 230.0f;  // spectrogram (log-freq axis has the most ticks)
 } // namespace
+
+// Draw a 4-way "move" icon (crosshair + outward arrowheads) centered at c, sized to a box of side s.
+static void drawMoveIcon(ImDrawList* dl, ImVec2 c, float s, ImU32 col) {
+    const float tip = s * 0.42f, aw = s * 0.12f, ah = s * 0.16f, th = 1.5f;
+    dl->AddLine(ImVec2(c.x - tip, c.y), ImVec2(c.x + tip, c.y), col, th);   // horizontal arm
+    dl->AddLine(ImVec2(c.x, c.y - tip), ImVec2(c.x, c.y + tip), col, th);   // vertical arm
+    dl->AddTriangleFilled(ImVec2(c.x, c.y - tip), ImVec2(c.x - aw, c.y - tip + ah), ImVec2(c.x + aw, c.y - tip + ah), col); // up
+    dl->AddTriangleFilled(ImVec2(c.x, c.y + tip), ImVec2(c.x - aw, c.y + tip - ah), ImVec2(c.x + aw, c.y + tip - ah), col); // down
+    dl->AddTriangleFilled(ImVec2(c.x - tip, c.y), ImVec2(c.x - tip + ah, c.y - aw), ImVec2(c.x - tip + ah, c.y + aw), col); // left
+    dl->AddTriangleFilled(ImVec2(c.x + tip, c.y), ImVec2(c.x + tip - ah, c.y - aw), ImVec2(c.x + tip - ah, c.y + aw), col); // right
+}
 
 void AppUi::refreshMonitorDevices() {
     wa::ComInitGuard com;   // REQUIRED: GUI thread has no COM; DeviceEnumerator needs it
@@ -198,7 +213,13 @@ void AppUi::drawChartsColumn() {
     for (int pos = 0; pos < (int)chartOrder_.size(); ++pos) {
         int id = chartOrder_[pos];
         ImGui::PushID(pos);
-        ImGui::Button("\xe2\x98\xb0");                       // drag handle (☰ U+2630)
+        const float bh = ImGui::GetFrameHeight();
+        ImGui::Button("##drag", ImVec2(bh, bh));             // drag handle (move icon drawn on top)
+        if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+        const ImVec2 hmn = ImGui::GetItemRectMin(), hmx = ImGui::GetItemRectMax();
+        drawMoveIcon(ImGui::GetWindowDrawList(),
+                     ImVec2((hmn.x + hmx.x) * 0.5f, (hmn.y + hmx.y) * 0.5f),
+                     ImGui::GetFontSize(), ImGui::GetColorU32(ImGuiCol_Text));
         if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
             ImGui::SetDragDropPayload("CHART_POS", &pos, sizeof(int));
             ImGui::TextUnformatted(chartTitle(id));
@@ -238,7 +259,7 @@ void AppUi::drawSpectrogramPanel(const char* label, wa::Spectrogram* spec, doubl
             tickV[nTick] = std::log10(kFreq[i]); tickL[nTick] = kFreqL[i]; ++nTick;
         }
     ImPlot::PushColormap(ImPlotColormap_Viridis);
-    if (ImPlot::BeginPlot(label, ImVec2(-1, 160))) {
+    if (ImPlot::BeginPlot(label, ImVec2(-1, kSpectroH))) {
         ImPlot::SetupAxes("s", "Hz");
         ImPlot::SetupAxisLimits(ImAxis_X1, 0.0, histSec, ImGuiCond_Once);
         ImPlot::SetupAxisLimits(ImAxis_Y1, loL, hiL, ImGuiCond_Once);
@@ -261,7 +282,7 @@ void AppUi::drawChartPanel(int id) {
         if (overallRunning && waveSr_ > 0) {
             uint64_t endC = 0;
             const bool okC = monitor_.snapshotCapture((size_t)waveN_, capWave_.data(), endC);
-            if (ImPlot::BeginPlot("Capture waveform", ImVec2(-1, 120))) {
+            if (ImPlot::BeginPlot("Capture waveform", ImVec2(-1, kWaveH))) {
                 // Fixed 50 ms window on X (Always) instead of AutoFit: avoids the [0,1] flicker on
                 // the first post-Start frames when no snapshot is ready yet.
                 ImPlot::SetupAxes("s", "amp");
@@ -271,7 +292,7 @@ void AppUi::drawChartPanel(int id) {
                 ImPlot::EndPlot();
             }
         } else {
-            if (ImPlot::BeginPlot("Capture waveform", ImVec2(-1, 120))) {
+            if (ImPlot::BeginPlot("Capture waveform", ImVec2(-1, kWaveH))) {
                 ImPlot::SetupAxes("s", "amp", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_None);
                 ImPlot::SetupAxisLimits(ImAxis_Y1, -1.0, 1.0, ImGuiCond_Always);
                 ImPlot::EndPlot();
@@ -287,7 +308,7 @@ void AppUi::drawChartPanel(int id) {
                 uint64_t endR = 0;
                 okR = monitor_.snapshotRender((size_t)waveN_, renderWave_.data(), endR);
             }
-            if (ImPlot::BeginPlot("Render waveform (delayed)", ImVec2(-1, 120))) {
+            if (ImPlot::BeginPlot("Render waveform (delayed)", ImVec2(-1, kWaveH))) {
                 // Fixed 50 ms window on X (Always); see the Capture waveform note.
                 ImPlot::SetupAxes("s", "amp");
                 ImPlot::SetupAxisLimits(ImAxis_X1, 0.0, (double)(waveN_ - 1) / (double)waveSr_, ImGuiCond_Always);
@@ -296,7 +317,7 @@ void AppUi::drawChartPanel(int id) {
                 ImPlot::EndPlot();
             }
         } else {
-            if (ImPlot::BeginPlot("Render waveform (delayed)", ImVec2(-1, 120))) {
+            if (ImPlot::BeginPlot("Render waveform (delayed)", ImVec2(-1, kWaveH))) {
                 ImPlot::SetupAxes("s", "amp", ImPlotAxisFlags_AutoFit, ImPlotAxisFlags_None);
                 ImPlot::SetupAxisLimits(ImAxis_Y1, -1.0, 1.0, ImGuiCond_Always);
                 ImPlot::EndPlot();
@@ -314,7 +335,7 @@ void AppUi::drawChartPanel(int id) {
                     if (capSpec_) capSpec_->pushColumn(magCap_);
                 }
             });
-            if (ImPlot::BeginPlot("Capture spectrum", ImVec2(-1, 140))) {
+            if (ImPlot::BeginPlot("Capture spectrum", ImVec2(-1, kSpectrumH))) {
                 ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Log10);
                 ImPlot::SetupAxisLimits(ImAxis_X1, 20.0, (double)sr / 2.0, ImGuiCond_Always);
                 ImPlot::SetupAxisLimits(ImAxis_Y1, -96.0, 0.0, ImGuiCond_Always);
@@ -323,7 +344,7 @@ void AppUi::drawChartPanel(int id) {
                 ImPlot::EndPlot();
             }
         } else {
-            if (ImPlot::BeginPlot("Capture spectrum", ImVec2(-1, 140))) {
+            if (ImPlot::BeginPlot("Capture spectrum", ImVec2(-1, kSpectrumH))) {
                 ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Log10);
                 ImPlot::SetupAxisLimits(ImAxis_X1, 20.0, 24000.0, ImGuiCond_Always);
                 ImPlot::SetupAxisLimits(ImAxis_Y1, -96.0, 0.0, ImGuiCond_Always);
@@ -344,7 +365,7 @@ void AppUi::drawChartPanel(int id) {
                     }
                 });
             }
-            if (ImPlot::BeginPlot("Render spectrum", ImVec2(-1, 140))) {
+            if (ImPlot::BeginPlot("Render spectrum", ImVec2(-1, kSpectrumH))) {
                 ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Log10);
                 ImPlot::SetupAxisLimits(ImAxis_X1, 20.0, (double)sr / 2.0, ImGuiCond_Always);
                 ImPlot::SetupAxisLimits(ImAxis_Y1, -96.0, 0.0, ImGuiCond_Always);
@@ -353,7 +374,7 @@ void AppUi::drawChartPanel(int id) {
                 ImPlot::EndPlot();
             }
         } else {
-            if (ImPlot::BeginPlot("Render spectrum", ImVec2(-1, 140))) {
+            if (ImPlot::BeginPlot("Render spectrum", ImVec2(-1, kSpectrumH))) {
                 ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Log10);
                 ImPlot::SetupAxisLimits(ImAxis_X1, 20.0, 24000.0, ImGuiCond_Always);
                 ImPlot::SetupAxisLimits(ImAxis_Y1, -96.0, 0.0, ImGuiCond_Always);
@@ -369,7 +390,7 @@ void AppUi::drawChartPanel(int id) {
         } else {
             // Reserve the space but do NOT create the ImPlot plot pre-Start: an empty BeginPlot
             // would pin the axes and defeat the Once fit once data starts flowing.
-            ImGui::Dummy(ImVec2(ImGui::GetContentRegionAvail().x, 160.0f));
+            ImGui::Dummy(ImVec2(ImGui::GetContentRegionAvail().x, kSpectroH));
         }
         break;
     }
@@ -379,7 +400,7 @@ void AppUi::drawChartPanel(int id) {
             drawSpectrogramPanel("Render spectrogram", renderSpec_.get(), (double)(kSpecCols * kFftHop) / (double)sr);
         } else {
             // Reserve the space but do NOT create the ImPlot plot when playback is off (see above).
-            ImGui::Dummy(ImVec2(ImGui::GetContentRegionAvail().x, 160.0f));
+            ImGui::Dummy(ImVec2(ImGui::GetContentRegionAvail().x, kSpectroH));
         }
         break;
     }
