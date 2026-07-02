@@ -63,21 +63,19 @@ size_t DelayFifo::popFrames(float* out, size_t maxFrames) {
         // DROP: skip one frame, then crossfade from lastFrame_ into the ring.
         ++driftFixes_;
 
-        // Save the fade-from frame before advancing.
-        std::vector<float> srcFr(lastFrame_);
-
         // Advance past the dropped frame.
         head_ = (head_ + 1) % capacityFrames_;
         --fill_;
 
-        // Crossfade: blend srcFr toward current ring frames over xLen steps.
+        // Crossfade: blend lastFrame_ toward current ring frames over xLen steps.
+        // lastFrame_ is only updated after this loop, so read it directly (no per-DROP copy).
         size_t xLen = std::min({kCrossFadeFrames, fill_, maxFrames});
         for (size_t i = 0; i < xLen; ++i) {
             float t = static_cast<float>(i + 1) / static_cast<float>(xLen + 1);
             float*       dst = out + written * channels_;
             const float* rp  = buf_.data() + head_ * channels_;
             for (size_t c = 0; c < channels_; ++c)
-                dst[c] = srcFr[c] * (1.f - t) + rp[c] * t;
+                dst[c] = lastFrame_[c] * (1.f - t) + rp[c] * t;
             head_ = (head_ + 1) % capacityFrames_;
             --fill_;
             ++written;
