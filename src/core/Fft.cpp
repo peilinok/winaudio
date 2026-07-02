@@ -45,11 +45,11 @@ void magnitudeSpectrumDb(const float* samples, size_t count, std::complex<float>
     for (size_t i = count; i < N; ++i) work[i] = std::complex<float>(0.0f, 0.0f);
     fftRadix2(work, N);
     const double norm = (winSum > 0.0 ? winSum : 1.0);
-    const size_t bins = N/2;
+    const size_t bins = N/2 + 1;                       // single-sided incl. Nyquist (N/2+1 bins)
     out.resize(bins);
     for (size_t k = 0; k < bins; ++k) {
         double mag = (double)std::abs(work[k]) / norm;
-        if (k != 0) mag *= 2.0;                        // single-sided (DC not doubled; Nyquist excluded from [0,bins))
+        if (k != 0 && k != N/2) mag *= 2.0;            // single-sided: DC and Nyquist are not doubled
         double db = (mag > 0.0) ? 20.0*std::log10(mag) : (double)floorDb;
         if (db < floorDb) db = floorDb;
         out[k] = (float)db;

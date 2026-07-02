@@ -14,7 +14,7 @@ TEST(Fft, OnBinFullScaleSineIs0dBFS) {
     std::vector<std::complex<float>> work(N);
     std::vector<float> mag;
     magnitudeSpectrumDb(x.data(), N, work.data(), mag);
-    ASSERT_EQ(mag.size(), N/2);
+    ASSERT_EQ(mag.size(), N/2 + 1);                            // single-sided incl. Nyquist
     EXPECT_NEAR(mag[bin], 0.0f, 0.1f);                         // full-scale on-bin sine = 0 dBFS
     EXPECT_LT(mag[bin/2], -40.0f);                             // far bins well below
 }
@@ -28,7 +28,7 @@ TEST(Fft, ZeroPaddedCalibrationUsesWindowLength) {
     std::vector<std::complex<float>> work(Nfft);
     std::vector<float> mag;
     magnitudeSpectrumDb(x.data(), count, work.data(), mag);
-    ASSERT_EQ(mag.size(), Nfft/2);
+    ASSERT_EQ(mag.size(), Nfft/2 + 1);                         // single-sided incl. Nyquist
     EXPECT_NEAR(mag[bin], 0.0f, 0.6f);                         // normalized by window length L=count
 }
 
