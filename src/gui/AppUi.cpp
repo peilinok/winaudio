@@ -328,13 +328,14 @@ void AppUi::drawChartPanel(int id) {
             const double histSec = 200.0 * 512.0 / (double)sr; // kCols * kHop / sr
             ImPlot::PushColormap(ImPlotColormap_Viridis);
             if (ImPlot::BeginPlot("Capture spectrogram", ImVec2(-1, 160))) {
-                // Force axes to the heatmap bounds every frame. The plot's one-time first-frame
-                // auto-fit is defeated by the pre-Start empty BeginPlot/EndPlot below (which inits
-                // the axes to [0,1] and marks the plot Initialized), so PlotHeatmap's FitterRect
-                // never applies -> the heatmap draws off-screen. Always-limits keep it in view.
+                // Set the axis range ONCE (not Always) so the heatmap is visible on first show but
+                // the user can still pan/zoom the frequency axis afterward. This works because the
+                // else-branch below no longer creates an empty plot pre-Start -> this is the plot's
+                // first real frame, so Once applies to a fresh plot instead of being defeated by a
+                // pre-init to [0,1].
                 ImPlot::SetupAxes("s", "Hz");
-                ImPlot::SetupAxisLimits(ImAxis_X1, 0.0, histSec, ImGuiCond_Always);
-                ImPlot::SetupAxisLimits(ImAxis_Y1, capSpec_->fmin(), capSpec_->fmax(), ImGuiCond_Always);
+                ImPlot::SetupAxisLimits(ImAxis_X1, 0.0, histSec, ImGuiCond_Once);
+                ImPlot::SetupAxisLimits(ImAxis_Y1, capSpec_->fmin(), capSpec_->fmax(), ImGuiCond_Once);
                 ImPlot::PlotHeatmap("cap", capSpec_->data(), capSpec_->rows(), capSpec_->cols(),
                     -96.0, 0.0, nullptr,
                     ImPlotPoint(0, capSpec_->fmin()), ImPlotPoint(histSec, capSpec_->fmax()));
@@ -342,9 +343,9 @@ void AppUi::drawChartPanel(int id) {
             }
             ImPlot::PopColormap();
         } else {
-            if (ImPlot::BeginPlot("Capture spectrogram", ImVec2(-1, 160))) {
-                ImPlot::EndPlot();
-            }
+            // Reserve the space but do NOT create the ImPlot plot pre-Start: an empty BeginPlot
+            // would pin the axes to [0,1] and defeat the Once fit once data starts flowing.
+            ImGui::Dummy(ImVec2(ImGui::GetContentRegionAvail().x, 160.0f));
         }
         break;
     }
@@ -354,10 +355,10 @@ void AppUi::drawChartPanel(int id) {
             const double histSec = 200.0 * 512.0 / (double)sr;
             ImPlot::PushColormap(ImPlotColormap_Viridis);
             if (ImPlot::BeginPlot("Render spectrogram", ImVec2(-1, 160))) {
-                // Force axes to the heatmap bounds every frame (see the Capture spectrogram note).
+                // Range set once (see the Capture spectrogram note); user can pan/zoom afterward.
                 ImPlot::SetupAxes("s", "Hz");
-                ImPlot::SetupAxisLimits(ImAxis_X1, 0.0, histSec, ImGuiCond_Always);
-                ImPlot::SetupAxisLimits(ImAxis_Y1, renderSpec_->fmin(), renderSpec_->fmax(), ImGuiCond_Always);
+                ImPlot::SetupAxisLimits(ImAxis_X1, 0.0, histSec, ImGuiCond_Once);
+                ImPlot::SetupAxisLimits(ImAxis_Y1, renderSpec_->fmin(), renderSpec_->fmax(), ImGuiCond_Once);
                 ImPlot::PlotHeatmap("ren", renderSpec_->data(), renderSpec_->rows(), renderSpec_->cols(),
                     -96.0, 0.0, nullptr,
                     ImPlotPoint(0, renderSpec_->fmin()), ImPlotPoint(histSec, renderSpec_->fmax()));
@@ -365,9 +366,8 @@ void AppUi::drawChartPanel(int id) {
             }
             ImPlot::PopColormap();
         } else {
-            if (ImPlot::BeginPlot("Render spectrogram", ImVec2(-1, 160))) {
-                ImPlot::EndPlot();
-            }
+            // Reserve the space but do NOT create the ImPlot plot when playback is off (see above).
+            ImGui::Dummy(ImVec2(ImGui::GetContentRegionAvail().x, 160.0f));
         }
         break;
     }
