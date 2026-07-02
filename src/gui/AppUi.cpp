@@ -328,6 +328,13 @@ void AppUi::drawChartPanel(int id) {
             const double histSec = 200.0 * 512.0 / (double)sr; // kCols * kHop / sr
             ImPlot::PushColormap(ImPlotColormap_Viridis);
             if (ImPlot::BeginPlot("Capture spectrogram", ImVec2(-1, 160))) {
+                // Force axes to the heatmap bounds every frame. The plot's one-time first-frame
+                // auto-fit is defeated by the pre-Start empty BeginPlot/EndPlot below (which inits
+                // the axes to [0,1] and marks the plot Initialized), so PlotHeatmap's FitterRect
+                // never applies -> the heatmap draws off-screen. Always-limits keep it in view.
+                ImPlot::SetupAxes("s", "Hz");
+                ImPlot::SetupAxisLimits(ImAxis_X1, 0.0, histSec, ImGuiCond_Always);
+                ImPlot::SetupAxisLimits(ImAxis_Y1, capSpec_->fmin(), capSpec_->fmax(), ImGuiCond_Always);
                 ImPlot::PlotHeatmap("cap", capSpec_->data(), capSpec_->rows(), capSpec_->cols(),
                     -96.0, 0.0, nullptr,
                     ImPlotPoint(0, capSpec_->fmin()), ImPlotPoint(histSec, capSpec_->fmax()));
@@ -347,6 +354,10 @@ void AppUi::drawChartPanel(int id) {
             const double histSec = 200.0 * 512.0 / (double)sr;
             ImPlot::PushColormap(ImPlotColormap_Viridis);
             if (ImPlot::BeginPlot("Render spectrogram", ImVec2(-1, 160))) {
+                // Force axes to the heatmap bounds every frame (see the Capture spectrogram note).
+                ImPlot::SetupAxes("s", "Hz");
+                ImPlot::SetupAxisLimits(ImAxis_X1, 0.0, histSec, ImGuiCond_Always);
+                ImPlot::SetupAxisLimits(ImAxis_Y1, renderSpec_->fmin(), renderSpec_->fmax(), ImGuiCond_Always);
                 ImPlot::PlotHeatmap("ren", renderSpec_->data(), renderSpec_->rows(), renderSpec_->cols(),
                     -96.0, 0.0, nullptr,
                     ImPlotPoint(0, renderSpec_->fmin()), ImPlotPoint(histSec, renderSpec_->fmax()));
