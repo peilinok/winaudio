@@ -5,6 +5,7 @@
 #include "Fft.h"
 #include "Analysis.h"
 #include <cfloat>
+#include <cmath>
 #include <string>
 
 static std::string wtou(const std::wstring& w) {
@@ -213,6 +214,35 @@ void AppUi::drawChartsColumn() {
     }
 }
 
+// Draw one scrolling log-frequency spectrogram. Y is plotted in log10(Hz): the Spectrogram rows
+// are log-spaced in frequency, so log10(f) is uniform in row index -> PlotHeatmap's uniform grid
+// maps 1:1 onto a linear axis of log10(Hz), keeping the content correctly placed. Custom ticks
+// label the real frequencies, so the axis reads in Hz. The range is set once (not Always) so the
+// user can pan/zoom the frequency axis; this relies on the panel NOT creating an empty plot before
+// data flows (the caller's else-branch reserves space with a Dummy instead).
+void AppUi::drawSpectrogramPanel(const char* label, wa::Spectrogram* spec, double histSec) {
+    const double loL = std::log10(spec->fmin());
+    const double hiL = std::log10(spec->fmax());
+    static const double kFreq[]  = {20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000};
+    static const char*  kFreqL[] = {"20", "50", "100", "200", "500", "1k", "2k", "5k", "10k", "20k"};
+    double tickV[10]; const char* tickL[10]; int nTick = 0;
+    for (int i = 0; i < 10; ++i)
+        if (kFreq[i] >= spec->fmin() && kFreq[i] <= spec->fmax()) {
+            tickV[nTick] = std::log10(kFreq[i]); tickL[nTick] = kFreqL[i]; ++nTick;
+        }
+    ImPlot::PushColormap(ImPlotColormap_Viridis);
+    if (ImPlot::BeginPlot(label, ImVec2(-1, 160))) {
+        ImPlot::SetupAxes("s", "Hz");
+        ImPlot::SetupAxisLimits(ImAxis_X1, 0.0, histSec, ImGuiCond_Once);
+        ImPlot::SetupAxisLimits(ImAxis_Y1, loL, hiL, ImGuiCond_Once);
+        if (nTick > 0) ImPlot::SetupAxisTicks(ImAxis_Y1, tickV, nTick, tickL);
+        ImPlot::PlotHeatmap("hm", spec->data(), spec->rows(), spec->cols(), -96.0, 0.0, nullptr,
+            ImPlotPoint(0, loL), ImPlotPoint(histSec, hiL));
+        ImPlot::EndPlot();
+    }
+    ImPlot::PopColormap();
+}
+
 void AppUi::drawChartPanel(int id) {
     const uint32_t sr         = ms_.sampleRate;
     const bool overallRunning = (ms_.overall    == wa::StreamState::Running && sr > 0);
@@ -325,26 +355,10 @@ void AppUi::drawChartPanel(int id) {
 
     case 4: { // Capture spectrogram
         if (overallRunning && capSpec_) {
-            const double histSec = 200.0 * 512.0 / (double)sr; // kCols * kHop / sr
-            ImPlot::PushColormap(ImPlotColormap_Viridis);
-            if (ImPlot::BeginPlot("Capture spectrogram", ImVec2(-1, 160))) {
-                // Set the axis range ONCE (not Always) so the heatmap is visible on first show but
-                // the user can still pan/zoom the frequency axis afterward. This works because the
-                // else-branch below no longer creates an empty plot pre-Start -> this is the plot's
-                // first real frame, so Once applies to a fresh plot instead of being defeated by a
-                // pre-init to [0,1].
-                ImPlot::SetupAxes("s", "Hz");
-                ImPlot::SetupAxisLimits(ImAxis_X1, 0.0, histSec, ImGuiCond_Once);
-                ImPlot::SetupAxisLimits(ImAxis_Y1, capSpec_->fmin(), capSpec_->fmax(), ImGuiCond_Once);
-                ImPlot::PlotHeatmap("cap", capSpec_->data(), capSpec_->rows(), capSpec_->cols(),
-                    -96.0, 0.0, nullptr,
-                    ImPlotPoint(0, capSpec_->fmin()), ImPlotPoint(histSec, capSpec_->fmax()));
-                ImPlot::EndPlot();
-            }
-            ImPlot::PopColormap();
+            drawSpectrogramPanel("Capture spectrogram", capSpec_.get(), 200.0 * 512.0 / (double)sr);
         } else {
             // Reserve the space but do NOT create the ImPlot plot pre-Start: an empty BeginPlot
-            // would pin the axes to [0,1] and defeat the Once fit once data starts flowing.
+            // would pin the axes and defeat the Once fit once data starts flowing.
             ImGui::Dummy(ImVec2(ImGui::GetContentRegionAvail().x, 160.0f));
         }
         break;
@@ -352,19 +366,7 @@ void AppUi::drawChartPanel(int id) {
 
     case 5: { // Render spectrogram — data only when renderRunning
         if (overallRunning && renderRunning && renderSpec_) {
-            const double histSec = 200.0 * 512.0 / (double)sr;
-            ImPlot::PushColormap(ImPlotColormap_Viridis);
-            if (ImPlot::BeginPlot("Render spectrogram", ImVec2(-1, 160))) {
-                // Range set once (see the Capture spectrogram note); user can pan/zoom afterward.
-                ImPlot::SetupAxes("s", "Hz");
-                ImPlot::SetupAxisLimits(ImAxis_X1, 0.0, histSec, ImGuiCond_Once);
-                ImPlot::SetupAxisLimits(ImAxis_Y1, renderSpec_->fmin(), renderSpec_->fmax(), ImGuiCond_Once);
-                ImPlot::PlotHeatmap("ren", renderSpec_->data(), renderSpec_->rows(), renderSpec_->cols(),
-                    -96.0, 0.0, nullptr,
-                    ImPlotPoint(0, renderSpec_->fmin()), ImPlotPoint(histSec, renderSpec_->fmax()));
-                ImPlot::EndPlot();
-            }
-            ImPlot::PopColormap();
+            drawSpectrogramPanel("Render spectrogram", renderSpec_.get(), 200.0 * 512.0 / (double)sr);
         } else {
             // Reserve the space but do NOT create the ImPlot plot when playback is off (see above).
             ImGui::Dummy(ImVec2(ImGui::GetContentRegionAvail().x, 160.0f));

@@ -16,6 +16,7 @@ private:
     void drawLeftPanel();
     void drawChartsColumn();
     void drawChartPanel(int id);
+    void drawSpectrogramPanel(const char* label, wa::Spectrogram* spec, double histSec);
     const char* chartTitle(int id);
 
     wa::MonitorEngine    monitor_;
