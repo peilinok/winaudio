@@ -9,10 +9,10 @@ WinAudio 是一个小巧的 Windows 音频测试工具，用于对系统音频�
 **Phase 3 已完成。** 当前代码库包含 4 个项目：
 - **WinAudioCore**（`src/core`）：纯 C++ 静态库，零外部依赖（仅 Win32 + STL）；提供后端抽象（`IAudioBackend`）、设备枚举（`DeviceEnumerator`）、WASAPI-Shared/Exclusive 采集/播放、WAV 读写、环形缓冲区（RingBuffer）、引擎（Engine）、双流延迟监听（MonitorEngine、DelayFifo）、FFT 分析（Fft、SampleConvert、ScopeBuffer、Analysis）。
 - **WinAudioCli**（`src/cli`）：最小化命令行前端，支持 `list` / `capture` / `play` / `probe` / `monitor` 子命令。
-- **WinAudioGui**（`src/gui`）：Dear ImGui + DX11 GUI 前端，为首选交互方式；**恒监听**（monitor-only），两列布局（左列：设备/控制/状态/日志；右列：波形+频谱+声谱图，可拖拽重排），"同步播放" checkbox 实时控制 render 流。
+- **WinAudioGui**（`src/gui`）：Dear ImGui + DX11 GUI 前端，为首选交互方式；**恒监听**（monitor-only），两列布局（左列：设备/控制/状态/日志；右列：采集/播放各一个"波形+声谱图"合并单元，共享时间轴、可拖拽重排），"同步播放" checkbox 实时控制 render 流。
 - **WinAudioTests**（`src/tests`）：gtest 单元测试套件，覆盖核心模块（RingBuffer、AudioFormat、WAV、FormatSpec、WasapiStream 辅助函数、Fft、SampleConvert、ScopeBuffer、DelayFifo、Analysis、MonitorEngine、Spectrogram）。
 
-Phase 1 实现了 **WASAPI-Shared 采集/播放**；Phase 2 新增了 **WASAPI-Exclusive（独占模式，低延迟）**；Phase 3 新增了**双流延迟监听直通（MonitorEngine）与实时 GUI 可视化（波形 + 频谱 + 声谱图）**。waveIn/waveOut 与格式转换/重采样留作后续阶段。
+Phase 1 实现了 **WASAPI-Shared 采集/播放**；Phase 2 新增了 **WASAPI-Exclusive（独占模式，低延迟）**；Phase 3 新增了**双流延迟监听直通（MonitorEngine）与实时 GUI 可视化（波形 + 声谱图）**。waveIn/waveOut 与格式转换/重采样留作后续阶段。
 
 **构建系统已迁移到 CMake（已完成）**：从手写 MSBuild（`.sln`/`.vcxproj`）迁移到 CMake（Visual Studio 17 2022 生成器，保留 MSVC；`build.bat`/`test.bat` 驱动，产物集中在 `build/`），零 C++ 源码改动。详见「技术选型」「构建与运行」。
 
@@ -29,7 +29,7 @@ Phase 1 实现了 **WASAPI-Shared 采集/播放**；Phase 2 新增了 **WASAPI-E
   - **环形缓冲区**：SPSC 设计，线程安全，带 xrun 计数。
   - **双流延迟监听直通**：`MonitorEngine`（capture → `DelayFifo` 漂移控制 → render，两路 scope tap）；CLI `monitor` 子命令打印 cap/ren 状态、sr、fifo ms、drift、xrun。
   - **FFT 实时分析**：手写 radix-2 FFT（`Fft`，Hann 窗 + dBFS 标定 + 窗长归一化）；`SampleConvert`（多格式 PCM 解交织）；`ScopeBuffer`（seqlock 快照，无阻塞读取）；`Analysis`（采样计数节拍，驱动分析刷新）。
-  - **GUI Monitor 模式**：ImPlot 可视化，采集/播放两路各自的时域波形 + log-X dBFS 频谱曲线 + 滚动 log 频率声谱图（`Spectrogram` 做 log 频率热图重采样）；状态行显示 fifo/drift 以便观察漂移。
+  - **GUI Monitor 模式**：ImPlot 可视化，采集/播放两路各自的 dB 时域波形 + 滚动 log 频率声谱图（`Spectrogram` 做 log 频率热图重采样；波形与声谱图合并为一个单元、共享时间轴、中间分割线上下可调）；状态行显示 fifo/drift 以便观察漂移。
   - **错误处理**：`Result` 类型、HRESULT 规范化、COM RAII 与线程安全。
 - 能力范围（后续阶段）：
   - waveIn / waveOut（MME API 后端）。
@@ -92,13 +92,13 @@ cmake --build build --config Release -j
 .\build\bin\Debug\WinAudioGui.exe
 # GUI 为恒监听（monitor-only），无 Capture/Playback/Monitor 模式切换。
 # 两列布局：左列 = 设备 / 控制（含"同步播放" checkbox）/ 状态 / 日志；
-#           右列 = 波形 + 频谱 + 声谱图（可拖拽重排）。
+#           右列 = 采集/播放各一个"波形+声谱图"合并单元（共享时间轴，可拖拽重排）。
 # "同步播放" checkbox：勾选 → 启动 render 流实时直通（采样率须与采集设备一致）；
 #                     取消勾选 → 停止 render 流并释放设备。
-# 设备为下拉框选择,启动时默认选中系统默认设备;"Advanced..." 弹窗可配置高级流参数
+# 设备为下拉框选择,启动时默认选中系统默认设备;"Options" 弹窗可配置高级流参数
 # (category / stream option(RAW=绕过 APO)/ offload / ducking / buffer ms),
-# 默认全部"跟随系统"(不注入任何覆盖);除 buffer 外仅 WASAPI-Shared 生效。
-# 选择采集设备后点击 Start，实时显示时域波形、log-X dBFS 频谱曲线、滚动 log 频率声谱图；
+# 默认全部"跟随系统"(不注入任何覆盖);category/option/offload/ducking 仅 WASAPI-Shared(offload/ducking 仅 render),弹窗在监听运行中只读(仅 Start 前可改)。
+# 选择采集设备后点击 Start，实时显示 dB 时域波形、滚动 log 频率声谱图（二者共享时间轴）；
 # 状态行实时显示 fifo ms / drift，方便观察跨设备时钟漂移情况。
 ```
 
@@ -129,7 +129,7 @@ cmake --build build --config Release -j
   - `DelayFifo`：固定延迟 FIFO，单帧丢/插 + crossfade 漂移补偿，无重采样。
   - `Analysis`：采样计数节拍，跨线程触发 FFT 计算，解耦音频回调与分析频率。
 - **GUI 第三方库**（GUI 专用，不污染核心库）：
-  - `third_party/implot`：ImPlot（Dear ImGui 的绘图扩展），提供波形、频谱曲线、声谱图热图渲染。
+  - `third_party/implot`：ImPlot（Dear ImGui 的绘图扩展），提供波形与声谱图热图渲染。
   - `src/gui/Spectrogram.*`：纯 STL 辅助类，将线性 FFT bin 重采样到 log 频率网格，生成热图列；有独立 gtest。
 - **BackendKind**：`WasapiShared` / `WasapiExclusive`，由 CLI `--backend` 参数或 GUI 选择器决定，传入 `Engine`。
 - **COM 与线程安全**：`CoInitializeEx` 包装（RAII）；WASAPI 线程模型约定；原子操作与互斥锁。
