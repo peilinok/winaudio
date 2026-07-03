@@ -21,7 +21,7 @@ jobs:
         config: [Debug, Release]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Configure (CMake, VS 2022 x64)
         run: cmake --preset vs2022
@@ -33,7 +33,7 @@ jobs:
         run: ctest --test-dir build -C ${{ matrix.config }} --output-on-failure
 
       - name: Upload binaries (${{ matrix.config }})
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: WinAudio-${{ matrix.config }}
           path: |
