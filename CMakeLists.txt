@@ -8,6 +8,11 @@ if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
     message(FATAL_ERROR "WinAudio requires a 64-bit (x64) build.")
 endif()
 
+# Static CRT (/MT, /MTd) so distributed exes are self-contained (no VC++ Redistributable needed).
+# CMP0091 is NEW (cmake_minimum_required 3.21), so this drives the runtime library for every
+# target, including third_party (gtest/imgui/implot); see third_party/CMakeLists.txt.
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)

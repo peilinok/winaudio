@@ -63,7 +63,7 @@ cmake --preset vs2022
 cmake --build build --config Release -j
 ```
 
-产物：`build\bin\<Config>\{WinAudioCli,WinAudioGui,WinAudioTests}.exe`、`build\lib\<Config>\WinAudioCore.lib`。
+产物：`build\bin\<Config>\{WinAudioCli,WinAudioGui,WinAudioTests}.exe`、`build\lib\<Config>\WinAudioCore.lib`。构建使用**静态 CRT（`/MT`、`/MTd`，由顶层 `CMAKE_MSVC_RUNTIME_LIBRARY` 统一控制，gtest 等第三方一并继承）**，产出的 exe 自包含，分发无需安装 VC++ Redistributable。
 若 `cmake` 不在 PATH，用 VS 自带的：`D:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin`。
 
 ```powershell
