@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -10,6 +11,7 @@
 #include "Engine.h"        // BackendKind
 #include "IAudioBackend.h" // IAudioBackend, DataFlow, DeviceId
 #include "Result.h"
+#include "StreamParams.h"
 
 namespace wa {
 
@@ -65,10 +67,12 @@ public:
     MonitorEngine& operator=(const MonitorEngine&) = delete;
 
     Result start(BackendKind kind, const DeviceId& capId, const DeviceId& renderId,
-                 uint32_t delayMs, bool playbackEnabled = true);   // 第5参默认 true = 旧行为
+                 uint32_t delayMs, bool playbackEnabled = true,
+                 const StreamParams& capParams = {}, const StreamParams& renderParams = {});
     void   stop();
     MonitorStatus poll();
     void   setPlaybackEnabled(bool enabled);                        // 运行期实时开关（GUI 线程）
+    void   setRenderParams(const StreamParams& p);                  // 运行中可调;下次 engage 取快照生效
 
     bool snapshotCapture(size_t n, float* out, uint64_t& endIdxOut);
     bool snapshotRender (size_t n, float* out, uint64_t& endIdxOut);
@@ -92,6 +96,9 @@ private:
     DeviceId    renderId_{};
     uint32_t    delayMs_ = 0;
     std::atomic<bool> wantPlayback_{false};
+    StreamParams capParams_{};      // start 时消费(采集参数改动需 Stop/Start)
+    StreamParams renderParams_{};   // paramsMtx_ 保护;engageRender 取快照
+    std::mutex   paramsMtx_;
 
     std::unique_ptr<IAudioBackend> capBackend_;
     std::unique_ptr<IAudioBackend> renderBackend_;

@@ -63,7 +63,8 @@ Result MonitorEngine::rollback(StreamState finalState, MonitorError err, long co
 }
 
 Result MonitorEngine::start(BackendKind kind, const DeviceId& capId, const DeviceId& renderId,
-                            uint32_t delayMs, bool playbackEnabled) {
+                            uint32_t delayMs, bool playbackEnabled,
+                            const StreamParams& capParams, const StreamParams& renderParams) {
     teardown();
     // Fresh status slate.
     overall_.store(StreamState::Idle, std::memory_order_relaxed);
@@ -88,13 +89,15 @@ Result MonitorEngine::start(BackendKind kind, const DeviceId& capId, const Devic
                         "MonitorEngine: delayMs exceeds maximum (10000 ms)");
 
     kind_ = kind; renderId_ = renderId; delayMs_ = delayMs;
+    capParams_ = capParams;
+    { std::lock_guard<std::mutex> lk(paramsMtx_); renderParams_ = renderParams; }
 
     // --- Capture (always) ---
     captureRing_ = std::make_unique<RingBuffer>(kRingBytes);
     capBackend_  = makeBackend(DataFlow::Capture, kind, nullptr);
     if (!capBackend_)
         return rollback(StreamState::Idle, MonitorError::Factory, -1, "MonitorEngine: capture factory null");
-    if (Result r = capBackend_->open(capId, AudioFormat{}, captureRing_.get(), StreamParams{}); !r)
+    if (Result r = capBackend_->open(capId, AudioFormat{}, captureRing_.get(), capParams_); !r)
         return rollback(StreamState::Idle, MonitorError::CaptureOpen, r.code, r.message);
     if (Result r = capBackend_->start(); !r)
         return rollback(StreamState::Idle, MonitorError::CaptureStart, r.code, r.message);
@@ -150,11 +153,13 @@ Result MonitorEngine::start(BackendKind kind, const DeviceId& capId, const Devic
 }
 
 Result MonitorEngine::engageRender() {
+    StreamParams rp;
+    { std::lock_guard<std::mutex> lk(paramsMtx_); rp = renderParams_; }
     const uint32_t sr = capFmt_.sampleRate;
     renderRing_    = std::make_unique<RingBuffer>(kRingBytes);            // per-engage
     renderBackend_ = makeBackend(DataFlow::Render, kind_, &capFmt_);
     if (!renderBackend_) { renderRing_.reset(); return Result::Fail(-1, "MonitorEngine: render factory null"); }
-    if (Result r = renderBackend_->open(renderId_, AudioFormat{}, renderRing_.get(), StreamParams{}); !r) {
+    if (Result r = renderBackend_->open(renderId_, AudioFormat{}, renderRing_.get(), rp); !r) {
         renderBackend_.reset(); renderRing_.reset(); return Result::Fail(r.code, r.message);
     }
     if (Result r = renderBackend_->start(); !r) {
@@ -213,6 +218,11 @@ void MonitorEngine::disengageRender() {
 
 void MonitorEngine::setPlaybackEnabled(bool enabled) {
     wantPlayback_.store(enabled, std::memory_order_release);   // pump converges to this next iteration
+}
+
+void MonitorEngine::setRenderParams(const StreamParams& p) {
+    std::lock_guard<std::mutex> lk(paramsMtx_);
+    renderParams_ = p;
 }
 
 void MonitorEngine::pumpLoop() {

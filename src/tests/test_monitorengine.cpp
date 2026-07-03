@@ -398,3 +398,44 @@ TEST(MonitorEngine, EnablePlaybackRateMismatch) {
 
     eng.stop();
 }
+
+// ---------------------------------------------------------------------------
+// Task 3 new tests: StreamParams plumbed through MonitorEngine
+// ---------------------------------------------------------------------------
+
+TEST(MonitorEngine, StreamParamsReachBackends) {
+    FakeRig rig;
+    MonitorEngine eng(rig.factory());
+    StreamParams cap; cap.bufferMs = 30;
+    StreamParams ren; ren.category = AudioCategory::Media; ren.ducking = DuckingMode::OptOut;
+    ASSERT_TRUE(eng.start(BackendKind::WasapiShared, L"", L"", 100, true, cap, ren));
+    ASSERT_NE(rig.capPtr, nullptr);
+    ASSERT_NE(rig.renderPtr, nullptr);
+    EXPECT_EQ(rig.capPtr->lastOpenParams_.bufferMs, 30u);
+    EXPECT_EQ(rig.capPtr->lastOpenParams_.category, AudioCategory::Default);
+    EXPECT_EQ(rig.renderPtr->lastOpenParams_.category, AudioCategory::Media);
+    EXPECT_EQ(rig.renderPtr->lastOpenParams_.ducking,  DuckingMode::OptOut);
+    eng.stop();
+}
+
+TEST(MonitorEngine, SetRenderParamsAppliesOnReengage) {
+    FakeRig rig;
+    MonitorEngine eng(rig.factory());
+    ASSERT_TRUE(eng.start(BackendKind::WasapiShared, L"", L"", 100, true));   // params 全默认
+    ASSERT_NE(rig.renderPtr, nullptr);
+    EXPECT_EQ(rig.renderPtr->lastOpenParams_.option, StreamOption::Default);
+
+    StreamParams np; np.option = StreamOption::Raw; np.bufferMs = 20;
+    eng.setRenderParams(np);                    // 运行中改参数
+    eng.setPlaybackEnabled(false);              // 关播放(disengage)
+    // 等 pump 完成 disengage
+    ASSERT_TRUE(waitFor([&]{ return eng.poll().renderState == StreamState::Idle; }))
+        << "pump did not disengage render within timeout";
+    eng.setPlaybackEnabled(true);               // 重新勾上 -> re-engage 用新参数
+    // 等 pump 完成 re-engage（renderState=Running 在 open+start 完成后写入，保证 lastOpenParams_ 可见）
+    ASSERT_TRUE(waitFor([&]{ return eng.poll().renderState == StreamState::Running; }))
+        << "pump did not re-engage render with new params within timeout";
+    EXPECT_EQ(rig.renderPtr->lastOpenParams_.option,   StreamOption::Raw);
+    EXPECT_EQ(rig.renderPtr->lastOpenParams_.bufferMs, 20u);
+    eng.stop();
+}
