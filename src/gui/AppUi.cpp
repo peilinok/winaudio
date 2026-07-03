@@ -60,12 +60,25 @@ static void drawMoveIcon(ImDrawList* dl, ImVec2 c, float s, ImU32 col) {
 
 void AppUi::refreshMonitorDevices() {
     wa::ComInitGuard com;   // REQUIRED: GUI thread has no COM; DeviceEnumerator needs it
+    const wa::DeviceId prevCap = (capDevIdx_ >= 0 && capDevIdx_ < (int)capDevices_.size())
+                                     ? capDevices_[(size_t)capDevIdx_].id : L"";
+    const wa::DeviceId prevRen = (renderDevIdx_ >= 0 && renderDevIdx_ < (int)renderDevices_.size())
+                                     ? renderDevices_[(size_t)renderDevIdx_].id : L"";
     capDevices_.clear();
     renderDevices_.clear();
     enumerator_.enumerate(wa::DataFlow::Capture, capDevices_);
     enumerator_.enumerate(wa::DataFlow::Render,  renderDevices_);
-    capDevIdx_    = 0;
-    renderDevIdx_ = 0;
+    // Keep the previously selected device if it still exists; else the system default; else 0.
+    auto pick = [](const std::vector<wa::DeviceInfo>& devs, const wa::DeviceId& prev) -> int {
+        if (!prev.empty())
+            for (int i = 0; i < (int)devs.size(); ++i)
+                if (devs[(size_t)i].id == prev) return i;
+        for (int i = 0; i < (int)devs.size(); ++i)
+            if (devs[(size_t)i].isDefault) return i;
+        return 0;
+    };
+    capDevIdx_    = pick(capDevices_, prevCap);
+    renderDevIdx_ = pick(renderDevices_, prevRen);
     monitorDevicesLoaded_ = true;
 }
 
@@ -137,24 +150,26 @@ void AppUi::drawLeftPanel() {
     ImGui::SeparatorText("Devices");
     if (ImGui::Button("Refresh devices")) refreshMonitorDevices();
 
-    ImGui::TextUnformatted("Capture device");
-    if (ImGui::BeginListBox("##capdev", ImVec2(-1, 70))) {
-        for (int i = 0; i < (int)capDevices_.size(); ++i) {
-            std::string l = (capDevices_[i].isDefault ? "* " : "  ") + wtou(capDevices_[i].name);
-            if (ImGui::Selectable((l + "##c" + std::to_string(i)).c_str(), capDevIdx_ == i))
-                capDevIdx_ = i;
+    auto deviceCombo = [&](const char* caption, const char* comboId,
+                           const std::vector<wa::DeviceInfo>& devs, int& idx) {
+        ImGui::TextUnformatted(caption);
+        std::string preview = "(no devices)";
+        if (!devs.empty() && idx >= 0 && idx < (int)devs.size())
+            preview = (devs[(size_t)idx].isDefault ? "* " : "") + wtou(devs[(size_t)idx].name);
+        ImGui::SetNextItemWidth(-1);
+        if (ImGui::BeginCombo(comboId, preview.c_str())) {
+            for (int i = 0; i < (int)devs.size(); ++i) {
+                std::string l = (devs[(size_t)i].isDefault ? "* " : "  ") + wtou(devs[(size_t)i].name);
+                if (ImGui::Selectable((l + "##" + std::to_string(i)).c_str(), idx == i))
+                    idx = i;
+            }
+            ImGui::EndCombo();
         }
-        ImGui::EndListBox();
-    }
-    ImGui::TextUnformatted("Render device");
-    if (ImGui::BeginListBox("##rendev", ImVec2(-1, 70))) {
-        for (int i = 0; i < (int)renderDevices_.size(); ++i) {
-            std::string l = (renderDevices_[i].isDefault ? "* " : "  ") + wtou(renderDevices_[i].name);
-            if (ImGui::Selectable((l + "##r" + std::to_string(i)).c_str(), renderDevIdx_ == i))
-                renderDevIdx_ = i;
-        }
-        ImGui::EndListBox();
-    }
+    };
+    deviceCombo("Capture device", "##capdev", capDevices_, capDevIdx_);
+    deviceCombo("Render device",  "##rendev", renderDevices_, renderDevIdx_);
+    if (ImGui::Button("Advanced...")) ImGui::OpenPopup("Audio parameters (advanced)");
+    drawAdvancedModal();
 
     // --- Control ---
     ImGui::SeparatorText("Control");
@@ -168,7 +183,8 @@ void AppUi::drawLeftPanel() {
             wa::DeviceId renId = renderDevices_.empty() ? L"" : renderDevices_[renderDevIdx_].id;
             wa::BackendKind kind = (backendIdx_ == 1) ? wa::BackendKind::WasapiExclusive
                                                       : wa::BackendKind::WasapiShared;
-            wa::Result r = monitor_.start(kind, capId, renId, (uint32_t)delayMs_, playbackEnabled_);
+            wa::Result r = monitor_.start(kind, capId, renId, (uint32_t)delayMs_,
+                                          playbackEnabled_, capParams_, renParams_);
             logLines_.push_back(r ? "monitor started" : ("monitor error: " + r.message));
             if (r) {
                 monitorStarted_ = true;
@@ -208,6 +224,68 @@ void AppUi::drawLeftPanel() {
     ImGui::BeginChild("log", ImVec2(0, 0), true);
     for (const auto& l : logLines_) ImGui::TextUnformatted(l.c_str());
     ImGui::EndChild();
+}
+
+void AppUi::drawAdvancedModal() {
+    if (!ImGui::BeginPopupModal("Audio parameters (advanced)", nullptr,
+                                ImGuiWindowFlags_AlwaysAutoResize)) return;
+    ImGui::TextWrapped("All values default to system-recommended (no override is injected unless "
+                       "you change them). Category/option/offload/ducking require WASAPI-Shared; "
+                       "only Buffer applies to Exclusive.");
+    ImGui::Separator();
+    static const char* kCats[] = {"System default", "Other", "Communications", "Media", "Movie",
+                                  "Game chat", "Speech", "Sound effects", "Game media"};
+    static const char* kOpts[] = {"System default", "Raw (bypass APO)", "Match format"};
+    bool renChanged = false;
+
+    ImGui::BeginGroup();                              // ---- Capture column
+    ImGui::SeparatorText("Capture");
+    ImGui::PushID("capP");
+    ImGui::PushItemWidth(190);
+    int v = (int)capParams_.category;
+    if (ImGui::Combo("Category", &v, kCats, 9)) { capParams_.category = (wa::AudioCategory)v; advCapDirty_ = true; }
+    v = (int)capParams_.option;
+    if (ImGui::Combo("Stream option", &v, kOpts, 3)) { capParams_.option = (wa::StreamOption)v; advCapDirty_ = true; }
+    v = (int)capParams_.bufferMs;
+    if (ImGui::InputInt("Buffer (ms)", &v)) { capParams_.bufferMs = (uint32_t)std::clamp(v, 0, 2000); advCapDirty_ = true; }
+    if (ImGui::Button("Reset to system defaults")) { capParams_ = wa::StreamParams{}; advCapDirty_ = true; }
+    ImGui::PopItemWidth();
+    ImGui::PopID();
+    ImGui::EndGroup();
+
+    ImGui::SameLine(0, 24);
+
+    ImGui::BeginGroup();                              // ---- Render column
+    ImGui::SeparatorText("Render");
+    ImGui::PushID("renP");
+    ImGui::PushItemWidth(190);
+    v = (int)renParams_.category;
+    if (ImGui::Combo("Category", &v, kCats, 9)) { renParams_.category = (wa::AudioCategory)v; renChanged = true; }
+    v = (int)renParams_.option;
+    if (ImGui::Combo("Stream option", &v, kOpts, 3)) { renParams_.option = (wa::StreamOption)v; renChanged = true; }
+    bool off = renParams_.offload == wa::OffloadMode::Force;
+    if (ImGui::Checkbox("Hardware offload", &off)) { renParams_.offload = off ? wa::OffloadMode::Force : wa::OffloadMode::Default; renChanged = true; }
+    bool duck = renParams_.ducking == wa::DuckingMode::OptOut;
+    if (ImGui::Checkbox("Ducking opt-out", &duck)) { renParams_.ducking = duck ? wa::DuckingMode::OptOut : wa::DuckingMode::Default; renChanged = true; }
+    v = (int)renParams_.bufferMs;
+    if (ImGui::InputInt("Buffer (ms)", &v)) { renParams_.bufferMs = (uint32_t)std::clamp(v, 0, 2000); renChanged = true; }
+    if (ImGui::Button("Reset to system defaults")) { renParams_ = wa::StreamParams{}; renChanged = true; }
+    ImGui::PopItemWidth();
+    ImGui::PopID();
+    ImGui::EndGroup();
+
+    if (renChanged && monitorStarted_) {
+        monitor_.setRenderParams(renParams_);
+        logLines_.push_back("render params updated; re-toggle playback to apply");
+    }
+    ImGui::Separator();
+    if (ImGui::Button("Close", ImVec2(120, 0))) {
+        if (advCapDirty_ && monitorStarted_)
+            logLines_.push_back("capture params take effect on next Start");
+        advCapDirty_ = false;
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
 }
 
 void AppUi::drawChartsColumn() {

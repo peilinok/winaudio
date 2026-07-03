@@ -95,6 +95,9 @@ cmake --build build --config Release -j
 #           右列 = 波形 + 频谱 + 声谱图（可拖拽重排）。
 # "同步播放" checkbox：勾选 → 启动 render 流实时直通（采样率须与采集设备一致）；
 #                     取消勾选 → 停止 render 流并释放设备。
+# 设备为下拉框选择,启动时默认选中系统默认设备;"Advanced..." 弹窗可配置高级流参数
+# (category / stream option(RAW=绕过 APO)/ offload / ducking / buffer ms),
+# 默认全部"跟随系统"(不注入任何覆盖);除 buffer 外仅 WASAPI-Shared 生效。
 # 选择采集设备后点击 Start，实时显示时域波形、log-X dBFS 频谱曲线、滚动 log 频率声谱图；
 # 状态行实时显示 fifo ms / drift，方便观察跨设备时钟漂移情况。
 ```

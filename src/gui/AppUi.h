@@ -14,6 +14,7 @@ public:
 private:
     void refreshMonitorDevices();
     void drawLeftPanel();
+    void drawAdvancedModal();
     void drawChartsColumn();
     void drawChartPanel(int id);
     void drawComboPanel(bool renderSide);   // waveform + splitter + spectrogram in one cell
@@ -40,6 +41,10 @@ private:
     int                         renderDevIdx_ = 0;
     int                         delayMs_      = 100;
     bool                        monitorStarted_ = false;
+
+    wa::StreamParams capParams_{};    // Advanced 弹窗编辑;Start 时传入
+    wa::StreamParams renParams_{};
+    bool             advCapDirty_ = false;  // 运行中改过采集参数 -> 弹窗关闭时日志提示
 
     // Waveform buffers — full spectrogram-history window (kSpecCols*kFftHop samples), rebuilt on rate change
     std::vector<float> capWave_, renderWave_;
