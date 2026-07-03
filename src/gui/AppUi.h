@@ -20,7 +20,6 @@ private:
     void drawComboPanel(bool renderSide);   // waveform + splitter + spectrogram in one cell
     void drawSpectrogramPanel(const char* plotId, wa::Spectrogram* spec, double histSec, float height, int slot);
     void drawWaveformPanel(const char* plotId, const float* wave, int n, uint32_t sr, bool haveData, float height, int slot);
-    void drawSpectrumPanel(const char* title, const std::vector<float>& mag, bool haveData, int slot);
     const char* chartTitle(int id);
 
     wa::MonitorEngine    monitor_;
@@ -29,7 +28,7 @@ private:
 
     int  backendIdx_      = 0;
     bool playbackEnabled_ = false;
-    std::vector<int>         chartOrder_      = {0, 1, 2, 3};   // 0=cap combo, 1=ren combo, 2/3=spectra
+    std::vector<int>         chartOrder_      = {0, 1};   // 0=cap combo, 1=ren combo
     int                      prevRenderState_ = 0;
     std::vector<std::string> logLines_;
 
@@ -42,9 +41,8 @@ private:
     int                         delayMs_      = 100;
     bool                        monitorStarted_ = false;
 
-    wa::StreamParams capParams_{};    // Advanced 弹窗编辑;Start 时传入
+    wa::StreamParams capParams_{};    // Advanced 弹窗编辑;Start 时传入(运行中只读)
     wa::StreamParams renParams_{};
-    bool             advCapDirty_ = false;  // 运行中改过采集参数 -> 弹窗关闭时日志提示
 
     // Waveform buffers — full spectrogram-history window (kSpecCols*kFftHop samples), rebuilt on rate change
     std::vector<float> capWave_, renderWave_;
@@ -57,12 +55,12 @@ private:
     float comboRatio_ = 0.5f;
     // Last-frame plot-area hover per plot slot: locks Y that frame so in-plot wheel/drag act on X
     // only; hovering a Y ruler (not plot area) leaves Y free for per-axis zoom/pan.
-    bool plotHovPrev_[6] = {};
+    bool plotHovPrev_[4] = {};
 
     // Spectrum analysis (2048-point Hann FFT, dBFS)
     std::vector<std::complex<float>> workCap_, workRender_;
     std::vector<float>               specWin_;
-    std::vector<float>               magCap_, magRender_, freqAxis_;
+    std::vector<float>               magCap_, magRender_;
     uint64_t nextCapEnd_    = 0;
     uint64_t nextRenderEnd_ = 0;
     uint32_t specSr_        = 0;

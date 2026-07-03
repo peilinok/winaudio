@@ -28,11 +28,10 @@ constexpr int    kSpecCols = 480;   // time columns -> kSpecCols*kFftHop = 49152
 constexpr float  kWaveDbFloor = -60.0f;  // waveform dB display floor (center line reads -inf)
 // Waveform shares the spectrogram's time window: kSpecCols*kFftHop samples (see drawChartsColumn).
 // Chart panel heights (px).
-constexpr float  kSpectrumH = 190.0f;  // spectrum
 constexpr float  kComboH    = 400.0f;  // waveform+spectrogram combo cell content (split by comboRatio_)
 constexpr float  kSplitH    = 6.0f;    // draggable splitter between waveform and spectrogram
 // Plot slots for plotHovPrev_ (per-plot last-frame plot-area hover; see AppUi.h).
-enum : int { kSlotCapWave, kSlotRenWave, kSlotCapSpectro, kSlotRenSpectro, kSlotCapSpectrum, kSlotRenSpectrum };
+enum : int { kSlotCapWave, kSlotRenWave, kSlotCapSpectro, kSlotRenSpectro };
 
 // Map a linear sample onto the symmetric dB display scale (Audition-style logarithmic waveform):
 // |x| in dBFS, warped so 0 dBFS -> +/-1 and kWaveDbFloor or quieter (incl. silence) -> 0 (the
@@ -106,8 +105,6 @@ const char* AppUi::chartTitle(int id) {
     switch (id) {
     case 0: return "Capture waveform + spectrogram";
     case 1: return "Render waveform + spectrogram (delayed)";
-    case 2: return "Capture spectrum";
-    case 3: return "Render spectrum";
     default: return "";
     }
 }
@@ -135,7 +132,7 @@ void AppUi::draw() {
 
     ImGui::SameLine();
 
-    // Right column: six chart panels (fixed order in T2; T3 adds drag-reorder)
+    // Right column: two combo panels (capture + render), drag to reorder
     ImGui::BeginChild("charts", ImVec2(0, 0), true);
     drawChartsColumn();
     ImGui::EndChild();
@@ -149,6 +146,8 @@ void AppUi::drawLeftPanel() {
     // --- Devices ---
     ImGui::SeparatorText("Devices");
     if (ImGui::Button("Refresh devices")) refreshMonitorDevices();
+    ImGui::SameLine();
+    if (ImGui::Button("Options")) ImGui::OpenPopup("Audio parameters (advanced)");
 
     auto deviceCombo = [&](const char* caption, const char* comboId,
                            const std::vector<wa::DeviceInfo>& devs, int& idx) {
@@ -168,7 +167,6 @@ void AppUi::drawLeftPanel() {
     };
     deviceCombo("Capture device", "##capdev", capDevices_, capDevIdx_);
     deviceCombo("Render device",  "##rendev", renderDevices_, renderDevIdx_);
-    if (ImGui::Button("Advanced...")) ImGui::OpenPopup("Audio parameters (advanced)");
     drawAdvancedModal();
 
     // --- Control ---
@@ -177,8 +175,9 @@ void AppUi::drawLeftPanel() {
     ImGui::Combo("Backend", &backendIdx_, backends, 2);
     ImGui::SliderInt("Delay (ms)", &delayMs_, 0, 500);
 
+    const ImVec2 ctrlBtn(120.0f, ImGui::GetFrameHeight() * 1.3f);   // enlarged Start/Stop button
     if (!monitorStarted_) {
-        if (ImGui::Button("Start")) {
+        if (ImGui::Button("Start", ctrlBtn)) {
             wa::DeviceId capId = capDevices_.empty()    ? L"" : capDevices_[capDevIdx_].id;
             wa::DeviceId renId = renderDevices_.empty() ? L"" : renderDevices_[renderDevIdx_].id;
             wa::BackendKind kind = (backendIdx_ == 1) ? wa::BackendKind::WasapiExclusive
@@ -192,12 +191,15 @@ void AppUi::drawLeftPanel() {
             }
         }
     } else {
-        if (ImGui::Button("Stop")) {
+        if (ImGui::Button("Stop", ctrlBtn)) {
             monitor_.stop();
             monitorStarted_ = false;
             logLines_.push_back("monitor stopped");
         }
     }
+    ImGui::SameLine();
+    // vertically center the playback checkbox against the taller Start/Stop button
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (ctrlBtn.y - ImGui::GetFrameHeight()) * 0.5f);
 
     // Playback checkbox — disabled until monitor is started
     if (!monitorStarted_) ImGui::BeginDisabled();
@@ -231,24 +233,29 @@ void AppUi::drawAdvancedModal() {
                                 ImGuiWindowFlags_AlwaysAutoResize)) return;
     ImGui::TextWrapped("All values default to system-recommended (no override is injected unless "
                        "you change them). Category/option/offload/ducking require WASAPI-Shared; "
-                       "only Buffer applies to Exclusive.");
+                       "only Buffer applies to Exclusive. Offload and ducking are render-only "
+                       "(WASAPI has no capture offload).");
+    if (monitorStarted_)
+        ImGui::TextColored(ImVec4(1.00f, 0.80f, 0.30f, 1.00f),
+                           "Running: parameters are read-only. Stop the monitor to change them.");
     ImGui::Separator();
     static const char* kCats[] = {"System default", "Other", "Communications", "Media", "Movie",
                                   "Game chat", "Speech", "Sound effects", "Game media"};
     static const char* kOpts[] = {"System default", "Raw (bypass APO)", "Match format"};
-    bool renChanged = false;
+
+    ImGui::BeginDisabled(monitorStarted_);              // view-only while running
 
     ImGui::BeginGroup();                              // ---- Capture column
     ImGui::SeparatorText("Capture");
     ImGui::PushID("capP");
     ImGui::PushItemWidth(190);
     int v = (int)capParams_.category;
-    if (ImGui::Combo("Category", &v, kCats, 9)) { capParams_.category = (wa::AudioCategory)v; advCapDirty_ = true; }
+    if (ImGui::Combo("Category", &v, kCats, 9)) capParams_.category = (wa::AudioCategory)v;
     v = (int)capParams_.option;
-    if (ImGui::Combo("Stream option", &v, kOpts, 3)) { capParams_.option = (wa::StreamOption)v; advCapDirty_ = true; }
+    if (ImGui::Combo("Stream option", &v, kOpts, 3)) capParams_.option = (wa::StreamOption)v;
     v = (int)capParams_.bufferMs;
-    if (ImGui::InputInt("Buffer (ms)", &v)) { capParams_.bufferMs = (uint32_t)std::clamp(v, 0, 2000); advCapDirty_ = true; }
-    if (ImGui::Button("Reset to system defaults")) { capParams_ = wa::StreamParams{}; advCapDirty_ = true; }
+    if (ImGui::InputInt("Buffer (ms)", &v)) capParams_.bufferMs = (uint32_t)std::clamp(v, 0, 2000);
+    if (ImGui::Button("Reset to system defaults")) capParams_ = wa::StreamParams{};
     ImGui::PopItemWidth();
     ImGui::PopID();
     ImGui::EndGroup();
@@ -260,31 +267,24 @@ void AppUi::drawAdvancedModal() {
     ImGui::PushID("renP");
     ImGui::PushItemWidth(190);
     v = (int)renParams_.category;
-    if (ImGui::Combo("Category", &v, kCats, 9)) { renParams_.category = (wa::AudioCategory)v; renChanged = true; }
+    if (ImGui::Combo("Category", &v, kCats, 9)) renParams_.category = (wa::AudioCategory)v;
     v = (int)renParams_.option;
-    if (ImGui::Combo("Stream option", &v, kOpts, 3)) { renParams_.option = (wa::StreamOption)v; renChanged = true; }
+    if (ImGui::Combo("Stream option", &v, kOpts, 3)) renParams_.option = (wa::StreamOption)v;
     bool off = renParams_.offload == wa::OffloadMode::Force;
-    if (ImGui::Checkbox("Hardware offload", &off)) { renParams_.offload = off ? wa::OffloadMode::Force : wa::OffloadMode::Default; renChanged = true; }
+    if (ImGui::Checkbox("Hardware offload", &off)) renParams_.offload = off ? wa::OffloadMode::Force : wa::OffloadMode::Default;
     bool duck = renParams_.ducking == wa::DuckingMode::OptOut;
-    if (ImGui::Checkbox("Ducking opt-out", &duck)) { renParams_.ducking = duck ? wa::DuckingMode::OptOut : wa::DuckingMode::Default; renChanged = true; }
+    if (ImGui::Checkbox("Ducking opt-out", &duck)) renParams_.ducking = duck ? wa::DuckingMode::OptOut : wa::DuckingMode::Default;
     v = (int)renParams_.bufferMs;
-    if (ImGui::InputInt("Buffer (ms)", &v)) { renParams_.bufferMs = (uint32_t)std::clamp(v, 0, 2000); renChanged = true; }
-    if (ImGui::Button("Reset to system defaults")) { renParams_ = wa::StreamParams{}; renChanged = true; }
+    if (ImGui::InputInt("Buffer (ms)", &v)) renParams_.bufferMs = (uint32_t)std::clamp(v, 0, 2000);
+    if (ImGui::Button("Reset to system defaults")) renParams_ = wa::StreamParams{};
     ImGui::PopItemWidth();
     ImGui::PopID();
     ImGui::EndGroup();
 
-    if (renChanged && monitorStarted_) {
-        monitor_.setRenderParams(renParams_);
-        logLines_.push_back("render params updated; re-toggle playback to apply");
-    }
+    ImGui::EndDisabled();
+
     ImGui::Separator();
-    if (ImGui::Button("Close", ImVec2(120, 0))) {
-        if (advCapDirty_ && monitorStarted_)
-            logLines_.push_back("capture params take effect on next Start");
-        advCapDirty_ = false;
-        ImGui::CloseCurrentPopup();
-    }
+    if (ImGui::Button("Close", ImVec2(120, 0))) ImGui::CloseCurrentPopup();
     ImGui::EndPopup();
 }
 
@@ -310,9 +310,6 @@ void AppUi::drawChartsColumn() {
         if (sr != specSr_) {
             specSr_ = sr;
             workCap_.resize(kFftWin); workRender_.resize(kFftWin); specWin_.resize(kFftWin);
-            freqAxis_.resize(kFftWin / 2 + 1);
-            for (size_t k = 0; k < freqAxis_.size(); ++k)
-                freqAxis_[k] = (float)((double)k * (double)sr / (double)kFftWin);
             capSpec_    = std::make_unique<wa::Spectrogram>(kSpecRows, kSpecCols, 20.0, (double)sr / 2.0, sr);
             renderSpec_ = std::make_unique<wa::Spectrogram>(kSpecRows, kSpecCols, 20.0, (double)sr / 2.0, sr);
         } else if (!renderSpec_) {
@@ -382,7 +379,7 @@ static ImPlotColormap waSpectroColormap() {
 // so the always-created (possibly empty) plot never pins to the [0,1] defaults.
 void AppUi::drawSpectrogramPanel(const char* plotId, wa::Spectrogram* spec, double histSec, float height, int slot) {
     // spec == null (not running / no data yet): draw the axes only with a default 20..24 kHz range
-    // so the panel is ALWAYS visible, consistent with the waveform/spectrum panels. The explicit
+    // so the panel is ALWAYS visible, consistent with the waveform panel. The explicit
     // log-range SetupAxisLimits keeps the empty plot from pinning to [0,1] (the old auto-fit bug).
     const double fmin = spec ? spec->fmin() : 20.0;
     const double fmax = spec ? spec->fmax() : 24000.0;
@@ -486,22 +483,6 @@ void AppUi::drawWaveformPanel(const char* plotId, const float* wave, int n, uint
     ImPlot::EndPlot();
 }
 
-// Spectrum curve (log-frequency X, dBFS Y). Same X/Y zoom split as the time charts: wheel in the
-// plot zooms frequency only; zoom dB via the Y ruler.
-void AppUi::drawSpectrumPanel(const char* title, const std::vector<float>& mag, bool haveData, int slot) {
-    if (!ImPlot::BeginPlot(title, ImVec2(-1, kSpectrumH))) return;
-    const ImPlotAxisFlags yf = plotHovPrev_[slot] ? ImPlotAxisFlags_Lock : ImPlotAxisFlags_None;
-    ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_None, yf);
-    ImPlot::SetupAxisScale(ImAxis_X1, ImPlotScale_Log10);
-    ImPlot::SetupAxisLimits(ImAxis_X1, 20.0, (specSr_ > 0) ? (double)specSr_ / 2.0 : 24000.0, ImGuiCond_Once);
-    ImPlot::SetupAxisLimits(ImAxis_Y1, -96.0, 0.0, ImGuiCond_Once);
-    if (haveData && mag.size() > 1)
-        ImPlot::PlotLine("##mag", freqAxis_.data() + 1, mag.data() + 1, (int)mag.size() - 1);
-    drawYUnitLabel("dBFS");
-    plotHovPrev_[slot] = ImPlot::IsPlotHovered();
-    ImPlot::EndPlot();
-}
-
 // One combined cell per stream: waveform on top, spectrogram below (Audition-style), sharing the
 // linked time axis, with a draggable horizontal splitter between them. comboRatio_ is shared by
 // both streams so the capture and render cells stay height-aligned for side-by-side comparison.
@@ -540,6 +521,25 @@ void AppUi::drawComboPanel(bool renderSide) {
                                         ImVec2(smx.x, (smn.y + smx.y) * 0.5f),
                                         ImGui::GetColorU32(ImGuiCol_Separator), 1.0f);
 
+    // Advance the FFT analysis feeding this stream's spectrogram (relocated here from the former
+    // spectrum panels): one column per hop, catching up a few frames per poll. workCap_/workRender_
+    // and magCap_/magRender_ are reused as scratch.
+    if (overallRunning && specSr_ > 0 && (!renderSide || renderRunning)) {
+        uint64_t se = 0;
+        const uint64_t written = renderSide ? monitor_.renderWritten() : monitor_.capWritten();
+        uint64_t& nextEnd      = renderSide ? nextRenderEnd_ : nextCapEnd_;
+        wa::advanceAnalysis(written, nextEnd, kFftWin, kFftHop, kCatchup, [&](uint64_t) {
+            const bool got = renderSide ? monitor_.snapshotRender(kFftWin, specWin_.data(), se)
+                                        : monitor_.snapshotCapture(kFftWin, specWin_.data(), se);
+            if (!got) return;
+            std::vector<std::complex<float>>& work = renderSide ? workRender_ : workCap_;
+            std::vector<float>&               mag  = renderSide ? magRender_  : magCap_;
+            wa::magnitudeSpectrumDb(specWin_.data(), kFftWin, work.data(), mag);
+            if (wa::Spectrogram* sp = renderSide ? renderSpec_.get() : capSpec_.get())
+                sp->pushColumn(mag);
+        });
+    }
+
     wa::Spectrogram* spec = nullptr;
     if (overallRunning) spec = renderSide ? (renderRunning ? renderSpec_.get() : nullptr) : capSpec_.get();
     const uint32_t hz = (sr > 0) ? sr : 48000u;   // idle: assume 48 kHz for the axis ranges
@@ -549,48 +549,13 @@ void AppUi::drawComboPanel(bool renderSide) {
 }
 
 void AppUi::drawChartPanel(int id) {
-    const uint32_t sr         = ms_.sampleRate;
-    const bool overallRunning = (ms_.overall    == wa::StreamState::Running && sr > 0);
-    const bool renderRunning  = (ms_.renderState == wa::StreamState::Running);
-
     switch (id) {
-
     case 0:   // Capture waveform + spectrogram combo
         drawComboPanel(false);
         break;
-
     case 1:   // Render waveform + spectrogram combo — data only while playback runs
         drawComboPanel(true);
         break;
-
-    case 2: { // Capture spectrum (also advances the analysis that feeds the capture spectrogram)
-        if (overallRunning && specSr_ > 0) {
-            uint64_t se = 0;
-            wa::advanceAnalysis(monitor_.capWritten(), nextCapEnd_, kFftWin, kFftHop, kCatchup, [&](uint64_t) {
-                if (monitor_.snapshotCapture(kFftWin, specWin_.data(), se)) {
-                    wa::magnitudeSpectrumDb(specWin_.data(), kFftWin, workCap_.data(), magCap_);
-                    if (capSpec_) capSpec_->pushColumn(magCap_);
-                }
-            });
-        }
-        drawSpectrumPanel("Capture spectrum", magCap_, overallRunning && specSr_ > 0, kSlotCapSpectrum);
-        break;
-    }
-
-    case 3: { // Render spectrum — data only when renderRunning (also feeds the render spectrogram)
-        if (overallRunning && specSr_ > 0 && renderRunning) {
-            uint64_t se = 0;
-            wa::advanceAnalysis(monitor_.renderWritten(), nextRenderEnd_, kFftWin, kFftHop, kCatchup, [&](uint64_t) {
-                if (monitor_.snapshotRender(kFftWin, specWin_.data(), se)) {
-                    wa::magnitudeSpectrumDb(specWin_.data(), kFftWin, workRender_.data(), magRender_);
-                    if (renderSpec_) renderSpec_->pushColumn(magRender_);
-                }
-            });
-        }
-        drawSpectrumPanel("Render spectrum", magRender_, overallRunning && specSr_ > 0 && renderRunning, kSlotRenSpectrum);
-        break;
-    }
-
     default:
         break;
     }
