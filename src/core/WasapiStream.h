@@ -19,7 +19,8 @@ class WasapiStream : public IAudioBackend {
 public:
     WasapiStream(WasapiMode mode, const AudioFormat* requested);
     ~WasapiStream() override;
-    Result open(const DeviceId& id, const AudioFormat& fmt, RingBuffer* ring) override;
+    Result open(const DeviceId& id, const AudioFormat& fmt, RingBuffer* ring,
+                const StreamParams& params) override;
     Result start() override;
     void   stop() override;
     void   close() override;
@@ -49,11 +50,12 @@ private:
     void   signalReady(Result res);
     Result prepareClient(IMMDevice* dev); // mode-aware: negotiate format + Initialize; sets actualFormat_/frameBytes_
 
-    WasapiMode  mode_;
-    AudioFormat requestedFormat_{};
-    bool        hasRequested_ = false;
-    std::thread thread_;
-    DeviceId    deviceId_;
+    WasapiMode   mode_;
+    AudioFormat  requestedFormat_{};
+    bool         hasRequested_ = false;
+    std::thread  thread_;
+    DeviceId     deviceId_;
+    StreamParams params_{};
 
     std::mutex              readyMtx_;
     std::condition_variable readyCv_;

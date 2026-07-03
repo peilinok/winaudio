@@ -89,7 +89,7 @@ Result Engine::startCapture(BackendKind kind, const DeviceId& id, const std::wst
         WasapiMode mode = (kind == BackendKind::WasapiExclusive) ? WasapiMode::Exclusive
                                                                  : WasapiMode::Shared;
         backend_ = std::make_unique<WasapiCaptureStream>(mode, requested);
-        Result r = backend_->open(id, AudioFormat{}, ring_.get());
+        Result r = backend_->open(id, AudioFormat{}, ring_.get(), StreamParams{});
         if (!r) return r;
         r = backend_->start();
         if (!r) return r;
@@ -127,7 +127,7 @@ Result Engine::startPlayback(BackendKind kind, const DeviceId& id, const std::ws
         WasapiMode mode = (kind == BackendKind::WasapiExclusive) ? WasapiMode::Exclusive
                                                                  : WasapiMode::Shared;
         backend_ = std::make_unique<WasapiRenderStream>(mode, effReq);
-        Result r = backend_->open(id, AudioFormat{}, ring_.get());
+        Result r = backend_->open(id, AudioFormat{}, ring_.get(), StreamParams{});
         if (!r) return r;
         running_.store(true);
         startTick_ = GetTickCount64();

@@ -1,5 +1,6 @@
 add_executable(WinAudioTests
     test_delayfifo.cpp
+    test_streamparams.cpp
     test_smoke.cpp
     test_audioformat.cpp
     test_fft.cpp

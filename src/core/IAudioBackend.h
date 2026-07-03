@@ -3,6 +3,7 @@
 #include <vector>
 #include "AudioFormat.h"
 #include "Result.h"
+#include "StreamParams.h"
 
 namespace wa {
 
@@ -29,7 +30,8 @@ struct BackendStats {
 class IAudioBackend {
 public:
     virtual ~IAudioBackend() = default;
-    virtual Result open(const DeviceId& id, const AudioFormat& fmt, RingBuffer* ring) = 0;
+    virtual Result open(const DeviceId& id, const AudioFormat& fmt, RingBuffer* ring,
+                        const StreamParams& params) = 0;
     virtual Result start() = 0;
     virtual void   stop() = 0;
     virtual void   close() = 0;

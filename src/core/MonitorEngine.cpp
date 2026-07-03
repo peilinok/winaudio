@@ -94,7 +94,7 @@ Result MonitorEngine::start(BackendKind kind, const DeviceId& capId, const Devic
     capBackend_  = makeBackend(DataFlow::Capture, kind, nullptr);
     if (!capBackend_)
         return rollback(StreamState::Idle, MonitorError::Factory, -1, "MonitorEngine: capture factory null");
-    if (Result r = capBackend_->open(capId, AudioFormat{}, captureRing_.get()); !r)
+    if (Result r = capBackend_->open(capId, AudioFormat{}, captureRing_.get(), StreamParams{}); !r)
         return rollback(StreamState::Idle, MonitorError::CaptureOpen, r.code, r.message);
     if (Result r = capBackend_->start(); !r)
         return rollback(StreamState::Idle, MonitorError::CaptureStart, r.code, r.message);
@@ -154,7 +154,7 @@ Result MonitorEngine::engageRender() {
     renderRing_    = std::make_unique<RingBuffer>(kRingBytes);            // per-engage
     renderBackend_ = makeBackend(DataFlow::Render, kind_, &capFmt_);
     if (!renderBackend_) { renderRing_.reset(); return Result::Fail(-1, "MonitorEngine: render factory null"); }
-    if (Result r = renderBackend_->open(renderId_, AudioFormat{}, renderRing_.get()); !r) {
+    if (Result r = renderBackend_->open(renderId_, AudioFormat{}, renderRing_.get(), StreamParams{}); !r) {
         renderBackend_.reset(); renderRing_.reset(); return Result::Fail(r.code, r.message);
     }
     if (Result r = renderBackend_->start(); !r) {

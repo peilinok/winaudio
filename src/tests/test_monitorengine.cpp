@@ -34,8 +34,10 @@ public:
         if (evt_) CloseHandle(evt_);
     }
 
-    Result open(const DeviceId&, const AudioFormat&, RingBuffer* ring) override {
+    Result open(const DeviceId&, const AudioFormat&, RingBuffer* ring,
+                const StreamParams& params) override {
         ring_ = ring;
+        lastOpenParams_ = params;
         return Result::Ok();
     }
     Result start() override {
@@ -67,6 +69,7 @@ public:
     std::atomic<bool>*stoppedOut_  = nullptr;
     std::atomic<bool> started_{false};
     uint32_t          bufferFrames_ = 0;
+    StreamParams      lastOpenParams_{};
     RingBuffer*       ring_ = nullptr;
     HANDLE            evt_  = nullptr;
 };

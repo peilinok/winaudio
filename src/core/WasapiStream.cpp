@@ -13,9 +13,11 @@ WasapiStream::WasapiStream(WasapiMode mode, const AudioFormat* requested)
 
 WasapiStream::~WasapiStream() { stop(); } // subclass dtor already ran close()
 
-Result WasapiStream::open(const DeviceId& id, const AudioFormat& /*fmt*/, RingBuffer* ring) {
+Result WasapiStream::open(const DeviceId& id, const AudioFormat& /*fmt*/, RingBuffer* ring,
+                          const StreamParams& params) {
     deviceId_ = id;
     ring_ = ring;
+    params_ = params;
     return Result::Ok(); // real activation happens on the worker thread (its own COM apt)
 }
 
