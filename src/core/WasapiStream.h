@@ -15,6 +15,10 @@ class RingBuffer;
 
 enum class WasapiMode { Shared, Exclusive };
 
+// StreamParams -> WASAPI enum mapping (free functions, exposed for unit tests).
+AUDIO_STREAM_CATEGORY mapCategory(AudioCategory c);
+AUDCLNT_STREAMOPTIONS mapStreamOption(StreamOption o);
+
 class WasapiStream : public IAudioBackend {
 public:
     WasapiStream(WasapiMode mode, const AudioFormat* requested);
@@ -49,6 +53,8 @@ private:
     void   threadMain();
     void   signalReady(Result res);
     Result prepareClient(IMMDevice* dev); // mode-aware: negotiate format + Initialize; sets actualFormat_/frameBytes_
+    Result applyClientProperties();  // Activate 之后、Initialize 之前;全默认时零调用
+    Result applyDucking();           // Initialize 之后;OptOut 时设置会话 ducking 偏好
 
     WasapiMode   mode_;
     AudioFormat  requestedFormat_{};

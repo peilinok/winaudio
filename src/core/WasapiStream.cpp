@@ -1,10 +1,35 @@
 #include "WasapiStream.h"
 #include "RingBuffer.h"
 #include "FormatSpec.h"
+#include <audiopolicy.h>
 #include <system_error>
 #include <cstring>
 
 namespace wa {
+
+AUDIO_STREAM_CATEGORY mapCategory(AudioCategory c) {
+    switch (c) {
+    case AudioCategory::Communications: return AudioCategory_Communications;
+    case AudioCategory::Media:          return AudioCategory_Media;
+    case AudioCategory::Movie:          return AudioCategory_Movie;
+    case AudioCategory::GameChat:       return AudioCategory_GameChat;
+    case AudioCategory::Speech:         return AudioCategory_Speech;
+    case AudioCategory::SoundEffects:   return AudioCategory_SoundEffects;
+    case AudioCategory::GameMedia:      return AudioCategory_GameMedia;
+    case AudioCategory::Other:
+    case AudioCategory::Default:
+    default:                            return AudioCategory_Other;
+    }
+}
+
+AUDCLNT_STREAMOPTIONS mapStreamOption(StreamOption o) {
+    switch (o) {
+    case StreamOption::Raw:         return AUDCLNT_STREAMOPTIONS_RAW;
+    case StreamOption::MatchFormat: return AUDCLNT_STREAMOPTIONS_MATCH_FORMAT;
+    case StreamOption::Default:
+    default:                        return AUDCLNT_STREAMOPTIONS_NONE;
+    }
+}
 
 WasapiStream::WasapiStream(WasapiMode mode, const AudioFormat* requested)
     : mode_(mode), hasRequested_(requested != nullptr) {
@@ -15,6 +40,12 @@ WasapiStream::~WasapiStream() { stop(); } // subclass dtor already ran close()
 
 Result WasapiStream::open(const DeviceId& id, const AudioFormat& /*fmt*/, RingBuffer* ring,
                           const StreamParams& params) {
+    if (mode_ == WasapiMode::Exclusive &&
+        (params.anyClientProps() || params.ducking != DuckingMode::Default)) {
+        return Result::Fail(-1,
+            "WasapiStream: advanced stream params (category/option/offload/ducking) require "
+            "WASAPI-Shared; only bufferMs applies to exclusive mode");
+    }
     deviceId_ = id;
     ring_ = ring;
     params_ = params;
@@ -77,6 +108,48 @@ BackendStats WasapiStream::stats() const {
     return s;
 }
 
+Result WasapiStream::applyClientProperties() {
+    if (!params_.anyClientProps()) return Result::Ok();   // follow system: no calls at all
+    ComPtr<IAudioClient2> client2;
+    HRESULT hr = client_->QueryInterface(__uuidof(IAudioClient2),
+                     reinterpret_cast<void**>(client2.GetAddressOf()));
+    if (FAILED(hr) || !client2.Get())
+        return HrToResult(FAILED(hr) ? hr : E_NOINTERFACE,
+                          "WasapiStream: IAudioClient2 unavailable; cannot apply advanced stream params");
+    const AUDIO_STREAM_CATEGORY cat = mapCategory(params_.category);
+    if (params_.offload == OffloadMode::Force) {
+        BOOL capable = FALSE;
+        hr = client2->IsOffloadCapable(cat, &capable);
+        if (FAILED(hr)) return HrToResult(hr, "WasapiStream: IsOffloadCapable");
+        if (!capable)
+            return Result::Fail(-1, "WasapiStream: device/category does not support hardware offload");
+    }
+    AudioClientProperties p{};
+    p.cbSize     = sizeof(p);
+    p.bIsOffload = (params_.offload == OffloadMode::Force) ? TRUE : FALSE;
+    p.eCategory  = cat;
+    p.Options    = mapStreamOption(params_.option);
+    hr = client2->SetClientProperties(&p);
+    if (FAILED(hr)) return HrToResult(hr, "WasapiStream: SetClientProperties");
+    return Result::Ok();
+}
+
+Result WasapiStream::applyDucking() {
+    if (params_.ducking != DuckingMode::OptOut) return Result::Ok();
+    ComPtr<IAudioSessionControl> sc;
+    HRESULT hr = client_->GetService(__uuidof(IAudioSessionControl),
+                     reinterpret_cast<void**>(sc.GetAddressOf()));
+    if (FAILED(hr)) return HrToResult(hr, "WasapiStream: GetService(IAudioSessionControl)");
+    ComPtr<IAudioSessionControl2> sc2;
+    hr = sc->QueryInterface(__uuidof(IAudioSessionControl2),
+                     reinterpret_cast<void**>(sc2.GetAddressOf()));
+    if (FAILED(hr) || !sc2.Get())
+        return HrToResult(FAILED(hr) ? hr : E_NOINTERFACE, "WasapiStream: IAudioSessionControl2 unavailable");
+    hr = sc2->SetDuckingPreference(TRUE);
+    if (FAILED(hr)) return HrToResult(hr, "WasapiStream: SetDuckingPreference");
+    return Result::Ok();
+}
+
 Result WasapiStream::prepareClient(IMMDevice* dev) {
     if (mode_ == WasapiMode::Shared) {
         WAVEFORMATEX* mix = nullptr;
@@ -85,7 +158,9 @@ Result WasapiStream::prepareClient(IMMDevice* dev) {
         if (!mix) return Result::Fail(-1, "WasapiStream: GetMixFormat returned null");
         actualFormat_ = fromWaveFormat(mix);
         frameBytes_ = actualFormat_.blockAlign();
-        REFERENCE_TIME dur = 10'000'000 / 10; // 100 ms buffer
+        REFERENCE_TIME dur = params_.bufferMs
+            ? static_cast<REFERENCE_TIME>(params_.bufferMs) * 10'000
+            : 10'000'000 / 10; // default: 100 ms buffer
         hr = client_->Initialize(AUDCLNT_SHAREMODE_SHARED,
                                  AUDCLNT_STREAMFLAGS_EVENTCALLBACK, dur, 0, mix, nullptr);
         CoTaskMemFree(mix);
@@ -113,7 +188,9 @@ Result WasapiStream::prepareClient(IMMDevice* dev) {
 
     REFERENCE_TIME defPer = 0, minPer = 0;
     client_->GetDevicePeriod(&defPer, &minPer);
-    REFERENCE_TIME dur = minPer;
+    REFERENCE_TIME dur = params_.bufferMs
+        ? static_cast<REFERENCE_TIME>(params_.bufferMs) * 10'000
+        : minPer;
 
     WAVEFORMATEXTENSIBLE wfx = toWaveFormatExtensible(actualFormat_);
     HRESULT hr = client_->Initialize(AUDCLNT_SHAREMODE_EXCLUSIVE,
@@ -124,6 +201,8 @@ Result WasapiStream::prepareClient(IMMDevice* dev) {
         client_->GetBufferSize(&aligned);
         dur = alignedBufferDuration100ns(actualFormat_.sampleRate, aligned);
         // MSDN: the client must be rebuilt before re-Initializing with the aligned size.
+        // Note: advanced client props (category/option/offload) are rejected in open() for
+        // exclusive mode, so re-Activate here does not lose any SetClientProperties state.
         client_.Reset();
         HRESULT hr2 = dev->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
                           reinterpret_cast<void**>(client_.GetAddressOf()));
@@ -156,8 +235,12 @@ void WasapiStream::threadMain() {
             reinterpret_cast<void**>(client_.GetAddressOf()));
     if (FAILED(hr)) { signalReady(HrToResult(hr, "WasapiStream: Activate")); return; }
 
+    if (Result ap = applyClientProperties(); !ap) { signalReady(ap); return; }
+
     Result pr = prepareClient(dev.Get());
     if (!pr) { signalReady(pr); return; }
+
+    if (Result dk = applyDucking(); !dk) { signalReady(dk); return; }
 
     hr = client_->GetBufferSize(&bufferFrames_);
     if (FAILED(hr)) { signalReady(HrToResult(hr, "WasapiStream: GetBufferSize")); return; }
