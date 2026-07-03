@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same ref (e.g. rapid pushes to a PR).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    name: ${{ matrix.config }}
+    runs-on: windows-latest   # VS 2022 + MSVC v143 + CMake + Windows SDK (DX11) preinstalled
+    strategy:
+      fail-fast: false        # run both configs even if one fails
+      matrix:
+        config: [Debug, Release]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure (CMake, VS 2022 x64)
+        run: cmake --preset vs2022
+
+      - name: Build (${{ matrix.config }})
+        run: cmake --build build --config ${{ matrix.config }} -j
+
+      - name: Test (ctest, ${{ matrix.config }})
+        run: ctest --test-dir build -C ${{ matrix.config }} --output-on-failure
+
+      - name: Upload binaries (${{ matrix.config }})
+        uses: actions/upload-artifact@v4
+        with:
+          name: WinAudio-${{ matrix.config }}
+          path: |
+            build/bin/${{ matrix.config }}/WinAudioGui.exe
+            build/bin/${{ matrix.config }}/WinAudioCli.exe
+          if-no-files-found: error

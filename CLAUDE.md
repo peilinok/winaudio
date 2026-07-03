@@ -102,6 +102,11 @@ cmake --build build --config Release -j
 # 状态行实时显示 fifo ms / drift，方便观察跨设备时钟漂移情况。
 ```
 
+## CI / 发布（GitHub Actions）
+
+- **`.github/workflows/ci.yml`**：push / PR 到 `main` 时，在 `windows-latest` 上以 **Debug + Release 双配置** 跑 `cmake --preset vs2022` → build → `ctest`，并上传 `WinAudioGui.exe` / `WinAudioCli.exe` 产物（artifact 名 `WinAudio-<config>`）。
+- **`.github/workflows/release.yml`**：推送 `v*` tag（如 `v0.1.0`）时，构建 Release + `ctest`，打包 `WinAudio-<tag>-win-x64.zip` 并创建 GitHub Release（`generate_release_notes`）；需仓库 Actions 具备写权限。
+
 ## 架构（多后端抽象）
 
 分层设计确保"同一上层流程，可切换不同后端做对比测试"：
