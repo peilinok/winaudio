@@ -108,7 +108,10 @@ Result MonitorEngine::start(BackendKind kind, const DeviceId& capId, const Devic
         return rollback(StreamState::Error, MonitorError::CaptureStart, -1, "MonitorEngine: invalid capture format");
 
     // --- Session-lifetime buffers (allocated once; freed only in teardown) ---
-    const size_t scopeCap = std::max<size_t>(static_cast<size_t>(sr) * 2u, 8192u);
+    // Floor of 1M so snapshotLatest's n<=cap/2 contract covers the GUI's spectrogram-history
+    // waveform snapshot (kSpecCols*kFftHop = 491520 samples ~= 10.2 s @ 48 kHz, ~4 MiB/scope);
+    // sr*2 keeps headroom at high rates.
+    const size_t scopeCap = std::max<size_t>(static_cast<size_t>(sr) * 2u, 1048576u);
     captureScope_ = std::make_unique<ScopeBuffer>(scopeCap);
     renderScope_  = std::make_unique<ScopeBuffer>(scopeCap);  // GUI reads every frame -> MUST stay alive
     maxChunkFrames_ = kMaxChunkFrames;
