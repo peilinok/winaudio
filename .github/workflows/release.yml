@@ -10,7 +10,7 @@ permissions:
 jobs:
   release:
     name: Build & publish (Release)
-    runs-on: windows-latest
+    runs-on: windows-2022   # pinned: windows-latest ships VS 2026; we build with the VS 2022 generator
     steps:
       - name: Checkout
         uses: actions/checkout@v4

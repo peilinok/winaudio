@@ -14,7 +14,7 @@ concurrency:
 jobs:
   build-test:
     name: ${{ matrix.config }}
-    runs-on: windows-latest   # VS 2022 + MSVC v143 + CMake + Windows SDK (DX11) preinstalled
+    runs-on: windows-2022   # pinned: windows-latest now ships VS 2026, which the "Visual Studio 17 2022" generator can't find. windows-2022 has VS 2022 (v143) + Windows SDK (DX11).
     strategy:
       fail-fast: false        # run both configs even if one fails
       matrix:
