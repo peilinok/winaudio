@@ -26,8 +26,9 @@ namespace {
 // ---------------------------------------------------------------------------
 class FakeBackend : public IAudioBackend {
 public:
-    FakeBackend(AudioFormat fmt, bool failStart, std::atomic<bool>* stoppedOut)
-        : fmt_(fmt), failStart_(failStart), stoppedOut_(stoppedOut) {
+    FakeBackend(AudioFormat fmt, bool failStart, std::atomic<bool>* stoppedOut,
+                std::atomic<int>* openDoneOut = nullptr)
+        : fmt_(fmt), failStart_(failStart), stoppedOut_(stoppedOut), openDoneOut_(openDoneOut) {
         evt_ = CreateEventW(nullptr, /*manualReset*/ FALSE, /*initial*/ FALSE, nullptr);
     }
     ~FakeBackend() override {
@@ -38,6 +39,7 @@ public:
                 const StreamParams& params) override {
         ring_ = ring;
         lastOpenParams_ = params;
+        if (openDoneOut_) openDoneOut_->fetch_add(1, std::memory_order_release);
         return Result::Ok();
     }
     Result start() override {
@@ -64,10 +66,11 @@ public:
         if (evt_) SetEvent(evt_);
     }
 
-    AudioFormat       fmt_;
-    bool              failStart_   = false;
-    std::atomic<bool>*stoppedOut_  = nullptr;
-    std::atomic<bool> started_{false};
+    AudioFormat        fmt_;
+    bool               failStart_   = false;
+    std::atomic<bool>* stoppedOut_  = nullptr;
+    std::atomic<int>*  openDoneOut_ = nullptr;
+    std::atomic<bool>  started_{false};
     uint32_t          bufferFrames_ = 0;
     StreamParams      lastOpenParams_{};
     RingBuffer*       ring_ = nullptr;
@@ -84,6 +87,7 @@ struct FakeRig {
     std::atomic<bool> capStopped{false};
     std::atomic<bool> renderStopped{false};
     std::atomic<int>  renderOpenCount{0};  // increments each time render factory is called
+    std::atomic<int>  renderOpenDone{0};   // release-incremented inside open() for race-free sync
     FakeBackend*      capPtr    = nullptr;
     FakeBackend*      renderPtr = nullptr;
 
@@ -96,7 +100,7 @@ struct FakeRig {
             }
             renderOpenCount.fetch_add(1, std::memory_order_relaxed);
             renderStopped.store(false, std::memory_order_relaxed); // reset for each new backend
-            auto b    = std::make_unique<FakeBackend>(renderFmt, renderFailStart, &renderStopped);
+            auto b    = std::make_unique<FakeBackend>(renderFmt, renderFailStart, &renderStopped, &renderOpenDone);
             renderPtr = b.get();
             return b;
         };
@@ -432,9 +436,11 @@ TEST(MonitorEngine, SetRenderParamsAppliesOnReengage) {
     ASSERT_TRUE(waitFor([&]{ return eng.poll().renderState == StreamState::Idle; }))
         << "pump did not disengage render within timeout";
     eng.setPlaybackEnabled(true);               // 重新勾上 -> re-engage 用新参数
-    // 等 pump 完成 re-engage（renderState=Running 在 open+start 完成后写入，保证 lastOpenParams_ 可见）
-    ASSERT_TRUE(waitFor([&]{ return eng.poll().renderState == StreamState::Running; }))
-        << "pump did not re-engage render with new params within timeout";
+    // 等 pump 完成 re-engage：以 renderOpenDone >= 2 作为 acquire 屏障（release/acquire on the
+    // same atomic synchronizes-with the open() write of lastOpenParams_ and the renderPtr store
+    // in the factory — safer than the relaxed renderState_ store used by poll()).
+    ASSERT_TRUE(waitFor([&]{ return rig.renderOpenDone.load(std::memory_order_acquire) >= 2; }))
+        << "pump did not complete re-engage open within timeout";
     EXPECT_EQ(rig.renderPtr->lastOpenParams_.option,   StreamOption::Raw);
     EXPECT_EQ(rig.renderPtr->lastOpenParams_.bufferMs, 20u);
     eng.stop();
