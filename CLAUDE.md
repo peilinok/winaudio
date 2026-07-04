@@ -23,13 +23,14 @@ Phase 1 实现了 **WASAPI-Shared 采集/播放**；Phase 2 新增了 **WASAPI-E
 - 能力范围（已实现）：
   - **WASAPI-Shared**：`IAudioClient` 采集与播放，共享模式（多应用可并行使用设备，格式由设备混音格式决定）。
   - **WASAPI-Exclusive**：独占模式（低延迟），通过 `IsFormatSupported` 探测可用格式；采集时支持 `--format` 指定目标格式；播放时格式从 WAV 文件头自动读取。
-  - **格式探测**：`Engine::probeFormat` + CLI `probe` 子命令，可检测特定格式是否受设备支持。
+  - **数据格式查询与能力矩阵**：三来源查询（Mix Format / Device Format / OEM Format）+ 能力矩阵（每候选格式在 Shared/Exclusive 上是否支持，用 `yes`/`-` 表示）；CLI `caps` 子命令查看设备能力；GUI 左栏格式区可选择当前模式支持的格式或自定义输入；采集/播放可按需改格式（Shared 经 WASAPI 引擎 AUTOCONVERTPCM 转换，无本工具重采样；Exclusive 要求硬件原生支持）。
+  - **格式探测**：`Engine::probeFormat` + CLI `probe` 子命令，可检测特定格式是否受设备支持；`probe` 支持两种后端，shared 反映 WASAPI 混音器转换能力，exclusive 反映硬件原生支持。
   - **设备枚举**：`IMMDeviceEnumerator` 枚举、查询默认设备与端点属性。
   - **WAV 读写**：采集落盘 / 播放读取，支持标准 RIFF WAVE 格式。
   - **环形缓冲区**：SPSC 设计，线程安全，带 xrun 计数。
   - **双流延迟监听直通**：`MonitorEngine`（capture → `DelayFifo` 漂移控制 → render，两路 scope tap）；CLI `monitor` 子命令打印 cap/ren 状态、sr、fifo ms、drift、xrun。
   - **FFT 实时分析**：手写 radix-2 FFT（`Fft`，Hann 窗 + dBFS 标定 + 窗长归一化）；`SampleConvert`（多格式 PCM 解交织）；`ScopeBuffer`（seqlock 快照，无阻塞读取）；`Analysis`（采样计数节拍，驱动分析刷新）。
-  - **GUI Monitor 模式**：ImPlot 可视化，采集/播放两路各自的 dB 时域波形 + 滚动 log 频率声谱图（`Spectrogram` 做 log 频率热图重采样；波形与声谱图合并为一个单元、共享时间轴、中间分割线上下可调）；状态行显示 fifo/drift 以便观察漂移。
+  - **GUI Monitor 模式**：ImPlot 可视化，采集/播放两路各自的 dB 时域波形 + 滚动 log 频率声谱图（`Spectrogram` 做 log 频率热图重采样；波形与声谱图合并为一个单元、共享时间轴、中间分割线上下可调）；状态行显示 fifo/drift 以便观察漂移；左栏格式区显示当前将用格式与候选。
   - **错误处理**：`Result` 类型、HRESULT 规范化、COM RAII 与线程安全。
 - 能力范围（后续阶段）：
   - waveIn / waveOut（MME API 后端）。
@@ -72,32 +73,49 @@ cmake --build build --config Release -j
 # 枚举设备
 .\build\bin\Debug\WinAudioCli.exe list [--render|--capture]
 
-# 采集（Shared 默认用设备混音格式；Exclusive 可用 --format 指定，省略时自动从候选列表协商）
+# 查看设备能力（三来源格式 + 能力矩阵）
+.\build\bin\Debug\WinAudioCli.exe caps [--device <id>] [--render|--capture]
+# 显示 Mix/Device/OEM 三来源格式，以及每个候选格式在 Shared/Exclusive 上的支持情况（yes/- 表示）。
+
+# 采集（Shared 默认用设备混音格式；可用 --format 指定，经引擎 AUTOCONVERTPCM 转换；Exclusive 可用 --format 指定，要求硬件原生支持）
 .\build\bin\Debug\WinAudioCli.exe capture --out <file.wav> [--seconds N] [--device <id>] [--backend wasapi-shared|wasapi-exclusive] [--format 48000/16/2]
-# 注：--format 仅对 wasapi-exclusive 有效；用于 shared 后端时报错退出。
+# 注：--format 对两个后端都有效；Shared 使用 WASAPI 引擎转换（无本工具重采样），Exclusive 要求指定格式被硬件支持。
 
 # 播放（格式从 WAV 文件头读取；不接受 --format）
 .\build\bin\Debug\WinAudioCli.exe play --in <file.wav> [--device <id>] [--backend wasapi-shared|wasapi-exclusive]
 
 # 格式探测（检测设备是否支持指定格式）
 .\build\bin\Debug\WinAudioCli.exe probe --format 48000/16/2 [--device <id>] [--render|--capture] [--backend wasapi-shared|wasapi-exclusive]
-# 注：exclusive probe 精确反映独占可用性；shared probe 反映 WASAPI 共享混音器能否转换该格式，
-#     而本工具 shared 采集/播放始终用设备混音格式（不重采样），故 shared 的 SUPPORTED 不代表本工具会按该格式工作。
+# 注：exclusive probe 精确反映硬件独占可用性；shared probe 反映 WASAPI 混音器能否转换该格式（反映工具采集/播放的实际可用性）。
 
-# 双流延迟监听（capture → delay → render，打印 cap/ren 状态、sr、fifo ms、drift、xrun）
-.\build\bin\Debug\WinAudioCli.exe monitor [--cap <id>] [--render <id>] [--delay-ms N] [--seconds N] [--backend wasapi-shared|wasapi-exclusive]
-# 注：--cap 与 --render 设备的采样率须一致，否则报错退出。
+# 双流延迟监听（capture → delay → render，打印 cap/ren 状态、sr、fifo ms、drift、xrun；可指定采集格式）
+.\build\bin\Debug\WinAudioCli.exe monitor [--cap <id>] [--render <id>] [--delay-ms N] [--seconds N] [--format 48000/16/2] [--backend wasapi-shared|wasapi-exclusive]
+# 注：--cap 与 --render 设备的采样率须一致，否则报错退出；--format 仅影响采集端，渲染端须匹配采样率。
 
 # ---- GUI（首选） ----
 .\build\bin\Debug\WinAudioGui.exe
 # GUI 为恒监听（monitor-only），无 Capture/Playback/Monitor 模式切换。
-# 两列布局：左列 = 设备 / 控制（含"同步播放" checkbox）/ 状态 / 日志；
+# 两列布局：左列 = 设备 / 控制（含格式区、"同步播放" checkbox）/ 状态 / 日志；
 #           右列 = 采集/播放各一个"波形+声谱图"合并单元（共享时间轴，可拖拽重排）。
-# "同步播放" checkbox：勾选 → 启动 render 流实时直通（采样率须与采集设备一致）；
-#                     取消勾选 → 停止 render 流并释放设备。
-# 设备为下拉框选择,启动时默认选中系统默认设备;"Options" 弹窗可配置高级流参数
-# (category / stream option(RAW=绕过 APO)/ offload / ducking / buffer ms),
-# 默认全部"跟随系统"(不注入任何覆盖);category/option/offload/ducking 仅 WASAPI-Shared(offload/ducking 仅 render),弹窗在监听运行中只读(仅 Start 前可改)。
+# 
+# Devices 区：
+#   - 采集设备选择器（下拉框，默认系统默认设备）
+#   - "Capture caps…" 按钮 → 弹窗显示该设备的三来源格式（Mix/Device/OEM）+ 能力矩阵（Shared/Exclusive 支持情况）
+#   - 后端选择（Shared / Exclusive，或跟随系统）
+#   - Start 按钮
+#
+# Format 区：
+#   - 显示当前将用格式（如 "48000 Hz, 16-bit, 2-ch"）
+#   - 候选下拉：第一项 "System default"，随后列出当前后端支持的候选格式，末项 Custom 允许手输
+#   - Shared 模式下默认用设备混音格式；Exclusive 默认为探测确认的可用格式
+#   - 选择不同后端或采集设备时，下拉自动重算默认值
+#
+# Control 区：
+#   - "Options" 弹窗可配置高级流参数 (category / stream option(RAW=绕过 APO)/ offload / ducking / buffer ms)
+#   - 默认全部"跟随系统"(不注入任何覆盖);category/option/offload/ducking 仅 WASAPI-Shared(offload/ducking 仅 render)
+#   - "同步播放" checkbox：勾选 → 启动 render 流实时直通（采样率须与采集设备一致）；取消勾选 → 停止 render 流并释放设备
+#   - 弹窗在监听运行中只读(仅 Start 前可改)
+#
 # 选择采集设备后点击 Start，实时显示 dB 时域波形、滚动 log 频率声谱图（二者共享时间轴）；
 # 状态行实时显示 fifo ms / drift，方便观察跨设备时钟漂移情况。
 ```
