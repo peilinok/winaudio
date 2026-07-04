@@ -170,6 +170,7 @@ Result DeviceEnumerator::oemFormat(const DeviceId& id, AudioFormat& out) {
 
 Result DeviceEnumerator::queryCapabilities(DataFlow flow, const DeviceId& id, DeviceCapabilities& out) {
     ComInitGuard com;
+    out = DeviceCapabilities{};
     ComPtr<IMMDevice> dev;
     if (Result r = openDevice(flow, id, dev); !r) return r;
     ComPtr<IAudioClient> client;
