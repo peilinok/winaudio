@@ -15,6 +15,8 @@ private:
     void refreshMonitorDevices();
     void drawLeftPanel();
     void drawAdvancedModal();
+    void drawFormatRegion();
+    void recomputeDefaultFormat();
     void drawChartsColumn();
     void drawChartPanel(int id);
     void drawComboPanel(bool renderSide);   // waveform + splitter + spectrogram in one cell
@@ -43,6 +45,15 @@ private:
 
     wa::StreamParams capParams_{};    // Advanced 弹窗编辑;Start 时传入(运行中只读)
     wa::StreamParams renParams_{};
+
+    // Format selection state
+    wa::AudioFormat        selectedFmt_{};
+    bool                   haveFmt_         = false;
+    int                    fmtChoiceIdx_    = 0;
+    char                   fmtCustom_[32]   = "48000/16/2";
+    int                    fmtBackendShown_ = -1;
+    wa::DeviceCapabilities capsCache_{};
+    bool                   capsCacheValid_  = false;
 
     // Waveform buffers — full spectrogram-history window (kSpecCols*kFftHop samples), rebuilt on rate change
     std::vector<float> capWave_, renderWave_;

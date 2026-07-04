@@ -4,6 +4,7 @@
 #include "implot.h"
 #include "Fft.h"
 #include "Analysis.h"
+#include "FormatSpec.h"
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
@@ -83,6 +84,94 @@ void AppUi::refreshMonitorDevices() {
 
 void AppUi::stopAll() {
     monitor_.stop();
+}
+
+void AppUi::recomputeDefaultFormat() {
+    wa::ComInitGuard com;
+    capsCache_      = wa::DeviceCapabilities{};
+    capsCacheValid_ = false;
+    wa::DeviceId capId = (!capDevices_.empty() && capDevIdx_ >= 0 && capDevIdx_ < (int)capDevices_.size())
+                         ? capDevices_[(size_t)capDevIdx_].id : L"";
+    enumerator_.queryCapabilities(wa::DataFlow::Capture, capId, capsCache_);
+    capsCacheValid_ = true;
+
+    wa::BackendKind kind = (backendIdx_ == 1) ? wa::BackendKind::WasapiExclusive
+                                              : wa::BackendKind::WasapiShared;
+    auto exclPred = [&](const wa::AudioFormat& fmt) -> bool {
+        for (const auto& fs : capsCache_.matrix)
+            if (fs.fmt == fmt) return fs.exclusiveOk;
+        return false;
+    };
+    const wa::AudioFormat* devFmt = capsCache_.hasDevice ? &capsCache_.deviceFormat : nullptr;
+    selectedFmt_ = wa::chooseDefaultFormat(kind, capsCache_.mixFormat, devFmt,
+                                           wa::defaultExclusiveCaptureCandidates(), exclPred);
+    haveFmt_      = false;
+    fmtChoiceIdx_ = 0;
+}
+
+void AppUi::drawFormatRegion() {
+    if (backendIdx_ != fmtBackendShown_) {
+        recomputeDefaultFormat();
+        fmtBackendShown_ = backendIdx_;
+    }
+
+    // Display current effective format
+    const wa::AudioFormat& f = selectedFmt_;
+    ImGui::Text("Format: %u/%u/%u%s%s",
+                f.sampleRate, (unsigned)f.bitsPerSample, (unsigned)f.channels,
+                f.isFloat ? "f" : "",
+                haveFmt_ ? "" : " (default)");
+
+    // Build filtered candidate list for the current backend mode
+    const bool isExclusive = (backendIdx_ == 1);
+    std::vector<wa::AudioFormat> okFmts;
+    for (const auto& fs : capsCache_.matrix)
+        if (isExclusive ? fs.exclusiveOk : fs.sharedOk)
+            okFmts.push_back(fs.fmt);
+    const int nOk = (int)okFmts.size();
+
+    // Safety clamp (handles backend-switch where old index may be out of range)
+    if (fmtChoiceIdx_ < 0 || fmtChoiceIdx_ > nOk) fmtChoiceIdx_ = 0;
+
+    // Combo preview
+    auto fmtStr = [](const wa::AudioFormat& fmt) -> std::string {
+        std::string s = std::to_string(fmt.sampleRate) + "/" +
+                        std::to_string(fmt.bitsPerSample) + "/" +
+                        std::to_string(fmt.channels);
+        if (fmt.isFloat) s += "f";
+        return s;
+    };
+    const std::string preview = (fmtChoiceIdx_ < nOk) ? fmtStr(okFmts[(size_t)fmtChoiceIdx_]) : "Custom...";
+    ImGui::SetNextItemWidth(-1);
+    if (ImGui::BeginCombo("##fmtCombo", preview.c_str())) {
+        for (int i = 0; i < nOk; ++i) {
+            const std::string label = fmtStr(okFmts[(size_t)i]) + "##" + std::to_string(i);
+            if (ImGui::Selectable(label.c_str(), fmtChoiceIdx_ == i)) {
+                fmtChoiceIdx_ = i;
+                selectedFmt_  = okFmts[(size_t)i];
+                haveFmt_      = true;
+            }
+        }
+        if (ImGui::Selectable("Custom...", fmtChoiceIdx_ == nOk))
+            fmtChoiceIdx_ = nOk;
+        ImGui::EndCombo();
+    }
+
+    // Custom format input (shown when "Custom..." is selected)
+    if (fmtChoiceIdx_ == nOk) {
+        ImGui::SetNextItemWidth(-60.0f);
+        ImGui::InputText("##fmtInput", fmtCustom_, sizeof(fmtCustom_));
+        ImGui::SameLine();
+        if (ImGui::Button("Apply")) {
+            wa::AudioFormat parsed{};
+            if (wa::parseFormatSpec(std::string(fmtCustom_), parsed)) {
+                selectedFmt_ = parsed;
+                haveFmt_     = true;
+            } else {
+                logLines_.push_back("invalid format");
+            }
+        }
+    }
 }
 
 // Draw the Y-axis unit fixed at the plot's top-left (at the top of the tick numbers), with a
@@ -174,6 +263,7 @@ void AppUi::drawLeftPanel() {
     const char* backends[] = {"WASAPI-Shared", "WASAPI-Exclusive"};
     ImGui::Combo("Backend", &backendIdx_, backends, 2);
     ImGui::SliderInt("Delay (ms)", &delayMs_, 0, 500);
+    drawFormatRegion();
 
     const ImVec2 ctrlBtn(120.0f, ImGui::GetFrameHeight() * 1.3f);   // enlarged Start/Stop button
     if (!monitorStarted_) {
@@ -183,7 +273,8 @@ void AppUi::drawLeftPanel() {
             wa::BackendKind kind = (backendIdx_ == 1) ? wa::BackendKind::WasapiExclusive
                                                       : wa::BackendKind::WasapiShared;
             wa::Result r = monitor_.start(kind, capId, renId, (uint32_t)delayMs_,
-                                          playbackEnabled_, capParams_, renParams_);
+                                          playbackEnabled_, capParams_, renParams_,
+                                          haveFmt_ ? &selectedFmt_ : nullptr);
             logLines_.push_back(r ? "monitor started" : ("monitor error: " + r.message));
             if (r) {
                 monitorStarted_ = true;
