@@ -44,7 +44,7 @@ MonitorEngine::~MonitorEngine() { teardown(); }
 
 std::unique_ptr<IAudioBackend> MonitorEngine::makeBackend(DataFlow flow, BackendKind kind,
                                                           const AudioFormat* requested) {
-    if (factory_) return factory_(flow);
+    if (factory_) return factory_(flow, requested);
     const WasapiMode mode = (kind == BackendKind::WasapiExclusive) ? WasapiMode::Exclusive
                                                                    : WasapiMode::Shared;
     if (flow == DataFlow::Capture)
@@ -64,7 +64,8 @@ Result MonitorEngine::rollback(StreamState finalState, MonitorError err, long co
 
 Result MonitorEngine::start(BackendKind kind, const DeviceId& capId, const DeviceId& renderId,
                             uint32_t delayMs, bool playbackEnabled,
-                            const StreamParams& capParams, const StreamParams& renderParams) {
+                            const StreamParams& capParams, const StreamParams& renderParams,
+                            const AudioFormat* capFormat) {
     teardown();
     // Fresh status slate.
     overall_.store(StreamState::Idle, std::memory_order_relaxed);
@@ -91,10 +92,12 @@ Result MonitorEngine::start(BackendKind kind, const DeviceId& capId, const Devic
     kind_ = kind; renderId_ = renderId; delayMs_ = delayMs;
     capParams_ = capParams;
     { std::lock_guard<std::mutex> lk(paramsMtx_); renderParams_ = renderParams; }
+    hasCapFormat_ = (capFormat != nullptr);
+    if (capFormat) capRequestedFormat_ = *capFormat;
 
     // --- Capture (always) ---
     captureRing_ = std::make_unique<RingBuffer>(kRingBytes);
-    capBackend_  = makeBackend(DataFlow::Capture, kind, nullptr);
+    capBackend_  = makeBackend(DataFlow::Capture, kind, hasCapFormat_ ? &capRequestedFormat_ : nullptr);
     if (!capBackend_)
         return rollback(StreamState::Idle, MonitorError::Factory, -1, "MonitorEngine: capture factory null");
     if (Result r = capBackend_->open(capId, AudioFormat{}, captureRing_.get(), capParams_); !r)

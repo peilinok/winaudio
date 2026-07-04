@@ -75,6 +75,8 @@ public:
     StreamParams      lastOpenParams_{};
     RingBuffer*       ring_ = nullptr;
     HANDLE            evt_  = nullptr;
+    AudioFormat       lastRequested_{};
+    bool              sawRequested_ = false;
 };
 
 // Owns the cross-thread observable state and hands MonitorEngine a factory. The
@@ -92,10 +94,11 @@ struct FakeRig {
     FakeBackend*      renderPtr = nullptr;
 
     MonitorEngine::BackendFactory factory() {
-        return [this](DataFlow flow) -> std::unique_ptr<IAudioBackend> {
+        return [this](DataFlow flow, const AudioFormat* req) -> std::unique_ptr<IAudioBackend> {
             if (flow == DataFlow::Capture) {
                 auto b  = std::make_unique<FakeBackend>(capFmt, false, &capStopped);
                 capPtr  = b.get();
+                if (req) { b->lastRequested_ = *req; b->sawRequested_ = true; }
                 return b;
             }
             renderOpenCount.fetch_add(1, std::memory_order_relaxed);
@@ -443,5 +446,16 @@ TEST(MonitorEngine, SetRenderParamsAppliesOnReengage) {
         << "pump did not complete re-engage open within timeout";
     EXPECT_EQ(rig.renderPtr->lastOpenParams_.option,   StreamOption::Raw);
     EXPECT_EQ(rig.renderPtr->lastOpenParams_.bufferMs, 20u);
+    eng.stop();
+}
+
+TEST(MonitorEngine, CaptureFormatReachesBackend) {
+    FakeRig rig;
+    MonitorEngine eng(rig.factory());
+    AudioFormat want{96000, 2, 24, false};
+    ASSERT_TRUE(eng.start(BackendKind::WasapiShared, L"", L"", 50, false, {}, {}, &want));
+    ASSERT_NE(rig.capPtr, nullptr);
+    EXPECT_TRUE(rig.capPtr->sawRequested_);
+    EXPECT_EQ(rig.capPtr->lastRequested_, want);
     eng.stop();
 }

@@ -58,7 +58,7 @@ struct MonitorStatus {
 // with a fake backend (no WASAPI hardware).
 class MonitorEngine {
 public:
-    using BackendFactory = std::function<std::unique_ptr<IAudioBackend>(DataFlow)>;
+    using BackendFactory = std::function<std::unique_ptr<IAudioBackend>(DataFlow, const AudioFormat*)>;
 
     explicit MonitorEngine(BackendFactory factory = {}); // empty => real WASAPI streams
     ~MonitorEngine();
@@ -68,7 +68,8 @@ public:
 
     Result start(BackendKind kind, const DeviceId& capId, const DeviceId& renderId,
                  uint32_t delayMs, bool playbackEnabled = true,
-                 const StreamParams& capParams = {}, const StreamParams& renderParams = {});
+                 const StreamParams& capParams = {}, const StreamParams& renderParams = {},
+                 const AudioFormat* capFormat = nullptr);
     void   stop();
     MonitorStatus poll();
     void   setPlaybackEnabled(bool enabled);                        // 运行期实时开关（GUI 线程）
@@ -99,6 +100,8 @@ private:
     StreamParams capParams_{};      // start 时消费(采集参数改动需 Stop/Start)
     StreamParams renderParams_{};   // paramsMtx_ 保护;engageRender 取快照
     std::mutex   paramsMtx_;
+    AudioFormat  capRequestedFormat_{};
+    bool         hasCapFormat_ = false;
 
     std::unique_ptr<IAudioBackend> capBackend_;
     std::unique_ptr<IAudioBackend> renderBackend_;
