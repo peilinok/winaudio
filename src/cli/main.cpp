@@ -14,13 +14,13 @@ static void usage() {
     std::printf(
         "WinAudioCli list  [--render|--capture]\n"
         "WinAudioCli capture --out <file.wav> [--device <id>] [--seconds N]\n"
-        "                    [--backend wasapi-shared|wasapi-exclusive] [--format 48000/16/2]\n"
+        "                    [--backend wasapi-shared|wasapi-exclusive] [--format 48000/16/2] (both backends)\n"
         "WinAudioCli play    --in  <file.wav> [--device <id>]\n"
         "                    [--backend wasapi-shared|wasapi-exclusive]\n"
         "WinAudioCli probe   --format 48000/16/2 [--device <id>] [--render|--capture]\n"
         "                    [--backend wasapi-shared|wasapi-exclusive]\n"
         "WinAudioCli monitor [--cap <id>] [--render <id>] [--delay-ms N] [--seconds N]\n"
-        "                    [--backend wasapi-shared|wasapi-exclusive]\n");
+        "                    [--backend wasapi-shared|wasapi-exclusive] [--format R/B/C[f]]\n");
 }
 
 static const char* stateStr(wa::StreamState st) {
@@ -94,11 +94,6 @@ int wmain(int argc, wchar_t** argv) {
         int seconds = secStr.empty() ? 5 : _wtoi(secStr.c_str());
         AudioFormat fmt{};
         bool haveFmt = formatArg(argc, argv, fmt);
-        if (haveFmt && backendArg(argc, argv) != BackendKind::WasapiExclusive) {
-            std::printf("--format only applies to --backend wasapi-exclusive "
-                        "(shared mode uses the device mix format)\n");
-            return 2;
-        }
         Result r = eng.startCapture(backendArg(argc, argv), id, out,
                                     haveFmt ? &fmt : nullptr);
         if (!r) { std::printf("capture start failed: %s\n", r.message.c_str()); return 2; }
@@ -159,9 +154,12 @@ int wmain(int argc, wchar_t** argv) {
         if (dms < 0) dms = 0;
         uint32_t delayMs = static_cast<uint32_t>(dms);
         int seconds      = secStr.empty()   ? 5   : _wtoi(secStr.c_str());
+        AudioFormat capFmt{};
+        bool haveFmt = formatArg(argc, argv, capFmt);
 
         wa::MonitorEngine mon;
-        wa::Result r = mon.start(backendArg(argc, argv), capId, renderId, delayMs);
+        wa::Result r = mon.start(backendArg(argc, argv), capId, renderId, delayMs,
+                                 true, {}, {}, haveFmt ? &capFmt : nullptr);
         if (!r) { std::printf("monitor start failed: %s\n", r.message.c_str()); return 2; }
         for (int i = 0; i < seconds * 5; ++i) {
             Sleep(200);

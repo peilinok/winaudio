@@ -77,7 +77,12 @@ Result Engine::probeFormat(BackendKind kind, DataFlow flow, const DeviceId& id,
                                    (sm == AUDCLNT_SHAREMODE_EXCLUSIVE) ? nullptr : &closest);
     if (closest) CoTaskMemFree(closest);
     if (hr == S_OK) return Result::Ok();
-    if (hr == S_FALSE) return Result::Fail(1, "format not supported exactly (closest available)");
+    if (hr == S_FALSE) {
+        // Shared mode can convert (AUTOCONVERTPCM); treat convertible as supported.
+        // Exclusive mode requires exact match (S_OK only).
+        if (kind != BackendKind::WasapiExclusive) return Result::Ok();
+        return Result::Fail(1, "format not supported exactly (closest available)");
+    }
     return HrToResult(hr, "probeFormat: not supported");
 }
 
