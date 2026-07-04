@@ -247,11 +247,12 @@ void AppUi::drawLeftPanel() {
     if (ImGui::Button("Refresh devices")) refreshMonitorDevices();
     ImGui::SameLine();
     if (ImGui::Button("Options")) ImGui::OpenPopup("Audio parameters (advanced)");
-    if (ImGui::Button("Device caps\xe2\x80\xa6")) {   // U+2026 HORIZONTAL ELLIPSIS
+    if (ImGui::Button("Capture caps\xe2\x80\xa6")) {   // U+2026 HORIZONTAL ELLIPSIS
         wa::ComInitGuard com;
-        wa::DeviceId capId = capDevices_.empty() ? L"" : capDevices_[capDevIdx_].id;
+        wa::DeviceId capId = (capDevIdx_ >= 0 && capDevIdx_ < (int)capDevices_.size())
+                             ? capDevices_[(size_t)capDevIdx_].id : L"";
         enumerator_.queryCapabilities(wa::DataFlow::Capture, capId, capsCache_);
-        ImGui::OpenPopup("Device capabilities");
+        ImGui::OpenPopup("Capture capabilities");
     }
 
     auto deviceCombo = [&](const char* caption, const char* comboId,
@@ -670,7 +671,7 @@ void AppUi::drawChartPanel(int id) {
 }
 
 void AppUi::drawCapsModal() {
-    if (!ImGui::BeginPopupModal("Device capabilities", nullptr,
+    if (!ImGui::BeginPopupModal("Capture capabilities", nullptr,
                                 ImGuiWindowFlags_AlwaysAutoResize)) return;
 
     // Helper: format an AudioFormat as "sr/bits/ch[f]" or em-dash if not present.
@@ -722,9 +723,9 @@ void AppUi::drawCapsModal() {
             ImGui::TableSetColumnIndex(0);
             ImGui::TextUnformatted(fmt.c_str());
             ImGui::TableSetColumnIndex(1);
-            ImGui::TextUnformatted(fs.sharedOk    ? "\xe2\x9c\x93" : "\xe2\x9c\x97");   // ✓ / ✗
+            ImGui::TextUnformatted(fs.sharedOk    ? "yes" : "-");
             ImGui::TableSetColumnIndex(2);
-            ImGui::TextUnformatted(fs.exclusiveOk ? "\xe2\x9c\x93" : "\xe2\x9c\x97");
+            ImGui::TextUnformatted(fs.exclusiveOk ? "yes" : "-");
         }
         ImGui::EndTable();
     }
