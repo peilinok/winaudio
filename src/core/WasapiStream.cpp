@@ -152,15 +152,35 @@ Result WasapiStream::applyDucking() {
 
 Result WasapiStream::prepareClient(IMMDevice* dev) {
     if (mode_ == WasapiMode::Shared) {
+        REFERENCE_TIME dur = params_.bufferMs
+            ? static_cast<REFERENCE_TIME>(params_.bufferMs) * 10'000
+            : 10'000'000 / 10; // default: 100 ms buffer
+
+        if (hasRequested_) {
+            // Caller specified a format: ask WASAPI's engine to convert via AUTOCONVERTPCM.
+            // Without these flags Initialize returns AUDCLNT_E_UNSUPPORTED_FORMAT for any
+            // non-mix format even in shared mode.
+            actualFormat_ = requestedFormat_;
+            frameBytes_ = actualFormat_.blockAlign();
+            WAVEFORMATEXTENSIBLE wfx = toWaveFormatExtensible(requestedFormat_);
+            HRESULT hr = client_->Initialize(
+                AUDCLNT_SHAREMODE_SHARED,
+                AUDCLNT_STREAMFLAGS_EVENTCALLBACK |
+                AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM |
+                AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY,
+                dur, 0,
+                reinterpret_cast<WAVEFORMATEX*>(&wfx), nullptr);
+            if (FAILED(hr)) return HrToResult(hr, "WasapiStream: Initialize(shared, requested)");
+            return Result::Ok();
+        }
+
+        // Default: use the device mix format (no conversion flags needed).
         WAVEFORMATEX* mix = nullptr;
         HRESULT hr = client_->GetMixFormat(&mix);
         if (FAILED(hr)) return HrToResult(hr, "WasapiStream: GetMixFormat");
         if (!mix) return Result::Fail(-1, "WasapiStream: GetMixFormat returned null");
         actualFormat_ = fromWaveFormat(mix);
         frameBytes_ = actualFormat_.blockAlign();
-        REFERENCE_TIME dur = params_.bufferMs
-            ? static_cast<REFERENCE_TIME>(params_.bufferMs) * 10'000
-            : 10'000'000 / 10; // default: 100 ms buffer
         hr = client_->Initialize(AUDCLNT_SHAREMODE_SHARED,
                                  AUDCLNT_STREAMFLAGS_EVENTCALLBACK, dur, 0, mix, nullptr);
         CoTaskMemFree(mix);
