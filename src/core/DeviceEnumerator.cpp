@@ -168,4 +168,37 @@ Result DeviceEnumerator::oemFormat(const DeviceId& id, AudioFormat& out) {
     return Result::Ok();
 }
 
+Result DeviceEnumerator::queryCapabilities(DataFlow flow, const DeviceId& id, DeviceCapabilities& out) {
+    ComInitGuard com;
+    ComPtr<IMMDevice> dev;
+    if (Result r = openDevice(flow, id, dev); !r) return r;
+    ComPtr<IAudioClient> client;
+    HRESULT hr = dev->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
+                     reinterpret_cast<void**>(client.GetAddressOf()));
+    if (FAILED(hr)) return HrToResult(hr, "Activate");
+    auto probe = [&](const AudioFormat& f, AUDCLNT_SHAREMODE sm) -> HRESULT {
+        WAVEFORMATEXTENSIBLE wfx = toWaveFormatExtensible(f);
+        WAVEFORMATEX* closest = nullptr;
+        HRESULT h = client->IsFormatSupported(sm, reinterpret_cast<WAVEFORMATEX*>(&wfx),
+                        (sm == AUDCLNT_SHAREMODE_EXCLUSIVE) ? nullptr : &closest);
+        if (closest) CoTaskMemFree(closest);
+        return h;
+    };
+    // Shared 的 S_FALSE(可转换但非精确) 也算"可用"；Exclusive 仅严格 S_OK。
+    out.matrix = buildCapabilityMatrix(allFormatCandidates(),
+        [&](const AudioFormat& f){ HRESULT h = probe(f, AUDCLNT_SHAREMODE_SHARED); return h == S_OK || h == S_FALSE; },
+        [&](const AudioFormat& f){ return probe(f, AUDCLNT_SHAREMODE_EXCLUSIVE) == S_OK; });
+    // 三来源
+    WAVEFORMATEX* mix = nullptr;
+    if (SUCCEEDED(client->GetMixFormat(&mix)) && mix) {
+        out.mixFormat = fromWaveFormat(mix); out.hasMix = true; CoTaskMemFree(mix);
+    }
+    ComPtr<IPropertyStore> props;
+    if (SUCCEEDED(dev->OpenPropertyStore(STGM_READ, props.GetAddressOf()))) {
+        out.hasDevice = readFormatKey(props.Get(), PKEY_AudioEngine_DeviceFormat, out.deviceFormat);
+        out.hasOem    = readFormatKey(props.Get(), PKEY_AudioEngine_OEMFormat,    out.oemFormat);
+    }
+    return Result::Ok();
+}
+
 } // namespace wa
