@@ -7,6 +7,7 @@
 #include "ComUtil.h"
 #include "FormatSpec.h"
 #include "MonitorEngine.h"
+#include "Capabilities.h"
 
 using namespace wa;
 
@@ -20,7 +21,8 @@ static void usage() {
         "WinAudioCli probe   --format 48000/16/2 [--device <id>] [--render|--capture]\n"
         "                    [--backend wasapi-shared|wasapi-exclusive]\n"
         "WinAudioCli monitor [--cap <id>] [--render <id>] [--delay-ms N] [--seconds N]\n"
-        "                    [--backend wasapi-shared|wasapi-exclusive] [--format R/B/C[f]]\n");
+        "                    [--backend wasapi-shared|wasapi-exclusive] [--format R/B/C[f]]\n"
+        "WinAudioCli caps  [--device <id>] [--render|--capture]\n");
 }
 
 static const char* stateStr(wa::StreamState st) {
@@ -143,6 +145,29 @@ int wmain(int argc, wchar_t** argv) {
         Result r = eng.probeFormat(backendArg(argc, argv), flow, id, fmt);
         std::printf("%s: %s\n", r ? "SUPPORTED" : "NOT SUPPORTED", r.message.c_str());
         return r ? 0 : 1;
+    }
+
+    if (cmd == L"caps") {
+        DataFlow flow = has(argc, argv, L"--capture") ? DataFlow::Capture : DataFlow::Render;
+        DeviceId id = arg(argc, argv, L"--device");
+        DeviceEnumerator de;
+        wa::DeviceCapabilities caps;
+        wa::Result r = de.queryCapabilities(flow, id, caps);
+        if (!r) { std::printf("caps failed: %s\n", r.message.c_str()); return 2; }
+        auto pf = [](const char* tag, bool has, const AudioFormat& f){
+            if (has) std::printf("%s: %u/%u/%u%s\n", tag, f.sampleRate, f.bitsPerSample, f.channels, f.isFloat?"f":"");
+            else     std::printf("%s: (none)\n", tag);
+        };
+        pf("Mix",    caps.hasMix,    caps.mixFormat);
+        pf("Device", caps.hasDevice, caps.deviceFormat);
+        pf("OEM",    caps.hasOem,    caps.oemFormat);
+        std::printf("%-16s %-8s %-9s\n", "Format", "Shared", "Exclusive");
+        for (const auto& s : caps.matrix) {
+            char fmt[32];
+            std::snprintf(fmt, sizeof fmt, "%u/%u/%u%s", s.fmt.sampleRate, s.fmt.bitsPerSample, s.fmt.channels, s.fmt.isFloat?"f":"");
+            std::printf("%-16s %-8s %-9s\n", fmt, s.sharedOk?"yes":"-", s.exclusiveOk?"yes":"-");
+        }
+        return 0;
     }
 
     if (cmd == L"monitor") {
