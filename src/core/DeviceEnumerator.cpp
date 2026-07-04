@@ -11,19 +11,23 @@ namespace {
 EDataFlow toEDataFlow(DataFlow f) { return f == DataFlow::Capture ? eCapture : eRender; }
 
 // 读一个 PKEY 的 WAVEFORMATEX blob -> AudioFormat；成功返回 true。
-static bool readFormatKey(IPropertyStore* props, const PROPERTYKEY& key, AudioFormat& out) {
+bool readFormatKey(IPropertyStore* props, const PROPERTYKEY& key, AudioFormat& out) {
     PROPVARIANT pv; PropVariantInit(&pv);
     bool ok = false;
     if (SUCCEEDED(props->GetValue(key, &pv)) && pv.vt == VT_BLOB &&
-        pv.blob.cbSize >= sizeof(WAVEFORMATEX)) {
-        out = fromWaveFormat(reinterpret_cast<const WAVEFORMATEX*>(pv.blob.pBlobData));
-        ok = true;
+        pv.blob.cbSize >= sizeof(WAVEFORMATEX) && pv.blob.pBlobData != nullptr) {
+        const auto* wf = reinterpret_cast<const WAVEFORMATEX*>(pv.blob.pBlobData);
+        if (wf->wFormatTag != WAVE_FORMAT_EXTENSIBLE ||
+            pv.blob.cbSize >= sizeof(WAVEFORMATEXTENSIBLE)) {
+            out = fromWaveFormat(wf);
+            ok = true;
+        }
     }
     PropVariantClear(&pv);
     return ok;
 }
 
-static Result openDevice(DataFlow flow, const DeviceId& id, ComPtr<IMMDevice>& dev) {
+Result openDevice(DataFlow flow, const DeviceId& id, ComPtr<IMMDevice>& dev) {
     ComPtr<IMMDeviceEnumerator> e;
     HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
         __uuidof(IMMDeviceEnumerator), reinterpret_cast<void**>(e.GetAddressOf()));
@@ -31,7 +35,7 @@ static Result openDevice(DataFlow flow, const DeviceId& id, ComPtr<IMMDevice>& d
     const EDataFlow ef = (flow == DataFlow::Capture) ? eCapture : eRender;
     hr = id.empty() ? e->GetDefaultAudioEndpoint(ef, eConsole, dev.GetAddressOf())
                     : e->GetDevice(id.c_str(), dev.GetAddressOf());
-    if (FAILED(hr)) return HrToResult(hr, "GetDevice");
+    if (FAILED(hr)) return HrToResult(hr, id.empty() ? "GetDefaultAudioEndpoint" : "GetDevice");
     return Result::Ok();
 }
 
