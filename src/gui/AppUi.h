@@ -52,8 +52,8 @@ private:
     int                    fmtChoiceIdx_    = 0;
     char                   fmtCustom_[32]   = "48000/16/2";
     int                    fmtBackendShown_ = -1;
+    int                    capDevShown_     = -1;
     wa::DeviceCapabilities capsCache_{};
-    bool                   capsCacheValid_  = false;
 
     // Waveform buffers — full spectrogram-history window (kSpecCols*kFftHop samples), rebuilt on rate change
     std::vector<float> capWave_, renderWave_;

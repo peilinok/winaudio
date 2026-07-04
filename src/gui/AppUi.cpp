@@ -88,12 +88,10 @@ void AppUi::stopAll() {
 
 void AppUi::recomputeDefaultFormat() {
     wa::ComInitGuard com;
-    capsCache_      = wa::DeviceCapabilities{};
-    capsCacheValid_ = false;
+    capsCache_ = wa::DeviceCapabilities{};
     wa::DeviceId capId = (!capDevices_.empty() && capDevIdx_ >= 0 && capDevIdx_ < (int)capDevices_.size())
                          ? capDevices_[(size_t)capDevIdx_].id : L"";
     enumerator_.queryCapabilities(wa::DataFlow::Capture, capId, capsCache_);
-    capsCacheValid_ = true;
 
     wa::BackendKind kind = (backendIdx_ == 1) ? wa::BackendKind::WasapiExclusive
                                               : wa::BackendKind::WasapiShared;
@@ -105,14 +103,17 @@ void AppUi::recomputeDefaultFormat() {
     const wa::AudioFormat* devFmt = capsCache_.hasDevice ? &capsCache_.deviceFormat : nullptr;
     selectedFmt_ = wa::chooseDefaultFormat(kind, capsCache_.mixFormat, devFmt,
                                            wa::defaultExclusiveCaptureCandidates(), exclPred);
-    haveFmt_      = false;
+    // Shared: pass nullptr to engine (GetMixFormat); Exclusive: pass selectedFmt_ so engine uses
+    // the same format we already probed and display, making "shown == used" exact.
+    haveFmt_      = (kind == wa::BackendKind::WasapiExclusive);
     fmtChoiceIdx_ = 0;
 }
 
 void AppUi::drawFormatRegion() {
-    if (backendIdx_ != fmtBackendShown_) {
+    if (backendIdx_ != fmtBackendShown_ || capDevIdx_ != capDevShown_) {
         recomputeDefaultFormat();
         fmtBackendShown_ = backendIdx_;
+        capDevShown_     = capDevIdx_;
     }
 
     // Display current effective format
@@ -130,8 +131,9 @@ void AppUi::drawFormatRegion() {
             okFmts.push_back(fs.fmt);
     const int nOk = (int)okFmts.size();
 
-    // Safety clamp (handles backend-switch where old index may be out of range)
-    if (fmtChoiceIdx_ < 0 || fmtChoiceIdx_ > nOk) fmtChoiceIdx_ = 0;
+    // Safety clamp (handles backend-switch where old index may be out of range).
+    // Layout: 0=System default, 1..nOk=ok candidates, nOk+1=Custom...
+    if (fmtChoiceIdx_ < 0 || fmtChoiceIdx_ > nOk + 1) fmtChoiceIdx_ = 0;
 
     // Combo preview
     auto fmtStr = [](const wa::AudioFormat& fmt) -> std::string {
@@ -141,24 +143,32 @@ void AppUi::drawFormatRegion() {
         if (fmt.isFloat) s += "f";
         return s;
     };
-    const std::string preview = (fmtChoiceIdx_ < nOk) ? fmtStr(okFmts[(size_t)fmtChoiceIdx_]) : "Custom...";
+    const std::string preview = (fmtChoiceIdx_ == 0)    ? "System default"
+                              : (fmtChoiceIdx_ <= nOk)  ? fmtStr(okFmts[(size_t)(fmtChoiceIdx_ - 1)])
+                              : "Custom...";
     ImGui::SetNextItemWidth(-1);
     if (ImGui::BeginCombo("##fmtCombo", preview.c_str())) {
+        // Item 0: System default — recomputes selectedFmt_ and haveFmt_ from device/backend
+        if (ImGui::Selectable("System default##0", fmtChoiceIdx_ == 0)) {
+            fmtChoiceIdx_ = 0;
+            recomputeDefaultFormat();
+        }
+        // Items 1..nOk: ok candidates for current backend
         for (int i = 0; i < nOk; ++i) {
-            const std::string label = fmtStr(okFmts[(size_t)i]) + "##" + std::to_string(i);
-            if (ImGui::Selectable(label.c_str(), fmtChoiceIdx_ == i)) {
-                fmtChoiceIdx_ = i;
+            const std::string label = fmtStr(okFmts[(size_t)i]) + "##" + std::to_string(i + 1);
+            if (ImGui::Selectable(label.c_str(), fmtChoiceIdx_ == i + 1)) {
+                fmtChoiceIdx_ = i + 1;
                 selectedFmt_  = okFmts[(size_t)i];
                 haveFmt_      = true;
             }
         }
-        if (ImGui::Selectable("Custom...", fmtChoiceIdx_ == nOk))
-            fmtChoiceIdx_ = nOk;
+        if (ImGui::Selectable("Custom...", fmtChoiceIdx_ == nOk + 1))
+            fmtChoiceIdx_ = nOk + 1;
         ImGui::EndCombo();
     }
 
     // Custom format input (shown when "Custom..." is selected)
-    if (fmtChoiceIdx_ == nOk) {
+    if (fmtChoiceIdx_ == nOk + 1) {
         ImGui::SetNextItemWidth(-60.0f);
         ImGui::InputText("##fmtInput", fmtCustom_, sizeof(fmtCustom_));
         ImGui::SameLine();
