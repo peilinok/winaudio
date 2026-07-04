@@ -1,5 +1,6 @@
 #include "DeviceEnumerator.h"
 #include "ComUtil.h"
+#include <initguid.h>
 #include <mmdeviceapi.h>
 #include <audioclient.h>
 #include <functiondiscoverykeys_devpkey.h>
@@ -8,6 +9,31 @@ namespace wa {
 
 namespace {
 EDataFlow toEDataFlow(DataFlow f) { return f == DataFlow::Capture ? eCapture : eRender; }
+
+// 读一个 PKEY 的 WAVEFORMATEX blob -> AudioFormat；成功返回 true。
+static bool readFormatKey(IPropertyStore* props, const PROPERTYKEY& key, AudioFormat& out) {
+    PROPVARIANT pv; PropVariantInit(&pv);
+    bool ok = false;
+    if (SUCCEEDED(props->GetValue(key, &pv)) && pv.vt == VT_BLOB &&
+        pv.blob.cbSize >= sizeof(WAVEFORMATEX)) {
+        out = fromWaveFormat(reinterpret_cast<const WAVEFORMATEX*>(pv.blob.pBlobData));
+        ok = true;
+    }
+    PropVariantClear(&pv);
+    return ok;
+}
+
+static Result openDevice(DataFlow flow, const DeviceId& id, ComPtr<IMMDevice>& dev) {
+    ComPtr<IMMDeviceEnumerator> e;
+    HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
+        __uuidof(IMMDeviceEnumerator), reinterpret_cast<void**>(e.GetAddressOf()));
+    if (FAILED(hr)) return HrToResult(hr, "CoCreateInstance");
+    const EDataFlow ef = (flow == DataFlow::Capture) ? eCapture : eRender;
+    hr = id.empty() ? e->GetDefaultAudioEndpoint(ef, eConsole, dev.GetAddressOf())
+                    : e->GetDevice(id.c_str(), dev.GetAddressOf());
+    if (FAILED(hr)) return HrToResult(hr, "GetDevice");
+    return Result::Ok();
+}
 
 Result readInfo(IMMDevice* dev, DataFlow flow, bool isDefault, DeviceInfo& info) {
     LPWSTR idStr = nullptr;
@@ -25,6 +51,8 @@ Result readInfo(IMMDevice* dev, DataFlow flow, bool isDefault, DeviceInfo& info)
             name.vt == VT_LPWSTR)
             info.name = name.pwszVal;
         PropVariantClear(&name);
+        info.hasDeviceFormat = readFormatKey(props.Get(), PKEY_AudioEngine_DeviceFormat, info.deviceFormat);
+        info.hasOemFormat    = readFormatKey(props.Get(), PKEY_AudioEngine_OEMFormat,    info.oemFormat);
     }
 
     ComPtr<IAudioClient> client;
@@ -109,6 +137,30 @@ Result DeviceEnumerator::mixFormat(const DeviceId& id, AudioFormat& out) {
     if (FAILED(hr)) return HrToResult(hr, "GetMixFormat");
     out = fromWaveFormat(mix);
     CoTaskMemFree(mix);
+    return Result::Ok();
+}
+
+Result DeviceEnumerator::deviceFormat(const DeviceId& id, AudioFormat& out) {
+    ComInitGuard com;
+    ComPtr<IMMDevice> dev;
+    if (Result r = openDevice(DataFlow::Render, id, dev); !r) return r;
+    ComPtr<IPropertyStore> props;
+    HRESULT hr = dev->OpenPropertyStore(STGM_READ, props.GetAddressOf());
+    if (FAILED(hr)) return HrToResult(hr, "OpenPropertyStore");
+    if (!readFormatKey(props.Get(), PKEY_AudioEngine_DeviceFormat, out))
+        return Result::Fail(1, "DeviceFormat not present");
+    return Result::Ok();
+}
+
+Result DeviceEnumerator::oemFormat(const DeviceId& id, AudioFormat& out) {
+    ComInitGuard com;
+    ComPtr<IMMDevice> dev;
+    if (Result r = openDevice(DataFlow::Render, id, dev); !r) return r;
+    ComPtr<IPropertyStore> props;
+    HRESULT hr = dev->OpenPropertyStore(STGM_READ, props.GetAddressOf());
+    if (FAILED(hr)) return HrToResult(hr, "OpenPropertyStore");
+    if (!readFormatKey(props.Get(), PKEY_AudioEngine_OEMFormat, out))
+        return Result::Fail(1, "OemFormat not present");
     return Result::Ok();
 }
 

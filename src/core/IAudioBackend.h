@@ -18,6 +18,8 @@ struct DeviceInfo {
     DataFlow     flow = DataFlow::Render;
     bool         isDefault = false;
     AudioFormat  mixFormat{};       // shared-mode mix format
+    AudioFormat  deviceFormat{}; bool hasDeviceFormat = false; // PKEY_AudioEngine_DeviceFormat
+    AudioFormat  oemFormat{};    bool hasOemFormat    = false; // PKEY_AudioEngine_OEMFormat
 };
 
 struct BackendStats {

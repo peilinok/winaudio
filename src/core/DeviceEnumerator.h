@@ -10,6 +10,8 @@ public:
     Result enumerate(DataFlow flow, std::vector<DeviceInfo>& out);
     Result defaultDevice(DataFlow flow, DeviceInfo& out);
     Result mixFormat(const DeviceId& id, AudioFormat& out); // empty id = default render
+    Result deviceFormat(const DeviceId& id, AudioFormat& out);
+    Result oemFormat(const DeviceId& id, AudioFormat& out);
 };
 
 } // namespace wa
