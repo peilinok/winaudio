@@ -247,6 +247,12 @@ void AppUi::drawLeftPanel() {
     if (ImGui::Button("Refresh devices")) refreshMonitorDevices();
     ImGui::SameLine();
     if (ImGui::Button("Options")) ImGui::OpenPopup("Audio parameters (advanced)");
+    if (ImGui::Button("Device caps\xe2\x80\xa6")) {   // U+2026 HORIZONTAL ELLIPSIS
+        wa::ComInitGuard com;
+        wa::DeviceId capId = capDevices_.empty() ? L"" : capDevices_[capDevIdx_].id;
+        enumerator_.queryCapabilities(wa::DataFlow::Capture, capId, capsCache_);
+        ImGui::OpenPopup("Device capabilities");
+    }
 
     auto deviceCombo = [&](const char* caption, const char* comboId,
                            const std::vector<wa::DeviceInfo>& devs, int& idx) {
@@ -267,6 +273,7 @@ void AppUi::drawLeftPanel() {
     deviceCombo("Capture device", "##capdev", capDevices_, capDevIdx_);
     deviceCombo("Render device",  "##rendev", renderDevices_, renderDevIdx_);
     drawAdvancedModal();
+    drawCapsModal();
 
     // --- Control ---
     ImGui::SeparatorText("Control");
@@ -660,4 +667,70 @@ void AppUi::drawChartPanel(int id) {
     default:
         break;
     }
+}
+
+void AppUi::drawCapsModal() {
+    if (!ImGui::BeginPopupModal("Device capabilities", nullptr,
+                                ImGuiWindowFlags_AlwaysAutoResize)) return;
+
+    // Helper: format an AudioFormat as "sr/bits/ch[f]" or em-dash if not present.
+    // U+2014 EM DASH is in General Punctuation (0x2000-0x206F) included by
+    // GetGlyphRangesChineseSimplifiedCommon(), so it renders with the loaded font.
+    auto fmtStr = [](const wa::AudioFormat& f, bool has) -> std::string {
+        if (!has) return "\xe2\x80\x94";   // U+2014 EM DASH
+        std::string s = std::to_string(f.sampleRate) + "/" +
+                        std::to_string(f.bitsPerSample) + "/" +
+                        std::to_string(f.channels);
+        if (f.isFloat) s += "f";
+        return s;
+    };
+
+    // --- Top: three format sources side by side (Mix / Device / OEM) ---
+    if (ImGui::BeginTable("sources", 3, ImGuiTableFlags_BordersOuter)) {
+        ImGui::TableSetupColumn("Mix");
+        ImGui::TableSetupColumn("Device");
+        ImGui::TableSetupColumn("OEM");
+        ImGui::TableHeadersRow();
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::TextUnformatted(fmtStr(capsCache_.mixFormat,    capsCache_.hasMix).c_str());
+        ImGui::TableSetColumnIndex(1);
+        ImGui::TextUnformatted(fmtStr(capsCache_.deviceFormat, capsCache_.hasDevice).c_str());
+        ImGui::TableSetColumnIndex(2);
+        ImGui::TextUnformatted(fmtStr(capsCache_.oemFormat,    capsCache_.hasOem).c_str());
+        ImGui::EndTable();
+    }
+    ImGui::Spacing();
+
+    // --- One-dimensional matrix: one row per format, fixed-height scrollable child ---
+    // Note: U+2713 CHECK MARK / U+2717 BALLOT X are in Dingbats (0x2700-0x27BF), outside the
+    // default Chinese glyph range; they render as replacement boxes if the glyph atlas does not
+    // include that block.  The table structure remains clear regardless.
+    ImGui::BeginChild("##capsScroll", ImVec2(400.0f, 300.0f), false);
+    if (ImGui::BeginTable("caps", 3,
+                          ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg)) {
+        ImGui::TableSetupColumn("Format");
+        ImGui::TableSetupColumn("Shared");
+        ImGui::TableSetupColumn("Exclusive");
+        ImGui::TableHeadersRow();
+        for (const auto& fs : capsCache_.matrix) {
+            ImGui::TableNextRow();
+            std::string fmt = std::to_string(fs.fmt.sampleRate) + "/" +
+                              std::to_string(fs.fmt.bitsPerSample) + "/" +
+                              std::to_string(fs.fmt.channels);
+            if (fs.fmt.isFloat) fmt += "f";
+            ImGui::TableSetColumnIndex(0);
+            ImGui::TextUnformatted(fmt.c_str());
+            ImGui::TableSetColumnIndex(1);
+            ImGui::TextUnformatted(fs.sharedOk    ? "\xe2\x9c\x93" : "\xe2\x9c\x97");   // ✓ / ✗
+            ImGui::TableSetColumnIndex(2);
+            ImGui::TextUnformatted(fs.exclusiveOk ? "\xe2\x9c\x93" : "\xe2\x9c\x97");
+        }
+        ImGui::EndTable();
+    }
+    ImGui::EndChild();
+
+    ImGui::Separator();
+    if (ImGui::Button("Close", ImVec2(120.0f, 0.0f))) ImGui::CloseCurrentPopup();
+    ImGui::EndPopup();
 }

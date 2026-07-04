@@ -15,6 +15,7 @@ private:
     void refreshMonitorDevices();
     void drawLeftPanel();
     void drawAdvancedModal();
+    void drawCapsModal();
     void drawFormatRegion();
     void recomputeDefaultFormat();
     void drawChartsColumn();
