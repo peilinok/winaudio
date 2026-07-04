@@ -10,6 +10,7 @@ add_library(WinAudioCore STATIC
     Engine.cpp
     FormatSpec.cpp
     MonitorEngine.cpp
+    Capabilities.cpp
 )
 target_include_directories(WinAudioCore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(WinAudioCore PUBLIC ole32 oleaut32)
