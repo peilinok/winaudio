@@ -22,6 +22,8 @@ static void usage() {
         "                    [--backend wasapi-shared|wasapi-exclusive]\n"
         "WinAudioCli monitor [--cap <id>] [--render <id>] [--delay-ms N] [--seconds N]\n"
         "                    [--backend wasapi-shared|wasapi-exclusive] [--format R/B/C[f]]\n"
+        "  (shared: WASAPI engine bridges sample rate on render side;\n"
+        "   exclusive: render device must support capture format)\n"
         "WinAudioCli caps  [--device <id>] [--render|--capture]\n");
 }
 

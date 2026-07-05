@@ -34,10 +34,10 @@ Phase 1 实现了 **WASAPI-Shared 采集/播放**；Phase 2 新增了 **WASAPI-E
   - **错误处理**：`Result` 类型、HRESULT 规范化、COM RAII 与线程安全。
 - 能力范围（后续阶段）：
   - waveIn / waveOut（MME API 后端）。
-  - 格式转换/重采样（当前 Shared 模式要求输入 WAV 格式与设备混音格式一致；Exclusive 模式要求格式受设备支持；monitor 模式要求采集与渲染采样率一致）。
+  - 格式转换/重采样（当前 Shared 模式要求输入 WAV 格式与设备混音格式一致；Exclusive 模式要求格式受设备支持；Exclusive monitor 仍要求渲染设备支持采集格式）。
 - **已知限制**：
   - 分析为单声道降混（多声道信号取首声道或均值）。
-  - `monitor` 要求采集与渲染设备采样率一致，否则启动报错。
+  - `monitor` Shared 模式由 WASAPI 引擎在渲染侧自动桥接采样率差异，采集/渲染可用不同采样率设备；Exclusive 模式仍要求渲染设备支持采集格式，采样率不匹配则 render 启动失败。
   - 漂移补偿采用单帧丢/插 + crossfade，**无重采样器**；USB 麦 + HDMI 等跨时钟设备漂移率高，同接口 loopback 漂移很小。
 
 ## 构建与运行
@@ -50,7 +50,7 @@ Phase 1 实现了 **WASAPI-Shared 采集/播放**；Phase 2 新增了 **WASAPI-E
 .\build.bat Release
 .\build.bat Release --clean
 
-# 运行测试（ctest，60 个）
+# 运行测试（ctest，73 个）
 .\test.bat Debug          # 或 .\test.bat Release
 # 也可直接跑测试 exe：
 .\build\bin\Debug\WinAudioTests.exe
@@ -90,7 +90,7 @@ cmake --build build --config Release -j
 
 # 双流延迟监听（capture → delay → render，打印 cap/ren 状态、sr、fifo ms、drift、xrun；可指定采集格式）
 .\build\bin\Debug\WinAudioCli.exe monitor [--cap <id>] [--render <id>] [--delay-ms N] [--seconds N] [--format 48000/16/2] [--backend wasapi-shared|wasapi-exclusive]
-# 注：--cap 与 --render 设备的采样率须一致，否则报错退出；--format 仅影响采集端，渲染端须匹配采样率。
+# 注：Shared 模式由 WASAPI 引擎在渲染侧桥接采样率，--cap 与 --render 可用不同采样率设备；Exclusive 模式仍要求渲染设备支持采集格式，采样率不匹配则 render 启动失败；--format 仅影响采集端。
 
 # ---- GUI（首选） ----
 .\build\bin\Debug\WinAudioGui.exe

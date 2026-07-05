@@ -17,7 +17,7 @@
 ## 全局约束
 
 - **无重采样**：本工具不做采样率转换。Shared 模式下把用户格式传给 `IAudioClient::Initialize`，格式转换由 **WASAPI 音频引擎**完成（非本工具代码）；Exclusive 模式无转换，格式必须硬件原生支持。
-- **monitor 采集/渲染采样率必须一致**（现有约束，改格式时仍须守）。
+- **monitor 采样率约束**：Shared 模式由 WASAPI 引擎在渲染侧自动桥接采样率，采集/渲染可用不同采样率设备（feat/data-format Task 4 裁决保留的增强）；Exclusive 模式渲染设备仍须支持采集格式，采样率不匹配则 render 启动失败。
 - **全默认路径行为不变**：用户不选/不改格式时，Shared 走 `GetMixFormat`、Exclusive 走探测默认，与现状字节级一致。
 - 静态 CRT（`/MT`）、`/W4` 零告警双配置、C++17、仅 Win32 + STL（core 零外部依赖）。
 
@@ -145,7 +145,7 @@ Format          Shared   Exclusive
 ## 已知约束 / 非目标
 
 - 不做本工具自有重采样；Shared 转换依赖 WASAPI 引擎。
-- monitor 采集/渲染采样率须一致。
+- monitor Exclusive 模式渲染须支持采集格式（采样率不匹配则 render 启动失败）；Shared 模式由 WASAPI 引擎在渲染侧桥接采样率（无此约束）。
 - 分析仍单声道降混（现状）。
 - 候选空间固定 48 组合；更大范围/更多声道留作后续。
 - 能力矩阵一次性探测（不做增量/异步 UI，96 次探测足够快）。
