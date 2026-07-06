@@ -131,9 +131,9 @@ void AppUi::drawFormatRegion() {
             okFmts.push_back(fs.fmt);
     const int nOk = (int)okFmts.size();
 
-    // Safety clamp (handles backend-switch where old index may be out of range).
-    // Layout: 0=System default, 1..nOk=ok candidates, nOk+1=Custom...
-    if (fmtChoiceIdx_ < 0 || fmtChoiceIdx_ > nOk + 1) fmtChoiceIdx_ = 0;
+    // Safety clamp. Combo layout: 0=System default, 1..nOk=ok candidates.
+    // fmtChoiceIdx_ == -1 means a custom format was applied (not a combo item).
+    if (fmtChoiceIdx_ < -1 || fmtChoiceIdx_ > nOk) fmtChoiceIdx_ = 0;
 
     // Combo preview
     auto fmtStr = [](const wa::AudioFormat& fmt) -> std::string {
@@ -143,9 +143,9 @@ void AppUi::drawFormatRegion() {
         if (fmt.isFloat) s += "f";
         return s;
     };
-    const std::string preview = (fmtChoiceIdx_ == 0)    ? "System default"
-                              : (fmtChoiceIdx_ <= nOk)  ? fmtStr(okFmts[(size_t)(fmtChoiceIdx_ - 1)])
-                              : "Custom...";
+    const std::string preview = (fmtChoiceIdx_ == 0) ? std::string("System default")
+                              : (fmtChoiceIdx_ >= 1) ? fmtStr(okFmts[(size_t)(fmtChoiceIdx_ - 1)])
+                              : fmtStr(selectedFmt_);   // custom (idx == -1)
     ImGui::SetNextItemWidth(-1);
     if (ImGui::BeginCombo("##fmtCombo", preview.c_str())) {
         // Item 0: System default — recomputes selectedFmt_ and haveFmt_ from device/backend
@@ -162,24 +162,21 @@ void AppUi::drawFormatRegion() {
                 haveFmt_      = true;
             }
         }
-        if (ImGui::Selectable("Custom...", fmtChoiceIdx_ == nOk + 1))
-            fmtChoiceIdx_ = nOk + 1;
         ImGui::EndCombo();
     }
 
-    // Custom format input (shown when "Custom..." is selected)
-    if (fmtChoiceIdx_ == nOk + 1) {
-        ImGui::SetNextItemWidth(-60.0f);
-        ImGui::InputText("##fmtInput", fmtCustom_, sizeof(fmtCustom_));
-        ImGui::SameLine();
-        if (ImGui::Button("Apply")) {
-            wa::AudioFormat parsed{};
-            if (wa::parseFormatSpec(std::string(fmtCustom_), parsed)) {
-                selectedFmt_ = parsed;
-                haveFmt_     = true;
-            } else {
-                logLines_.push_back("invalid format");
-            }
+    // Custom format input — always available; type e.g. 48000/16/2 and click Apply (overrides the combo).
+    ImGui::SetNextItemWidth(-60.0f);
+    ImGui::InputText("##fmtInput", fmtCustom_, sizeof(fmtCustom_));
+    ImGui::SameLine();
+    if (ImGui::Button("Apply")) {
+        wa::AudioFormat parsed{};
+        if (wa::parseFormatSpec(std::string(fmtCustom_), parsed)) {
+            selectedFmt_  = parsed;
+            haveFmt_      = true;
+            fmtChoiceIdx_ = -1;   // custom, not a combo item
+        } else {
+            logLines_.push_back("invalid format");
         }
     }
 }
@@ -310,11 +307,10 @@ void AppUi::drawLeftPanel() {
     // vertically center the playback checkbox against the taller Start/Stop button
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (ctrlBtn.y - ImGui::GetFrameHeight()) * 0.5f);
 
-    // Playback checkbox — disabled until monitor is started
-    if (!monitorStarted_) ImGui::BeginDisabled();
-    if (ImGui::Checkbox("同步播放 (playback)", &playbackEnabled_))
-        monitor_.setPlaybackEnabled(playbackEnabled_);
-    if (!monitorStarted_) ImGui::EndDisabled();
+    // Playback checkbox — always toggleable; applies live while running, else takes effect on next Start.
+    if (ImGui::Checkbox("同步播放 (playback)", &playbackEnabled_)) {
+        if (monitorStarted_) monitor_.setPlaybackEnabled(playbackEnabled_);
+    }
 
     // --- Status ---
     ImGui::SeparatorText("Status");
