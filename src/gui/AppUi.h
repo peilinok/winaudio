@@ -1,6 +1,7 @@
 #pragma once
 #include <complex>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 #include "DeviceEnumerator.h"
@@ -11,6 +12,7 @@ class AppUi {
 public:
     void draw();          // called each frame; polls monitor and redraws the two-column UI
     void stopAll();       // stop monitor on shutdown (idempotent)
+    void pushLog(int level, const std::string& line);  // thread-safe; called from the logging pump thread
 private:
     void refreshMonitorDevices();
     void drawLeftPanel();
@@ -34,6 +36,9 @@ private:
     std::vector<int>         chartOrder_      = {0, 1};   // 0=cap combo, 1=ren combo
     int                      prevRenderState_ = 0;
     std::vector<std::string> logLines_;
+    std::mutex               logMutex_;    // guards pendingLog_ (pump thread → draw drains it)
+    std::vector<std::string> pendingLog_;
+    int                      logLevelIdx_ = 2;   // 0=Trace..4=Err; default Info
 
     // Monitor device selection
     bool                        monitorDevicesLoaded_ = false;
