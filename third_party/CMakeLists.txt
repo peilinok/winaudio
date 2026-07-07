@@ -1,35 +1,40 @@
-# gtest, imgui, implot are vendored as git submodules under third_party/.
-# Static CRT (/MT) is inherited from the top-level CMAKE_MSVC_RUNTIME_LIBRARY (CMP0091 NEW).
-# All third_party targets are excluded from our /W4 + Werror policy (they set their own warning levels).
-
-set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
-set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
-add_subdirectory(googletest)
-
-# Dear ImGui (docking branch) — built as a small static lib we control.
+# --- Dear ImGui: core + Win32/DX11 backends (static lib, warnings off) ---
 add_library(imgui STATIC
     imgui/imgui.cpp
     imgui/imgui_draw.cpp
     imgui/imgui_tables.cpp
     imgui/imgui_widgets.cpp
-    imgui/imgui_demo.cpp
     imgui/backends/imgui_impl_win32.cpp
     imgui/backends/imgui_impl_dx11.cpp
 )
-target_include_directories(imgui PUBLIC imgui imgui/backends)
-target_link_libraries(imgui PUBLIC d3d11 dxgi d3dcompiler)
+target_include_directories(imgui PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/imgui
+    ${CMAKE_CURRENT_SOURCE_DIR}/imgui/backends
+)
+target_compile_options(imgui PRIVATE /W0)
 
-# ImPlot — plotting on top of ImGui.
+# --- ImPlot (depends on ImGui) ---
 add_library(implot STATIC
     implot/implot.cpp
     implot/implot_items.cpp
 )
-target_include_directories(implot PUBLIC implot imgui)
 target_link_libraries(implot PUBLIC imgui)
-wa_set_project_warnings(implot)
-# NOTE: implot uses our warnings but we allow it to build; core stays the strict one.
+target_include_directories(implot PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/implot)
+target_compile_options(implot PRIVATE /W0)
 
-# spdlog (v1.15.3) — header-only, vendored as a submodule. Marked SYSTEM so its
-# headers stay out of our /W4 + Werror policy; only Log.cpp compiles spdlog.
+# --- GoogleTest (vendored full tree); skip gmock/install ---
+# CRT is unified to static (/MT, /MTd) via CMAKE_MSVC_RUNTIME_LIBRARY in the top-level
+# CMakeLists (CMP0091 NEW), so gtest inherits it automatically — no gtest_force_shared_crt needed.
+set(BUILD_GMOCK OFF)
+set(INSTALL_GTEST OFF)
+# Real layout: third_party/googletest has no root CMakeLists.txt;
+# the actual one lives at googletest/googletest/CMakeLists.txt.
+# GOOGLETEST_VERSION must be set here because the root-level CMakeLists.txt
+# (which normally defines it) is absent from this vendored copy.
+set(GOOGLETEST_VERSION "1.14.0")
+add_subdirectory(googletest/googletest)
+
+# --- spdlog (v1.15.3): header-only, vendored as a git submodule ---
+# Marked SYSTEM so its headers stay out of our /W4 + /WX policy; only Log.cpp includes it.
 add_library(spdlog INTERFACE)
 target_include_directories(spdlog SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/spdlog/include)
