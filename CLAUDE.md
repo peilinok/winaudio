@@ -7,8 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 WinAudio 是一个小巧的 Windows 音频测试工具，用于对系统音频设备做采集、播放等测试。
 
 **Phase 3 已完成。** 当前代码库包含 4 个项目：
-- **WinAudioCore**（`src/core`）：纯 C++ 静态库，零外部依赖（仅 Win32 + STL）；提供后端抽象（`IAudioBackend`）、设备枚举（`DeviceEnumerator`）、WASAPI-Shared/Exclusive 采集/播放、WAV 读写、环形缓冲区（RingBuffer）、引擎（Engine）、双流延迟监听（MonitorEngine、DelayFifo）、FFT 分析（Fft、SampleConvert、ScopeBuffer、Analysis）。
-- **WinAudioCli**（`src/cli`）：最小化命令行前端，支持 `list` / `capture` / `play` / `probe` / `monitor` 子命令。
+- **WinAudioCore**（`src/core`）：纯 C++ 静态库（外部依赖仅 spdlog header-only submodule + Win32 + STL）；提供后端抽象（`IAudioBackend`）、设备枚举（`DeviceEnumerator`）、WASAPI-Shared/Exclusive 采集/播放、WAV 读写、环形缓冲区（RingBuffer）、引擎（Engine）、双流延迟监听（MonitorEngine、DelayFifo）、FFT 分析（Fft、SampleConvert、ScopeBuffer、Analysis）、详细接口调用日志（`wa::log`，spdlog 封装）。
+- **WinAudioCli**（`src/cli`）：最小化命令行前端，支持 `list` / `capture` / `play` / `probe` / `monitor` 子命令；均支持 `--log-level <trace|debug|info|warn|err>` / `--log-file <path>`（日志走 stderr，默认 info）。
 - **WinAudioGui**（`src/gui`）：Dear ImGui + DX11 GUI 前端，为首选交互方式；**恒监听**（monitor-only），两列布局（左列：设备/控制/状态/日志；右列：采集/播放各一个"波形+声谱图"合并单元，共享时间轴、可拖拽重排），"同步播放" checkbox 实时控制 render 流。
 - **WinAudioTests**（`src/tests`）：gtest 单元测试套件，覆盖核心模块（RingBuffer、AudioFormat、WAV、FormatSpec、WasapiStream 辅助函数、Fft、SampleConvert、ScopeBuffer、DelayFifo、Analysis、MonitorEngine、Spectrogram）。
 
@@ -50,7 +50,7 @@ Phase 1 实现了 **WASAPI-Shared 采集/播放**；Phase 2 新增了 **WASAPI-E
 .\build.bat Release
 .\build.bat Release --clean
 
-# 运行测试（ctest，73 个）
+# 运行测试（ctest，78 个）
 .\test.bat Debug          # 或 .\test.bat Release
 # 也可直接跑测试 exe：
 .\build\bin\Debug\WinAudioTests.exe
@@ -153,6 +153,15 @@ cmake --build build --config Release -j
 - **COM 与线程安全**：`CoInitializeEx` 包装（RAII）；WASAPI 线程模型约定；原子操作与互斥锁。
 - **错误处理**：`Result` 类型，HRESULT 到 string 映射，用户友好报错。
 
+## 日志（详细接口调用日志）
+
+core 通过 `wa::log`（`src/core/Log.{h,cpp}`）——对 **spdlog**（`third_party/spdlog`，git submodule 固定 v1.15.3，header-only）的薄封装——记录**一切 WASAPI/COM/Win32 接口调用的参数与返回值**。`Result.h` 的「never prints」精神保留：core 不选输出目的地，由上层注册 sink；未注册 sink 时零输出。
+
+- **级别**：`Error / Warn / Info / Debug / Trace`，**默认 Info**，运行时可切。Info=生命周期（open/close/start/stop、选中设备、最终格式）；Debug=**所有控制路径调用**的参数+返回值（HRESULT 经 `hrName` 译成符号名，如 `AUDCLNT_E_DEVICE_INVALIDATED`）；Trace=音频热路径逐帧（`GetBuffer`/`ReleaseBuffer`/`GetCurrentPadding` 等）；Warn=可容忍异常 + 补齐现状被忽略的返回值。
+- **双路径 / 实时性**：控制路径同步记录；音频热路径经 spdlog async logger（`overrun_oldest` 非阻塞、队满丢最旧）。`emitTrace` 在音频线程**无堆分配**（inline stack buffer），但 spdlog async 队列 enqueue 会取一个**极短的 mpmc mutex 锁**——Trace 是诊断用途，开启时可能对被测音频有轻微扰动。
+- **输出（sink，可并存）**：`rotating_file_sink`（文件轮转）、stderr、自定义 callback（GUI 面板）。行格式 `时间戳 级别 [线程] Module::Call args:… ret:…`，线程短名 main/pump/capW/renW/cap/play。
+- **前端**：CLI `--log-level`/`--log-file`（日志走 stderr，与状态行 stdout 分离）；GUI 默认写 exe 目录 `winaudio.log` + 左栏日志面板（级别下拉运行时切、清空、自动滚动、5000 行环形上限）。
+- **插桩纯观测**：只读现有变量/HRESULT 记录，不改任何控制流/返回值/时序。
 ## 约定
 
 - 回答默认用中文；代码、命令、API 标识符等保持英文原文。
