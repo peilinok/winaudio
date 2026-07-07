@@ -22,6 +22,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          submodules: recursive   # spdlog lives in third_party/spdlog as a git submodule
 
       - name: Configure (CMake, VS 2022 x64)
         run: cmake --preset vs2022
