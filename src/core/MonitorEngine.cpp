@@ -20,6 +20,8 @@
 #include <windows.h>
 #include <algorithm>
 #include <exception>
+#include "Log.h"
+#include "AudioFormatStr.h"
 
 namespace wa {
 
@@ -89,6 +91,11 @@ Result MonitorEngine::start(BackendKind kind, const DeviceId& capId, const Devic
                         static_cast<long>(MonitorError::InvalidDelay),
                         "MonitorEngine: delayMs exceeds maximum (10000 ms)");
 
+    WA_LOG(wa::log::Level::Info, "MonitorEngine", "start",
+           "cap=" + wa::narrowAscii(capId) +
+           " ren=" + wa::narrowAscii(renderId) +
+           " delay=" + std::to_string(delayMs) + "ms" +
+           " playback=" + (playbackEnabled ? "1" : "0"), "");
     kind_ = kind; renderId_ = renderId; delayMs_ = delayMs;
     capParams_ = capParams;
     { std::lock_guard<std::mutex> lk(paramsMtx_); renderParams_ = renderParams; }
@@ -100,12 +107,21 @@ Result MonitorEngine::start(BackendKind kind, const DeviceId& capId, const Devic
     capBackend_  = makeBackend(DataFlow::Capture, kind, hasCapFormat_ ? &capRequestedFormat_ : nullptr);
     if (!capBackend_)
         return rollback(StreamState::Idle, MonitorError::Factory, -1, "MonitorEngine: capture factory null");
-    if (Result r = capBackend_->open(capId, AudioFormat{}, captureRing_.get(), capParams_); !r)
-        return rollback(StreamState::Idle, MonitorError::CaptureOpen, r.code, r.message);
-    if (Result r = capBackend_->start(); !r)
-        return rollback(StreamState::Idle, MonitorError::CaptureStart, r.code, r.message);
+    {
+        Result r = capBackend_->open(capId, AudioFormat{}, captureRing_.get(), capParams_);
+        WA_LOG(wa::log::Level::Debug, "MonitorEngine", "capture.open",
+               "dev=" + wa::narrowAscii(capId), r.ok ? "ok" : r.message);
+        if (!r) return rollback(StreamState::Idle, MonitorError::CaptureOpen, r.code, r.message);
+    }
+    {
+        Result r = capBackend_->start();
+        WA_LOG(wa::log::Level::Debug, "MonitorEngine", "capture.start", "", r.ok ? "ok" : r.message);
+        if (!r) return rollback(StreamState::Idle, MonitorError::CaptureStart, r.code, r.message);
+    }
     capState_.store(StreamState::Running, std::memory_order_relaxed);
     capFmt_ = capBackend_->stats().actualFormat;
+    WA_LOG(wa::log::Level::Info, "MonitorEngine", "capture.started",
+           "dev=" + wa::narrowAscii(capId) + " fmt=" + wa::formatAudio(capFmt_), "ok");
 
     const uint32_t sr = capFmt_.sampleRate;
     capCh_         = capFmt_.channels ? capFmt_.channels : static_cast<uint16_t>(1);
@@ -135,6 +151,7 @@ Result MonitorEngine::start(BackendKind kind, const DeviceId& capId, const Devic
         if (Result r = engageRender(); !r) {
             long code = r.code;
             std::string msg = r.message;
+            WA_LOG(wa::log::Level::Err, "MonitorEngine", "start.engageRender", "playback=1", msg);
             MonitorError err = (code == static_cast<long>(MonitorError::RateMismatch))
                                    ? MonitorError::RateMismatch : MonitorError::RenderStart;
             return rollback(StreamState::Error, err, code, std::move(msg));   // stops capture too
@@ -143,6 +160,10 @@ Result MonitorEngine::start(BackendKind kind, const DeviceId& capId, const Devic
 
     // Capture is up -> engine Running (independent of render prefill).
     overall_.store(StreamState::Running, std::memory_order_relaxed);
+    WA_LOG(wa::log::Level::Info, "MonitorEngine", "engine.running",
+           "cap=" + wa::narrowAscii(capId) +
+           " ren=" + wa::narrowAscii(renderId) +
+           " sr=" + std::to_string(capFmt_.sampleRate), "ok");
 
     running_.store(true, std::memory_order_release);
     try {
@@ -152,6 +173,7 @@ Result MonitorEngine::start(BackendKind kind, const DeviceId& capId, const Devic
         return rollback(StreamState::Error, MonitorError::PumpLaunch, -1,
                         std::string("MonitorEngine: pump launch failed: ") + e.what());
     }
+    WA_LOG(wa::log::Level::Info, "MonitorEngine", "start", "pump ready", "ok");
     return Result::Ok();
 }
 
@@ -162,14 +184,22 @@ Result MonitorEngine::engageRender() {
     renderRing_    = std::make_unique<RingBuffer>(kRingBytes);            // per-engage
     renderBackend_ = makeBackend(DataFlow::Render, kind_, &capFmt_);
     if (!renderBackend_) { renderRing_.reset(); return Result::Fail(-1, "MonitorEngine: render factory null"); }
-    if (Result r = renderBackend_->open(renderId_, AudioFormat{}, renderRing_.get(), rp); !r) {
-        renderBackend_.reset(); renderRing_.reset(); return Result::Fail(r.code, r.message);
+    {
+        Result r = renderBackend_->open(renderId_, AudioFormat{}, renderRing_.get(), rp);
+        WA_LOG(wa::log::Level::Debug, "MonitorEngine", "render.open",
+               "dev=" + wa::narrowAscii(renderId_), r.ok ? "ok" : r.message);
+        if (!r) { renderBackend_.reset(); renderRing_.reset(); return Result::Fail(r.code, r.message); }
     }
-    if (Result r = renderBackend_->start(); !r) {
-        renderBackend_->stop(); renderBackend_.reset(); renderRing_.reset(); return Result::Fail(r.code, r.message);
+    {
+        Result r = renderBackend_->start();
+        WA_LOG(wa::log::Level::Debug, "MonitorEngine", "render.start", "", r.ok ? "ok" : r.message);
+        if (!r) { renderBackend_->stop(); renderBackend_.reset(); renderRing_.reset(); return Result::Fail(r.code, r.message); }
     }
     renderFmt_ = renderBackend_->stats().actualFormat;
     if (renderFmt_.sampleRate == 0 || renderFmt_.sampleRate != sr) {
+        WA_LOG(wa::log::Level::Warn, "MonitorEngine", "engageRender",
+               "cap_sr=" + std::to_string(sr) + " ren_sr=" + std::to_string(renderFmt_.sampleRate),
+               "rate mismatch");
         renderBackend_->stop(); renderBackend_.reset(); renderRing_.reset();
         return Result::Fail(static_cast<long>(MonitorError::RateMismatch),
                             "MonitorEngine: capture/render sample-rate mismatch");
@@ -202,10 +232,14 @@ Result MonitorEngine::engageRender() {
     renderLevel_.store(0.f, std::memory_order_relaxed);
     prefilled_.store(false, std::memory_order_relaxed);          // this engage's fill not done yet
     renderState_.store(StreamState::Running, std::memory_order_relaxed); // device up (fills, then pops)
+    WA_LOG(wa::log::Level::Info, "MonitorEngine", "render.engaged",
+           "dev=" + wa::narrowAscii(renderId_) +
+           " fmt=" + wa::formatAudio(renderFmt_), "ok");
     return Result::Ok();
 }
 
 void MonitorEngine::disengageRender() {
+    WA_LOG(wa::log::Level::Info, "MonitorEngine", "render.disengaged", "", "");
     if (renderBackend_) renderBackend_->stop();
     renderBackend_.reset();
     renderRing_.reset();
@@ -224,11 +258,13 @@ void MonitorEngine::setPlaybackEnabled(bool enabled) {
 }
 
 void MonitorEngine::setRenderParams(const StreamParams& p) {
+    WA_LOG(wa::log::Level::Debug, "MonitorEngine", "setRenderParams", "", "");
     std::lock_guard<std::mutex> lk(paramsMtx_);
     renderParams_ = p;
 }
 
 void MonitorEngine::pumpLoop() {
+    wa::log::setThreadName("pump");
     ComInitGuard com;   // pump owns COM (it now does render backend COM lifetime on toggle)
     const uint16_t capCh         = capCh_;
     const uint32_t capFrameBytes = capFrameBytes_;
@@ -246,6 +282,7 @@ void MonitorEngine::pumpLoop() {
         const bool active = (renderBackend_ != nullptr);
         if (want && !active) {
             if (Result r = engageRender(); !r) {
+                WA_LOG(wa::log::Level::Err, "MonitorEngine", "render.engage", "", r.message);
                 renderState_.store(StreamState::Error, std::memory_order_relaxed);
                 errorCode_.store(static_cast<uint32_t>(
                     r.code == static_cast<long>(MonitorError::RateMismatch)
@@ -330,6 +367,7 @@ void MonitorEngine::teardown() {
 }
 
 void MonitorEngine::stop() {
+    WA_LOG(wa::log::Level::Info, "MonitorEngine", "stop", "", "");
     teardown();
     capState_.store(StreamState::Idle, std::memory_order_relaxed);
     renderState_.store(StreamState::Idle, std::memory_order_relaxed);

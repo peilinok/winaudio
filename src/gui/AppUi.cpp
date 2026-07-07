@@ -5,6 +5,7 @@
 #include "Fft.h"
 #include "Analysis.h"
 #include "FormatSpec.h"
+#include "Log.h"
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
@@ -84,6 +85,11 @@ void AppUi::refreshMonitorDevices() {
 
 void AppUi::stopAll() {
     monitor_.stop();
+}
+
+void AppUi::pushLog(int /*level*/, const std::string& line) {
+    std::lock_guard<std::mutex> lk(logMutex_);
+    pendingLog_.push_back(line);
 }
 
 void AppUi::recomputeDefaultFormat() {
@@ -206,6 +212,17 @@ const char* AppUi::chartTitle(int id) {
 }
 
 void AppUi::draw() {
+    // Drain lines buffered by the logging pump thread into the panel history (bounded).
+    {
+        std::lock_guard<std::mutex> lk(logMutex_);
+        for (auto& l : pendingLog_) logLines_.push_back(std::move(l));
+        pendingLog_.clear();
+    }
+    constexpr size_t kMaxLogLines = 5000;
+    if (logLines_.size() > kMaxLogLines)
+        logLines_.erase(logLines_.begin(),
+                        logLines_.begin() + (logLines_.size() - kMaxLogLines));
+
     // Poll once; detect renderState Running->non-Running to clear stale playback chart data.
     ms_ = monitor_.poll();
     const int curRenderState = (int)ms_.renderState;
@@ -328,8 +345,16 @@ void AppUi::drawLeftPanel() {
 
     // --- Log (fills remaining height) ---
     ImGui::SeparatorText("Log");
+    static const char* kLevels[] = {"Trace", "Debug", "Info", "Warn", "Err"};
+    ImGui::SetNextItemWidth(90.0f);
+    if (ImGui::Combo("##loglevel", &logLevelIdx_, kLevels, IM_ARRAYSIZE(kLevels)))
+        wa::log::setLevel(static_cast<wa::log::Level>(logLevelIdx_));
+    ImGui::SameLine();
+    if (ImGui::Button("Clear")) logLines_.clear();
     ImGui::BeginChild("log", ImVec2(0, 0), true);
     for (const auto& l : logLines_) ImGui::TextUnformatted(l.c_str());
+    if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 1.0f)
+        ImGui::SetScrollHereY(1.0f);   // autoscroll while pinned to the bottom
     ImGui::EndChild();
 }
 

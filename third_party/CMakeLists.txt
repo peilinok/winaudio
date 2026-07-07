@@ -33,3 +33,8 @@ set(INSTALL_GTEST OFF)
 # (which normally defines it) is absent from this vendored copy.
 set(GOOGLETEST_VERSION "1.14.0")
 add_subdirectory(googletest/googletest)
+
+# --- spdlog (v1.15.3): header-only, vendored as a git submodule ---
+# Marked SYSTEM so its headers stay out of our /W4 + /WX policy; only Log.cpp includes it.
+add_library(spdlog INTERFACE)
+target_include_directories(spdlog SYSTEM INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/spdlog/include)

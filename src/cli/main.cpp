@@ -8,6 +8,7 @@
 #include "FormatSpec.h"
 #include "MonitorEngine.h"
 #include "Capabilities.h"
+#include "Log.h"
 
 using namespace wa;
 
@@ -68,9 +69,30 @@ static bool formatArg(int argc, wchar_t** argv, AudioFormat& fmt) {
     return true;
 }
 
+struct LogShutdown { ~LogShutdown() { wa::log::shutdown(); } };
+
+// Logging: stderr sink always; optional --log-file; level from --log-level (default info).
+// stderr keeps the \r status lines (stdout) clean for redirection.
+static void initLogging(int argc, wchar_t** argv) {
+    wa::log::init();
+    wa::log::setThreadName("main");
+    wa::log::addStderrSink();
+    std::wstring lf = arg(argc, argv, L"--log-file");
+    if (!lf.empty()) wa::log::addFileSink(narrow(lf));
+    std::wstring lv = arg(argc, argv, L"--log-level");
+    wa::log::Level lvl = wa::log::Level::Info;
+    if      (lv == L"trace") lvl = wa::log::Level::Trace;
+    else if (lv == L"debug") lvl = wa::log::Level::Debug;
+    else if (lv == L"warn")  lvl = wa::log::Level::Warn;
+    else if (lv == L"err" || lv == L"error") lvl = wa::log::Level::Err;
+    wa::log::setLevel(lvl);
+}
+
 int wmain(int argc, wchar_t** argv) {
     if (argc < 2) { usage(); return 1; }
     ComInitGuard com;
+    LogShutdown logShutdownGuard;
+    initLogging(argc, argv);
     std::wstring cmd = argv[1];
 
     if (cmd == L"list") {

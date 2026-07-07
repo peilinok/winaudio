@@ -8,6 +8,7 @@
 // - Introduction, links and more at the top of imgui.cpp
 
 #include "AppUi.h"
+#include "Log.h"
 #include "imgui.h"
 #include "implot.h"
 #include "imgui_impl_win32.h"
@@ -94,6 +95,16 @@ int main(int, char**)
     // WinAudio: UI (owns both engine and monitor engine)
     static AppUi ui;
 
+    // WinAudio: logging — file (winaudio.log, exe dir) + GUI panel via callback sink.
+    // The callback runs on the logging pump thread; pushLog buffers thread-safely.
+    wa::log::init();
+    wa::log::setThreadName("main");
+    wa::log::addFileSink("winaudio.log");
+    wa::log::addCallbackSink([](wa::log::Level lvl, const std::string& line) {
+        ui.pushLog(static_cast<int>(lvl), line);
+    });
+    wa::log::setLevel(wa::log::Level::Info);
+
     // Main loop
     bool done = false;
     while (!done)
@@ -151,6 +162,7 @@ int main(int, char**)
 
     // WinAudio: stop both engines so worker threads are joined before teardown
     ui.stopAll();
+    wa::log::shutdown();   // flush + stop the logging pump before teardown
 
     // Cleanup
     ImGui_ImplDX11_Shutdown();
