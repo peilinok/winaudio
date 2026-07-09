@@ -13,6 +13,7 @@
 #include "MonitorEngine.h"
 #include "ComUtil.h"
 #include "DelayFifo.h"
+#include "DeviceEnumerator.h"
 #include "RingBuffer.h"
 #include "SampleConvert.h"
 #include "ScopeBuffer.h"
@@ -39,18 +40,43 @@ size_t readWholeFrames(RingBuffer& ring, uint8_t* dst, uint32_t frameBytes, size
     const size_t got = ring.read(dst, frames * frameBytes);
     return got / frameBytes; // guard against a short read leaving a partial frame
 }
+
+Result sameRenderEndpoint(const DeviceId& a, const DeviceId& b, bool& same) {
+    same = false;
+    if (a.empty() && b.empty()) {
+        same = true;
+        return Result::Ok();
+    }
+    if (!a.empty() && !b.empty()) {
+        same = (a == b);
+        return Result::Ok();
+    }
+
+    ComInitGuard com;
+    if (!com.ok()) return HrToResult(com.hr, "MonitorEngine: CoInitializeEx");
+    DeviceInfo def{};
+    DeviceEnumerator de;
+    Result r = de.defaultDevice(DataFlow::Render, def);
+    if (!r) return r;
+    same = a.empty() ? (def.id == b) : (a == def.id);
+    return Result::Ok();
+}
 } // namespace
 
 MonitorEngine::MonitorEngine(BackendFactory factory) : factory_(std::move(factory)) {}
 MonitorEngine::~MonitorEngine() { teardown(); }
 
 std::unique_ptr<IAudioBackend> MonitorEngine::makeBackend(DataFlow flow, BackendKind kind,
+                                                          const CaptureSource* source,
                                                           const AudioFormat* requested) {
-    if (factory_) return factory_(flow, requested);
+    if (factory_) return factory_(flow, source, requested);
     const WasapiMode mode = (kind == BackendKind::WasapiExclusive) ? WasapiMode::Exclusive
                                                                    : WasapiMode::Shared;
-    if (flow == DataFlow::Capture)
+    if (flow == DataFlow::Capture) {
+        if (source && source->kind == CaptureSourceKind::SystemLoopback)
+            return std::make_unique<WasapiSystemLoopbackCaptureStream>(mode, requested);
         return std::make_unique<WasapiCaptureStream>(mode, requested);
+    }
     return std::make_unique<WasapiRenderStream>(mode, requested);
 }
 
@@ -64,8 +90,19 @@ Result MonitorEngine::rollback(StreamState finalState, MonitorError err, long co
     return Result::Fail(code, std::move(msg));
 }
 
-Result MonitorEngine::start(BackendKind kind, const DeviceId& capId, const DeviceId& renderId,
-                            uint32_t delayMs, bool playbackEnabled,
+Result MonitorEngine::guardLoopbackFeedback() {
+    if (capSource_.kind != CaptureSourceKind::SystemLoopback) return Result::Ok();
+    bool same = false;
+    if (Result r = sameRenderEndpoint(capSource_.deviceId, renderId_, same); !r) return r;
+    if (same) {
+        return Result::Fail(static_cast<long>(MonitorError::LoopbackFeedback),
+                            "MonitorEngine: loopback source and render output are the same device");
+    }
+    return Result::Ok();
+}
+
+Result MonitorEngine::start(BackendKind kind, const CaptureSource& capSource,
+                            const DeviceId& renderId, uint32_t delayMs, bool playbackEnabled,
                             const StreamParams& capParams, const StreamParams& renderParams,
                             const AudioFormat* capFormat) {
     teardown();
@@ -91,12 +128,18 @@ Result MonitorEngine::start(BackendKind kind, const DeviceId& capId, const Devic
                         static_cast<long>(MonitorError::InvalidDelay),
                         "MonitorEngine: delayMs exceeds maximum (10000 ms)");
 
+    kind_ = kind; capSource_ = capSource; renderId_ = renderId; delayMs_ = delayMs;
+    if (playbackEnabled) {
+        if (Result r = guardLoopbackFeedback(); !r)
+            return rollback(StreamState::Error, MonitorError::LoopbackFeedback, r.code, r.message);
+    }
+
     WA_LOG(wa::log::Level::Info, "MonitorEngine", "start",
-           "cap=" + wa::narrowAscii(capId) +
+           "cap=" + wa::narrowAscii(capSource.deviceId) +
+           " source=" + std::string(capSource.kind == CaptureSourceKind::SystemLoopback ? "loopback" : "endpoint") +
            " ren=" + wa::narrowAscii(renderId) +
            " delay=" + std::to_string(delayMs) + "ms" +
            " playback=" + (playbackEnabled ? "1" : "0"), "");
-    kind_ = kind; renderId_ = renderId; delayMs_ = delayMs;
     capParams_ = capParams;
     { std::lock_guard<std::mutex> lk(paramsMtx_); renderParams_ = renderParams; }
     hasCapFormat_ = (capFormat != nullptr);
@@ -104,13 +147,14 @@ Result MonitorEngine::start(BackendKind kind, const DeviceId& capId, const Devic
 
     // --- Capture (always) ---
     captureRing_ = std::make_unique<RingBuffer>(kRingBytes);
-    capBackend_  = makeBackend(DataFlow::Capture, kind, hasCapFormat_ ? &capRequestedFormat_ : nullptr);
+    capBackend_  = makeBackend(DataFlow::Capture, kind, &capSource,
+                               hasCapFormat_ ? &capRequestedFormat_ : nullptr);
     if (!capBackend_)
         return rollback(StreamState::Idle, MonitorError::Factory, -1, "MonitorEngine: capture factory null");
     {
-        Result r = capBackend_->open(capId, AudioFormat{}, captureRing_.get(), capParams_);
+        Result r = capBackend_->open(capSource.deviceId, AudioFormat{}, captureRing_.get(), capParams_);
         WA_LOG(wa::log::Level::Debug, "MonitorEngine", "capture.open",
-               "dev=" + wa::narrowAscii(capId), r.ok ? "ok" : r.message);
+               "dev=" + wa::narrowAscii(capSource.deviceId), r.ok ? "ok" : r.message);
         if (!r) return rollback(StreamState::Idle, MonitorError::CaptureOpen, r.code, r.message);
     }
     {
@@ -121,7 +165,7 @@ Result MonitorEngine::start(BackendKind kind, const DeviceId& capId, const Devic
     capState_.store(StreamState::Running, std::memory_order_relaxed);
     capFmt_ = capBackend_->stats().actualFormat;
     WA_LOG(wa::log::Level::Info, "MonitorEngine", "capture.started",
-           "dev=" + wa::narrowAscii(capId) + " fmt=" + wa::formatAudio(capFmt_), "ok");
+           "dev=" + wa::narrowAscii(capSource.deviceId) + " fmt=" + wa::formatAudio(capFmt_), "ok");
 
     const uint32_t sr = capFmt_.sampleRate;
     capCh_         = capFmt_.channels ? capFmt_.channels : static_cast<uint16_t>(1);
@@ -153,7 +197,10 @@ Result MonitorEngine::start(BackendKind kind, const DeviceId& capId, const Devic
             std::string msg = r.message;
             WA_LOG(wa::log::Level::Err, "MonitorEngine", "start.engageRender", "playback=1", msg);
             MonitorError err = (code == static_cast<long>(MonitorError::RateMismatch))
-                                   ? MonitorError::RateMismatch : MonitorError::RenderStart;
+                                   ? MonitorError::RateMismatch
+                               : (code == static_cast<long>(MonitorError::LoopbackFeedback))
+                                   ? MonitorError::LoopbackFeedback
+                                   : MonitorError::RenderStart;
             return rollback(StreamState::Error, err, code, std::move(msg));   // stops capture too
         }
     }
@@ -161,7 +208,7 @@ Result MonitorEngine::start(BackendKind kind, const DeviceId& capId, const Devic
     // Capture is up -> engine Running (independent of render prefill).
     overall_.store(StreamState::Running, std::memory_order_relaxed);
     WA_LOG(wa::log::Level::Info, "MonitorEngine", "engine.running",
-           "cap=" + wa::narrowAscii(capId) +
+           "cap=" + wa::narrowAscii(capSource.deviceId) +
            " ren=" + wa::narrowAscii(renderId) +
            " sr=" + std::to_string(capFmt_.sampleRate), "ok");
 
@@ -178,11 +225,12 @@ Result MonitorEngine::start(BackendKind kind, const DeviceId& capId, const Devic
 }
 
 Result MonitorEngine::engageRender() {
+    if (Result r = guardLoopbackFeedback(); !r) return r;
     StreamParams rp;
     { std::lock_guard<std::mutex> lk(paramsMtx_); rp = renderParams_; }
     const uint32_t sr = capFmt_.sampleRate;
     renderRing_    = std::make_unique<RingBuffer>(kRingBytes);            // per-engage
-    renderBackend_ = makeBackend(DataFlow::Render, kind_, &capFmt_);
+    renderBackend_ = makeBackend(DataFlow::Render, kind_, nullptr, &capFmt_);
     if (!renderBackend_) { renderRing_.reset(); return Result::Fail(-1, "MonitorEngine: render factory null"); }
     {
         Result r = renderBackend_->open(renderId_, AudioFormat{}, renderRing_.get(), rp);
@@ -286,7 +334,10 @@ void MonitorEngine::pumpLoop() {
                 renderState_.store(StreamState::Error, std::memory_order_relaxed);
                 errorCode_.store(static_cast<uint32_t>(
                     r.code == static_cast<long>(MonitorError::RateMismatch)
-                        ? MonitorError::RateMismatch : MonitorError::RenderStart),
+                        ? MonitorError::RateMismatch
+                    : r.code == static_cast<long>(MonitorError::LoopbackFeedback)
+                        ? MonitorError::LoopbackFeedback
+                        : MonitorError::RenderStart),
                     std::memory_order_relaxed);
                 wantPlayback_.store(false, std::memory_order_relaxed); // don't retry every wake
                 // capture continues untouched

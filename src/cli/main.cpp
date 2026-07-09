@@ -21,10 +21,11 @@ static void usage() {
         "                    [--backend wasapi-shared|wasapi-exclusive]\n"
         "WinAudioCli probe   --format 48000/16/2 [--device <id>] [--render|--capture]\n"
         "                    [--backend wasapi-shared|wasapi-exclusive]\n"
-        "WinAudioCli monitor [--cap <id>] [--render <id>] [--delay-ms N] [--seconds N]\n"
+        "WinAudioCli monitor [--loopback] [--cap <id>] [--render <id>] [--delay-ms N] [--seconds N]\n"
         "                    [--backend wasapi-shared|wasapi-exclusive] [--format R/B/C[f]]\n"
         "  (shared: WASAPI engine bridges sample rate on render side;\n"
         "   exclusive: render device must support capture format)\n"
+        "  --loopback uses render endpoint ids for capture --device / monitor --cap.\n"
         "WinAudioCli caps  [--device <id>] [--render|--capture]\n");
 }
 
@@ -211,9 +212,17 @@ int wmain(int argc, wchar_t** argv) {
         int seconds      = secStr.empty()   ? 5   : _wtoi(secStr.c_str());
         AudioFormat capFmt{};
         bool haveFmt = formatArg(argc, argv, capFmt);
+        const bool loopback = has(argc, argv, L"--loopback");
+        BackendKind kind = backendArg(argc, argv);
+        if (loopback && kind == BackendKind::WasapiExclusive) {
+            std::printf("monitor: --loopback requires --backend wasapi-shared\n");
+            return 2;
+        }
+        CaptureSource source{loopback ? CaptureSourceKind::SystemLoopback : CaptureSourceKind::Endpoint,
+                             capId};
 
         wa::MonitorEngine mon;
-        wa::Result r = mon.start(backendArg(argc, argv), capId, renderId, delayMs,
+        wa::Result r = mon.start(kind, source, renderId, delayMs,
                                  true, {}, {}, haveFmt ? &capFmt : nullptr);
         if (!r) { std::printf("monitor start failed: %s\n", r.message.c_str()); return 2; }
         for (int i = 0; i < seconds * 5; ++i) {
