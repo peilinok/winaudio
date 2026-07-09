@@ -41,6 +41,20 @@ void computeLevels(const uint8_t* data, size_t bytes, const AudioFormat& fmt,
         }
     }
 }
+
+std::unique_ptr<IAudioBackend> makeCaptureBackend(BackendKind kind, const CaptureSource& source,
+                                                  const AudioFormat* requested) {
+    const WasapiMode mode = (kind == BackendKind::WasapiExclusive) ? WasapiMode::Exclusive
+                                                                   : WasapiMode::Shared;
+    if (source.kind == CaptureSourceKind::SystemLoopback) {
+        return std::make_unique<WasapiSystemLoopbackCaptureStream>(mode, requested);
+    }
+    return std::make_unique<WasapiCaptureStream>(mode, requested);
+}
+
+const char* captureSourceName(CaptureSourceKind kind) {
+    return kind == CaptureSourceKind::SystemLoopback ? "system-loopback" : "endpoint";
+}
 } // namespace
 
 Engine::Engine() = default;
@@ -121,19 +135,18 @@ Result Engine::probeFormat(BackendKind kind, DataFlow flow, const DeviceId& id,
     return HrToResult(hr, "probeFormat: not supported");
 }
 
-Result Engine::startCapture(BackendKind kind, const DeviceId& id, const std::wstring& wavPath,
-                            const AudioFormat* requested) {
+Result Engine::startCapture(BackendKind kind, const CaptureSource& source,
+                            const std::wstring& wavPath, const AudioFormat* requested) {
     stop();
     WA_LOG(wa::log::Level::Info, "Engine", "startCapture",
-        "kind=" + std::string(kind == BackendKind::WasapiExclusive ? "exclusive" : "shared")
-        + " id=" + (id.empty() ? std::string("(default)") : wa::narrowAscii(id))
+        "source=" + std::string(captureSourceName(source.kind))
+        + " kind=" + std::string(kind == BackendKind::WasapiExclusive ? "exclusive" : "shared")
+        + " id=" + (source.deviceId.empty() ? std::string("(default)") : wa::narrowAscii(source.deviceId))
         + (requested ? " fmt=" + wa::formatAudio(*requested) : std::string("")), "");
     try {
         ring_ = std::make_unique<RingBuffer>(kRingBytes);
-        WasapiMode mode = (kind == BackendKind::WasapiExclusive) ? WasapiMode::Exclusive
-                                                                 : WasapiMode::Shared;
-        backend_ = std::make_unique<WasapiCaptureStream>(mode, requested);
-        Result r = backend_->open(id, AudioFormat{}, ring_.get(), StreamParams{});
+        backend_ = makeCaptureBackend(kind, source, requested);
+        Result r = backend_->open(source.deviceId, AudioFormat{}, ring_.get(), StreamParams{});
         if (!r) {
             WA_LOG(wa::log::Level::Err, "Engine", "startCapture", "open", r.message);
             return r;

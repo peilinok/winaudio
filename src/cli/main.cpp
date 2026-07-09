@@ -15,7 +15,7 @@ using namespace wa;
 static void usage() {
     std::printf(
         "WinAudioCli list  [--render|--capture]\n"
-        "WinAudioCli capture --out <file.wav> [--device <id>] [--seconds N]\n"
+        "WinAudioCli capture --out <file.wav> [--device <id>] [--seconds N] [--loopback]\n"
         "                    [--backend wasapi-shared|wasapi-exclusive] [--format 48000/16/2] (both backends)\n"
         "WinAudioCli play    --in  <file.wav> [--device <id>]\n"
         "                    [--backend wasapi-shared|wasapi-exclusive]\n"
@@ -120,8 +120,14 @@ int wmain(int argc, wchar_t** argv) {
         int seconds = secStr.empty() ? 5 : _wtoi(secStr.c_str());
         AudioFormat fmt{};
         bool haveFmt = formatArg(argc, argv, fmt);
-        Result r = eng.startCapture(backendArg(argc, argv), id, out,
-                                    haveFmt ? &fmt : nullptr);
+        const bool loopback = has(argc, argv, L"--loopback");
+        BackendKind kind = backendArg(argc, argv);
+        if (loopback && kind == BackendKind::WasapiExclusive) {
+            std::printf("capture: --loopback requires --backend wasapi-shared\n");
+            return 2;
+        }
+        CaptureSource source{loopback ? CaptureSourceKind::SystemLoopback : CaptureSourceKind::Endpoint, id};
+        Result r = eng.startCapture(kind, source, out, haveFmt ? &fmt : nullptr);
         if (!r) { std::printf("capture start failed: %s\n", r.message.c_str()); return 2; }
         for (int i = 0; i < seconds * 10; ++i) {
             Sleep(100);
