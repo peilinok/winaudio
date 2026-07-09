@@ -10,26 +10,52 @@
 
 class AppUi {
 public:
-    void draw();          // called each frame; polls monitor and redraws the two-column UI
-    void stopAll();       // stop monitor on shutdown (idempotent)
+    void draw();          // called each frame; polls engines and redraws the active page
+    void stopAll();       // stop engines on shutdown (idempotent)
     void pushLog(int level, const std::string& line);  // thread-safe; called from the logging pump thread
 private:
+    struct VisualState {
+        std::vector<float> capWave, renderWave;
+        uint32_t waveSr = 0;
+        int      waveN  = 0;
+        double   xLink0 = 0.0, xLink1 = 0.0;
+        std::vector<float> envX, envMin, envMax;
+        float comboRatio = 0.5f;
+        bool  plotHovPrev[4] = {};
+
+        std::vector<std::complex<float>> workCap, workRender;
+        std::vector<float>               specWin;
+        std::vector<float>               magCap, magRender;
+        uint64_t nextCapEnd    = 0;
+        uint64_t nextRenderEnd = 0;
+        uint32_t specSr        = 0;
+
+        std::unique_ptr<wa::Spectrogram> capSpec, renderSpec;
+    };
+
     void refreshMonitorDevices();
+    void drawMonitorPage();
+    void drawLoopbackPage();
+    void drawLoopbackLeftPanel();
     void drawLeftPanel();
     void drawAdvancedModal();
     void drawCapsModal();
     void drawFormatRegion();
     void recomputeDefaultFormat();
-    void drawChartsColumn();
-    void drawChartPanel(int id);
-    void drawComboPanel(bool renderSide);   // waveform + splitter + spectrogram in one cell
-    void drawSpectrogramPanel(const char* plotId, wa::Spectrogram* spec, double histSec, float height, int slot);
-    void drawWaveformPanel(const char* plotId, const float* wave, int n, uint32_t sr, bool haveData, float height, int slot);
+    void drawChartsColumn(wa::MonitorEngine& engine, const wa::MonitorStatus& status, VisualState& viz);
+    void drawChartPanel(int id, wa::MonitorEngine& engine, const wa::MonitorStatus& status, VisualState& viz);
+    void drawComboPanel(wa::MonitorEngine& engine, const wa::MonitorStatus& status, VisualState& viz, bool renderSide);
+    void drawSpectrogramPanel(VisualState& viz, const char* plotId, wa::Spectrogram* spec, double histSec, float height, int slot);
+    void drawWaveformPanel(VisualState& viz, const char* plotId, const float* wave, int n, uint32_t sr, bool haveData, float height, int slot);
     const char* chartTitle(int id);
+    void resetVisuals(VisualState& viz);
+    void resetRenderVisuals(VisualState& viz);
 
     wa::MonitorEngine    monitor_;
+    wa::MonitorEngine    loopback_;
     wa::DeviceEnumerator enumerator_;
     wa::MonitorStatus    ms_;   // polled once per frame in draw(); shared by helper methods
+    wa::MonitorStatus    loopbackMs_;
 
     int  backendIdx_      = 0;
     bool playbackEnabled_ = false;
@@ -46,8 +72,10 @@ private:
     std::vector<wa::DeviceInfo> renderDevices_;
     int                         capDevIdx_    = 0;
     int                         renderDevIdx_ = 0;
+    int                         loopbackDevIdx_ = 0;
     int                         delayMs_      = 100;
     bool                        monitorStarted_ = false;
+    bool                        loopbackStarted_ = false;
 
     wa::StreamParams capParams_{};    // Advanced 弹窗编辑;Start 时传入(运行中只读)
     wa::StreamParams renParams_{};
@@ -61,27 +89,6 @@ private:
     int                    capDevShown_     = -1;
     wa::DeviceCapabilities capsCache_{};
 
-    // Waveform buffers — full spectrogram-history window (kSpecCols*kFftHop samples), rebuilt on rate change
-    std::vector<float> capWave_, renderWave_;
-    uint32_t waveSr_ = 0;
-    int      waveN_  = 0;
-    // Shared time X axis (seconds), linked across all time-domain charts; min/max envelope scratch.
-    double xLink0_ = 0.0, xLink1_ = 0.0;
-    std::vector<float> envX_, envMin_, envMax_;
-    // Waveform:spectrogram height split in the combo cells (shared so cap/ren stay aligned).
-    float comboRatio_ = 0.5f;
-    // Last-frame plot-area hover per plot slot: locks Y that frame so in-plot wheel/drag act on X
-    // only; hovering a Y ruler (not plot area) leaves Y free for per-axis zoom/pan.
-    bool plotHovPrev_[4] = {};
-
-    // Spectrum analysis (2048-point Hann FFT, dBFS)
-    std::vector<std::complex<float>> workCap_, workRender_;
-    std::vector<float>               specWin_;
-    std::vector<float>               magCap_, magRender_;
-    uint64_t nextCapEnd_    = 0;
-    uint64_t nextRenderEnd_ = 0;
-    uint32_t specSr_        = 0;
-
-    // Scrolling log-frequency spectrograms
-    std::unique_ptr<wa::Spectrogram> capSpec_, renderSpec_;
+    VisualState monitorViz_;
+    VisualState loopbackViz_;
 };
