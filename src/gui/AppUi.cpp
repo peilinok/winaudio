@@ -382,12 +382,7 @@ void AppUi::drawLoopbackLeftPanel() {
     ImGui::ProgressBar(loopbackMs_.capLevel, ImVec2(-1, 0), "level");
 
     ImGui::SeparatorText("Log");
-    if (ImGui::Button("Clear")) logLines_.clear();
-    ImGui::BeginChild("loopbackLog", ImVec2(0, 0), true);
-    for (const auto& l : logLines_) ImGui::TextUnformatted(l.c_str());
-    if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 1.0f)
-        ImGui::SetScrollHereY(1.0f);
-    ImGui::EndChild();
+    drawLogPanel("loopbackLog", false);
 }
 
 void AppUi::drawLeftPanel() {
@@ -483,16 +478,28 @@ void AppUi::drawLeftPanel() {
 
     // --- Log (fills remaining height) ---
     ImGui::SeparatorText("Log");
-    static const char* kLevels[] = {"Trace", "Debug", "Info", "Warn", "Err"};
-    ImGui::SetNextItemWidth(90.0f);
-    if (ImGui::Combo("##loglevel", &logLevelIdx_, kLevels, IM_ARRAYSIZE(kLevels)))
-        wa::log::setLevel(static_cast<wa::log::Level>(logLevelIdx_));
-    ImGui::SameLine();
-    if (ImGui::Button("Clear")) logLines_.clear();
-    ImGui::BeginChild("log", ImVec2(0, 0), true);
+    drawLogPanel("log", true);
+}
+
+void AppUi::drawLogPanel(const char* childId, bool showLevelFilter) {
+    if (showLevelFilter) {
+        static const char* kLevels[] = {"Trace", "Debug", "Info", "Warn", "Err"};
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::Combo("##loglevel", &logLevelIdx_, kLevels, IM_ARRAYSIZE(kLevels)))
+            wa::log::setLevel(static_cast<wa::log::Level>(logLevelIdx_));
+        ImGui::SameLine();
+        if (ImGui::Button("Clear##mainLog")) logLines_.clear();
+    } else {
+        if (ImGui::Button("Clear##loopbackLog")) logLines_.clear();
+    }
+
+    ImGui::BeginChild(childId, ImVec2(0, 0), true);
+    const bool wasPinned = ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 1.0f;
+    ImGui::PushTextWrapPos(0.0f);
     for (const auto& l : logLines_) ImGui::TextUnformatted(l.c_str());
-    if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 1.0f)
-        ImGui::SetScrollHereY(1.0f);   // autoscroll while pinned to the bottom
+    ImGui::PopTextWrapPos();
+    if (wasPinned)
+        ImGui::SetScrollHereY(1.0f);
     ImGui::EndChild();
 }
 

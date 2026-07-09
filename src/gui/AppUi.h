@@ -47,6 +47,7 @@ private:
     void drawComboPanel(wa::MonitorEngine& engine, const wa::MonitorStatus& status, VisualState& viz, bool renderSide);
     void drawSpectrogramPanel(VisualState& viz, const char* plotId, wa::Spectrogram* spec, double histSec, float height, int slot);
     void drawWaveformPanel(VisualState& viz, const char* plotId, const float* wave, int n, uint32_t sr, bool haveData, float height, int slot);
+    void drawLogPanel(const char* childId, bool showLevelFilter);
     const char* chartTitle(int id);
     void resetVisuals(VisualState& viz);
     void resetRenderVisuals(VisualState& viz);
