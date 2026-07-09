@@ -37,6 +37,7 @@ protected:
     virtual void   preRoll() {}           // render: one silent buffer; capture: nothing
     virtual void   runLoop() = 0;         // drain/feed loop; runs while running_
     virtual void   resetService() = 0;    // Reset() the service ComPtr (called from close())
+    virtual DWORD  extraSharedInitFlags() const { return 0; }
 
     bool isExclusive() const { return mode_ == WasapiMode::Exclusive; }
 
@@ -84,6 +85,16 @@ protected:
 private:
     ComPtr<IAudioCaptureClient> capture_;
     void* pumpEvent_ = nullptr; // auto-reset event; signaled after each ring write
+};
+
+class WasapiSystemLoopbackCaptureStream : public WasapiCaptureStream {
+public:
+    WasapiSystemLoopbackCaptureStream(WasapiMode mode, const AudioFormat* requested);
+    Result open(const DeviceId& id, const AudioFormat& fmt, RingBuffer* ring,
+                const StreamParams& params) override;
+protected:
+    EDataFlow dataFlow() const override { return eRender; }
+    DWORD extraSharedInitFlags() const override { return AUDCLNT_STREAMFLAGS_LOOPBACK; }
 };
 
 class WasapiRenderStream : public WasapiStream {
