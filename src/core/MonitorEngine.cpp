@@ -129,8 +129,7 @@ void MonitorEngine::stopSilentRender() {
         silentRenderBackend_->stop();
         silentRenderBackend_.reset();
     }
-    if (silentRenderState_.load(std::memory_order_relaxed) == StreamState::Running)
-        silentRenderState_.store(StreamState::Idle, std::memory_order_relaxed);
+    silentRenderState_.store(StreamState::Idle, std::memory_order_relaxed);
 }
 
 Result MonitorEngine::rollback(StreamState finalState, MonitorError err, long code,
@@ -467,7 +466,7 @@ void MonitorEngine::teardown() {
     }
     if (pump_.joinable()) pump_.join();
 
-    // Pump is gone -> safe to stop devices and free buffers (spec order: cap, then render).
+    // Pump is gone -> safe to stop helper/devices and free buffers.
     stopSilentRender();
     if (capBackend_)    capBackend_->stop();
     if (renderBackend_) renderBackend_->stop();

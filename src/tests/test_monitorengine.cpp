@@ -27,8 +27,9 @@ namespace {
 class FakeBackend : public IAudioBackend {
 public:
     FakeBackend(AudioFormat fmt, bool failStart, std::atomic<bool>* stoppedOut,
-                std::atomic<int>* openDoneOut = nullptr)
-        : fmt_(fmt), failStart_(failStart), stoppedOut_(stoppedOut), openDoneOut_(openDoneOut) {
+                std::atomic<int>* openDoneOut = nullptr, bool failOpen = false)
+        : fmt_(fmt), failStart_(failStart), stoppedOut_(stoppedOut),
+          openDoneOut_(openDoneOut), failOpen_(failOpen) {
         evt_ = CreateEventW(nullptr, /*manualReset*/ FALSE, /*initial*/ FALSE, nullptr);
     }
     ~FakeBackend() override {
@@ -37,6 +38,7 @@ public:
 
     Result open(const DeviceId&, const AudioFormat&, RingBuffer* ring,
                 const StreamParams& params) override {
+        if (failOpen_) return Result::Fail(122, "fake: open failed");
         ring_ = ring;
         lastOpenParams_ = params;
         if (openDoneOut_) openDoneOut_->fetch_add(1, std::memory_order_release);
@@ -70,6 +72,7 @@ public:
     bool               failStart_   = false;
     std::atomic<bool>* stoppedOut_  = nullptr;
     std::atomic<int>*  openDoneOut_ = nullptr;
+    bool               failOpen_    = false;
     std::atomic<bool>  started_{false};
     uint32_t          bufferFrames_ = 0;
     StreamParams      lastOpenParams_{};
@@ -85,6 +88,7 @@ struct FakeRig {
     AudioFormat capFmt{48000, 2, 16, false};
     AudioFormat renderFmt{48000, 2, 16, false};
     bool        renderFailStart = false;
+    bool        silentFailOpen = false;
     bool        silentFailStart = false;
 
     std::atomic<bool> capStopped{false};
@@ -122,7 +126,8 @@ struct FakeRig {
     MonitorEngine::SilentRenderFactory silentFactory() {
         return [this](const AudioFormat* req) -> std::unique_ptr<IAudioBackend> {
             silentOpenCount.fetch_add(1, std::memory_order_relaxed);
-            auto b = std::make_unique<FakeBackend>(renderFmt, silentFailStart, &silentStopped);
+            auto b = std::make_unique<FakeBackend>(renderFmt, silentFailStart, &silentStopped,
+                                                   nullptr, silentFailOpen);
             silentPtr = b.get();
             if (req) { b->lastRequested_ = *req; b->sawRequested_ = true; }
             return b;
@@ -524,6 +529,8 @@ TEST(MonitorEngine, LoopbackStartsSilentRenderByDefault) {
     EXPECT_EQ(rig.silentPtr->lastRequested_, rig.capFmt);
     EXPECT_EQ(eng.poll().silentRenderState, StreamState::Running);
     eng.stop();
+    EXPECT_TRUE(rig.silentStopped.load());
+    EXPECT_EQ(eng.poll().silentRenderState, StreamState::Idle);
 }
 
 TEST(MonitorEngine, LoopbackCanDisableSilentRender) {
@@ -558,6 +565,25 @@ TEST(MonitorEngine, SilentRenderFailureDoesNotFailLoopbackCapture) {
     EXPECT_EQ(eng.poll().capState, StreamState::Running);
     EXPECT_EQ(eng.poll().silentRenderState, StreamState::Error);
     eng.stop();
+}
+
+TEST(MonitorEngine, SilentRenderOpenFailureDoesNotFailLoopbackCapture) {
+    FakeRig rig;
+    rig.silentFailOpen = true;
+    MonitorEngine eng(rig.factory(), rig.silentFactory());
+    CaptureSource source{CaptureSourceKind::SystemLoopback, L"loopback-render-id"};
+
+    Result r = eng.start(BackendKind::WasapiShared, source, L"", 50, false);
+
+    EXPECT_TRUE(r);
+    ASSERT_NE(rig.capPtr, nullptr);
+    EXPECT_TRUE(rig.capPtr->started_.load());
+    EXPECT_EQ(eng.poll().capState, StreamState::Running);
+    EXPECT_EQ(rig.silentOpenCount.load(), 1);
+    EXPECT_EQ(eng.poll().overall, StreamState::Running);
+    EXPECT_EQ(eng.poll().silentRenderState, StreamState::Error);
+    eng.stop();
+    EXPECT_EQ(eng.poll().silentRenderState, StreamState::Idle);
 }
 
 TEST(MonitorEngine, LoopbackPlaybackRejectsSameRenderDevice) {
