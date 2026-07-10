@@ -34,10 +34,12 @@ public:
 
     std::vector<DeviceInfo> enumerate(DataFlow flow);
     Result startCapture(BackendKind kind, const CaptureSource& source, const std::wstring& wavPath,
-                        const AudioFormat* requested = nullptr);
+                        const AudioFormat* requested = nullptr,
+                        const LoopbackOptions& loopbackOptions = {});
     Result startCapture(BackendKind kind, const DeviceId& id, const std::wstring& wavPath,
                         const AudioFormat* requested = nullptr) {
-        return startCapture(kind, CaptureSource{CaptureSourceKind::Endpoint, id}, wavPath, requested);
+        return startCapture(kind, CaptureSource{CaptureSourceKind::Endpoint, id}, wavPath,
+                            requested, {});
     }
     Result startPlayback(BackendKind kind, const DeviceId& id, const std::wstring& wavPath,
                          const AudioFormat* requested = nullptr);
@@ -49,8 +51,12 @@ public:
 private:
     void captureLoop(std::wstring wavPath);
     void playbackLoop(std::wstring wavPath);
+    Result startSilentRenderForLoopback(const CaptureSource& source,
+                                        const LoopbackOptions& loopbackOptions);
+    void   stopSilentRender();
 
     std::unique_ptr<IAudioBackend> backend_;
+    std::unique_ptr<IAudioBackend> silentRenderBackend_;
     std::unique_ptr<RingBuffer>    ring_;
     std::thread                    pump_;
     std::atomic<bool>              running_{false};
