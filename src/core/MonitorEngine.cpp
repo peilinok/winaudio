@@ -103,7 +103,7 @@ Result MonitorEngine::startSilentRenderIfNeeded() {
 
     Result r = silentRenderBackend_->open(capSource_.deviceId, AudioFormat{}, nullptr, {});
     if (!r) {
-        WA_LOG(wa::log::Level::Err, "MonitorEngine", "silentRender.open", "", r.message);
+        WA_LOG(wa::log::Level::Warn, "MonitorEngine", "silentRender.open", "", r.message);
         silentRenderBackend_.reset();
         silentRenderState_.store(StreamState::Error, std::memory_order_relaxed);
         return r;
@@ -111,7 +111,7 @@ Result MonitorEngine::startSilentRenderIfNeeded() {
 
     r = silentRenderBackend_->start();
     if (!r) {
-        WA_LOG(wa::log::Level::Err, "MonitorEngine", "silentRender.start", "", r.message);
+        WA_LOG(wa::log::Level::Warn, "MonitorEngine", "silentRender.start", "", r.message);
         silentRenderBackend_->stop();
         silentRenderBackend_.reset();
         silentRenderState_.store(StreamState::Error, std::memory_order_relaxed);
