@@ -286,6 +286,11 @@ void AppUi::draw() {
 }
 
 void AppUi::drawMonitorPage() {
+    constexpr float kLogHeight = 200.0f;
+    const float availY = ImGui::GetContentRegionAvail().y;
+    const float topHeight = std::max(120.0f, availY - kLogHeight - ImGui::GetStyle().ItemSpacing.y);
+
+    ImGui::BeginChild("monitorTop", ImVec2(0, topHeight), false);
     ImGui::BeginChild("left", ImVec2(360, 0), true);
     drawLeftPanel();
     ImGui::EndChild();
@@ -295,9 +300,20 @@ void AppUi::drawMonitorPage() {
     ImGui::BeginChild("charts", ImVec2(0, 0), true);
     drawChartsColumn(monitor_, ms_, monitorViz_);
     ImGui::EndChild();
+    ImGui::EndChild();
+
+    ImGui::BeginChild("monitorLogRegion", ImVec2(0, kLogHeight), true);
+    ImGui::SeparatorText("Log");
+    drawLogPanel("log", true);
+    ImGui::EndChild();
 }
 
 void AppUi::drawLoopbackPage() {
+    constexpr float kLogHeight = 200.0f;
+    const float availY = ImGui::GetContentRegionAvail().y;
+    const float topHeight = std::max(120.0f, availY - kLogHeight - ImGui::GetStyle().ItemSpacing.y);
+
+    ImGui::BeginChild("loopbackTop", ImVec2(0, topHeight), false);
     ImGui::BeginChild("loopbackLeft", ImVec2(320, 0), true);
     drawLoopbackLeftPanel();
     ImGui::EndChild();
@@ -327,6 +343,12 @@ void AppUi::drawLoopbackPage() {
     }
     ImGui::TextUnformatted("System audio waveform + spectrogram");
     drawChartPanel(0, loopback_, loopbackMs_, loopbackViz_);
+    ImGui::EndChild();
+    ImGui::EndChild();
+
+    ImGui::BeginChild("loopbackLogRegion", ImVec2(0, kLogHeight), true);
+    ImGui::SeparatorText("Log");
+    drawLogPanel("loopbackLog", false);
     ImGui::EndChild();
 }
 
@@ -392,8 +414,6 @@ void AppUi::drawLoopbackLeftPanel() {
         ss[(int)loopbackMs_.silentRenderState]);
     ImGui::ProgressBar(loopbackMs_.capLevel, ImVec2(-1, 0), "level");
 
-    ImGui::SeparatorText("Log");
-    drawLogPanel("loopbackLog", false);
 }
 
 void AppUi::drawLeftPanel() {
@@ -487,9 +507,6 @@ void AppUi::drawLeftPanel() {
     ImGui::ProgressBar(ms_.capLevel,    ImVec2(-1, 0), "cap");
     ImGui::ProgressBar(ms_.renderLevel, ImVec2(-1, 0), "ren");
 
-    // --- Log (fills remaining height) ---
-    ImGui::SeparatorText("Log");
-    drawLogPanel("log", true);
 }
 
 void AppUi::drawLogPanel(const char* childId, bool showLevelFilter) {
