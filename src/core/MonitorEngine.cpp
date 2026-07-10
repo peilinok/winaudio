@@ -63,7 +63,8 @@ Result sameRenderEndpoint(const DeviceId& a, const DeviceId& b, bool& same) {
 }
 } // namespace
 
-MonitorEngine::MonitorEngine(BackendFactory factory) : factory_(std::move(factory)) {}
+MonitorEngine::MonitorEngine(BackendFactory factory, SilentRenderFactory silentFactory)
+    : factory_(std::move(factory)), silentFactory_(std::move(silentFactory)) {}
 MonitorEngine::~MonitorEngine() { teardown(); }
 
 std::unique_ptr<IAudioBackend> MonitorEngine::makeBackend(DataFlow flow, BackendKind kind,
@@ -78,6 +79,58 @@ std::unique_ptr<IAudioBackend> MonitorEngine::makeBackend(DataFlow flow, Backend
         return std::make_unique<WasapiCaptureStream>(mode, requested);
     }
     return std::make_unique<WasapiRenderStream>(mode, requested);
+}
+
+std::unique_ptr<IAudioBackend> MonitorEngine::makeSilentRenderBackend(
+    const AudioFormat* requested) {
+    if (silentFactory_) return silentFactory_(requested);
+    return std::make_unique<WasapiSilentRenderStream>(WasapiMode::Shared, requested);
+}
+
+Result MonitorEngine::startSilentRenderIfNeeded() {
+    silentRenderState_.store(StreamState::Idle, std::memory_order_relaxed);
+    if (capSource_.kind != CaptureSourceKind::SystemLoopback || !loopbackOptions_.silentRender)
+        return Result::Ok();
+
+    WA_LOG(wa::log::Level::Info, "MonitorEngine", "silentRender.start",
+           "dev=" + wa::narrowAscii(capSource_.deviceId), "requested");
+
+    silentRenderBackend_ = makeSilentRenderBackend(nullptr);
+    if (!silentRenderBackend_) {
+        silentRenderState_.store(StreamState::Error, std::memory_order_relaxed);
+        return Result::Fail(-1, "MonitorEngine: silent render factory null");
+    }
+
+    Result r = silentRenderBackend_->open(capSource_.deviceId, AudioFormat{}, nullptr, {});
+    if (!r) {
+        WA_LOG(wa::log::Level::Err, "MonitorEngine", "silentRender.open", "", r.message);
+        silentRenderBackend_.reset();
+        silentRenderState_.store(StreamState::Error, std::memory_order_relaxed);
+        return r;
+    }
+
+    r = silentRenderBackend_->start();
+    if (!r) {
+        WA_LOG(wa::log::Level::Err, "MonitorEngine", "silentRender.start", "", r.message);
+        silentRenderBackend_->stop();
+        silentRenderBackend_.reset();
+        silentRenderState_.store(StreamState::Error, std::memory_order_relaxed);
+        return r;
+    }
+
+    silentRenderState_.store(StreamState::Running, std::memory_order_relaxed);
+    WA_LOG(wa::log::Level::Info, "MonitorEngine", "silentRender.started", "", "ok");
+    return Result::Ok();
+}
+
+void MonitorEngine::stopSilentRender() {
+    if (silentRenderBackend_) {
+        WA_LOG(wa::log::Level::Info, "MonitorEngine", "silentRender.stop", "", "");
+        silentRenderBackend_->stop();
+        silentRenderBackend_.reset();
+    }
+    if (silentRenderState_.load(std::memory_order_relaxed) == StreamState::Running)
+        silentRenderState_.store(StreamState::Idle, std::memory_order_relaxed);
 }
 
 Result MonitorEngine::rollback(StreamState finalState, MonitorError err, long code,
@@ -104,12 +157,14 @@ Result MonitorEngine::guardLoopbackFeedback() {
 Result MonitorEngine::start(BackendKind kind, const CaptureSource& capSource,
                             const DeviceId& renderId, uint32_t delayMs, bool playbackEnabled,
                             const StreamParams& capParams, const StreamParams& renderParams,
-                            const AudioFormat* capFormat) {
+                            const AudioFormat* capFormat,
+                            const LoopbackOptions& loopbackOptions) {
     teardown();
     // Fresh status slate.
     overall_.store(StreamState::Idle, std::memory_order_relaxed);
     capState_.store(StreamState::Idle, std::memory_order_relaxed);
     renderState_.store(StreamState::Idle, std::memory_order_relaxed);
+    silentRenderState_.store(StreamState::Idle, std::memory_order_relaxed);
     errorCode_.store(0, std::memory_order_relaxed);
     fifoFillMs_.store(0.f, std::memory_order_relaxed);
     driftFixes_.store(0, std::memory_order_relaxed);
@@ -128,7 +183,11 @@ Result MonitorEngine::start(BackendKind kind, const CaptureSource& capSource,
                         static_cast<long>(MonitorError::InvalidDelay),
                         "MonitorEngine: delayMs exceeds maximum (10000 ms)");
 
-    kind_ = kind; capSource_ = capSource; renderId_ = renderId; delayMs_ = delayMs;
+    kind_ = kind;
+    capSource_ = capSource;
+    renderId_ = renderId;
+    delayMs_ = delayMs;
+    loopbackOptions_ = loopbackOptions;
     if (playbackEnabled) {
         if (Result r = guardLoopbackFeedback(); !r)
             return rollback(StreamState::Error, MonitorError::LoopbackFeedback, r.code, r.message);
@@ -172,6 +231,11 @@ Result MonitorEngine::start(BackendKind kind, const CaptureSource& capSource,
     capFrameBytes_ = capFmt_.blockAlign();
     if (sr == 0 || capFrameBytes_ == 0)
         return rollback(StreamState::Error, MonitorError::CaptureStart, -1, "MonitorEngine: invalid capture format");
+
+    if (Result silent = startSilentRenderIfNeeded(); !silent) {
+        WA_LOG(wa::log::Level::Warn, "MonitorEngine", "silentRender.unavailable",
+               "", silent.message);
+    }
 
     // --- Session-lifetime buffers (allocated once; freed only in teardown) ---
     // Floor of 1M so snapshotLatest's n<=cap/2 contract covers the GUI's spectrogram-history
@@ -404,6 +468,7 @@ void MonitorEngine::teardown() {
     if (pump_.joinable()) pump_.join();
 
     // Pump is gone -> safe to stop devices and free buffers (spec order: cap, then render).
+    stopSilentRender();
     if (capBackend_)    capBackend_->stop();
     if (renderBackend_) renderBackend_->stop();
     capBackend_.reset();
@@ -430,6 +495,7 @@ MonitorStatus MonitorEngine::poll() {
     s.overall     = overall_.load(std::memory_order_relaxed);
     s.capState    = capState_.load(std::memory_order_relaxed);
     s.renderState = renderState_.load(std::memory_order_relaxed);
+    s.silentRenderState = silentRenderState_.load(std::memory_order_relaxed);
     s.sampleRate  = sampleRate_.load(std::memory_order_relaxed);
     s.delayMs     = delayMsAtomic_.load(std::memory_order_relaxed);
     s.fifoFillMs  = fifoFillMs_.load(std::memory_order_relaxed);
