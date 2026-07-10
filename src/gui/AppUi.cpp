@@ -65,6 +65,8 @@ void AppUi::refreshMonitorDevices() {
                                      ? capDevices_[(size_t)capDevIdx_].id : L"";
     const wa::DeviceId prevRen = (renderDevIdx_ >= 0 && renderDevIdx_ < (int)renderDevices_.size())
                                      ? renderDevices_[(size_t)renderDevIdx_].id : L"";
+    const wa::DeviceId prevLoopback = (loopbackDevIdx_ >= 0 && loopbackDevIdx_ < (int)renderDevices_.size())
+                                      ? renderDevices_[(size_t)loopbackDevIdx_].id : L"";
     capDevices_.clear();
     renderDevices_.clear();
     enumerator_.enumerate(wa::DataFlow::Capture, capDevices_);
@@ -80,11 +82,13 @@ void AppUi::refreshMonitorDevices() {
     };
     capDevIdx_    = pick(capDevices_, prevCap);
     renderDevIdx_ = pick(renderDevices_, prevRen);
+    loopbackDevIdx_ = pick(renderDevices_, prevLoopback);
     monitorDevicesLoaded_ = true;
 }
 
 void AppUi::stopAll() {
     monitor_.stop();
+    loopback_.stop();
 }
 
 void AppUi::pushLog(int /*level*/, const std::string& line) {
@@ -211,6 +215,36 @@ const char* AppUi::chartTitle(int id) {
     }
 }
 
+void AppUi::resetVisuals(VisualState& viz) {
+    viz.capWave.clear();
+    viz.renderWave.clear();
+    viz.waveSr = 0;
+    viz.waveN = 0;
+    viz.xLink0 = 0.0;
+    viz.xLink1 = 0.0;
+    viz.envX.clear();
+    viz.envMin.clear();
+    viz.envMax.clear();
+    viz.workCap.clear();
+    viz.workRender.clear();
+    viz.specWin.clear();
+    viz.magCap.clear();
+    viz.magRender.clear();
+    viz.nextCapEnd = 0;
+    viz.nextRenderEnd = 0;
+    viz.specSr = 0;
+    viz.capSpec.reset();
+    viz.renderSpec.reset();
+    std::fill(std::begin(viz.plotHovPrev), std::end(viz.plotHovPrev), false);
+}
+
+void AppUi::resetRenderVisuals(VisualState& viz) {
+    viz.magRender.clear();
+    viz.renderSpec.reset();
+    viz.nextRenderEnd = 0;
+    std::fill(viz.renderWave.begin(), viz.renderWave.end(), 0.f);
+}
+
 void AppUi::draw() {
     // Drain lines buffered by the logging pump thread into the panel history (bounded).
     {
@@ -225,32 +259,130 @@ void AppUi::draw() {
 
     // Poll once; detect renderState Running->non-Running to clear stale playback chart data.
     ms_ = monitor_.poll();
+    loopbackMs_ = loopback_.poll();
     const int curRenderState = (int)ms_.renderState;
     if (prevRenderState_ == (int)wa::StreamState::Running &&
         curRenderState  != (int)wa::StreamState::Running) {
-        magRender_.clear();
-        renderSpec_.reset();
-        nextRenderEnd_ = 0;
-        std::fill(renderWave_.begin(), renderWave_.end(), 0.f);
+        resetRenderVisuals(monitorViz_);
     }
     prevRenderState_ = curRenderState;
 
     ImGui::SetNextWindowSizeConstraints(ImVec2(800, 400), ImVec2(FLT_MAX, FLT_MAX));
     ImGui::Begin("WinAudio");
 
-    // Left column: Devices / Control / Status / Log
+    if (ImGui::BeginTabBar("##pages")) {
+        if (ImGui::BeginTabItem("Monitor")) {
+            drawMonitorPage();
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Loopback")) {
+            drawLoopbackPage();
+            ImGui::EndTabItem();
+        }
+        ImGui::EndTabBar();
+    }
+
+    ImGui::End();
+}
+
+void AppUi::drawMonitorPage() {
     ImGui::BeginChild("left", ImVec2(360, 0), true);
     drawLeftPanel();
     ImGui::EndChild();
 
     ImGui::SameLine();
 
-    // Right column: two combo panels (capture + render), drag to reorder
     ImGui::BeginChild("charts", ImVec2(0, 0), true);
-    drawChartsColumn();
+    drawChartsColumn(monitor_, ms_, monitorViz_);
+    ImGui::EndChild();
+}
+
+void AppUi::drawLoopbackPage() {
+    ImGui::BeginChild("loopbackLeft", ImVec2(320, 0), true);
+    drawLoopbackLeftPanel();
     ImGui::EndChild();
 
-    ImGui::End();
+    ImGui::SameLine();
+
+    ImGui::BeginChild("loopbackCharts", ImVec2(0, 0), true);
+    const uint32_t sr = loopbackMs_.sampleRate;
+    const bool overallRunning = (loopbackMs_.overall == wa::StreamState::Running && sr > 0);
+    const uint32_t hz = (sr > 0) ? sr : 48000u;
+    if (loopbackViz_.xLink1 <= 0.0)
+        loopbackViz_.xLink1 = (double)(kSpecCols * kFftHop) / (double)hz;
+    if (overallRunning) {
+        if (sr != loopbackViz_.waveSr) {
+            loopbackViz_.waveSr = sr;
+            loopbackViz_.waveN = (int)(kSpecCols * kFftHop);
+            loopbackViz_.capWave.assign((size_t)loopbackViz_.waveN, 0.f);
+            loopbackViz_.xLink0 = 0.0;
+            loopbackViz_.xLink1 = (double)(kSpecCols * kFftHop) / (double)sr;
+        }
+        if (sr != loopbackViz_.specSr) {
+            loopbackViz_.specSr = sr;
+            loopbackViz_.workCap.resize(kFftWin);
+            loopbackViz_.specWin.resize(kFftWin);
+            loopbackViz_.capSpec = std::make_unique<wa::Spectrogram>(kSpecRows, kSpecCols, 20.0, (double)sr / 2.0, sr);
+        }
+    }
+    ImGui::TextUnformatted("System audio waveform + spectrogram");
+    drawChartPanel(0, loopback_, loopbackMs_, loopbackViz_);
+    ImGui::EndChild();
+}
+
+void AppUi::drawLoopbackLeftPanel() {
+    if (!monitorDevicesLoaded_) refreshMonitorDevices();
+
+    ImGui::SeparatorText("Source");
+    if (ImGui::Button("Refresh devices")) refreshMonitorDevices();
+    std::string preview = "(no render devices)";
+    if (!renderDevices_.empty() && loopbackDevIdx_ >= 0 && loopbackDevIdx_ < (int)renderDevices_.size())
+        preview = (renderDevices_[(size_t)loopbackDevIdx_].isDefault ? "* " : "") +
+                  wtou(renderDevices_[(size_t)loopbackDevIdx_].name);
+    ImGui::SetNextItemWidth(-1);
+    if (ImGui::BeginCombo("System audio", preview.c_str())) {
+        for (int i = 0; i < (int)renderDevices_.size(); ++i) {
+            std::string l = (renderDevices_[(size_t)i].isDefault ? "* " : "  ") +
+                            wtou(renderDevices_[(size_t)i].name);
+            if (ImGui::Selectable((l + "##loopdev" + std::to_string(i)).c_str(),
+                                  loopbackDevIdx_ == i))
+                loopbackDevIdx_ = i;
+        }
+        ImGui::EndCombo();
+    }
+
+    ImGui::SeparatorText("Control");
+    const ImVec2 ctrlBtn(120.0f, ImGui::GetFrameHeight() * 1.3f);
+    if (!loopbackStarted_) {
+        if (ImGui::Button("Start", ctrlBtn)) {
+            wa::DeviceId id = renderDevices_.empty() ? L"" : renderDevices_[(size_t)loopbackDevIdx_].id;
+            wa::CaptureSource source{wa::CaptureSourceKind::SystemLoopback, id};
+            wa::Result r = loopback_.start(wa::BackendKind::WasapiShared, source, L"", 0,
+                                           false);
+            logLines_.push_back(r ? "loopback started" : ("loopback error: " + r.message));
+            if (r) {
+                loopbackStarted_ = true;
+                resetVisuals(loopbackViz_);
+            }
+        }
+    } else {
+        if (ImGui::Button("Stop", ctrlBtn)) {
+            loopback_.stop();
+            loopbackStarted_ = false;
+            resetVisuals(loopbackViz_);
+            logLines_.push_back("loopback stopped");
+        }
+    }
+
+    ImGui::SeparatorText("Status");
+    const char* ss[] = {"Idle", "Running", "Error"};
+    ImGui::Text("overall=%s  cap=%s  sr=%u",
+        ss[(int)loopbackMs_.overall], ss[(int)loopbackMs_.capState], loopbackMs_.sampleRate);
+    ImGui::Text("xrun=%llu", (unsigned long long)loopbackMs_.capXruns);
+    ImGui::ProgressBar(loopbackMs_.capLevel, ImVec2(-1, 0), "level");
+
+    ImGui::SeparatorText("Log");
+    drawLogPanel("loopbackLog", false);
 }
 
 void AppUi::drawLeftPanel() {
@@ -310,13 +442,14 @@ void AppUi::drawLeftPanel() {
             logLines_.push_back(r ? "monitor started" : ("monitor error: " + r.message));
             if (r) {
                 monitorStarted_ = true;
-                nextCapEnd_ = 0; nextRenderEnd_ = 0; specSr_ = 0; waveSr_ = 0;
+                resetVisuals(monitorViz_);
             }
         }
     } else {
         if (ImGui::Button("Stop", ctrlBtn)) {
             monitor_.stop();
             monitorStarted_ = false;
+            resetVisuals(monitorViz_);
             logLines_.push_back("monitor stopped");
         }
     }
@@ -345,16 +478,28 @@ void AppUi::drawLeftPanel() {
 
     // --- Log (fills remaining height) ---
     ImGui::SeparatorText("Log");
-    static const char* kLevels[] = {"Trace", "Debug", "Info", "Warn", "Err"};
-    ImGui::SetNextItemWidth(90.0f);
-    if (ImGui::Combo("##loglevel", &logLevelIdx_, kLevels, IM_ARRAYSIZE(kLevels)))
-        wa::log::setLevel(static_cast<wa::log::Level>(logLevelIdx_));
-    ImGui::SameLine();
-    if (ImGui::Button("Clear")) logLines_.clear();
-    ImGui::BeginChild("log", ImVec2(0, 0), true);
+    drawLogPanel("log", true);
+}
+
+void AppUi::drawLogPanel(const char* childId, bool showLevelFilter) {
+    if (showLevelFilter) {
+        static const char* kLevels[] = {"Trace", "Debug", "Info", "Warn", "Err"};
+        ImGui::SetNextItemWidth(90.0f);
+        if (ImGui::Combo("##loglevel", &logLevelIdx_, kLevels, IM_ARRAYSIZE(kLevels)))
+            wa::log::setLevel(static_cast<wa::log::Level>(logLevelIdx_));
+        ImGui::SameLine();
+        if (ImGui::Button("Clear##mainLog")) logLines_.clear();
+    } else {
+        if (ImGui::Button("Clear##loopbackLog")) logLines_.clear();
+    }
+
+    ImGui::BeginChild(childId, ImVec2(0, 0), true);
+    const bool wasPinned = ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 1.0f;
+    ImGui::PushTextWrapPos(0.0f);
     for (const auto& l : logLines_) ImGui::TextUnformatted(l.c_str());
-    if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 1.0f)
-        ImGui::SetScrollHereY(1.0f);   // autoscroll while pinned to the bottom
+    ImGui::PopTextWrapPos();
+    if (wasPinned)
+        ImGui::SetScrollHereY(1.0f);
     ImGui::EndChild();
 }
 
@@ -418,33 +563,34 @@ void AppUi::drawAdvancedModal() {
     ImGui::EndPopup();
 }
 
-void AppUi::drawChartsColumn() {
-    const uint32_t sr         = ms_.sampleRate;
-    const bool overallRunning = (ms_.overall == wa::StreamState::Running && sr > 0);
+void AppUi::drawChartsColumn(wa::MonitorEngine& engine, const wa::MonitorStatus& status,
+                             VisualState& viz) {
+    const uint32_t sr         = status.sampleRate;
+    const bool overallRunning = (status.overall == wa::StreamState::Running && sr > 0);
 
     // Shared time axis (seconds) for all time-domain charts = the spectrogram's history window.
     // Initialize once; reset to the full window whenever the rate changes (below).
     const uint32_t hz = (sr > 0) ? sr : 48000u;
-    if (xLink1_ <= 0.0) { xLink0_ = 0.0; xLink1_ = (double)(kSpecCols * kFftHop) / (double)hz; }
+    if (viz.xLink1 <= 0.0) { viz.xLink0 = 0.0; viz.xLink1 = (double)(kSpecCols * kFftHop) / (double)hz; }
 
     if (overallRunning) {
         // Waveform buffers cover the same window as the spectrogram (kSpecCols*kFftHop samples).
-        if (sr != waveSr_) {
-            waveSr_ = sr; waveN_ = (int)(kSpecCols * kFftHop);
-            capWave_.assign((size_t)waveN_, 0.f);
-            renderWave_.assign((size_t)waveN_, 0.f);
-            xLink0_ = 0.0; xLink1_ = (double)(kSpecCols * kFftHop) / (double)sr;  // reset zoom to full window
+        if (sr != viz.waveSr) {
+            viz.waveSr = sr; viz.waveN = (int)(kSpecCols * kFftHop);
+            viz.capWave.assign((size_t)viz.waveN, 0.f);
+            viz.renderWave.assign((size_t)viz.waveN, 0.f);
+            viz.xLink0 = 0.0; viz.xLink1 = (double)(kSpecCols * kFftHop) / (double)sr;  // reset zoom to full window
         }
 
         // Spectrum / spectrogram buffers: rebuild on rate change; recreate renderSpec_ if cleared.
-        if (sr != specSr_) {
-            specSr_ = sr;
-            workCap_.resize(kFftWin); workRender_.resize(kFftWin); specWin_.resize(kFftWin);
-            capSpec_    = std::make_unique<wa::Spectrogram>(kSpecRows, kSpecCols, 20.0, (double)sr / 2.0, sr);
-            renderSpec_ = std::make_unique<wa::Spectrogram>(kSpecRows, kSpecCols, 20.0, (double)sr / 2.0, sr);
-        } else if (!renderSpec_) {
+        if (sr != viz.specSr) {
+            viz.specSr = sr;
+            viz.workCap.resize(kFftWin); viz.workRender.resize(kFftWin); viz.specWin.resize(kFftWin);
+            viz.capSpec    = std::make_unique<wa::Spectrogram>(kSpecRows, kSpecCols, 20.0, (double)sr / 2.0, sr);
+            viz.renderSpec = std::make_unique<wa::Spectrogram>(kSpecRows, kSpecCols, 20.0, (double)sr / 2.0, sr);
+        } else if (!viz.renderSpec) {
             // renderSpec_ was cleared by a playback-stop transition; recreate fresh.
-            renderSpec_ = std::make_unique<wa::Spectrogram>(kSpecRows, kSpecCols, 20.0, (double)specSr_ / 2.0, specSr_);
+            viz.renderSpec = std::make_unique<wa::Spectrogram>(kSpecRows, kSpecCols, 20.0, (double)viz.specSr / 2.0, viz.specSr);
         }
     }
 
@@ -464,7 +610,7 @@ void AppUi::drawChartsColumn() {
             ImGui::EndDragDropSource();
         }
         ImGui::SameLine(); ImGui::TextUnformatted(chartTitle(id));
-        drawChartPanel(id);
+        drawChartPanel(id, engine, status, viz);
         if (ImGui::BeginDragDropTarget()) {
             if (const ImGuiPayload* pl = ImGui::AcceptDragDropPayload("CHART_POS")) {
                 int from = *(const int*)pl->Data;
@@ -507,7 +653,8 @@ static ImPlotColormap waSpectroColormap() {
 // label the real frequencies, so the axis reads in Hz. The range is set once (not Always) so the
 // user can pan/zoom the frequency axis; the explicit Once limits apply on the plot's first frame,
 // so the always-created (possibly empty) plot never pins to the [0,1] defaults.
-void AppUi::drawSpectrogramPanel(const char* plotId, wa::Spectrogram* spec, double histSec, float height, int slot) {
+void AppUi::drawSpectrogramPanel(VisualState& viz, const char* plotId, wa::Spectrogram* spec,
+                                 double histSec, float height, int slot) {
     // spec == null (not running / no data yet): draw the axes only with a default 20..24 kHz range
     // so the panel is ALWAYS visible, consistent with the waveform panel. The explicit
     // log-range SetupAxisLimits keeps the empty plot from pinning to [0,1] (the old auto-fit bug).
@@ -532,10 +679,10 @@ void AppUi::drawSpectrogramPanel(const char* plotId, wa::Spectrogram* spec, doub
         // hover the Y ruler (plot-area hover = false -> unlocked) to zoom/pan the frequency axis.
         // Audition-style: no time labels here (the waveform above carries the top time ruler);
         // Hz ruler on the RIGHT.
-        const ImPlotAxisFlags yf = (plotHovPrev_[slot] ? ImPlotAxisFlags_Lock : ImPlotAxisFlags_None)
+        const ImPlotAxisFlags yf = (viz.plotHovPrev[slot] ? ImPlotAxisFlags_Lock : ImPlotAxisFlags_None)
                                  | ImPlotAxisFlags_Opposite;
         ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_NoTickLabels, yf);
-        ImPlot::SetupAxisLinks(ImAxis_X1, &xLink0_, &xLink1_);   // shared time axis (waveforms + spectrograms)
+        ImPlot::SetupAxisLinks(ImAxis_X1, &viz.xLink0, &viz.xLink1);   // shared time axis (waveforms + spectrograms)
         // Clamp panning/zooming to the buffered history / frequency range — no empty space.
         ImPlot::SetupAxisLimitsConstraints(ImAxis_X1, 0.0, histSec);
         ImPlot::SetupAxisLimitsConstraints(ImAxis_Y1, loL, hiL);
@@ -545,7 +692,7 @@ void AppUi::drawSpectrogramPanel(const char* plotId, wa::Spectrogram* spec, doub
             ImPlot::PlotHeatmap("##hm", spec->data(), spec->rows(), spec->cols(), -96.0, 0.0, nullptr,
                 ImPlotPoint(0, loL), ImPlotPoint(histSec, hiL));
         drawYUnitLabel("Hz", true);
-        plotHovPrev_[slot] = ImPlot::IsPlotHovered();
+        viz.plotHovPrev[slot] = ImPlot::IsPlotHovered();
         ImPlot::EndPlot();
     }
     ImPlot::PopColormap();
@@ -555,15 +702,16 @@ void AppUi::drawSpectrogramPanel(const char* plotId, wa::Spectrogram* spec, doub
 // so the buffer's tail holds the newest samples (right edge). Level-of-detail: zoomed in -> raw
 // line; zoomed out -> per-pixel min/max envelope, so detail sharpens as you zoom and the waveform
 // stays column-aligned with the spectrogram.
-void AppUi::drawWaveformPanel(const char* plotId, const float* wave, int n, uint32_t sr, bool haveData, float height, int slot) {
+void AppUi::drawWaveformPanel(VisualState& viz, const char* plotId, const float* wave, int n,
+                              uint32_t sr, bool haveData, float height, int slot) {
     if (!ImPlot::BeginPlot(plotId, ImVec2(-1, height))) return;
     // Y locked while the plot area was hovered last frame -> in-plot wheel/drag act on X only;
     // zoom amplitude via the Y ruler. X tick labels hidden: the spectrogram below shows the time.
     // Audition-style: time ruler on TOP of the waveform, dB ruler on the RIGHT.
-    const ImPlotAxisFlags yf = (plotHovPrev_[slot] ? ImPlotAxisFlags_Lock : ImPlotAxisFlags_None)
+    const ImPlotAxisFlags yf = (viz.plotHovPrev[slot] ? ImPlotAxisFlags_Lock : ImPlotAxisFlags_None)
                              | ImPlotAxisFlags_Opposite;
     ImPlot::SetupAxes(nullptr, nullptr, ImPlotAxisFlags_Opposite, yf);
-    ImPlot::SetupAxisLinks(ImAxis_X1, &xLink0_, &xLink1_);        // shared time axis
+    ImPlot::SetupAxisLinks(ImAxis_X1, &viz.xLink0, &viz.xLink1);        // shared time axis
     // Clamp panning/zooming to the buffered history — no scrolling into empty space.
     const double hist = (sr > 0 && n > 0) ? (double)n / (double)sr
                                           : (double)(kSpecCols * kFftHop) / 48000.0;
@@ -576,8 +724,8 @@ void AppUi::drawWaveformPanel(const char* plotId, const float* wave, int n, uint
     ImPlot::SetupAxisTicks(ImAxis_Y1, kAmpV, 11, kAmpL);
     if (haveData && n > 0 && sr > 0) {
         const double invSr = 1.0 / (double)sr;
-        int iLo = (int)std::floor(xLink0_ * (double)sr);
-        int iHi = (int)std::ceil (xLink1_ * (double)sr);
+        int iLo = (int)std::floor(viz.xLink0 * (double)sr);
+        int iHi = (int)std::ceil (viz.xLink1 * (double)sr);
         if (iLo < 0) iLo = 0;
         if (iHi > n - 1) iHi = n - 1;
         if (iHi > iLo) {
@@ -585,13 +733,13 @@ void AppUi::drawWaveformPanel(const char* plotId, const float* wave, int n, uint
             float pw = ImPlot::GetPlotSize().x;
             if (pw < 1.0f) pw = 1.0f;
             if (visN <= (int)(2.0f * pw)) {
-                envMax_.resize((size_t)visN);                     // scratch: warped raw samples
-                for (int i = 0; i < visN; ++i) envMax_[(size_t)i] = dbWarp(wave[iLo + i]);
+                viz.envMax.resize((size_t)visN);                     // scratch: warped raw samples
+                for (int i = 0; i < visN; ++i) viz.envMax[(size_t)i] = dbWarp(wave[iLo + i]);
                 ImPlot::SetNextLineStyle(ImVec4(0.40f, 0.89f, 0.59f, 1.00f));   // Audition green
-                ImPlot::PlotLine("##wave", envMax_.data(), visN, invSr, (double)iLo * invSr);
+                ImPlot::PlotLine("##wave", viz.envMax.data(), visN, invSr, (double)iLo * invSr);
             } else {
                 const int cols = (int)pw;
-                envX_.resize((size_t)cols); envMin_.resize((size_t)cols); envMax_.resize((size_t)cols);
+                viz.envX.resize((size_t)cols); viz.envMin.resize((size_t)cols); viz.envMax.resize((size_t)cols);
                 for (int c = 0; c < cols; ++c) {
                     int s0 = iLo + (int)((int64_t)visN * c / cols);
                     int s1 = iLo + (int)((int64_t)visN * (c + 1) / cols);
@@ -599,45 +747,46 @@ void AppUi::drawWaveformPanel(const char* plotId, const float* wave, int n, uint
                     if (s1 > n)   s1 = n;
                     float mn = wave[s0], mx = wave[s0];
                     for (int s = s0 + 1; s < s1; ++s) { mn = std::min(mn, wave[s]); mx = std::max(mx, wave[s]); }
-                    envX_[(size_t)c]   = (float)(0.5 * (double)(s0 + s1) * invSr);
-                    envMin_[(size_t)c] = dbWarp(mn);              // warp commutes with min/max
-                    envMax_[(size_t)c] = dbWarp(mx);
+                    viz.envX[(size_t)c]   = (float)(0.5 * (double)(s0 + s1) * invSr);
+                    viz.envMin[(size_t)c] = dbWarp(mn);              // warp commutes with min/max
+                    viz.envMax[(size_t)c] = dbWarp(mx);
                 }
                 ImPlot::SetNextFillStyle(ImVec4(0.40f, 0.89f, 0.59f, 1.00f), 1.0f);   // Audition green, solid
-                ImPlot::PlotShaded("##wave", envX_.data(), envMin_.data(), envMax_.data(), cols);
+                ImPlot::PlotShaded("##wave", viz.envX.data(), viz.envMin.data(), viz.envMax.data(), cols);
             }
         }
     }
     drawYUnitLabel("dB", true);
-    plotHovPrev_[slot] = ImPlot::IsPlotHovered();
+    viz.plotHovPrev[slot] = ImPlot::IsPlotHovered();
     ImPlot::EndPlot();
 }
 
 // One combined cell per stream: waveform on top, spectrogram below (Audition-style), sharing the
 // linked time axis, with a draggable horizontal splitter between them. comboRatio_ is shared by
 // both streams so the capture and render cells stay height-aligned for side-by-side comparison.
-void AppUi::drawComboPanel(bool renderSide) {
-    const uint32_t sr         = ms_.sampleRate;
-    const bool overallRunning = (ms_.overall     == wa::StreamState::Running && sr > 0);
-    const bool renderRunning  = (ms_.renderState == wa::StreamState::Running);
+void AppUi::drawComboPanel(wa::MonitorEngine& engine, const wa::MonitorStatus& status,
+                           VisualState& viz, bool renderSide) {
+    const uint32_t sr         = status.sampleRate;
+    const bool overallRunning = (status.overall     == wa::StreamState::Running && sr > 0);
+    const bool renderRunning  = (status.renderState == wa::StreamState::Running);
 
     // Snapshot the newest samples into the tail of the history buffer (progressive fill).
-    std::vector<float>& wave = renderSide ? renderWave_ : capWave_;
+    std::vector<float>& wave = renderSide ? viz.renderWave : viz.capWave;
     bool ok = false;
-    if (overallRunning && waveSr_ > 0 && (!renderSide || renderRunning)) {
-        const size_t avail = (size_t)(renderSide ? monitor_.renderWritten() : monitor_.capWritten());
-        const size_t nn = std::min(avail, (size_t)waveN_);
+    if (overallRunning && viz.waveSr > 0 && (!renderSide || renderRunning)) {
+        const size_t avail = (size_t)(renderSide ? engine.renderWritten() : engine.capWritten());
+        const size_t nn = std::min(avail, (size_t)viz.waveN);
         if (nn > 0) {
-            const int head = waveN_ - (int)nn;
+            const int head = viz.waveN - (int)nn;
             std::fill(wave.begin(), wave.begin() + head, 0.f);
             uint64_t end = 0;
-            ok = renderSide ? monitor_.snapshotRender(nn, wave.data() + head, end)
-                            : monitor_.snapshotCapture(nn, wave.data() + head, end);
+            ok = renderSide ? engine.snapshotRender(nn, wave.data() + head, end)
+                            : engine.snapshotCapture(nn, wave.data() + head, end);
         }
     }
 
-    const float waveH = kComboH * comboRatio_;
-    drawWaveformPanel(renderSide ? "##renWave" : "##capWave", wave.data(), waveN_, waveSr_, ok,
+    const float waveH = kComboH * viz.comboRatio;
+    drawWaveformPanel(viz, renderSide ? "##renWave" : "##capWave", wave.data(), viz.waveN, viz.waveSr, ok,
                       waveH, renderSide ? kSlotRenWave : kSlotCapWave);
 
     // Splitter: drag to rebalance waveform vs spectrogram height (the axes re-lay out to fit).
@@ -645,7 +794,7 @@ void AppUi::drawComboPanel(bool renderSide) {
                            ImVec2(std::max(ImGui::GetContentRegionAvail().x, 1.0f), kSplitH));
     if (ImGui::IsItemHovered() || ImGui::IsItemActive()) ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
     if (ImGui::IsItemActive())
-        comboRatio_ = std::clamp(comboRatio_ + ImGui::GetIO().MouseDelta.y / kComboH, 0.15f, 0.85f);
+        viz.comboRatio = std::clamp(viz.comboRatio + ImGui::GetIO().MouseDelta.y / kComboH, 0.15f, 0.85f);
     const ImVec2 smn = ImGui::GetItemRectMin(), smx = ImGui::GetItemRectMax();
     ImGui::GetWindowDrawList()->AddLine(ImVec2(smn.x, (smn.y + smx.y) * 0.5f),
                                         ImVec2(smx.x, (smn.y + smx.y) * 0.5f),
@@ -654,37 +803,38 @@ void AppUi::drawComboPanel(bool renderSide) {
     // Advance the FFT analysis feeding this stream's spectrogram (relocated here from the former
     // spectrum panels): one column per hop, catching up a few frames per poll. workCap_/workRender_
     // and magCap_/magRender_ are reused as scratch.
-    if (overallRunning && specSr_ > 0 && (!renderSide || renderRunning)) {
+    if (overallRunning && viz.specSr > 0 && (!renderSide || renderRunning)) {
         uint64_t se = 0;
-        const uint64_t written = renderSide ? monitor_.renderWritten() : monitor_.capWritten();
-        uint64_t& nextEnd      = renderSide ? nextRenderEnd_ : nextCapEnd_;
+        const uint64_t written = renderSide ? engine.renderWritten() : engine.capWritten();
+        uint64_t& nextEnd      = renderSide ? viz.nextRenderEnd : viz.nextCapEnd;
         wa::advanceAnalysis(written, nextEnd, kFftWin, kFftHop, kCatchup, [&](uint64_t) {
-            const bool got = renderSide ? monitor_.snapshotRender(kFftWin, specWin_.data(), se)
-                                        : monitor_.snapshotCapture(kFftWin, specWin_.data(), se);
+            const bool got = renderSide ? engine.snapshotRender(kFftWin, viz.specWin.data(), se)
+                                        : engine.snapshotCapture(kFftWin, viz.specWin.data(), se);
             if (!got) return;
-            std::vector<std::complex<float>>& work = renderSide ? workRender_ : workCap_;
-            std::vector<float>&               mag  = renderSide ? magRender_  : magCap_;
-            wa::magnitudeSpectrumDb(specWin_.data(), kFftWin, work.data(), mag);
-            if (wa::Spectrogram* sp = renderSide ? renderSpec_.get() : capSpec_.get())
+            std::vector<std::complex<float>>& work = renderSide ? viz.workRender : viz.workCap;
+            std::vector<float>&               mag  = renderSide ? viz.magRender  : viz.magCap;
+            wa::magnitudeSpectrumDb(viz.specWin.data(), kFftWin, work.data(), mag);
+            if (wa::Spectrogram* sp = renderSide ? viz.renderSpec.get() : viz.capSpec.get())
                 sp->pushColumn(mag);
         });
     }
 
     wa::Spectrogram* spec = nullptr;
-    if (overallRunning) spec = renderSide ? (renderRunning ? renderSpec_.get() : nullptr) : capSpec_.get();
+    if (overallRunning) spec = renderSide ? (renderRunning ? viz.renderSpec.get() : nullptr) : viz.capSpec.get();
     const uint32_t hz = (sr > 0) ? sr : 48000u;   // idle: assume 48 kHz for the axis ranges
-    drawSpectrogramPanel(renderSide ? "##renSpec" : "##capSpec", spec,
+    drawSpectrogramPanel(viz, renderSide ? "##renSpec" : "##capSpec", spec,
                          (double)(kSpecCols * kFftHop) / (double)hz, kComboH - waveH,
                          renderSide ? kSlotRenSpectro : kSlotCapSpectro);
 }
 
-void AppUi::drawChartPanel(int id) {
+void AppUi::drawChartPanel(int id, wa::MonitorEngine& engine, const wa::MonitorStatus& status,
+                           VisualState& viz) {
     switch (id) {
     case 0:   // Capture waveform + spectrogram combo
-        drawComboPanel(false);
+        drawComboPanel(engine, status, viz, false);
         break;
     case 1:   // Render waveform + spectrogram combo — data only while playback runs
-        drawComboPanel(true);
+        drawComboPanel(engine, status, viz, true);
         break;
     default:
         break;

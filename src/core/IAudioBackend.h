@@ -12,6 +12,16 @@ class RingBuffer;
 enum class DataFlow { Capture, Render };
 using DeviceId = std::wstring;     // MMDevice id; empty string = default endpoint
 
+enum class CaptureSourceKind {
+    Endpoint,
+    SystemLoopback,
+};
+
+struct CaptureSource {
+    CaptureSourceKind kind = CaptureSourceKind::Endpoint;
+    DeviceId deviceId; // Endpoint: capture endpoint; SystemLoopback: render endpoint
+};
+
 struct DeviceInfo {
     DeviceId     id;
     std::wstring name;

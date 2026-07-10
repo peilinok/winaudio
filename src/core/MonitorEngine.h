@@ -33,6 +33,7 @@ enum class MonitorError : uint32_t {
     RateMismatch,
     PumpLaunch,
     InvalidDelay,
+    LoopbackFeedback,
 };
 
 struct MonitorStatus {
@@ -58,7 +59,11 @@ struct MonitorStatus {
 // with a fake backend (no WASAPI hardware).
 class MonitorEngine {
 public:
-    using BackendFactory = std::function<std::unique_ptr<IAudioBackend>(DataFlow, const AudioFormat*)>;
+    // `source` is non-null only for capture backend creation and is valid only
+    // during the factory call; render backend creation passes nullptr.
+    using BackendFactory =
+        std::function<std::unique_ptr<IAudioBackend>(DataFlow, const CaptureSource*,
+                                                     const AudioFormat*)>;
 
     explicit MonitorEngine(BackendFactory factory = {}); // empty => real WASAPI streams
     ~MonitorEngine();
@@ -66,10 +71,17 @@ public:
     MonitorEngine(const MonitorEngine&)            = delete;
     MonitorEngine& operator=(const MonitorEngine&) = delete;
 
-    Result start(BackendKind kind, const DeviceId& capId, const DeviceId& renderId,
+    Result start(BackendKind kind, const CaptureSource& capSource, const DeviceId& renderId,
                  uint32_t delayMs, bool playbackEnabled = true,
                  const StreamParams& capParams = {}, const StreamParams& renderParams = {},
                  const AudioFormat* capFormat = nullptr);
+    Result start(BackendKind kind, const DeviceId& capId, const DeviceId& renderId,
+                 uint32_t delayMs, bool playbackEnabled = true,
+                 const StreamParams& capParams = {}, const StreamParams& renderParams = {},
+                 const AudioFormat* capFormat = nullptr) {
+        return start(kind, CaptureSource{CaptureSourceKind::Endpoint, capId}, renderId,
+                     delayMs, playbackEnabled, capParams, renderParams, capFormat);
+    }
     void   stop();
     MonitorStatus poll();
     void   setPlaybackEnabled(bool enabled);                        // 运行期实时开关（GUI 线程）
@@ -85,7 +97,9 @@ private:
     void   pumpLoop();
     void   teardown();   // stop+join pump, stop+free backends/rings/scopes/fifo
     Result rollback(StreamState finalState, MonitorError err, long code, std::string msg);
+    Result guardLoopbackFeedback();
     std::unique_ptr<IAudioBackend> makeBackend(DataFlow flow, BackendKind kind,
+                                               const CaptureSource* source,
                                                const AudioFormat* requested);
     Result engageRender();      // pump 前(start) 或 pump 线程调用；开渲染+校验+建 FIFO/刮擦；失败原子(全关渲染)
     void   disengageRender();   // 停+关渲染、释放设备、reset renderRing_/delayFifo_；不动 renderScope_
@@ -94,6 +108,7 @@ private:
 
     // Run-const session parameters (set in start(), consumed in engageRender()).
     BackendKind kind_{BackendKind::WasapiShared};
+    CaptureSource capSource_{};
     DeviceId    renderId_{};
     uint32_t    delayMs_ = 0;
     std::atomic<bool> wantPlayback_{false};

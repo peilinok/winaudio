@@ -18,6 +18,9 @@ enum class WasapiMode { Shared, Exclusive };
 // StreamParams -> WASAPI enum mapping (free functions, exposed for unit tests).
 AUDIO_STREAM_CATEGORY mapCategory(AudioCategory c);
 AUDCLNT_STREAMOPTIONS mapStreamOption(StreamOption o);
+uint32_t loopbackSilenceFramesForTimeout(uint32_t sampleRate, uint32_t timeoutMs);
+bool shouldWriteLoopbackIdleSilence(unsigned waitResult, long packetStatus,
+                                    bool sawPacket, bool wroteFrames);
 
 class WasapiStream : public IAudioBackend {
 public:
@@ -37,6 +40,7 @@ protected:
     virtual void   preRoll() {}           // render: one silent buffer; capture: nothing
     virtual void   runLoop() = 0;         // drain/feed loop; runs while running_
     virtual void   resetService() = 0;    // Reset() the service ComPtr (called from close())
+    virtual DWORD  extraSharedInitFlags() const { return 0; }
 
     bool isExclusive() const { return mode_ == WasapiMode::Exclusive; }
 
@@ -81,9 +85,23 @@ protected:
     Result createService() override;
     void   runLoop() override;
     void   resetService() override { capture_.Reset(); }
+    virtual uint32_t idleSilenceFrames(uint32_t timeoutMs) const { (void)timeoutMs; return 0; }
 private:
     ComPtr<IAudioCaptureClient> capture_;
     void* pumpEvent_ = nullptr; // auto-reset event; signaled after each ring write
+};
+
+class WasapiSystemLoopbackCaptureStream : public WasapiCaptureStream {
+public:
+    WasapiSystemLoopbackCaptureStream(WasapiMode mode, const AudioFormat* requested);
+    Result open(const DeviceId& id, const AudioFormat& fmt, RingBuffer* ring,
+                const StreamParams& params) override;
+protected:
+    EDataFlow dataFlow() const override { return eRender; }
+    DWORD extraSharedInitFlags() const override { return AUDCLNT_STREAMFLAGS_LOOPBACK; }
+    uint32_t idleSilenceFrames(uint32_t timeoutMs) const override {
+        return loopbackSilenceFramesForTimeout(actualFormat_.sampleRate, timeoutMs);
+    }
 };
 
 class WasapiRenderStream : public WasapiStream {

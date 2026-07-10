@@ -88,14 +88,20 @@ struct FakeRig {
 
     std::atomic<bool> capStopped{false};
     std::atomic<bool> renderStopped{false};
+    std::atomic<int>  capOpenCount{0};
     std::atomic<int>  renderOpenCount{0};  // increments each time render factory is called
     std::atomic<int>  renderOpenDone{0};   // release-incremented inside open() for race-free sync
     FakeBackend*      capPtr    = nullptr;
     FakeBackend*      renderPtr = nullptr;
+    CaptureSource     lastCaptureSource{};
+    bool              sawCaptureSource = false;
 
     MonitorEngine::BackendFactory factory() {
-        return [this](DataFlow flow, const AudioFormat* req) -> std::unique_ptr<IAudioBackend> {
+        return [this](DataFlow flow, const CaptureSource* source,
+                      const AudioFormat* req) -> std::unique_ptr<IAudioBackend> {
             if (flow == DataFlow::Capture) {
+                capOpenCount.fetch_add(1, std::memory_order_relaxed);
+                if (source) { lastCaptureSource = *source; sawCaptureSource = true; }
                 auto b  = std::make_unique<FakeBackend>(capFmt, false, &capStopped);
                 capPtr  = b.get();
                 if (req) { b->lastRequested_ = *req; b->sawRequested_ = true; }
@@ -457,5 +463,95 @@ TEST(MonitorEngine, CaptureFormatReachesBackend) {
     ASSERT_NE(rig.capPtr, nullptr);
     EXPECT_TRUE(rig.capPtr->sawRequested_);
     EXPECT_EQ(rig.capPtr->lastRequested_, want);
+    eng.stop();
+}
+
+TEST(MonitorEngine, LegacyStartUsesEndpointCaptureSource) {
+    FakeRig rig;
+    MonitorEngine eng(rig.factory());
+
+    ASSERT_TRUE(eng.start(BackendKind::WasapiShared, L"capture-id", L"render-id", 50,
+                          false));
+
+    EXPECT_EQ(rig.capOpenCount.load(), 1);
+    EXPECT_TRUE(rig.sawCaptureSource);
+    EXPECT_EQ(rig.lastCaptureSource.kind, CaptureSourceKind::Endpoint);
+    EXPECT_EQ(rig.lastCaptureSource.deviceId, L"capture-id");
+    EXPECT_EQ(rig.renderOpenCount.load(), 0);
+    eng.stop();
+}
+
+TEST(MonitorEngine, LoopbackCaptureSourceReachesFactory) {
+    FakeRig rig;
+    MonitorEngine eng(rig.factory());
+    CaptureSource source{CaptureSourceKind::SystemLoopback, L"loopback-render-id"};
+
+    ASSERT_TRUE(eng.start(BackendKind::WasapiShared, source, L"playback-render-id", 50,
+                          false));
+
+    EXPECT_EQ(rig.capOpenCount.load(), 1);
+    EXPECT_TRUE(rig.sawCaptureSource);
+    EXPECT_EQ(rig.lastCaptureSource.kind, CaptureSourceKind::SystemLoopback);
+    EXPECT_EQ(rig.lastCaptureSource.deviceId, L"loopback-render-id");
+    EXPECT_EQ(rig.renderOpenCount.load(), 0);
+    eng.stop();
+}
+
+TEST(MonitorEngine, LoopbackPlaybackRejectsSameRenderDevice) {
+    FakeRig rig;
+    MonitorEngine eng(rig.factory());
+    CaptureSource source{CaptureSourceKind::SystemLoopback, L"same-render-id"};
+
+    Result r = eng.start(BackendKind::WasapiShared, source, L"same-render-id", 50, true);
+
+    EXPECT_FALSE(r);
+    MonitorStatus st = eng.poll();
+    EXPECT_EQ(st.overall, StreamState::Error);
+    EXPECT_EQ(st.errorCode, static_cast<uint32_t>(MonitorError::LoopbackFeedback));
+    EXPECT_EQ(rig.capOpenCount.load(), 0);
+    EXPECT_EQ(rig.renderOpenCount.load(), 0);
+}
+
+TEST(MonitorEngine, LoopbackPlaybackRejectsBothDefaultRenderDevices) {
+    FakeRig rig;
+    MonitorEngine eng(rig.factory());
+    CaptureSource source{CaptureSourceKind::SystemLoopback, L""};
+
+    Result r = eng.start(BackendKind::WasapiShared, source, L"", 50, true);
+
+    EXPECT_FALSE(r);
+    MonitorStatus st = eng.poll();
+    EXPECT_EQ(st.overall, StreamState::Error);
+    EXPECT_EQ(st.errorCode, static_cast<uint32_t>(MonitorError::LoopbackFeedback));
+    EXPECT_EQ(rig.capOpenCount.load(), 0);
+    EXPECT_EQ(rig.renderOpenCount.load(), 0);
+}
+
+TEST(MonitorEngine, LoopbackRuntimePlaybackRejectsSameRenderDevice) {
+    FakeRig rig;
+    MonitorEngine eng(rig.factory());
+    CaptureSource source{CaptureSourceKind::SystemLoopback, L"same-render-id"};
+
+    ASSERT_TRUE(eng.start(BackendKind::WasapiShared, source, L"same-render-id", 50,
+                          false));
+    ASSERT_EQ(rig.capOpenCount.load(), 1);
+    ASSERT_EQ(rig.renderOpenCount.load(), 0);
+    ASSERT_NE(rig.capPtr, nullptr);
+
+    eng.setPlaybackEnabled(true);
+    std::vector<int16_t> ramp(1024, 3);
+    auto pcm = makeRampPcm(ramp, rig.capFmt.channels);
+    rig.capPtr->pushPcm(pcm.data(), pcm.size());
+
+    ASSERT_TRUE(waitFor([&] {
+        return eng.poll().renderState == StreamState::Error;
+    })) << "runtime playback feedback guard did not reject render engage";
+
+    MonitorStatus st = eng.poll();
+    EXPECT_EQ(st.overall, StreamState::Running);
+    EXPECT_EQ(st.capState, StreamState::Running);
+    EXPECT_EQ(st.renderState, StreamState::Error);
+    EXPECT_EQ(st.errorCode, static_cast<uint32_t>(MonitorError::LoopbackFeedback));
+    EXPECT_EQ(rig.renderOpenCount.load(), 0);
     eng.stop();
 }

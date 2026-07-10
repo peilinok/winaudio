@@ -14,6 +14,7 @@ add_executable(WinAudioTests
     test_spectrogram.cpp
     test_capabilities.cpp
     test_log.cpp
+    test_loopback.cpp
     ${CMAKE_SOURCE_DIR}/src/gui/Spectrogram.cpp   # compiled into tests, as in the current setup
 )
 target_include_directories(WinAudioTests PRIVATE

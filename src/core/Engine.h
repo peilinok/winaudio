@@ -33,8 +33,12 @@ public:
     ~Engine();
 
     std::vector<DeviceInfo> enumerate(DataFlow flow);
-    Result startCapture(BackendKind kind, const DeviceId& id, const std::wstring& wavPath,
+    Result startCapture(BackendKind kind, const CaptureSource& source, const std::wstring& wavPath,
                         const AudioFormat* requested = nullptr);
+    Result startCapture(BackendKind kind, const DeviceId& id, const std::wstring& wavPath,
+                        const AudioFormat* requested = nullptr) {
+        return startCapture(kind, CaptureSource{CaptureSourceKind::Endpoint, id}, wavPath, requested);
+    }
     Result startPlayback(BackendKind kind, const DeviceId& id, const std::wstring& wavPath,
                          const AudioFormat* requested = nullptr);
     Result probeFormat(BackendKind kind, DataFlow flow, const DeviceId& id,

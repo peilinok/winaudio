@@ -33,6 +33,17 @@ AUDCLNT_STREAMOPTIONS mapStreamOption(StreamOption o) {
     }
 }
 
+uint32_t loopbackSilenceFramesForTimeout(uint32_t sampleRate, uint32_t timeoutMs) {
+    if (sampleRate == 0 || timeoutMs == 0) return 0;
+    return static_cast<uint32_t>((static_cast<uint64_t>(sampleRate) * timeoutMs) / 1000u);
+}
+
+bool shouldWriteLoopbackIdleSilence(unsigned waitResult, long packetStatus,
+                                    bool sawPacket, bool wroteFrames) {
+    return waitResult == WAIT_TIMEOUT && SUCCEEDED(static_cast<HRESULT>(packetStatus)) &&
+           !sawPacket && !wroteFrames;
+}
+
 WasapiStream::WasapiStream(WasapiMode mode, const AudioFormat* requested)
     : mode_(mode), hasRequested_(requested != nullptr) {
     if (requested) requestedFormat_ = *requested;
@@ -167,6 +178,7 @@ Result WasapiStream::prepareClient(IMMDevice* dev) {
         REFERENCE_TIME dur = params_.bufferMs
             ? static_cast<REFERENCE_TIME>(params_.bufferMs) * 10'000
             : 10'000'000 / 10; // default: 100 ms buffer
+        const DWORD extraFlags = extraSharedInitFlags();
 
         if (hasRequested_) {
             // Caller specified a format: ask WASAPI's engine to convert via AUTOCONVERTPCM.
@@ -179,7 +191,8 @@ Result WasapiStream::prepareClient(IMMDevice* dev) {
                 AUDCLNT_SHAREMODE_SHARED,
                 AUDCLNT_STREAMFLAGS_EVENTCALLBACK |
                 AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM |
-                AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY,
+                AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY |
+                extraFlags,
                 dur, 0,
                 reinterpret_cast<WAVEFORMATEX*>(&wfx), nullptr);
             WA_LOG(wa::log::Level::Debug, "WasapiStream", "Initialize(shared,requested)", "fmt=" + wa::formatAudio(requestedFormat_), wa::log::hrName(hr));
@@ -196,7 +209,8 @@ Result WasapiStream::prepareClient(IMMDevice* dev) {
         actualFormat_ = fromWaveFormat(mix);
         frameBytes_ = actualFormat_.blockAlign();
         hr = client_->Initialize(AUDCLNT_SHAREMODE_SHARED,
-                                 AUDCLNT_STREAMFLAGS_EVENTCALLBACK, dur, 0, mix, nullptr);
+                                 AUDCLNT_STREAMFLAGS_EVENTCALLBACK | extraFlags,
+                                 dur, 0, mix, nullptr);
         WA_LOG(wa::log::Level::Debug, "WasapiStream", "Initialize(shared)", "fmt=" + wa::formatAudio(actualFormat_), wa::log::hrName(hr));
         CoTaskMemFree(mix);
         if (FAILED(hr)) { WA_LOG(wa::log::Level::Err, "WasapiStream", "Initialize(shared)", "fmt=" + wa::formatAudio(actualFormat_), wa::log::hrName(hr)); return HrToResult(hr, "WasapiStream: Initialize(shared)"); }
@@ -310,7 +324,8 @@ void WasapiStream::threadMain() {
     runLoop();
 
     HRESULT hrStop = client_->Stop();
-    WA_LOG(wa::log::Level::Warn, "WasapiStream", "Stop", "", wa::log::hrName(hrStop));
+    WA_LOG(FAILED(hrStop) ? wa::log::Level::Err : wa::log::Level::Debug,
+           "WasapiStream", "Stop", "", wa::log::hrName(hrStop));
 }
 
 // --------------------------------------------------------------------------
@@ -353,13 +368,18 @@ Result WasapiCaptureStream::createService() {
 void WasapiCaptureStream::runLoop() {
     wa::log::setThreadName("capW");
     WA_LOG(wa::log::Level::Info, "WasapiStream", "runLoop", "capture loop started", "");
+    constexpr DWORD kCaptureWaitMs = 200;
     while (running_.load()) {
-        WaitForSingleObject(static_cast<HANDLE>(hEvent_), 200);
+        DWORD waitRc = WaitForSingleObject(static_cast<HANDLE>(hEvent_), kCaptureWaitMs);
+        wa::log::emitTrace("WasapiStream", "WaitForSingleObject", 0, waitRc, 0);
+        bool wroteFrames = false;
+        bool sawPacket = false;
         UINT32 packet = 0;
-        HRESULT hrNP;
+        HRESULT hrNP = S_OK;
         while (hrNP = capture_->GetNextPacketSize(&packet),
                wa::log::emitTrace("WasapiStream", "GetNextPacketSize", packet, 0, (long)hrNP),
                SUCCEEDED(hrNP) && packet > 0) {
+            sawPacket = true;
             BYTE* data = nullptr; UINT32 frames = 0; DWORD flags = 0;
             HRESULT hrGB = capture_->GetBuffer(&data, &frames, &flags, nullptr, nullptr);
             wa::log::emitTrace("WasapiStream", "GetBuffer", frames, (unsigned)flags, (long)hrGB);
@@ -370,15 +390,42 @@ void WasapiCaptureStream::runLoop() {
                 static thread_local std::vector<uint8_t> zeros;
                 zeros.assign(bytes, 0);
                 ring_->write(zeros.data(), bytes);
+                wroteFrames = true;
                 if (pumpEvent_) SetEvent(static_cast<HANDLE>(pumpEvent_));
             } else if (data) {
                 ring_->write(data, bytes);
+                wroteFrames = true;
                 if (pumpEvent_) SetEvent(static_cast<HANDLE>(pumpEvent_));
             }
             HRESULT hrRB = capture_->ReleaseBuffer(frames);
             wa::log::emitTrace("WasapiStream", "ReleaseBuffer", frames, 0, (long)hrRB);
         }
+        if (shouldWriteLoopbackIdleSilence(waitRc, static_cast<long>(hrNP), sawPacket, wroteFrames)) {
+            const uint32_t frames = idleSilenceFrames(kCaptureWaitMs);
+            if (frames > 0 && frameBytes_ > 0) {
+                static thread_local std::vector<uint8_t> zeros;
+                zeros.assign(static_cast<size_t>(frames) * frameBytes_, 0);
+                ring_->write(zeros.data(), zeros.size());
+                if (pumpEvent_) SetEvent(static_cast<HANDLE>(pumpEvent_));
+            }
+        }
     }
+}
+
+// --------------------------------------------------------------------------
+// WasapiSystemLoopbackCaptureStream
+// --------------------------------------------------------------------------
+
+WasapiSystemLoopbackCaptureStream::WasapiSystemLoopbackCaptureStream(
+    WasapiMode mode, const AudioFormat* requested)
+    : WasapiCaptureStream(mode, requested) {}
+
+Result WasapiSystemLoopbackCaptureStream::open(const DeviceId& id, const AudioFormat& fmt,
+                                               RingBuffer* ring, const StreamParams& params) {
+    if (isExclusive()) {
+        return Result::Fail(-1, "WASAPI system loopback requires Shared mode");
+    }
+    return WasapiCaptureStream::open(id, fmt, ring, params);
 }
 
 // --------------------------------------------------------------------------
