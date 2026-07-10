@@ -95,7 +95,7 @@ Result MonitorEngine::startSilentRenderIfNeeded() {
     WA_LOG(wa::log::Level::Info, "MonitorEngine", "silentRender.start",
            "dev=" + wa::narrowAscii(capSource_.deviceId), "requested");
 
-    silentRenderBackend_ = makeSilentRenderBackend(nullptr);
+    silentRenderBackend_ = makeSilentRenderBackend(&capFmt_);
     if (!silentRenderBackend_) {
         silentRenderState_.store(StreamState::Error, std::memory_order_relaxed);
         return Result::Fail(-1, "MonitorEngine: silent render factory null");

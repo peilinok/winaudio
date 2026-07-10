@@ -519,6 +519,9 @@ TEST(MonitorEngine, LoopbackStartsSilentRenderByDefault) {
     ASSERT_TRUE(eng.start(BackendKind::WasapiShared, source, L"", 50, false));
 
     EXPECT_EQ(rig.silentOpenCount.load(), 1);
+    ASSERT_NE(rig.silentPtr, nullptr);
+    EXPECT_TRUE(rig.silentPtr->sawRequested_);
+    EXPECT_EQ(rig.silentPtr->lastRequested_, rig.capFmt);
     EXPECT_EQ(eng.poll().silentRenderState, StreamState::Running);
     eng.stop();
 }
@@ -548,8 +551,11 @@ TEST(MonitorEngine, SilentRenderFailureDoesNotFailLoopbackCapture) {
 
     EXPECT_TRUE(r);
     EXPECT_EQ(rig.capOpenCount.load(), 1);
+    ASSERT_NE(rig.capPtr, nullptr);
+    EXPECT_TRUE(rig.capPtr->started_.load());
     EXPECT_EQ(rig.silentOpenCount.load(), 1);
     EXPECT_EQ(eng.poll().overall, StreamState::Running);
+    EXPECT_EQ(eng.poll().capState, StreamState::Running);
     EXPECT_EQ(eng.poll().silentRenderState, StreamState::Error);
     eng.stop();
 }
