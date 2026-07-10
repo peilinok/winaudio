@@ -357,8 +357,10 @@ void AppUi::drawLoopbackLeftPanel() {
         if (ImGui::Button("Start", ctrlBtn)) {
             wa::DeviceId id = renderDevices_.empty() ? L"" : renderDevices_[(size_t)loopbackDevIdx_].id;
             wa::CaptureSource source{wa::CaptureSourceKind::SystemLoopback, id};
+            wa::LoopbackOptions loopbackOptions{};
+            loopbackOptions.silentRender = loopbackSilentRender_;
             wa::Result r = loopback_.start(wa::BackendKind::WasapiShared, source, L"", 0,
-                                           false);
+                                           false, {}, {}, nullptr, loopbackOptions);
             logLines_.push_back(r ? "loopback started" : ("loopback error: " + r.message));
             if (r) {
                 loopbackStarted_ = true;
@@ -373,12 +375,21 @@ void AppUi::drawLoopbackLeftPanel() {
             logLines_.push_back("loopback stopped");
         }
     }
+    if (!loopbackStarted_) {
+        ImGui::Checkbox("Silent render keepalive", &loopbackSilentRender_);
+    } else {
+        ImGui::BeginDisabled();
+        ImGui::Checkbox("Silent render keepalive", &loopbackSilentRender_);
+        ImGui::EndDisabled();
+    }
 
     ImGui::SeparatorText("Status");
     const char* ss[] = {"Idle", "Running", "Error"};
     ImGui::Text("overall=%s  cap=%s  sr=%u",
         ss[(int)loopbackMs_.overall], ss[(int)loopbackMs_.capState], loopbackMs_.sampleRate);
     ImGui::Text("xrun=%llu", (unsigned long long)loopbackMs_.capXruns);
+    ImGui::Text("silent render=%s",
+        ss[(int)loopbackMs_.silentRenderState]);
     ImGui::ProgressBar(loopbackMs_.capLevel, ImVec2(-1, 0), "level");
 
     ImGui::SeparatorText("Log");

@@ -77,6 +77,7 @@ private:
     int                         delayMs_      = 100;
     bool                        monitorStarted_ = false;
     bool                        loopbackStarted_ = false;
+    bool                        loopbackSilentRender_ = true;
 
     wa::StreamParams capParams_{};    // Advanced 弹窗编辑;Start 时传入(运行中只读)
     wa::StreamParams renParams_{};
