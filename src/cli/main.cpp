@@ -5,6 +5,7 @@
 #include "Engine.h"
 #include "DeviceEnumerator.h"
 #include "ComUtil.h"
+#include "CliOptions.h"
 #include "FormatSpec.h"
 #include "MonitorEngine.h"
 #include "Capabilities.h"
@@ -16,13 +17,15 @@ static void usage() {
     std::printf(
         "WinAudioCli list  [--render|--capture]\n"
         "WinAudioCli capture --out <file.wav> [--device <id>] [--seconds N] [--loopback]\n"
-        "                    [--backend wasapi-shared|wasapi-exclusive] [--format 48000/16/2] (both backends)\n"
+        "                    [--no-silent-render] [--backend wasapi-shared|wasapi-exclusive]\n"
+        "                    [--format 48000/16/2] (both backends)\n"
         "WinAudioCli play    --in  <file.wav> [--device <id>]\n"
         "                    [--backend wasapi-shared|wasapi-exclusive]\n"
         "WinAudioCli probe   --format 48000/16/2 [--device <id>] [--render|--capture]\n"
         "                    [--backend wasapi-shared|wasapi-exclusive]\n"
         "WinAudioCli monitor [--loopback] [--cap <id>] [--render <id>] [--delay-ms N] [--seconds N]\n"
-        "                    [--backend wasapi-shared|wasapi-exclusive] [--format R/B/C[f]]\n"
+        "                    [--no-silent-render] [--backend wasapi-shared|wasapi-exclusive]\n"
+        "                    [--format R/B/C[f]]\n"
         "  (shared: WASAPI engine bridges sample rate on render side;\n"
         "   exclusive: render device must support capture format)\n"
         "  --loopback uses render endpoint ids for capture --device / monitor --cap.\n"
@@ -127,8 +130,10 @@ int wmain(int argc, wchar_t** argv) {
             std::printf("capture: --loopback requires --backend wasapi-shared\n");
             return 2;
         }
+        LoopbackOptions loopbackOptions = wa::cli::parseLoopbackOptions(argc, argv);
         CaptureSource source{loopback ? CaptureSourceKind::SystemLoopback : CaptureSourceKind::Endpoint, id};
-        Result r = eng.startCapture(kind, source, out, haveFmt ? &fmt : nullptr);
+        Result r = eng.startCapture(kind, source, out, haveFmt ? &fmt : nullptr,
+                                    loopbackOptions);
         if (!r) { std::printf("capture start failed: %s\n", r.message.c_str()); return 2; }
         for (int i = 0; i < seconds * 10; ++i) {
             Sleep(100);
@@ -220,10 +225,12 @@ int wmain(int argc, wchar_t** argv) {
         }
         CaptureSource source{loopback ? CaptureSourceKind::SystemLoopback : CaptureSourceKind::Endpoint,
                              capId};
+        LoopbackOptions loopbackOptions = wa::cli::parseLoopbackOptions(argc, argv);
 
         wa::MonitorEngine mon;
         wa::Result r = mon.start(kind, source, renderId, delayMs,
-                                 true, {}, {}, haveFmt ? &capFmt : nullptr);
+                                 true, {}, {}, haveFmt ? &capFmt : nullptr,
+                                 loopbackOptions);
         if (!r) { std::printf("monitor start failed: %s\n", r.message.c_str()); return 2; }
         for (int i = 0; i < seconds * 5; ++i) {
             Sleep(200);

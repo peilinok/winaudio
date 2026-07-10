@@ -34,13 +34,24 @@ AUDCLNT_STREAMOPTIONS mapStreamOption(StreamOption o) {
 }
 
 uint32_t loopbackSilenceFramesForTimeout(uint32_t sampleRate, uint32_t timeoutMs) {
-    if (sampleRate == 0 || timeoutMs == 0) return 0;
-    return static_cast<uint32_t>((static_cast<uint64_t>(sampleRate) * timeoutMs) / 1000u);
+    return loopbackSilenceFramesForElapsed(sampleRate, timeoutMs, timeoutMs);
+}
+
+uint32_t loopbackSilenceFramesForElapsed(uint32_t sampleRate, uint64_t elapsedMs,
+                                         uint32_t maxMs) {
+    if (sampleRate == 0 || elapsedMs == 0 || maxMs == 0) return 0;
+    const uint64_t boundedMs = elapsedMs < maxMs ? elapsedMs : maxMs;
+    return static_cast<uint32_t>((static_cast<uint64_t>(sampleRate) * boundedMs) / 1000u);
+}
+
+uint32_t captureSilentPacketFrames(uint32_t frames, unsigned flags) {
+    return (flags & AUDCLNT_BUFFERFLAGS_SILENT) ? frames : 0u;
 }
 
 bool shouldWriteLoopbackIdleSilence(unsigned waitResult, long packetStatus,
                                     bool sawPacket, bool wroteFrames) {
-    return waitResult == WAIT_TIMEOUT && SUCCEEDED(static_cast<HRESULT>(packetStatus)) &&
+    return (waitResult == WAIT_TIMEOUT || waitResult == WAIT_OBJECT_0) &&
+           SUCCEEDED(static_cast<HRESULT>(packetStatus)) &&
            !sawPacket && !wroteFrames;
 }
 
@@ -62,6 +73,8 @@ Result WasapiStream::open(const DeviceId& id, const AudioFormat& /*fmt*/, RingBu
     deviceId_ = id;
     ring_ = ring;
     params_ = params;
+    idleSilenceFrames_.store(0, std::memory_order_relaxed);
+    silentPacketFrames_.store(0, std::memory_order_relaxed);
     return Result::Ok(); // real activation happens on the worker thread (its own COM apt)
 }
 
@@ -117,6 +130,8 @@ BackendStats WasapiStream::stats() const {
     BackendStats s{};
     s.actualFormat = actualFormat_;
     s.bufferFrames = bufferFrames_;
+    s.idleSilenceFrames = idleSilenceFrames_.load(std::memory_order_relaxed);
+    s.silentPacketFrames = silentPacketFrames_.load(std::memory_order_relaxed);
     if (ring_) { s.overruns = ring_->overruns(); s.underruns = ring_->underruns(); }
     return s;
 }
@@ -369,6 +384,7 @@ void WasapiCaptureStream::runLoop() {
     wa::log::setThreadName("capW");
     WA_LOG(wa::log::Level::Info, "WasapiStream", "runLoop", "capture loop started", "");
     constexpr DWORD kCaptureWaitMs = 200;
+    ULONGLONG lastWriteMs = GetTickCount64();
     while (running_.load()) {
         DWORD waitRc = WaitForSingleObject(static_cast<HANDLE>(hEvent_), kCaptureWaitMs);
         wa::log::emitTrace("WasapiStream", "WaitForSingleObject", 0, waitRc, 0);
@@ -390,22 +406,32 @@ void WasapiCaptureStream::runLoop() {
                 static thread_local std::vector<uint8_t> zeros;
                 zeros.assign(bytes, 0);
                 ring_->write(zeros.data(), bytes);
+                silentPacketFrames_.fetch_add(captureSilentPacketFrames(frames, flags),
+                                              std::memory_order_relaxed);
                 wroteFrames = true;
+                lastWriteMs = GetTickCount64();
                 if (pumpEvent_) SetEvent(static_cast<HANDLE>(pumpEvent_));
             } else if (data) {
                 ring_->write(data, bytes);
                 wroteFrames = true;
+                lastWriteMs = GetTickCount64();
                 if (pumpEvent_) SetEvent(static_cast<HANDLE>(pumpEvent_));
             }
             HRESULT hrRB = capture_->ReleaseBuffer(frames);
             wa::log::emitTrace("WasapiStream", "ReleaseBuffer", frames, 0, (long)hrRB);
         }
         if (shouldWriteLoopbackIdleSilence(waitRc, static_cast<long>(hrNP), sawPacket, wroteFrames)) {
-            const uint32_t frames = idleSilenceFrames(kCaptureWaitMs);
+            const ULONGLONG nowMs = GetTickCount64();
+            const uint32_t frames = idleSilenceFrames(
+                static_cast<uint32_t>(nowMs - lastWriteMs < kCaptureWaitMs
+                                          ? nowMs - lastWriteMs
+                                          : kCaptureWaitMs));
             if (frames > 0 && frameBytes_ > 0) {
                 static thread_local std::vector<uint8_t> zeros;
                 zeros.assign(static_cast<size_t>(frames) * frameBytes_, 0);
                 ring_->write(zeros.data(), zeros.size());
+                idleSilenceFrames_.fetch_add(frames, std::memory_order_relaxed);
+                lastWriteMs = nowMs;
                 if (pumpEvent_) SetEvent(static_cast<HANDLE>(pumpEvent_));
             }
         }
@@ -490,6 +516,76 @@ void WasapiRenderStream::runLoop() {
         if (got < want) std::memset(buf + got, 0, want - got); // underrun -> silence
         HRESULT hrRB = render_->ReleaseBuffer(frames, 0);
         wa::log::emitTrace("WasapiStream", "ReleaseBuffer", frames, 0, (long)hrRB);
+    }
+}
+
+WasapiSilentRenderStream::WasapiSilentRenderStream(WasapiMode mode,
+                                                   const AudioFormat* requested)
+    : WasapiStream(mode, requested) {}
+
+WasapiSilentRenderStream::~WasapiSilentRenderStream() { close(); }
+
+Result WasapiSilentRenderStream::open(const DeviceId& id, const AudioFormat& fmt,
+                                      RingBuffer* ring, const StreamParams& params) {
+    if (isExclusive()) {
+        return Result::Fail(-1, "WasapiSilentRenderStream: silent render requires WASAPI-Shared");
+    }
+    return WasapiStream::open(id, fmt, ring, params);
+}
+
+Result WasapiSilentRenderStream::createService() {
+    HRESULT hr = client_->GetService(__uuidof(IAudioRenderClient),
+        reinterpret_cast<void**>(render_.GetAddressOf()));
+    WA_LOG(wa::log::Level::Debug, "WasapiSilentRenderStream",
+           "GetService(IAudioRenderClient)", "", wa::log::hrName(hr));
+    if (FAILED(hr)) {
+        WA_LOG(wa::log::Level::Err, "WasapiSilentRenderStream",
+               "GetService(IAudioRenderClient)", "", wa::log::hrName(hr));
+        return HrToResult(hr, "WasapiSilentRenderStream: GetService");
+    }
+    return Result::Ok();
+}
+
+void WasapiSilentRenderStream::preRoll() {
+    BYTE* buf = nullptr;
+    HRESULT hrPre = render_->GetBuffer(bufferFrames_, &buf);
+    WA_LOG(wa::log::Level::Debug, "WasapiSilentRenderStream", "GetBuffer(preRoll)",
+           "frames=" + std::to_string(bufferFrames_), wa::log::hrName(hrPre));
+    if (SUCCEEDED(hrPre)) {
+        HRESULT hrRel = render_->ReleaseBuffer(bufferFrames_, AUDCLNT_BUFFERFLAGS_SILENT);
+        WA_LOG(wa::log::Level::Debug, "WasapiSilentRenderStream",
+               "ReleaseBuffer(preRoll)", "", wa::log::hrName(hrRel));
+    }
+}
+
+void WasapiSilentRenderStream::runLoop() {
+    wa::log::setThreadName("silR");
+    WA_LOG(wa::log::Level::Info, "WasapiSilentRenderStream", "runLoop",
+           "silent render loop started", "");
+    while (running_.load()) {
+        DWORD waitRc = WaitForSingleObject(static_cast<HANDLE>(hEvent_), 200);
+        wa::log::emitTrace("WasapiSilentRenderStream", "WaitForSingleObject", 0, waitRc, 0);
+        if (!running_.load()) break;
+
+        UINT32 padding = 0;
+        HRESULT hrPad = client_->GetCurrentPadding(&padding);
+        wa::log::emitTrace("WasapiSilentRenderStream", "GetCurrentPadding", padding, 0,
+                           static_cast<long>(hrPad));
+        if (FAILED(hrPad)) break;
+
+        UINT32 frames = bufferFrames_ - padding;
+        if (frames == 0) continue;
+
+        BYTE* buf = nullptr;
+        HRESULT hrGB = render_->GetBuffer(frames, &buf);
+        wa::log::emitTrace("WasapiSilentRenderStream", "GetBuffer", frames, 0,
+                           static_cast<long>(hrGB));
+        if (FAILED(hrGB)) break;
+
+        HRESULT hrRB = render_->ReleaseBuffer(frames, AUDCLNT_BUFFERFLAGS_SILENT);
+        wa::log::emitTrace("WasapiSilentRenderStream", "ReleaseBuffer", frames,
+                           AUDCLNT_BUFFERFLAGS_SILENT, static_cast<long>(hrRB));
+        if (FAILED(hrRB)) break;
     }
 }
 

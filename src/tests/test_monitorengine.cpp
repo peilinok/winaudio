@@ -27,8 +27,9 @@ namespace {
 class FakeBackend : public IAudioBackend {
 public:
     FakeBackend(AudioFormat fmt, bool failStart, std::atomic<bool>* stoppedOut,
-                std::atomic<int>* openDoneOut = nullptr)
-        : fmt_(fmt), failStart_(failStart), stoppedOut_(stoppedOut), openDoneOut_(openDoneOut) {
+                std::atomic<int>* openDoneOut = nullptr, bool failOpen = false)
+        : fmt_(fmt), failStart_(failStart), stoppedOut_(stoppedOut),
+          openDoneOut_(openDoneOut), failOpen_(failOpen) {
         evt_ = CreateEventW(nullptr, /*manualReset*/ FALSE, /*initial*/ FALSE, nullptr);
     }
     ~FakeBackend() override {
@@ -37,6 +38,7 @@ public:
 
     Result open(const DeviceId&, const AudioFormat&, RingBuffer* ring,
                 const StreamParams& params) override {
+        if (failOpen_) return Result::Fail(122, "fake: open failed");
         ring_ = ring;
         lastOpenParams_ = params;
         if (openDoneOut_) openDoneOut_->fetch_add(1, std::memory_order_release);
@@ -56,6 +58,8 @@ public:
         BackendStats s{};
         s.actualFormat = fmt_;
         s.bufferFrames = bufferFrames_;
+        s.idleSilenceFrames = idleSilenceFrames_;
+        s.silentPacketFrames = silentPacketFrames_;
         return s;
     }
     void* dataReadyEvent() const override { return evt_; }
@@ -70,8 +74,11 @@ public:
     bool               failStart_   = false;
     std::atomic<bool>* stoppedOut_  = nullptr;
     std::atomic<int>*  openDoneOut_ = nullptr;
+    bool               failOpen_    = false;
     std::atomic<bool>  started_{false};
     uint32_t          bufferFrames_ = 0;
+    uint64_t          idleSilenceFrames_ = 0;
+    uint64_t          silentPacketFrames_ = 0;
     StreamParams      lastOpenParams_{};
     RingBuffer*       ring_ = nullptr;
     HANDLE            evt_  = nullptr;
@@ -85,14 +92,19 @@ struct FakeRig {
     AudioFormat capFmt{48000, 2, 16, false};
     AudioFormat renderFmt{48000, 2, 16, false};
     bool        renderFailStart = false;
+    bool        silentFailOpen = false;
+    bool        silentFailStart = false;
 
     std::atomic<bool> capStopped{false};
     std::atomic<bool> renderStopped{false};
+    std::atomic<bool> silentStopped{false};
     std::atomic<int>  capOpenCount{0};
     std::atomic<int>  renderOpenCount{0};  // increments each time render factory is called
+    std::atomic<int>  silentOpenCount{0};
     std::atomic<int>  renderOpenDone{0};   // release-incremented inside open() for race-free sync
     FakeBackend*      capPtr    = nullptr;
     FakeBackend*      renderPtr = nullptr;
+    FakeBackend*      silentPtr = nullptr;
     CaptureSource     lastCaptureSource{};
     bool              sawCaptureSource = false;
 
@@ -111,6 +123,17 @@ struct FakeRig {
             renderStopped.store(false, std::memory_order_relaxed); // reset for each new backend
             auto b    = std::make_unique<FakeBackend>(renderFmt, renderFailStart, &renderStopped, &renderOpenDone);
             renderPtr = b.get();
+            return b;
+        };
+    }
+
+    MonitorEngine::SilentRenderFactory silentFactory() {
+        return [this](const AudioFormat* req) -> std::unique_ptr<IAudioBackend> {
+            silentOpenCount.fetch_add(1, std::memory_order_relaxed);
+            auto b = std::make_unique<FakeBackend>(renderFmt, silentFailStart, &silentStopped,
+                                                   nullptr, silentFailOpen);
+            silentPtr = b.get();
+            if (req) { b->lastRequested_ = *req; b->sawRequested_ = true; }
             return b;
         };
     }
@@ -483,7 +506,7 @@ TEST(MonitorEngine, LegacyStartUsesEndpointCaptureSource) {
 
 TEST(MonitorEngine, LoopbackCaptureSourceReachesFactory) {
     FakeRig rig;
-    MonitorEngine eng(rig.factory());
+    MonitorEngine eng(rig.factory(), rig.silentFactory());
     CaptureSource source{CaptureSourceKind::SystemLoopback, L"loopback-render-id"};
 
     ASSERT_TRUE(eng.start(BackendKind::WasapiShared, source, L"playback-render-id", 50,
@@ -495,6 +518,97 @@ TEST(MonitorEngine, LoopbackCaptureSourceReachesFactory) {
     EXPECT_EQ(rig.lastCaptureSource.deviceId, L"loopback-render-id");
     EXPECT_EQ(rig.renderOpenCount.load(), 0);
     eng.stop();
+}
+
+TEST(MonitorEngine, LoopbackStartsSilentRenderByDefault) {
+    FakeRig rig;
+    MonitorEngine eng(rig.factory(), rig.silentFactory());
+    CaptureSource source{CaptureSourceKind::SystemLoopback, L"loopback-render-id"};
+
+    ASSERT_TRUE(eng.start(BackendKind::WasapiShared, source, L"", 50, false));
+
+    EXPECT_EQ(rig.silentOpenCount.load(), 1);
+    ASSERT_NE(rig.silentPtr, nullptr);
+    EXPECT_TRUE(rig.silentPtr->sawRequested_);
+    EXPECT_EQ(rig.silentPtr->lastRequested_, rig.capFmt);
+    EXPECT_EQ(eng.poll().silentRenderState, StreamState::Running);
+    eng.stop();
+    EXPECT_TRUE(rig.silentStopped.load());
+    EXPECT_EQ(eng.poll().silentRenderState, StreamState::Idle);
+}
+
+TEST(MonitorEngine, PollExposesCaptureProgressAndLoopbackSilenceFrames) {
+    FakeRig rig;
+    MonitorEngine eng(rig.factory(), rig.silentFactory());
+    CaptureSource source{CaptureSourceKind::SystemLoopback, L"loopback-render-id"};
+
+    ASSERT_TRUE(eng.start(BackendKind::WasapiShared, source, L"", 50, false));
+    ASSERT_NE(rig.capPtr, nullptr);
+
+    rig.capPtr->idleSilenceFrames_ = 9600;
+    rig.capPtr->silentPacketFrames_ = 4800;
+    auto pcm = makeRampPcm({0, 0, 0, 0}, rig.capFmt.channels);
+    rig.capPtr->pushPcm(pcm.data(), pcm.size());
+
+    ASSERT_TRUE(waitFor([&] { return eng.capWritten() >= 4; }));
+    MonitorStatus st = eng.poll();
+    EXPECT_GE(st.capWrittenFrames, 4u);
+    EXPECT_EQ(st.loopbackIdleSilenceFrames, 9600u);
+    EXPECT_EQ(st.loopbackSilentPacketFrames, 4800u);
+    eng.stop();
+}
+
+TEST(MonitorEngine, LoopbackCanDisableSilentRender) {
+    FakeRig rig;
+    MonitorEngine eng(rig.factory(), rig.silentFactory());
+    CaptureSource source{CaptureSourceKind::SystemLoopback, L"loopback-render-id"};
+    LoopbackOptions opts{};
+    opts.silentRender = false;
+
+    ASSERT_TRUE(eng.start(BackendKind::WasapiShared, source, L"", 50, false,
+                          {}, {}, nullptr, opts));
+
+    EXPECT_EQ(rig.silentOpenCount.load(), 0);
+    EXPECT_EQ(eng.poll().silentRenderState, StreamState::Idle);
+    eng.stop();
+}
+
+TEST(MonitorEngine, SilentRenderFailureDoesNotFailLoopbackCapture) {
+    FakeRig rig;
+    rig.silentFailStart = true;
+    MonitorEngine eng(rig.factory(), rig.silentFactory());
+    CaptureSource source{CaptureSourceKind::SystemLoopback, L"loopback-render-id"};
+
+    Result r = eng.start(BackendKind::WasapiShared, source, L"", 50, false);
+
+    EXPECT_TRUE(r);
+    EXPECT_EQ(rig.capOpenCount.load(), 1);
+    ASSERT_NE(rig.capPtr, nullptr);
+    EXPECT_TRUE(rig.capPtr->started_.load());
+    EXPECT_EQ(rig.silentOpenCount.load(), 1);
+    EXPECT_EQ(eng.poll().overall, StreamState::Running);
+    EXPECT_EQ(eng.poll().capState, StreamState::Running);
+    EXPECT_EQ(eng.poll().silentRenderState, StreamState::Error);
+    eng.stop();
+}
+
+TEST(MonitorEngine, SilentRenderOpenFailureDoesNotFailLoopbackCapture) {
+    FakeRig rig;
+    rig.silentFailOpen = true;
+    MonitorEngine eng(rig.factory(), rig.silentFactory());
+    CaptureSource source{CaptureSourceKind::SystemLoopback, L"loopback-render-id"};
+
+    Result r = eng.start(BackendKind::WasapiShared, source, L"", 50, false);
+
+    EXPECT_TRUE(r);
+    ASSERT_NE(rig.capPtr, nullptr);
+    EXPECT_TRUE(rig.capPtr->started_.load());
+    EXPECT_EQ(eng.poll().capState, StreamState::Running);
+    EXPECT_EQ(rig.silentOpenCount.load(), 1);
+    EXPECT_EQ(eng.poll().overall, StreamState::Running);
+    EXPECT_EQ(eng.poll().silentRenderState, StreamState::Error);
+    eng.stop();
+    EXPECT_EQ(eng.poll().silentRenderState, StreamState::Idle);
 }
 
 TEST(MonitorEngine, LoopbackPlaybackRejectsSameRenderDevice) {
@@ -529,7 +643,7 @@ TEST(MonitorEngine, LoopbackPlaybackRejectsBothDefaultRenderDevices) {
 
 TEST(MonitorEngine, LoopbackRuntimePlaybackRejectsSameRenderDevice) {
     FakeRig rig;
-    MonitorEngine eng(rig.factory());
+    MonitorEngine eng(rig.factory(), rig.silentFactory());
     CaptureSource source{CaptureSourceKind::SystemLoopback, L"same-render-id"};
 
     ASSERT_TRUE(eng.start(BackendKind::WasapiShared, source, L"same-render-id", 50,

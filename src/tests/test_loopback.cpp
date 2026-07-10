@@ -36,11 +36,33 @@ TEST(WasapiSystemLoopbackCaptureStream, IdleTimeoutSilenceKeepsWallClockCadence)
     EXPECT_EQ(loopbackSilenceFramesForTimeout(0, 200), 0u);
 }
 
-TEST(WasapiSystemLoopbackCaptureStream, IdleSilenceOnlyWhenTimeoutHasNoPackets) {
+TEST(WasapiSystemLoopbackCaptureStream, IdleSilenceWhenWakeHasNoPackets) {
     EXPECT_TRUE(shouldWriteLoopbackIdleSilence(WAIT_TIMEOUT, S_OK, false, false));
-    EXPECT_FALSE(shouldWriteLoopbackIdleSilence(WAIT_OBJECT_0, S_OK, false, false));
+    EXPECT_TRUE(shouldWriteLoopbackIdleSilence(WAIT_OBJECT_0, S_OK, false, false));
     EXPECT_FALSE(shouldWriteLoopbackIdleSilence(WAIT_TIMEOUT, S_OK, true, false));
     EXPECT_FALSE(shouldWriteLoopbackIdleSilence(WAIT_TIMEOUT, S_OK, false, true));
     EXPECT_FALSE(shouldWriteLoopbackIdleSilence(WAIT_TIMEOUT, AUDCLNT_E_DEVICE_INVALIDATED,
                                                false, false));
+}
+
+TEST(WasapiSystemLoopbackCaptureStream, IdleSilenceUsesElapsedTimeWithTimeoutCap) {
+    EXPECT_EQ(loopbackSilenceFramesForElapsed(48000, 10, 200), 480u);
+    EXPECT_EQ(loopbackSilenceFramesForElapsed(48000, 250, 200), 9600u);
+    EXPECT_EQ(loopbackSilenceFramesForElapsed(48000, 0, 200), 0u);
+    EXPECT_EQ(loopbackSilenceFramesForElapsed(0, 10, 200), 0u);
+}
+
+TEST(WasapiSystemLoopbackCaptureStream, SilentPacketFramesComeFromWasapiFlag) {
+    EXPECT_EQ(captureSilentPacketFrames(480, AUDCLNT_BUFFERFLAGS_SILENT), 480u);
+    EXPECT_EQ(captureSilentPacketFrames(480, 0), 0u);
+}
+
+TEST(WasapiSilentRenderStream, RejectsExclusiveInOpen) {
+    WasapiSilentRenderStream stream(WasapiMode::Exclusive, nullptr);
+
+    Result r = stream.open(L"", AudioFormat{}, nullptr, StreamParams{});
+
+    EXPECT_FALSE(static_cast<bool>(r));
+    EXPECT_NE(r.message.find("silent render"), std::string::npos);
+    EXPECT_NE(r.message.find("Shared"), std::string::npos);
 }

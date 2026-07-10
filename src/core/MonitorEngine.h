@@ -40,6 +40,7 @@ struct MonitorStatus {
     StreamState overall     = StreamState::Idle;
     StreamState capState    = StreamState::Idle;
     StreamState renderState = StreamState::Idle;
+    StreamState silentRenderState = StreamState::Idle;
     uint32_t    sampleRate  = 0;
     uint32_t    delayMs     = 0;
     float       fifoFillMs  = 0.f;   // EMA-smoothed DelayFifo occupancy in ms
@@ -47,6 +48,10 @@ struct MonitorStatus {
     uint64_t    driftFixes  = 0;
     uint64_t    capXruns    = 0;
     uint64_t    renderXruns = 0;     // = renderRing overruns (not counted during prefill)
+    uint64_t    capWrittenFrames = 0;
+    uint64_t    renderWrittenFrames = 0;
+    uint64_t    loopbackIdleSilenceFrames = 0;
+    uint64_t    loopbackSilentPacketFrames = 0;
     float       capLevel    = 0.f;
     float       renderLevel = 0.f;
     uint32_t    errorCode   = 0;     // MonitorError
@@ -64,8 +69,11 @@ public:
     using BackendFactory =
         std::function<std::unique_ptr<IAudioBackend>(DataFlow, const CaptureSource*,
                                                      const AudioFormat*)>;
+    using SilentRenderFactory =
+        std::function<std::unique_ptr<IAudioBackend>(const AudioFormat*)>;
 
-    explicit MonitorEngine(BackendFactory factory = {}); // empty => real WASAPI streams
+    explicit MonitorEngine(BackendFactory factory = {},
+                           SilentRenderFactory silentFactory = {});
     ~MonitorEngine();
 
     MonitorEngine(const MonitorEngine&)            = delete;
@@ -74,13 +82,14 @@ public:
     Result start(BackendKind kind, const CaptureSource& capSource, const DeviceId& renderId,
                  uint32_t delayMs, bool playbackEnabled = true,
                  const StreamParams& capParams = {}, const StreamParams& renderParams = {},
-                 const AudioFormat* capFormat = nullptr);
+                 const AudioFormat* capFormat = nullptr,
+                 const LoopbackOptions& loopbackOptions = {});
     Result start(BackendKind kind, const DeviceId& capId, const DeviceId& renderId,
                  uint32_t delayMs, bool playbackEnabled = true,
                  const StreamParams& capParams = {}, const StreamParams& renderParams = {},
                  const AudioFormat* capFormat = nullptr) {
         return start(kind, CaptureSource{CaptureSourceKind::Endpoint, capId}, renderId,
-                     delayMs, playbackEnabled, capParams, renderParams, capFormat);
+                     delayMs, playbackEnabled, capParams, renderParams, capFormat, {});
     }
     void   stop();
     MonitorStatus poll();
@@ -101,16 +110,21 @@ private:
     std::unique_ptr<IAudioBackend> makeBackend(DataFlow flow, BackendKind kind,
                                                const CaptureSource* source,
                                                const AudioFormat* requested);
+    std::unique_ptr<IAudioBackend> makeSilentRenderBackend(const AudioFormat* requested);
+    Result startSilentRenderIfNeeded();
+    void   stopSilentRender();
     Result engageRender();      // pump 前(start) 或 pump 线程调用；开渲染+校验+建 FIFO/刮擦；失败原子(全关渲染)
     void   disengageRender();   // 停+关渲染、释放设备、reset renderRing_/delayFifo_；不动 renderScope_
 
     BackendFactory factory_; // empty => build real WASAPI streams
+    SilentRenderFactory silentFactory_;
 
     // Run-const session parameters (set in start(), consumed in engageRender()).
     BackendKind kind_{BackendKind::WasapiShared};
     CaptureSource capSource_{};
     DeviceId    renderId_{};
     uint32_t    delayMs_ = 0;
+    LoopbackOptions loopbackOptions_{};
     std::atomic<bool> wantPlayback_{false};
     StreamParams capParams_{};      // start 时消费(采集参数改动需 Stop/Start)
     StreamParams renderParams_{};   // paramsMtx_ 保护;engageRender 取快照
@@ -120,6 +134,7 @@ private:
 
     std::unique_ptr<IAudioBackend> capBackend_;
     std::unique_ptr<IAudioBackend> renderBackend_;
+    std::unique_ptr<IAudioBackend> silentRenderBackend_;
     std::unique_ptr<RingBuffer>    captureRing_;
     std::unique_ptr<RingBuffer>    renderRing_;
     std::unique_ptr<ScopeBuffer>   captureScope_;
@@ -145,6 +160,7 @@ private:
     std::atomic<StreamState> overall_{StreamState::Idle};
     std::atomic<StreamState> capState_{StreamState::Idle};
     std::atomic<StreamState> renderState_{StreamState::Idle};
+    std::atomic<StreamState> silentRenderState_{StreamState::Idle};
     std::atomic<uint32_t>    sampleRate_{0};
     std::atomic<uint32_t>    delayMsAtomic_{0};
     std::atomic<uint32_t>    renderBufMs_{0};

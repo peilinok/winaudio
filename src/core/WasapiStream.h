@@ -19,6 +19,9 @@ enum class WasapiMode { Shared, Exclusive };
 AUDIO_STREAM_CATEGORY mapCategory(AudioCategory c);
 AUDCLNT_STREAMOPTIONS mapStreamOption(StreamOption o);
 uint32_t loopbackSilenceFramesForTimeout(uint32_t sampleRate, uint32_t timeoutMs);
+uint32_t loopbackSilenceFramesForElapsed(uint32_t sampleRate, uint64_t elapsedMs,
+                                         uint32_t maxMs);
+uint32_t captureSilentPacketFrames(uint32_t frames, unsigned flags);
 bool shouldWriteLoopbackIdleSilence(unsigned waitResult, long packetStatus,
                                     bool sawPacket, bool wroteFrames);
 
@@ -50,6 +53,8 @@ protected:
     uint32_t    bufferFrames_ = 0;
     uint32_t    frameBytes_ = 0;
     std::atomic<bool> running_{false};
+    std::atomic<uint64_t> idleSilenceFrames_{0};
+    std::atomic<uint64_t> silentPacketFrames_{0};
     void*       hEvent_ = nullptr;        // HANDLE
     ComPtr<IAudioClient> client_;
 
@@ -108,6 +113,22 @@ class WasapiRenderStream : public WasapiStream {
 public:
     WasapiRenderStream(WasapiMode mode, const AudioFormat* requested);
     ~WasapiRenderStream() override;
+protected:
+    EDataFlow dataFlow() const override { return eRender; }
+    Result createService() override;
+    void   preRoll() override;
+    void   runLoop() override;
+    void   resetService() override { render_.Reset(); }
+private:
+    ComPtr<IAudioRenderClient> render_;
+};
+
+class WasapiSilentRenderStream : public WasapiStream {
+public:
+    WasapiSilentRenderStream(WasapiMode mode, const AudioFormat* requested);
+    ~WasapiSilentRenderStream() override;
+    Result open(const DeviceId& id, const AudioFormat& fmt, RingBuffer* ring,
+                const StreamParams& params) override;
 protected:
     EDataFlow dataFlow() const override { return eRender; }
     Result createService() override;

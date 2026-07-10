@@ -136,7 +136,8 @@ Result Engine::probeFormat(BackendKind kind, DataFlow flow, const DeviceId& id,
 }
 
 Result Engine::startCapture(BackendKind kind, const CaptureSource& source,
-                            const std::wstring& wavPath, const AudioFormat* requested) {
+                            const std::wstring& wavPath, const AudioFormat* requested,
+                            const LoopbackOptions& loopbackOptions) {
     stop();
     WA_LOG(wa::log::Level::Info, "Engine", "startCapture",
         "source=" + std::string(captureSourceName(source.kind))
@@ -155,6 +156,10 @@ Result Engine::startCapture(BackendKind kind, const CaptureSource& source,
         if (!r) {
             WA_LOG(wa::log::Level::Err, "Engine", "startCapture", "start", r.message);
             return r;
+        }
+        if (Result sr = startSilentRenderForLoopback(source, loopbackOptions); !sr) {
+            WA_LOG(wa::log::Level::Warn, "Engine", "silentRender.unavailable",
+                   "", sr.message);
         }
         running_.store(true);
         startTick_ = GetTickCount64();
@@ -220,9 +225,44 @@ Result Engine::startPlayback(BackendKind kind, const DeviceId& id, const std::ws
     }
 }
 
+Result Engine::startSilentRenderForLoopback(const CaptureSource& source,
+                                            const LoopbackOptions& loopbackOptions) {
+    if (source.kind != CaptureSourceKind::SystemLoopback || !loopbackOptions.silentRender)
+        return Result::Ok();
+
+    WA_LOG(wa::log::Level::Info, "Engine", "silentRender.start",
+           "dev=" + (source.deviceId.empty() ? std::string("(default)")
+                                             : wa::narrowAscii(source.deviceId)),
+           "requested");
+
+    silentRenderBackend_ = std::make_unique<WasapiSilentRenderStream>(WasapiMode::Shared, nullptr);
+    Result r = silentRenderBackend_->open(source.deviceId, AudioFormat{}, nullptr, {});
+    if (!r) {
+        silentRenderBackend_.reset();
+        return r;
+    }
+    r = silentRenderBackend_->start();
+    if (!r) {
+        silentRenderBackend_->stop();
+        silentRenderBackend_.reset();
+        return r;
+    }
+    WA_LOG(wa::log::Level::Info, "Engine", "silentRender.started", "", "ok");
+    return Result::Ok();
+}
+
+void Engine::stopSilentRender() {
+    if (silentRenderBackend_) {
+        WA_LOG(wa::log::Level::Info, "Engine", "silentRender.stop", "", "");
+        silentRenderBackend_->stop();
+        silentRenderBackend_.reset();
+    }
+}
+
 void Engine::stop() {
     running_.store(false);
     if (pump_.joinable()) pump_.join();
+    stopSilentRender();
     if (backend_) backend_->stop();
     backend_.reset();
     ring_.reset();
