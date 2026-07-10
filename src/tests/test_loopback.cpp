@@ -44,3 +44,13 @@ TEST(WasapiSystemLoopbackCaptureStream, IdleSilenceOnlyWhenTimeoutHasNoPackets) 
     EXPECT_FALSE(shouldWriteLoopbackIdleSilence(WAIT_TIMEOUT, AUDCLNT_E_DEVICE_INVALIDATED,
                                                false, false));
 }
+
+TEST(WasapiSilentRenderStream, RejectsExclusiveInOpen) {
+    WasapiSilentRenderStream stream(WasapiMode::Exclusive, nullptr);
+
+    Result r = stream.open(L"", AudioFormat{}, nullptr, StreamParams{});
+
+    EXPECT_FALSE(static_cast<bool>(r));
+    EXPECT_NE(r.message.find("silent render"), std::string::npos);
+    EXPECT_NE(r.message.find("Shared"), std::string::npos);
+}

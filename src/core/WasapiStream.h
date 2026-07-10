@@ -118,4 +118,20 @@ private:
     ComPtr<IAudioRenderClient> render_;
 };
 
+class WasapiSilentRenderStream : public WasapiStream {
+public:
+    WasapiSilentRenderStream(WasapiMode mode, const AudioFormat* requested);
+    ~WasapiSilentRenderStream() override;
+    Result open(const DeviceId& id, const AudioFormat& fmt, RingBuffer* ring,
+                const StreamParams& params) override;
+protected:
+    EDataFlow dataFlow() const override { return eRender; }
+    Result createService() override;
+    void   preRoll() override;
+    void   runLoop() override;
+    void   resetService() override { render_.Reset(); }
+private:
+    ComPtr<IAudioRenderClient> render_;
+};
+
 } // namespace wa

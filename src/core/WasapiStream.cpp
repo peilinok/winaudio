@@ -493,4 +493,74 @@ void WasapiRenderStream::runLoop() {
     }
 }
 
+WasapiSilentRenderStream::WasapiSilentRenderStream(WasapiMode mode,
+                                                   const AudioFormat* requested)
+    : WasapiStream(mode, requested) {}
+
+WasapiSilentRenderStream::~WasapiSilentRenderStream() { close(); }
+
+Result WasapiSilentRenderStream::open(const DeviceId& id, const AudioFormat& fmt,
+                                      RingBuffer* ring, const StreamParams& params) {
+    if (isExclusive()) {
+        return Result::Fail(-1, "WasapiSilentRenderStream: silent render requires WASAPI-Shared");
+    }
+    return WasapiStream::open(id, fmt, ring, params);
+}
+
+Result WasapiSilentRenderStream::createService() {
+    HRESULT hr = client_->GetService(__uuidof(IAudioRenderClient),
+        reinterpret_cast<void**>(render_.GetAddressOf()));
+    WA_LOG(wa::log::Level::Debug, "WasapiSilentRenderStream",
+           "GetService(IAudioRenderClient)", "", wa::log::hrName(hr));
+    if (FAILED(hr)) {
+        WA_LOG(wa::log::Level::Err, "WasapiSilentRenderStream",
+               "GetService(IAudioRenderClient)", "", wa::log::hrName(hr));
+        return HrToResult(hr, "WasapiSilentRenderStream: GetService");
+    }
+    return Result::Ok();
+}
+
+void WasapiSilentRenderStream::preRoll() {
+    BYTE* buf = nullptr;
+    HRESULT hrPre = render_->GetBuffer(bufferFrames_, &buf);
+    WA_LOG(wa::log::Level::Debug, "WasapiSilentRenderStream", "GetBuffer(preRoll)",
+           "frames=" + std::to_string(bufferFrames_), wa::log::hrName(hrPre));
+    if (SUCCEEDED(hrPre)) {
+        HRESULT hrRel = render_->ReleaseBuffer(bufferFrames_, AUDCLNT_BUFFERFLAGS_SILENT);
+        WA_LOG(wa::log::Level::Debug, "WasapiSilentRenderStream",
+               "ReleaseBuffer(preRoll)", "", wa::log::hrName(hrRel));
+    }
+}
+
+void WasapiSilentRenderStream::runLoop() {
+    wa::log::setThreadName("silR");
+    WA_LOG(wa::log::Level::Info, "WasapiSilentRenderStream", "runLoop",
+           "silent render loop started", "");
+    while (running_.load()) {
+        DWORD waitRc = WaitForSingleObject(static_cast<HANDLE>(hEvent_), 200);
+        wa::log::emitTrace("WasapiSilentRenderStream", "WaitForSingleObject", 0, waitRc, 0);
+        if (!running_.load()) break;
+
+        UINT32 padding = 0;
+        HRESULT hrPad = client_->GetCurrentPadding(&padding);
+        wa::log::emitTrace("WasapiSilentRenderStream", "GetCurrentPadding", padding, 0,
+                           static_cast<long>(hrPad));
+        if (FAILED(hrPad)) break;
+
+        UINT32 frames = bufferFrames_ - padding;
+        if (frames == 0) continue;
+
+        BYTE* buf = nullptr;
+        HRESULT hrGB = render_->GetBuffer(frames, &buf);
+        wa::log::emitTrace("WasapiSilentRenderStream", "GetBuffer", frames, 0,
+                           static_cast<long>(hrGB));
+        if (FAILED(hrGB)) break;
+
+        HRESULT hrRB = render_->ReleaseBuffer(frames, AUDCLNT_BUFFERFLAGS_SILENT);
+        wa::log::emitTrace("WasapiSilentRenderStream", "ReleaseBuffer", frames,
+                           AUDCLNT_BUFFERFLAGS_SILENT, static_cast<long>(hrRB));
+        if (FAILED(hrRB)) break;
+    }
+}
+
 } // namespace wa
