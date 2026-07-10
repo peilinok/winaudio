@@ -22,6 +22,10 @@ struct CaptureSource {
     DeviceId deviceId; // Endpoint: capture endpoint; SystemLoopback: render endpoint
 };
 
+struct LoopbackOptions {
+    bool silentRender = true;
+};
+
 struct DeviceInfo {
     DeviceId     id;
     std::wstring name;
