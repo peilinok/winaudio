@@ -41,6 +41,8 @@ struct BackendStats {
     uint32_t    bufferFrames = 0;
     uint64_t    overruns = 0;
     uint64_t    underruns = 0;
+    uint64_t    idleSilenceFrames = 0;
+    uint64_t    silentPacketFrames = 0;
 };
 
 class IAudioBackend {

@@ -58,6 +58,8 @@ public:
         BackendStats s{};
         s.actualFormat = fmt_;
         s.bufferFrames = bufferFrames_;
+        s.idleSilenceFrames = idleSilenceFrames_;
+        s.silentPacketFrames = silentPacketFrames_;
         return s;
     }
     void* dataReadyEvent() const override { return evt_; }
@@ -75,6 +77,8 @@ public:
     bool               failOpen_    = false;
     std::atomic<bool>  started_{false};
     uint32_t          bufferFrames_ = 0;
+    uint64_t          idleSilenceFrames_ = 0;
+    uint64_t          silentPacketFrames_ = 0;
     StreamParams      lastOpenParams_{};
     RingBuffer*       ring_ = nullptr;
     HANDLE            evt_  = nullptr;
@@ -531,6 +535,27 @@ TEST(MonitorEngine, LoopbackStartsSilentRenderByDefault) {
     eng.stop();
     EXPECT_TRUE(rig.silentStopped.load());
     EXPECT_EQ(eng.poll().silentRenderState, StreamState::Idle);
+}
+
+TEST(MonitorEngine, PollExposesCaptureProgressAndLoopbackSilenceFrames) {
+    FakeRig rig;
+    MonitorEngine eng(rig.factory(), rig.silentFactory());
+    CaptureSource source{CaptureSourceKind::SystemLoopback, L"loopback-render-id"};
+
+    ASSERT_TRUE(eng.start(BackendKind::WasapiShared, source, L"", 50, false));
+    ASSERT_NE(rig.capPtr, nullptr);
+
+    rig.capPtr->idleSilenceFrames_ = 9600;
+    rig.capPtr->silentPacketFrames_ = 4800;
+    auto pcm = makeRampPcm({0, 0, 0, 0}, rig.capFmt.channels);
+    rig.capPtr->pushPcm(pcm.data(), pcm.size());
+
+    ASSERT_TRUE(waitFor([&] { return eng.capWritten() >= 4; }));
+    MonitorStatus st = eng.poll();
+    EXPECT_GE(st.capWrittenFrames, 4u);
+    EXPECT_EQ(st.loopbackIdleSilenceFrames, 9600u);
+    EXPECT_EQ(st.loopbackSilentPacketFrames, 4800u);
+    eng.stop();
 }
 
 TEST(MonitorEngine, LoopbackCanDisableSilentRender) {

@@ -48,6 +48,10 @@ struct MonitorStatus {
     uint64_t    driftFixes  = 0;
     uint64_t    capXruns    = 0;
     uint64_t    renderXruns = 0;     // = renderRing overruns (not counted during prefill)
+    uint64_t    capWrittenFrames = 0;
+    uint64_t    renderWrittenFrames = 0;
+    uint64_t    loopbackIdleSilenceFrames = 0;
+    uint64_t    loopbackSilentPacketFrames = 0;
     float       capLevel    = 0.f;
     float       renderLevel = 0.f;
     uint32_t    errorCode   = 0;     // MonitorError

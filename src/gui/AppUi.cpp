@@ -410,6 +410,10 @@ void AppUi::drawLoopbackLeftPanel() {
     ImGui::Text("overall=%s  cap=%s  sr=%u",
         ss[(int)loopbackMs_.overall], ss[(int)loopbackMs_.capState], loopbackMs_.sampleRate);
     ImGui::Text("xrun=%llu", (unsigned long long)loopbackMs_.capXruns);
+    ImGui::Text("frames=%llu", (unsigned long long)loopbackMs_.capWrittenFrames);
+    ImGui::Text("silent-packet=%llu  idle-fill=%llu",
+        (unsigned long long)loopbackMs_.loopbackSilentPacketFrames,
+        (unsigned long long)loopbackMs_.loopbackIdleSilenceFrames);
     ImGui::Text("silent render=%s",
         ss[(int)loopbackMs_.silentRenderState]);
     ImGui::ProgressBar(loopbackMs_.capLevel, ImVec2(-1, 0), "level");
@@ -504,6 +508,9 @@ void AppUi::drawLeftPanel() {
         (unsigned long long)ms_.driftFixes,
         (unsigned long long)ms_.capXruns,
         (unsigned long long)ms_.renderXruns);
+    ImGui::Text("frames c/r=%llu/%llu",
+        (unsigned long long)ms_.capWrittenFrames,
+        (unsigned long long)ms_.renderWrittenFrames);
     ImGui::ProgressBar(ms_.capLevel,    ImVec2(-1, 0), "cap");
     ImGui::ProgressBar(ms_.renderLevel, ImVec2(-1, 0), "ren");
 

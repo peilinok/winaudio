@@ -19,6 +19,9 @@ enum class WasapiMode { Shared, Exclusive };
 AUDIO_STREAM_CATEGORY mapCategory(AudioCategory c);
 AUDCLNT_STREAMOPTIONS mapStreamOption(StreamOption o);
 uint32_t loopbackSilenceFramesForTimeout(uint32_t sampleRate, uint32_t timeoutMs);
+uint32_t loopbackSilenceFramesForElapsed(uint32_t sampleRate, uint64_t elapsedMs,
+                                         uint32_t maxMs);
+uint32_t captureSilentPacketFrames(uint32_t frames, unsigned flags);
 bool shouldWriteLoopbackIdleSilence(unsigned waitResult, long packetStatus,
                                     bool sawPacket, bool wroteFrames);
 
@@ -50,6 +53,8 @@ protected:
     uint32_t    bufferFrames_ = 0;
     uint32_t    frameBytes_ = 0;
     std::atomic<bool> running_{false};
+    std::atomic<uint64_t> idleSilenceFrames_{0};
+    std::atomic<uint64_t> silentPacketFrames_{0};
     void*       hEvent_ = nullptr;        // HANDLE
     ComPtr<IAudioClient> client_;
 

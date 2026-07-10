@@ -502,6 +502,13 @@ MonitorStatus MonitorEngine::poll() {
     s.driftFixes  = driftFixes_.load(std::memory_order_relaxed);
     s.capXruns    = capXruns_.load(std::memory_order_relaxed);
     s.renderXruns = renderXruns_.load(std::memory_order_relaxed);
+    s.capWrittenFrames = capWritten();
+    s.renderWrittenFrames = renderWritten();
+    if (capBackend_) {
+        const BackendStats stats = capBackend_->stats();
+        s.loopbackIdleSilenceFrames = stats.idleSilenceFrames;
+        s.loopbackSilentPacketFrames = stats.silentPacketFrames;
+    }
     s.capLevel    = capLevel_.load(std::memory_order_relaxed);
     s.renderLevel = renderLevel_.load(std::memory_order_relaxed);
     s.errorCode   = errorCode_.load(std::memory_order_relaxed);
