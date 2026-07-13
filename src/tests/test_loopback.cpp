@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <string>
+#include "ApplicationLoopbackCapture.h"
 #include "IAudioBackend.h"
 #include "RingBuffer.h"
 #include "WasapiStream.h"
@@ -17,6 +18,13 @@ TEST(CaptureSource, CanRepresentSystemLoopbackRenderDevice) {
     CaptureSource source{CaptureSourceKind::SystemLoopback, L"render-device-id"};
     EXPECT_EQ(source.kind, CaptureSourceKind::SystemLoopback);
     EXPECT_EQ(source.deviceId, L"render-device-id");
+}
+
+TEST(CaptureSource, CanRepresentApplicationLoopbackProcess) {
+    CaptureSource source{CaptureSourceKind::ApplicationLoopback, L"", 4242u};
+    EXPECT_EQ(source.kind, CaptureSourceKind::ApplicationLoopback);
+    EXPECT_TRUE(source.deviceId.empty());
+    EXPECT_EQ(source.processId, 4242u);
 }
 
 TEST(WasapiSystemLoopbackCaptureStream, RejectsExclusiveInOpen) {
@@ -65,4 +73,43 @@ TEST(WasapiSilentRenderStream, RejectsExclusiveInOpen) {
     EXPECT_FALSE(static_cast<bool>(r));
     EXPECT_NE(r.message.find("silent render"), std::string::npos);
     EXPECT_NE(r.message.find("Shared"), std::string::npos);
+}
+
+TEST(ApplicationLoopbackCaptureStream, RejectsExclusiveInOpen) {
+    RingBuffer ring(4096);
+    ApplicationLoopbackCaptureStream stream(WasapiMode::Exclusive, 4242u, nullptr);
+
+    Result r = stream.open(L"", AudioFormat{}, &ring, StreamParams{});
+
+    EXPECT_FALSE(static_cast<bool>(r));
+    EXPECT_NE(r.message.find("application loopback"), std::string::npos);
+    EXPECT_NE(r.message.find("Shared"), std::string::npos);
+}
+
+TEST(ApplicationLoopbackCaptureStream, RejectsZeroPid) {
+    RingBuffer ring(4096);
+    ApplicationLoopbackCaptureStream stream(WasapiMode::Shared, 0u, nullptr);
+
+    Result r = stream.open(L"", AudioFormat{}, &ring, StreamParams{});
+
+    EXPECT_FALSE(static_cast<bool>(r));
+    EXPECT_NE(r.message.find("PID"), std::string::npos);
+}
+
+TEST(ApplicationLoopbackCaptureStream, AcceptsSharedOpenWithValidPid) {
+    RingBuffer ring(4096);
+    ApplicationLoopbackCaptureStream stream(WasapiMode::Shared, 4242u, nullptr);
+
+    Result r = stream.open(L"", AudioFormat{}, &ring, StreamParams{});
+
+    EXPECT_TRUE(static_cast<bool>(r));
+}
+
+TEST(ApplicationLoopbackCaptureStream, DefaultFormatMatchesProcessLoopbackSampleFallback) {
+    AudioFormat fmt = defaultApplicationLoopbackFormat();
+
+    EXPECT_EQ(fmt.sampleRate, 44100u);
+    EXPECT_EQ(fmt.channels, 2u);
+    EXPECT_EQ(fmt.bitsPerSample, 16u);
+    EXPECT_FALSE(fmt.isFloat);
 }

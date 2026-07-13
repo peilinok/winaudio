@@ -3,7 +3,9 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <thread>
 #include <vector>
+#include "AudioSessionEnumerator.h"
 #include "DeviceEnumerator.h"
 #include "MonitorEngine.h"
 #include "Spectrogram.h"
@@ -14,6 +16,13 @@ public:
     void stopAll();       // stop engines on shutdown (idempotent)
     void pushLog(int level, const std::string& line);  // thread-safe; called from the logging pump thread
 private:
+    struct AppLoopbackStartJob {
+        std::mutex mtx;
+        bool done = false;
+        wa::Result result = wa::Result::Ok();
+        std::unique_ptr<wa::MonitorEngine> engine;
+    };
+
     struct VisualState {
         std::vector<float> capWave, renderWave;
         uint32_t waveSr = 0;
@@ -34,9 +43,14 @@ private:
     };
 
     void refreshMonitorDevices();
+    void refreshApplicationLoopbackSessions();
+    void beginApplicationLoopbackStart(uint32_t pid);
+    void drainApplicationLoopbackStart();
     void drawMonitorPage();
     void drawLoopbackPage();
+    void drawApplicationLoopbackPage();
     void drawLoopbackLeftPanel();
+    void drawApplicationLoopbackLeftPanel();
     void drawLeftPanel();
     void drawAdvancedModal();
     void drawCapsModal();
@@ -54,9 +68,12 @@ private:
 
     wa::MonitorEngine    monitor_;
     wa::MonitorEngine    loopback_;
+    std::unique_ptr<wa::MonitorEngine> appLoopback_ = std::make_unique<wa::MonitorEngine>();
     wa::DeviceEnumerator enumerator_;
+    wa::AudioSessionEnumerator sessionEnumerator_;
     wa::MonitorStatus    ms_;   // polled once per frame in draw(); shared by helper methods
     wa::MonitorStatus    loopbackMs_;
+    wa::MonitorStatus    appLoopbackMs_;
 
     int  backendIdx_      = 0;
     bool playbackEnabled_ = false;
@@ -78,6 +95,14 @@ private:
     bool                        monitorStarted_ = false;
     bool                        loopbackStarted_ = false;
     bool                        loopbackSilentRender_ = true;
+    bool                        appLoopbackStarted_ = false;
+    bool                        appLoopbackStartPending_ = false;
+    bool                        appLoopbackSessionsLoaded_ = false;
+    std::vector<wa::AudioSessionProcess> appLoopbackSessions_;
+    int                         appLoopbackSessionIdx_ = -1;
+    char                        appLoopbackPid_[32] = "";
+    std::thread                 appLoopbackStartThread_;
+    std::shared_ptr<AppLoopbackStartJob> appLoopbackStartJob_;
 
     wa::StreamParams capParams_{};    // Advanced 弹窗编辑;Start 时传入(运行中只读)
     wa::StreamParams renParams_{};
@@ -93,4 +118,5 @@ private:
 
     VisualState monitorViz_;
     VisualState loopbackViz_;
+    VisualState appLoopbackViz_;
 };

@@ -11,6 +11,7 @@
 #define NOMINMAX
 #endif
 #include "MonitorEngine.h"
+#include "ApplicationLoopbackCapture.h"
 #include "ComUtil.h"
 #include "DelayFifo.h"
 #include "DeviceEnumerator.h"
@@ -76,6 +77,9 @@ std::unique_ptr<IAudioBackend> MonitorEngine::makeBackend(DataFlow flow, Backend
     if (flow == DataFlow::Capture) {
         if (source && source->kind == CaptureSourceKind::SystemLoopback)
             return std::make_unique<WasapiSystemLoopbackCaptureStream>(mode, requested);
+        if (source && source->kind == CaptureSourceKind::ApplicationLoopback)
+            return std::make_unique<ApplicationLoopbackCaptureStream>(mode, source->processId,
+                                                                      requested);
         return std::make_unique<WasapiCaptureStream>(mode, requested);
     }
     return std::make_unique<WasapiRenderStream>(mode, requested);
@@ -194,7 +198,9 @@ Result MonitorEngine::start(BackendKind kind, const CaptureSource& capSource,
 
     WA_LOG(wa::log::Level::Info, "MonitorEngine", "start",
            "cap=" + wa::narrowAscii(capSource.deviceId) +
-           " source=" + std::string(capSource.kind == CaptureSourceKind::SystemLoopback ? "loopback" : "endpoint") +
+           " source=" + std::string(capSource.kind == CaptureSourceKind::SystemLoopback ? "loopback" :
+                                    capSource.kind == CaptureSourceKind::ApplicationLoopback ? "application-loopback" :
+                                    "endpoint") +
            " ren=" + wa::narrowAscii(renderId) +
            " delay=" + std::to_string(delayMs) + "ms" +
            " playback=" + (playbackEnabled ? "1" : "0"), "");

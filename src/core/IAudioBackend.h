@@ -15,11 +15,13 @@ using DeviceId = std::wstring;     // MMDevice id; empty string = default endpoi
 enum class CaptureSourceKind {
     Endpoint,
     SystemLoopback,
+    ApplicationLoopback,
 };
 
 struct CaptureSource {
     CaptureSourceKind kind = CaptureSourceKind::Endpoint;
     DeviceId deviceId; // Endpoint: capture endpoint; SystemLoopback: render endpoint
+    uint32_t processId = 0; // ApplicationLoopback target PID
 };
 
 struct LoopbackOptions {

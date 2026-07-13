@@ -5,6 +5,8 @@ add_library(WinAudioCore STATIC
     RingBuffer.cpp
     SampleConvert.cpp
     WavFile.cpp
+    AudioSessionEnumerator.cpp
+    ApplicationLoopbackCapture.cpp
     DeviceEnumerator.cpp
     WasapiStream.cpp
     Engine.cpp
@@ -14,5 +16,5 @@ add_library(WinAudioCore STATIC
     Log.cpp
 )
 target_include_directories(WinAudioCore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(WinAudioCore PUBLIC ole32 oleaut32 spdlog)
+target_link_libraries(WinAudioCore PUBLIC ole32 oleaut32 mmdevapi spdlog)
 wa_set_project_warnings(WinAudioCore)
