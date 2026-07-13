@@ -15,6 +15,7 @@ add_executable(WinAudioTests
     test_capabilities.cpp
     test_log.cpp
     test_loopback.cpp
+    test_audio_session_enumerator.cpp
     test_cli_options.cpp
     ${CMAKE_SOURCE_DIR}/src/gui/Spectrogram.cpp   # compiled into tests, as in the current setup
 )

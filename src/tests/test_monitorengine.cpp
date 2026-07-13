@@ -520,6 +520,46 @@ TEST(MonitorEngine, LoopbackCaptureSourceReachesFactory) {
     eng.stop();
 }
 
+TEST(MonitorEngine, ApplicationLoopbackCaptureSourceReachesFactory) {
+    FakeRig rig;
+    MonitorEngine eng(rig.factory(), rig.silentFactory());
+    CaptureSource source{CaptureSourceKind::ApplicationLoopback, L"", 4242u};
+
+    ASSERT_TRUE(eng.start(BackendKind::WasapiShared, source, L"", 50, false));
+
+    EXPECT_EQ(rig.capOpenCount.load(), 1);
+    EXPECT_TRUE(rig.sawCaptureSource);
+    EXPECT_EQ(rig.lastCaptureSource.kind, CaptureSourceKind::ApplicationLoopback);
+    EXPECT_TRUE(rig.lastCaptureSource.deviceId.empty());
+    EXPECT_EQ(rig.lastCaptureSource.processId, 4242u);
+    EXPECT_EQ(rig.renderOpenCount.load(), 0);
+    eng.stop();
+}
+
+TEST(MonitorEngine, ApplicationLoopbackDoesNotStartSilentRender) {
+    FakeRig rig;
+    MonitorEngine eng(rig.factory(), rig.silentFactory());
+    CaptureSource source{CaptureSourceKind::ApplicationLoopback, L"", 4242u};
+
+    ASSERT_TRUE(eng.start(BackendKind::WasapiShared, source, L"", 50, false));
+
+    EXPECT_EQ(rig.silentOpenCount.load(), 0);
+    EXPECT_EQ(eng.poll().silentRenderState, StreamState::Idle);
+    eng.stop();
+}
+
+TEST(MonitorEngine, ApplicationLoopbackDefaultFactoryRejectsZeroPid) {
+    MonitorEngine eng;
+    CaptureSource source{CaptureSourceKind::ApplicationLoopback, L"", 0u};
+
+    Result r = eng.start(BackendKind::WasapiShared, source, L"", 50, false);
+
+    EXPECT_FALSE(r);
+    MonitorStatus st = eng.poll();
+    EXPECT_NE(st.overall, StreamState::Running);
+    EXPECT_EQ(st.errorCode, static_cast<uint32_t>(MonitorError::CaptureOpen));
+}
+
 TEST(MonitorEngine, LoopbackStartsSilentRenderByDefault) {
     FakeRig rig;
     MonitorEngine eng(rig.factory(), rig.silentFactory());
