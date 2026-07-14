@@ -55,3 +55,30 @@ TEST(Log, LevelFilterAndSinkDelivery) {
     EXPECT_EQ(got.size(), 2u);
     for (log::Level lv : got) EXPECT_NE(lv, log::Level::Debug);
 }
+
+TEST(Log, FormatsLevelAsShortMarker) {
+    std::mutex m;
+    std::vector<std::string> lines;
+    log::init();
+    log::setThreadName("test");
+    log::addCallbackSink([&](log::Level, const std::string& line) {
+        std::lock_guard<std::mutex> lk(m);
+        lines.push_back(line);
+    });
+    log::setLevel(log::Level::Info);
+    log::emit(log::Level::Info, "T", "inf", "", "");
+    log::emit(log::Level::Warn, "T", "warn", "", "");
+    log::emit(log::Level::Err, "T", "err", "", "");
+    log::shutdown();
+
+    std::lock_guard<std::mutex> lk(m);
+    ASSERT_EQ(lines.size(), 3u);
+    EXPECT_NE(lines[0].find("[I]"), std::string::npos);
+    EXPECT_NE(lines[1].find("[W]"), std::string::npos);
+    EXPECT_NE(lines[2].find("[E]"), std::string::npos);
+    for (const auto& line : lines) {
+        EXPECT_EQ(line.find("INFO"), std::string::npos);
+        EXPECT_EQ(line.find("WARN"), std::string::npos);
+        EXPECT_EQ(line.find("ERROR"), std::string::npos);
+    }
+}
