@@ -143,4 +143,4 @@ WinAudioCli monitor [--cap <id>] [--render <id>] [--delay-ms N] [--seconds N] [-
 ## 开发
 
 - 开发者指南（构建细节、架构、编码约束）见 [CLAUDE.md](CLAUDE.md)；历次功能的设计文档在 `docs/superpowers/specs/`，实施计划在 `docs/superpowers/plans/`。
-- CI：push / PR 到 `main` 自动以 Debug + Release 双配置构建并跑测试；推送 `v*` tag 自动发布 Release。
+- CI：push / PR 到 `main` 自动以 Debug + Release 双配置构建并跑测试；推送 `v*` tag 自动发布 Release；`Release` workflow 也支持在 GitHub Actions 页面手动触发，手动运行会构建 Release、跑测试并上传 zip artifact，不创建正式 GitHub Release。
