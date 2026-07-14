@@ -19,17 +19,18 @@ AUDIO_STREAM_CATEGORY mapCategory(AudioCategory c) {
     case AudioCategory::SoundEffects:   return AudioCategory_SoundEffects;
     case AudioCategory::GameMedia:      return AudioCategory_GameMedia;
     case AudioCategory::Other:
-    case AudioCategory::Default:
     default:                            return AudioCategory_Other;
     }
 }
 
 AUDCLNT_STREAMOPTIONS mapStreamOption(StreamOption o) {
     switch (o) {
-    case StreamOption::Raw:         return AUDCLNT_STREAMOPTIONS_RAW;
-    case StreamOption::MatchFormat: return AUDCLNT_STREAMOPTIONS_MATCH_FORMAT;
-    case StreamOption::Default:
-    default:                        return AUDCLNT_STREAMOPTIONS_NONE;
+    case StreamOption::Raw:                return AUDCLNT_STREAMOPTIONS_RAW;
+    case StreamOption::MatchFormat:        return AUDCLNT_STREAMOPTIONS_MATCH_FORMAT;
+    case StreamOption::Ambisonics:         return AUDCLNT_STREAMOPTIONS_AMBISONICS;
+    case StreamOption::PostVolumeLoopback: return AUDCLNT_STREAMOPTIONS_POST_VOLUME_LOOPBACK;
+    case StreamOption::None:
+    default:                               return AUDCLNT_STREAMOPTIONS_NONE;
     }
 }
 
@@ -147,8 +148,9 @@ Result WasapiStream::applyClientProperties() {
         return HrToResult(FAILED(hr) ? hr : E_NOINTERFACE,
                           "WasapiStream: IAudioClient2 unavailable; cannot apply advanced stream params");
     }
-    const AUDIO_STREAM_CATEGORY cat = mapCategory(params_.category);
-    if (params_.offload == OffloadMode::Force) {
+    const ClientProperties& cp = params_.clientProperties;
+    const AUDIO_STREAM_CATEGORY cat = mapCategory(cp.category);
+    if (cp.offload) {
         BOOL capable = FALSE;
         hr = client2->IsOffloadCapable(cat, &capable);
         WA_LOG(wa::log::Level::Debug, "WasapiStream", "IsOffloadCapable", "", wa::log::hrName(hr));
@@ -158,9 +160,9 @@ Result WasapiStream::applyClientProperties() {
     }
     AudioClientProperties p{};
     p.cbSize     = sizeof(p);
-    p.bIsOffload = (params_.offload == OffloadMode::Force) ? TRUE : FALSE;
+    p.bIsOffload = cp.offload ? TRUE : FALSE;
     p.eCategory  = cat;
-    p.Options    = mapStreamOption(params_.option);
+    p.Options    = mapStreamOption(cp.option);
     hr = client2->SetClientProperties(&p);
     WA_LOG(wa::log::Level::Debug, "WasapiStream", "SetClientProperties", "", wa::log::hrName(hr));
     if (FAILED(hr)) { WA_LOG(wa::log::Level::Err, "WasapiStream", "SetClientProperties", "", wa::log::hrName(hr)); return HrToResult(hr, "WasapiStream: SetClientProperties"); }

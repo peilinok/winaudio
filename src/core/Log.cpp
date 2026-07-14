@@ -50,13 +50,13 @@ Level fromSpd(spdlog::level::level_enum l) {
 
 const char* levelStr(Level l) {
     switch (l) {
-        case Level::Trace: return "TRACE";
-        case Level::Debug: return "DEBUG";
-        case Level::Info:  return "INFO";
-        case Level::Warn:  return "WARN";
-        case Level::Err:   return "ERROR";
+        case Level::Trace: return "[T]";
+        case Level::Debug: return "[D]";
+        case Level::Info:  return "[I]";
+        case Level::Warn:  return "[W]";
+        case Level::Err:   return "[E]";
     }
-    return "INFO";
+    return "[I]";
 }
 
 // Static table of the HRESULTs this tool actually encounters. Returns nullptr
@@ -182,7 +182,7 @@ void emit(Level lvl, const char* module, const char* call,
     if (!g_logger) return;
     const std::string modcall = std::string(module) + "::" + call;
     const std::string payload =
-        fmt::format("{:<5} [{:<4}] {:<46} args: {:<38} ret: {}", levelStr(lvl),
+        fmt::format("{} [{:<4}] {:<46} args: {:<38} ret: {}", levelStr(lvl),
                     t_threadName, modcall, args.empty() ? std::string("-") : args, ret);
     g_logger->log(toSpd(lvl), payload);
 }
@@ -197,7 +197,7 @@ void emitTrace(const char* module, const char* call,
     // is an mpmc_blocking_queue, so the enqueue takes a short mutex — Trace is a
     // diagnostic aid that may perturb the audio thread slightly (see spec).
     const char* sym = hrNameC(hr);
-    g_logger->trace("TRACE [{:<4}] {}::{} frames={} flags={:#x} hr={:#010x} {}",
+    g_logger->trace("[T] [{:<4}] {}::{} frames={} flags={:#x} hr={:#010x} {}",
                     t_threadName, module, call, frames, flags,
                     static_cast<unsigned long>(hr), sym ? sym : "");
 }
