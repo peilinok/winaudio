@@ -57,7 +57,7 @@ capture source（endpoint | system loopback | application loopback(PID)）
 ## 测试与 CI
 
 - CI（`.github/workflows/ci.yml`）：push / PR 到 `main`，Debug + Release 双配置 build + ctest。**runner 必须 pin `windows-2022`**（`windows-latest` 已预装 VS 2026，`Visual Studio 17 2022` generator 找不到工具链）；checkout 必须 `submodules: recursive`。
-- 发布：推 `v*` tag → `release.yml` 构建、打包 zip、创建 GitHub Release。
+- 发布/打包：推 `v*` tag → `release.yml` 构建、打包 zip、创建 GitHub Release；也可在 GitHub Actions 页面手动触发 `Release` workflow，手动运行只上传 zip artifact，不创建正式 GitHub Release。
 - 涉及真实设备的行为（延迟、漂移、独占格式协商）单测覆盖不到，相关改动合并前需人工冒烟（CLI `monitor` 或 GUI）。
 
 ## Commit 与 PR 规范
