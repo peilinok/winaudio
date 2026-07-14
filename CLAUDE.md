@@ -111,8 +111,8 @@ cmake --build build --config Release -j
 #   - 选择不同后端或采集设备时，下拉自动重算默认值
 #
 # Control 区：
-#   - "Options" 弹窗可配置高级流参数 (category / stream option(RAW=绕过 APO)/ offload / ducking / buffer ms)
-#   - 默认全部"跟随系统"(不注入任何覆盖);category/option/offload/ducking 仅 WASAPI-Shared(offload/ducking 仅 render)
+#   - "Options" 弹窗可配置高级流参数 (SetClientProperties 总开关 / category / offload / stream option / ducking / buffer ms)
+#   - capture/render 各自用总开关控制是否调用 SetClientProperties；启用时 category 默认 Communications、offload 默认 false、Options 默认 NONE；ducking 仅 render
 #   - "同步播放" checkbox：勾选 → 启动 render 流实时直通（采样率须与采集设备一致）；取消勾选 → 停止 render 流并释放设备
 #   - 弹窗在监听运行中只读(仅 Start 前可改)
 #

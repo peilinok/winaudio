@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <string>
 #include <vector>
 #include "AudioSessionEnumerator.h"
 #include "ApplicationLoopbackUiModel.h"
@@ -67,6 +68,19 @@ TEST(AppLoopbackUiText, ExposesRequiredControls) {
     EXPECT_STREQ(wa::ui_text::kApplicationLoopbackRefresh, "Refresh");
     EXPECT_STREQ(wa::ui_text::kApplicationLoopbackPidLabel, "PID");
     EXPECT_STREQ(wa::ui_text::kApplicationLoopbackSessions, "Sessions");
+}
+
+TEST(AdvancedOptionsUiText, ExposesExplicitClientPropertiesControls) {
+    EXPECT_STREQ(wa::ui_text::kAdvancedCaptureSection, "Capture");
+    EXPECT_STREQ(wa::ui_text::kAdvancedRenderSection, "Render");
+    EXPECT_STREQ(wa::ui_text::kAdvancedSetClientProperties, "Set client properties");
+    EXPECT_FALSE(wa::ui_text::kAdvancedSetClientPropertiesDefault);
+    EXPECT_STREQ(wa::ui_text::kAdvancedHardwareOffload, "Hardware offload");
+    EXPECT_EQ(wa::ui_text::kAdvancedStreamOptionCount, 5);
+    EXPECT_STREQ(wa::ui_text::kAdvancedStreamOptions[0], "None");
+    EXPECT_STREQ(wa::ui_text::kAdvancedStreamOptions[4], "Post-volume loopback");
+    EXPECT_NE(std::string(wa::ui_text::kAdvancedOptionsHelp).find("only when enabled"),
+              std::string::npos);
 }
 
 TEST(AppLoopbackUiModel, SelectingRowCopiesPidIntoEditableBuffer) {

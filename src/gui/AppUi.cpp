@@ -747,28 +747,35 @@ void AppUi::drawLogPanel(const char* childId, bool showLevelFilter) {
 void AppUi::drawAdvancedModal() {
     if (!ImGui::BeginPopupModal("Audio parameters (advanced)", nullptr,
                                 ImGuiWindowFlags_AlwaysAutoResize)) return;
-    ImGui::TextWrapped("All values default to system-recommended (no override is injected unless "
-                       "you change them). Category/option/offload/ducking require WASAPI-Shared; "
-                       "only Buffer applies to Exclusive. Offload and ducking are render-only "
-                       "(WASAPI has no capture offload).");
+    ImGui::TextWrapped("%s", wa::ui_text::kAdvancedOptionsHelp);
     if (monitorStarted_)
         ImGui::TextColored(ImVec4(1.00f, 0.80f, 0.30f, 1.00f),
                            "Running: parameters are read-only. Stop the monitor to change them.");
     ImGui::Separator();
-    static const char* kCats[] = {"System default", "Other", "Communications", "Media", "Movie",
+    static const char* kCats[] = {"Other", "Communications", "Media", "Movie",
                                   "Game chat", "Speech", "Sound effects", "Game media"};
-    static const char* kOpts[] = {"System default", "Raw (bypass APO)", "Match format"};
 
     ImGui::BeginDisabled(monitorStarted_);              // view-only while running
 
     ImGui::BeginGroup();                              // ---- Capture column
-    ImGui::SeparatorText("Capture");
+    ImGui::SeparatorText(wa::ui_text::kAdvancedCaptureSection);
     ImGui::PushID("capP");
     ImGui::PushItemWidth(190);
-    int v = (int)capParams_.category;
-    if (ImGui::Combo("Category", &v, kCats, 9)) capParams_.category = (wa::AudioCategory)v;
-    v = (int)capParams_.option;
-    if (ImGui::Combo("Stream option", &v, kOpts, 3)) capParams_.option = (wa::StreamOption)v;
+    bool capProps = capParams_.clientProperties.enabled;
+    if (ImGui::Checkbox(wa::ui_text::kAdvancedSetClientProperties, &capProps))
+        capParams_.clientProperties.enabled = capProps;
+    ImGui::BeginDisabled(!capParams_.clientProperties.enabled);
+    int v = (int)capParams_.clientProperties.category;
+    if (ImGui::Combo("Category", &v, kCats, IM_ARRAYSIZE(kCats)))
+        capParams_.clientProperties.category = (wa::AudioCategory)v;
+    bool capOff = capParams_.clientProperties.offload;
+    if (ImGui::Checkbox(wa::ui_text::kAdvancedHardwareOffload, &capOff))
+        capParams_.clientProperties.offload = capOff;
+    v = (int)capParams_.clientProperties.option;
+    if (ImGui::Combo("Stream option", &v, wa::ui_text::kAdvancedStreamOptions,
+                     wa::ui_text::kAdvancedStreamOptionCount))
+        capParams_.clientProperties.option = (wa::StreamOption)v;
+    ImGui::EndDisabled();
     v = (int)capParams_.bufferMs;
     if (ImGui::InputInt("Buffer (ms)", &v)) capParams_.bufferMs = (uint32_t)std::clamp(v, 0, 2000);
     if (ImGui::Button("Reset to system defaults")) capParams_ = wa::StreamParams{};
@@ -779,17 +786,26 @@ void AppUi::drawAdvancedModal() {
     ImGui::SameLine(0, 24);
 
     ImGui::BeginGroup();                              // ---- Render column
-    ImGui::SeparatorText("Render");
+    ImGui::SeparatorText(wa::ui_text::kAdvancedRenderSection);
     ImGui::PushID("renP");
     ImGui::PushItemWidth(190);
-    v = (int)renParams_.category;
-    if (ImGui::Combo("Category", &v, kCats, 9)) renParams_.category = (wa::AudioCategory)v;
-    v = (int)renParams_.option;
-    if (ImGui::Combo("Stream option", &v, kOpts, 3)) renParams_.option = (wa::StreamOption)v;
-    bool off = renParams_.offload == wa::OffloadMode::Force;
-    if (ImGui::Checkbox("Hardware offload", &off)) renParams_.offload = off ? wa::OffloadMode::Force : wa::OffloadMode::Default;
+    bool renProps = renParams_.clientProperties.enabled;
+    if (ImGui::Checkbox(wa::ui_text::kAdvancedSetClientProperties, &renProps))
+        renParams_.clientProperties.enabled = renProps;
+    ImGui::BeginDisabled(!renParams_.clientProperties.enabled);
+    v = (int)renParams_.clientProperties.category;
+    if (ImGui::Combo("Category", &v, kCats, IM_ARRAYSIZE(kCats)))
+        renParams_.clientProperties.category = (wa::AudioCategory)v;
+    bool off = renParams_.clientProperties.offload;
+    if (ImGui::Checkbox(wa::ui_text::kAdvancedHardwareOffload, &off))
+        renParams_.clientProperties.offload = off;
+    v = (int)renParams_.clientProperties.option;
+    if (ImGui::Combo("Stream option", &v, wa::ui_text::kAdvancedStreamOptions,
+                     wa::ui_text::kAdvancedStreamOptionCount))
+        renParams_.clientProperties.option = (wa::StreamOption)v;
+    ImGui::EndDisabled();
     bool duck = renParams_.ducking == wa::DuckingMode::OptOut;
-    if (ImGui::Checkbox("Ducking opt-out", &duck)) renParams_.ducking = duck ? wa::DuckingMode::OptOut : wa::DuckingMode::Default;
+    if (ImGui::Checkbox(wa::ui_text::kAdvancedDuckingOptOut, &duck)) renParams_.ducking = duck ? wa::DuckingMode::OptOut : wa::DuckingMode::Default;
     v = (int)renParams_.bufferMs;
     if (ImGui::InputInt("Buffer (ms)", &v)) renParams_.bufferMs = (uint32_t)std::clamp(v, 0, 2000);
     if (ImGui::Button("Reset to system defaults")) renParams_ = wa::StreamParams{};

@@ -443,13 +443,23 @@ TEST(MonitorEngine, StreamParamsReachBackends) {
     FakeRig rig;
     MonitorEngine eng(rig.factory());
     StreamParams cap; cap.bufferMs = 30;
-    StreamParams ren; ren.category = AudioCategory::Media; ren.ducking = DuckingMode::OptOut;
+    cap.clientProperties.enabled = true;
+    cap.clientProperties.category = AudioCategory::Speech;
+    cap.clientProperties.offload = true;
+    cap.clientProperties.option = StreamOption::Ambisonics;
+    StreamParams ren; ren.clientProperties.enabled = true;
+    ren.clientProperties.category = AudioCategory::Media;
+    ren.ducking = DuckingMode::OptOut;
     ASSERT_TRUE(eng.start(BackendKind::WasapiShared, L"", L"", 100, true, cap, ren));
     ASSERT_NE(rig.capPtr, nullptr);
     ASSERT_NE(rig.renderPtr, nullptr);
     EXPECT_EQ(rig.capPtr->lastOpenParams_.bufferMs, 30u);
-    EXPECT_EQ(rig.capPtr->lastOpenParams_.category, AudioCategory::Default);
-    EXPECT_EQ(rig.renderPtr->lastOpenParams_.category, AudioCategory::Media);
+    EXPECT_TRUE(rig.capPtr->lastOpenParams_.clientProperties.enabled);
+    EXPECT_EQ(rig.capPtr->lastOpenParams_.clientProperties.category, AudioCategory::Speech);
+    EXPECT_TRUE(rig.capPtr->lastOpenParams_.clientProperties.offload);
+    EXPECT_EQ(rig.capPtr->lastOpenParams_.clientProperties.option, StreamOption::Ambisonics);
+    EXPECT_TRUE(rig.renderPtr->lastOpenParams_.clientProperties.enabled);
+    EXPECT_EQ(rig.renderPtr->lastOpenParams_.clientProperties.category, AudioCategory::Media);
     EXPECT_EQ(rig.renderPtr->lastOpenParams_.ducking,  DuckingMode::OptOut);
     eng.stop();
 }
@@ -459,9 +469,10 @@ TEST(MonitorEngine, SetRenderParamsAppliesOnReengage) {
     MonitorEngine eng(rig.factory());
     ASSERT_TRUE(eng.start(BackendKind::WasapiShared, L"", L"", 100, true));   // params 全默认
     ASSERT_NE(rig.renderPtr, nullptr);
-    EXPECT_EQ(rig.renderPtr->lastOpenParams_.option, StreamOption::Default);
+    EXPECT_FALSE(rig.renderPtr->lastOpenParams_.clientProperties.enabled);
 
-    StreamParams np; np.option = StreamOption::Raw; np.bufferMs = 20;
+    StreamParams np; np.clientProperties.enabled = true;
+    np.clientProperties.option = StreamOption::Raw; np.bufferMs = 20;
     eng.setRenderParams(np);                    // 运行中改参数
     eng.setPlaybackEnabled(false);              // 关播放(disengage)
     // 等 pump 完成 disengage
@@ -473,7 +484,8 @@ TEST(MonitorEngine, SetRenderParamsAppliesOnReengage) {
     // in the factory — safer than the relaxed renderState_ store used by poll()).
     ASSERT_TRUE(waitFor([&]{ return rig.renderOpenDone.load(std::memory_order_acquire) >= 2; }))
         << "pump did not complete re-engage open within timeout";
-    EXPECT_EQ(rig.renderPtr->lastOpenParams_.option,   StreamOption::Raw);
+    EXPECT_TRUE(rig.renderPtr->lastOpenParams_.clientProperties.enabled);
+    EXPECT_EQ(rig.renderPtr->lastOpenParams_.clientProperties.option, StreamOption::Raw);
     EXPECT_EQ(rig.renderPtr->lastOpenParams_.bufferMs, 20u);
     eng.stop();
 }
