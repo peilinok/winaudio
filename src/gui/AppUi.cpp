@@ -354,8 +354,17 @@ void AppUi::draw() {
     }
     prevRenderState_ = curRenderState;
 
-    ImGui::SetNextWindowSizeConstraints(ImVec2(800, 400), ImVec2(FLT_MAX, FLT_MAX));
-    ImGui::Begin("WinAudio");
+    const ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(io.DisplaySize, ImGuiCond_Always);
+
+    constexpr ImGuiWindowFlags kWindowFlags =
+        ImGuiWindowFlags_NoTitleBar |
+        ImGuiWindowFlags_NoCollapse |
+        ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoSavedSettings;
+    ImGui::Begin("WinAudio", nullptr, kWindowFlags);
 
     if (ImGui::BeginTabBar("##pages")) {
         if (ImGui::BeginTabItem("Monitor")) {
