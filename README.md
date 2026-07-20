@@ -4,6 +4,12 @@
 
 小巧的 Windows 音频测试工具：对系统音频设备做采集、播放、回环（loopback）与延迟监听测试，带实时波形 / 声谱图可视化。GUI（Dear ImGui + DX11）为首选交互方式，另有轻量 CLI。
 
+## 运行截图
+
+![WinAudio Monitor 运行截图](docs/images/winaudio-monitor-running.png)
+
+更多 GUI 模式截图见 [GUI screenshots](docs/gui-screenshots.md)。
+
 ## 功能
 
 - **WASAPI 双后端**：Shared（共享模式）与 Exclusive（独占模式、低延迟），同一流程可切换后端做对比测试。
