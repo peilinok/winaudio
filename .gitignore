@@ -1,5 +1,6 @@
 # Build output
 build/
+build-x86/
 [Bb]in/
 [Oo]bj/
 x64/

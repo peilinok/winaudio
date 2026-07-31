@@ -24,7 +24,7 @@
 
 ## 下载与运行
 
-- 从 [Releases](https://github.com/peilinok/winaudio/releases) 下载 `WinAudio-<版本>-win-x64.zip`，解压即用。
+- 从 [Releases](https://github.com/peilinok/winaudio/releases) 下载 `WinAudio-<版本>-win-x64.zip` 或 `WinAudio-<版本>-win-x86.zip`，解压即用。
 - exe 使用静态 CRT，自包含，**无需安装 VC++ Redistributable**。
 - 系统要求：Windows 10/11 x64；GUI 需要 Direct3D 11；Application Loopback 功能需要 Windows 10 build 20348 及以上（Windows 11 / Windows Server 2022+）。
 

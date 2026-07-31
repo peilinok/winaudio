@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 这是什么项目
 
-WinAudio：Windows 音频测试工具（WASAPI 采集/播放、系统与应用 loopback、双流延迟监听、波形/声谱图可视化）。C++17 + CMake（MSVC v143，仅 x64），4 个 target：`WinAudioCore` 静态库（`src/core`）、`WinAudioCli`（`src/cli`）、`WinAudioGui`（ImGui + DX11，`src/gui`，首选前端）、`WinAudioTests`（gtest，`src/tests`）。
+WinAudio：Windows 音频测试工具（WASAPI 采集/播放、系统与应用 loopback、双流延迟监听、波形/声谱图可视化）。C++17 + CMake（MSVC v143；默认 x64，也支持 x86 构建），4 个 target：`WinAudioCore` 静态库（`src/core`）、`WinAudioCli`（`src/cli`）、`WinAudioGui`（ImGui + DX11，`src/gui`，首选前端）、`WinAudioTests`（gtest，`src/tests`）。
 
 用户向文档（功能介绍、下载、CLI/GUI 完整用法、已知限制）见 `README.md`；历次功能的设计文档与实施计划在 `docs/superpowers/specs/`、`docs/superpowers/plans/`，大改某个子系统前先看对应 spec。
 
@@ -14,6 +14,7 @@ WinAudio：Windows 音频测试工具（WASAPI 采集/播放、系统与应用 l
 git submodule update --init          # 首次 clone 后必须（third_party/spdlog）
 
 .\build.bat Debug                    # 构建（默认 Release；--clean 先删 build\ 再重建）
+.\build.bat Release x86              # 构建 x86 到 build-x86\
 .\test.bat Debug                     # ctest 全量（默认 Release）
 .\build\bin\Debug\WinAudioTests.exe --gtest_filter=MonitorEngine.*   # 单跑一组测试
 .\clean.bat
@@ -21,6 +22,8 @@ git submodule update --init          # 首次 clone 后必须（third_party/spdl
 # 等价的原生 CMake 方式：
 cmake --preset vs2022
 cmake --build build --config Debug -j
+cmake --preset vs2022-x86
+cmake --build build-x86 --config Release -j
 ```
 
 - `cmake` / `ctest` 若不在 PATH，用 VS 自带的：`D:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin`。
