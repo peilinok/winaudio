@@ -149,6 +149,17 @@ std::vector<uint8_t> makeRampPcm(const std::vector<int16_t>& values, uint16_t ch
     return bytes;
 }
 
+std::vector<uint8_t> makeStereoPcm(const std::vector<int16_t>& left,
+                                   const std::vector<int16_t>& right) {
+    std::vector<uint8_t> bytes(left.size() * 2u * sizeof(int16_t));
+    auto* out = reinterpret_cast<int16_t*>(bytes.data());
+    for (size_t i = 0; i < left.size(); ++i) {
+        out[i * 2u] = left[i];
+        out[i * 2u + 1u] = right[i];
+    }
+    return bytes;
+}
+
 template <typename Pred>
 bool waitFor(Pred pred, int timeoutMs = 3000) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
@@ -248,6 +259,92 @@ TEST(MonitorEngine, CaptureScopePopulated) {
         const float expected = static_cast<float>(ramp[frames - 64 + k]) / 32768.f;
         EXPECT_NEAR(out[k], expected, 1e-4f) << "mismatch at k=" << k;
     }
+
+    eng.stop();
+}
+
+TEST(MonitorEngine, CaptureChannelSnapshotsExposeActualChannels) {
+    FakeRig rig;
+    rig.capFmt = {48000, 2, 16, false};
+    MonitorEngine eng(rig.factory());
+    ASSERT_TRUE(static_cast<bool>(eng.start(BackendKind::WasapiShared, L"", L"", 20,
+                                            false)));
+    ASSERT_NE(rig.capPtr, nullptr);
+
+    const uint32_t frames = 256;
+    std::vector<int16_t> left(frames);
+    std::vector<int16_t> right(frames);
+    for (uint32_t i = 0; i < frames; ++i) {
+        left[i] = static_cast<int16_t>(100 + i);
+        right[i] = static_cast<int16_t>(1000 + i);
+    }
+    auto pcm = makeStereoPcm(left, right);
+    rig.capPtr->pushPcm(pcm.data(), pcm.size());
+
+    ASSERT_TRUE(waitFor([&] { return eng.capWritten() >= frames; }))
+        << "capWritten never reached " << frames;
+    MonitorStatus st = eng.poll();
+    EXPECT_EQ(st.captureChannels, 2u);
+
+    float leftOut[8] = {};
+    float rightOut[8] = {};
+    float monoOut[8] = {};
+    uint64_t leftEnd = 0;
+    uint64_t rightEnd = 0;
+    uint64_t monoEnd = 0;
+    ASSERT_TRUE(eng.snapshotCaptureChannel(0, 8, leftOut, leftEnd));
+    ASSERT_TRUE(eng.snapshotCaptureChannel(1, 8, rightOut, rightEnd));
+    ASSERT_TRUE(eng.snapshotCapture(8, monoOut, monoEnd));
+    EXPECT_EQ(leftEnd, static_cast<uint64_t>(frames));
+    EXPECT_EQ(rightEnd, static_cast<uint64_t>(frames));
+    EXPECT_EQ(monoEnd, static_cast<uint64_t>(frames));
+
+    for (uint32_t k = 0; k < 8; ++k) {
+        const uint32_t idx = frames - 8 + k;
+        const float expectedLeft = static_cast<float>(left[idx]) / 32768.f;
+        const float expectedRight = static_cast<float>(right[idx]) / 32768.f;
+        EXPECT_NEAR(leftOut[k], expectedLeft, 1e-4f) << "left mismatch at k=" << k;
+        EXPECT_NEAR(rightOut[k], expectedRight, 1e-4f) << "right mismatch at k=" << k;
+        EXPECT_NEAR(monoOut[k], (expectedLeft + expectedRight) * 0.5f, 1e-4f)
+            << "mono mismatch at k=" << k;
+    }
+
+    uint64_t end = 0;
+    EXPECT_FALSE(eng.snapshotCaptureChannel(2, 8, leftOut, end));
+
+    eng.stop();
+}
+
+TEST(MonitorEngine, CaptureChannelSnapshotAtUsesRequestedEndIndex) {
+    FakeRig rig;
+    rig.capFmt = {48000, 2, 16, false};
+    MonitorEngine eng(rig.factory());
+    ASSERT_TRUE(static_cast<bool>(eng.start(BackendKind::WasapiShared, L"", L"", 20,
+                                            false)));
+    ASSERT_NE(rig.capPtr, nullptr);
+
+    const uint32_t frames = 256;
+    std::vector<int16_t> left(frames);
+    std::vector<int16_t> right(frames);
+    for (uint32_t i = 0; i < frames; ++i) {
+        left[i] = static_cast<int16_t>(100 + i);
+        right[i] = static_cast<int16_t>(1000 + i);
+    }
+    auto pcm = makeStereoPcm(left, right);
+    rig.capPtr->pushPcm(pcm.data(), pcm.size());
+
+    ASSERT_TRUE(waitFor([&] { return eng.capWritten() >= frames; }))
+        << "capWritten never reached " << frames;
+
+    float out[8] = {};
+    ASSERT_TRUE(eng.snapshotCaptureChannelAt(1, 128, 8, out));
+    for (uint32_t k = 0; k < 8; ++k) {
+        const uint32_t idx = 120 + k;
+        const float expected = static_cast<float>(right[idx]) / 32768.f;
+        EXPECT_NEAR(out[k], expected, 1e-4f) << "right mismatch at k=" << k;
+    }
+
+    EXPECT_FALSE(eng.snapshotCaptureChannelAt(1, frames + 1, 8, out));
 
     eng.stop();
 }

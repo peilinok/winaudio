@@ -42,6 +42,7 @@ struct MonitorStatus {
     StreamState renderState = StreamState::Idle;
     StreamState silentRenderState = StreamState::Idle;
     uint32_t    sampleRate  = 0;
+    uint32_t    captureChannels = 0;
     uint32_t    delayMs     = 0;
     float       fifoFillMs  = 0.f;   // EMA-smoothed DelayFifo occupancy in ms
     uint32_t    renderBufMs = 0;     // render device buffering (shown separately)
@@ -97,6 +98,8 @@ public:
     void   setRenderParams(const StreamParams& p);                  // 运行中可调;下次 engage 取快照生效
 
     bool snapshotCapture(size_t n, float* out, uint64_t& endIdxOut);
+    bool snapshotCaptureChannel(uint16_t channel, size_t n, float* out, uint64_t& endIdxOut);
+    bool snapshotCaptureChannelAt(uint16_t channel, uint64_t endIdx, size_t n, float* out);
     bool snapshotRender (size_t n, float* out, uint64_t& endIdxOut);
 
     uint64_t capWritten()    const;
@@ -162,6 +165,7 @@ private:
     std::atomic<StreamState> renderState_{StreamState::Idle};
     std::atomic<StreamState> silentRenderState_{StreamState::Idle};
     std::atomic<uint32_t>    sampleRate_{0};
+    std::atomic<uint32_t>    captureChannels_{0};
     std::atomic<uint32_t>    delayMsAtomic_{0};
     std::atomic<uint32_t>    renderBufMs_{0};
     std::atomic<float>       fifoFillMs_{0.f};

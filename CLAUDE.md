@@ -38,13 +38,13 @@ cmake --build build-x86 --config Release -j
 capture source（endpoint | system loopback | application loopback(PID)）
   ├─ Engine：单流。采集→WAV / WAV→render 播放 / probeFormat 格式探测
   └─ MonitorEngine：双流直通。capture → DelayFifo（固定延迟+漂移补偿）→ render
-                    ├─ ScopeBuffer tap ×2（cap/ren 两路）
+                    ├─ ScopeBuffer tap ×2（cap 保留实际 channel 快照，ren 为 mono tap）
                     └─ Analysis（采样计数节拍）→ Fft → GUI 波形/Spectrogram
 ```
 
 - **分层**：前端把 `BackendKind`（`WasapiShared` / `WasapiExclusive`）传给 Engine/MonitorEngine，同一上层流程可切后端做对比测试；流生命周期统一为 open → start → poll → stop → close（`IAudioBackend.h`）。
 - **`src/core/WasapiStream.{h,cpp}` 是 WASAPI 心脏**：基类做模式感知格式协商（Shared = `GetMixFormat` + `AUTOCONVERTPCM`；Exclusive = `IsFormatSupported` + `AUDCLNT_E_BUFFER_SIZE_NOT_ALIGNED` 对齐重试）、事件驱动线程模型、同步启动握手；派生出 capture / render / system-loopback / silent-render 各流。按 PID 的 process loopback 在 `ApplicationLoopbackCapture.*`（Shared-only）。
-- **跨线程原语**（音频线程 ↔ GUI/控制线程的唯一通道）：`RingBuffer`（SPSC + xrun 计数）、`ScopeBuffer`（seqlock 快照，读不阻塞写）、`DelayFifo`（单帧丢/插 + crossfade）、`Analysis`（采样计数节拍触发 FFT）。
+- **跨线程原语**（音频线程 ↔ GUI/控制线程的唯一通道）：`RingBuffer`（SPSC + xrun 计数）、`ScopeBuffer`（seqlock 快照，读不阻塞写；capture 可按 channel snapshot，legacy snapshot 仍返回 mono/downmix）、`DelayFifo`（单帧丢/插 + crossfade）、`Analysis`（采样计数节拍触发 FFT）。
 - **GUI**：逻辑集中在 `src/gui/AppUi.*`；用户可见文案集中在 `AppUiText.h`（有对应文案测试）；`Spectrogram.*` 纯 STL、可脱离 GUI 单测。ImGui / ImPlot / googletest 是 `third_party/` 内的 vendored 副本；spdlog 是唯一 git submodule。
 
 ## 硬性约束（改代码前必读）
@@ -54,7 +54,7 @@ capture source（endpoint | system loopback | application loopback(PID)）
 - **凡新增/改动 WASAPI/COM/Win32 调用，必须按现有模式加 `wa::log` 插桩**：Info = 生命周期（open/close/start/stop、选中设备、最终格式）；Debug = 控制路径参数+返回值（HRESULT 过 `hrName` 译成符号名）；Trace = 音频热路径逐帧（无堆分配路径）；Warn = 被容忍/被忽略的返回值。插桩纯观测，不得改控制流、返回值或时序。
 - **core 只依赖 Win32 + STL + spdlog**；GUI 专用第三方库进 `third_party/`，不进 core。
 - **构建约定**：静态 CRT（/MT、/MTd）由顶层 `CMAKE_MSVC_RUNTIME_LIBRARY` 统一控制，新 target 不要自行设置 runtime；自有 target 用 `wa_set_project_warnings(<target>)` 挂 `/W4 /permissive- /utf-8 /sdl`，保持零警告。
-- **领域边界**：本工具没有重采样器（Shared 靠 WASAPI 引擎转格式，Exclusive 要求硬件原生支持，漂移补偿只有单帧丢/插+crossfade）；系统/应用 loopback 均 Shared-only；分析路径为单声道降混；waveIn/waveOut 未实现。
+- **领域边界**：本工具没有重采样器（Shared 靠 WASAPI 引擎转格式，Exclusive 要求硬件原生支持，漂移补偿只有单帧丢/插+crossfade）；系统/应用 loopback 均 Shared-only；GUI 采集侧 waveform/spectrogram 对实际 2ch+ 格式按 `Ch N` 分开显示最多前 8 个 channel，并按同一 capture end index 同步推进；render 可视化与 level 仍为单声道降混；waveIn/waveOut 未实现。
 - **新增核心逻辑配套 gtest**（`src/tests/test_*.cpp`，一模块一文件），且必须能脱离真实音频设备运行（CI runner 无音频硬件）。
 
 ## 测试与 CI

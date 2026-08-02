@@ -25,21 +25,26 @@ private:
 
     struct VisualState {
         std::vector<float> capWave, renderWave;
+        std::vector<std::vector<float>> capChannelWaves;
         uint32_t waveSr = 0;
         int      waveN  = 0;
+        uint32_t capWaveChannels = 0;
         double   xLink0 = 0.0, xLink1 = 0.0;
         std::vector<float> envX, envMin, envMax;
         float comboRatio = 0.5f;
-        bool  plotHovPrev[4] = {};
+        bool  plotHovPrev[18] = {}; // capture wave/spec slots for up to 8 channels + render slots
 
         std::vector<std::complex<float>> workCap, workRender;
         std::vector<float>               specWin;
+        std::vector<std::vector<float>>  capSpecWindows;
         std::vector<float>               magCap, magRender;
         uint64_t nextCapEnd    = 0;
         uint64_t nextRenderEnd = 0;
         uint32_t specSr        = 0;
+        uint32_t capSpecChannels = 0;
 
         std::unique_ptr<wa::Spectrogram> capSpec, renderSpec;
+        std::vector<std::unique_ptr<wa::Spectrogram>> capChannelSpecs;
     };
 
     void refreshMonitorDevices();
@@ -56,6 +61,8 @@ private:
     void drawCapsModal();
     void drawFormatRegion();
     void recomputeDefaultFormat();
+    void ensureRunningVisuals(const wa::MonitorStatus& status, VisualState& viz,
+                              bool includeRender);
     void drawChartsColumn(wa::MonitorEngine& engine, const wa::MonitorStatus& status, VisualState& viz);
     void drawChartPanel(int id, wa::MonitorEngine& engine, const wa::MonitorStatus& status, VisualState& viz);
     void drawComboPanel(wa::MonitorEngine& engine, const wa::MonitorStatus& status, VisualState& viz, bool renderSide);

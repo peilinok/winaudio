@@ -19,7 +19,7 @@
 - **双流延迟监听**：capture → 固定延迟 FIFO（漂移补偿）→ render 实时直通，显示 fifo 水位 / drift / xrun。
 - **设备能力查询**：Mix / Device / OEM 三来源格式 + 候选格式在 Shared/Exclusive 下的支持矩阵。
 - **格式探测**：检测设备是否支持指定格式（shared 反映 WASAPI 混音器转换能力，exclusive 反映硬件独占可用性）。
-- **实时分析**：dB 时域波形 + 滚动 log 频率声谱图（自带 radix-2 FFT，Hann 窗，dBFS 标定）。
+- **实时分析**：dB 时域波形 + 滚动 log 频率声谱图（自带 radix-2 FFT，Hann 窗，dBFS 标定）；GUI 采集侧 2ch+ 按实际 channel 分开显示。
 - **详细接口调用日志**：所有 WASAPI/COM/Win32 调用的参数与返回值可观测（基于 spdlog，级别运行时可调）。
 
 ## 下载与运行
@@ -52,7 +52,7 @@ cd winaudio
 
 ### Monitor（双流延迟监听）
 
-两列布局：左列为设备 / 控制 / 状态 / 日志，右列为采集、播放两路各一个「波形 + 声谱图」合并单元（共享时间轴，中间分割线可上下调节，单元可拖拽重排）。
+两列布局：左列为设备 / 控制 / 状态 / 日志，右列为采集、播放两路「波形 + 声谱图」单元。采集端实际格式为 1ch 时保持单张视图；2ch+ 时按 `Ch N` 垂直堆叠显示各 channel 的 waveform，再显示各 channel 的 spectrogram（最多前 8 个 channel，超出时标出 `8 / N channels`），并按同一 capture end index 同步推进。播放端仍为单张延迟播放视图。所有图共享时间轴，单声道/播放单元中间分割线可上下调节，单元可拖拽重排。
 
 - **Devices**：选择采集设备（默认系统默认设备）与后端（Shared / Exclusive）；「Capture caps…」弹窗显示该设备的三来源格式与 Shared/Exclusive 能力矩阵。
 - **Format**：显示当前将用格式（如 `48000 Hz, 16-bit, 2-ch`）；候选下拉第一项为 System default，随后是当前后端支持的候选格式，末项 Custom 可手动输入；切换设备或后端时自动重算默认值。
@@ -61,11 +61,11 @@ cd winaudio
 
 ### Loopback（系统回采）
 
-选择一个 render device 作为回采源，Start 后实时显示系统输出的波形 + 声谱图。「Silent render keepalive」默认开启（用静音 render 保持 loopback 时钟推进），运行中不可改。
+选择一个 render device 作为回采源，Start 后实时显示系统输出的波形 + 声谱图；实际 2ch+ 时同样按 `Ch N` 分开显示采集到的前 8 个 channel。「Silent render keepalive」默认开启（用静音 render 保持 loopback 时钟推进），运行中不可改。
 
 ### Application Loopback（按进程回采）
 
-打开 tab 后自动枚举当前有 Audio Session 的进程（进程名 + PID，按进程名排序），「Refresh」重新枚举；点击列表行会把 PID 填入下方输入框，也可手动输入任意非零 PID（不要求出现在列表中）。Start 后以 WASAPI process loopback（Shared）采集该进程及其子进程的音频。
+打开 tab 后自动枚举当前有 Audio Session 的进程（进程名 + PID，按进程名排序），「Refresh」重新枚举；点击列表行会把 PID 填入下方输入框，也可手动输入任意非零 PID（不要求出现在列表中）。Start 后以 WASAPI process loopback（Shared）采集该进程及其子进程的音频；实际 2ch+ 时按 `Ch N` 分开显示采集到的前 8 个 channel。
 
 ## CLI 使用
 
@@ -142,7 +142,7 @@ WinAudioCli monitor [--cap <id>] [--render <id>] [--delay-ms N] [--seconds N] [-
 
 - **无重采样器**：Shared 依赖 WASAPI 引擎转换格式；Exclusive 要求硬件原生支持；monitor 的 Exclusive 模式要求渲染设备支持采集格式（不匹配则 render 启动失败）。
 - **漂移补偿为单帧丢/插 + crossfade**：跨时钟域设备组合（如 USB 麦克风 + HDMI 输出）漂移率高；同接口 loopback 漂移很小。
-- 波形/频谱分析为单声道降混（多声道取首声道或均值）。
+- GUI 采集侧 waveform / spectrogram 对实际 2ch+ 格式按 `Ch N` 分开显示，最多显示前 8 个 channel；播放端可视化与电平指示仍为单声道降混。
 - 系统 loopback 与 Application Loopback 仅支持 Shared 后端。
 - waveIn / waveOut（MME 后端）未实现。
 

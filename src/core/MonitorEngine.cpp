@@ -178,6 +178,7 @@ Result MonitorEngine::start(BackendKind kind, const CaptureSource& capSource,
     renderLevel_.store(0.f, std::memory_order_relaxed);
     prefilled_.store(false, std::memory_order_relaxed);
     sampleRate_.store(0, std::memory_order_relaxed);
+    captureChannels_.store(0, std::memory_order_relaxed);
     delayMsAtomic_.store(0, std::memory_order_relaxed);
     renderBufMs_.store(0, std::memory_order_relaxed);
 
@@ -247,7 +248,7 @@ Result MonitorEngine::start(BackendKind kind, const CaptureSource& capSource,
     // waveform snapshot (kSpecCols*kFftHop = 491520 samples ~= 10.2 s @ 48 kHz, ~4 MiB/scope);
     // sr*2 keeps headroom at high rates.
     const size_t scopeCap = std::max<size_t>(static_cast<size_t>(sr) * 2u, 1048576u);
-    captureScope_ = std::make_unique<ScopeBuffer>(scopeCap);
+    captureScope_ = std::make_unique<ScopeBuffer>(scopeCap, capCh_);
     renderScope_  = std::make_unique<ScopeBuffer>(scopeCap);  // GUI reads every frame -> MUST stay alive
     maxChunkFrames_ = kMaxChunkFrames;
     capScratch_.assign(maxChunkFrames_ * capFrameBytes_, 0);
@@ -255,6 +256,7 @@ Result MonitorEngine::start(BackendKind kind, const CaptureSource& capSource,
     capMono_.assign(maxChunkFrames_, 0.f);
 
     sampleRate_.store(sr, std::memory_order_relaxed);
+    captureChannels_.store(capCh_, std::memory_order_relaxed);
     delayMsAtomic_.store(delayMs, std::memory_order_relaxed);
     capDataReadyEvent_ = capBackend_->dataReadyEvent();
 
@@ -426,7 +428,7 @@ void MonitorEngine::pumpLoop() {
 
             pcmToFloat(capScratch_.data(), frames, capFmt_, capFloat_.data());
             downmixMono(capFloat_.data(), frames, capCh, capMono_.data());
-            captureScope_->push(capMono_.data(), frames);
+            captureScope_->pushInterleaved(capFloat_.data(), frames);
             capLevel_.store(peakLevel(capMono_.data(), frames), std::memory_order_relaxed);
 
             if (!renderActive) continue;   // capture-only: do not touch FIFO / render
@@ -502,6 +504,7 @@ MonitorStatus MonitorEngine::poll() {
     s.renderState = renderState_.load(std::memory_order_relaxed);
     s.silentRenderState = silentRenderState_.load(std::memory_order_relaxed);
     s.sampleRate  = sampleRate_.load(std::memory_order_relaxed);
+    s.captureChannels = captureChannels_.load(std::memory_order_relaxed);
     s.delayMs     = delayMsAtomic_.load(std::memory_order_relaxed);
     s.fifoFillMs  = fifoFillMs_.load(std::memory_order_relaxed);
     s.renderBufMs = renderBufMs_.load(std::memory_order_relaxed);
@@ -524,6 +527,18 @@ MonitorStatus MonitorEngine::poll() {
 bool MonitorEngine::snapshotCapture(size_t n, float* out, uint64_t& endIdxOut) {
     ScopeBuffer* s = captureScope_.get();
     return s ? s->snapshotLatest(n, out, endIdxOut) : false;
+}
+
+bool MonitorEngine::snapshotCaptureChannel(uint16_t channel, size_t n, float* out,
+                                           uint64_t& endIdxOut) {
+    ScopeBuffer* s = captureScope_.get();
+    return s ? s->snapshotLatestChannel(channel, n, out, endIdxOut) : false;
+}
+
+bool MonitorEngine::snapshotCaptureChannelAt(uint16_t channel, uint64_t endIdx, size_t n,
+                                             float* out) {
+    ScopeBuffer* s = captureScope_.get();
+    return s ? s->snapshotChannelEndingAt(channel, endIdx, n, out) : false;
 }
 
 bool MonitorEngine::snapshotRender(size_t n, float* out, uint64_t& endIdxOut) {
