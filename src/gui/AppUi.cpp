@@ -127,17 +127,18 @@ void AppUi::refreshApplicationLoopbackSessions() {
                                             std::move(rows));
 }
 
-void AppUi::beginApplicationLoopbackStart(uint32_t pid) {
+void AppUi::beginApplicationLoopbackStart(uint32_t pid, wa::ProcessLoopbackMode mode) {
     if (appLoopbackStartThread_.joinable())
         appLoopbackStartThread_.join();
 
     auto job = std::make_shared<AppLoopbackStartJob>();
     appLoopbackStartJob_ = job;
     appLoopbackStartPending_ = true;
+    appLoopbackMode_ = mode;
 
-    appLoopbackStartThread_ = std::thread([job, pid] {
+    appLoopbackStartThread_ = std::thread([job, pid, mode] {
         auto engine = std::make_unique<wa::MonitorEngine>();
-        wa::CaptureSource source{wa::CaptureSourceKind::ApplicationLoopback, L"", pid};
+        wa::CaptureSource source{wa::CaptureSourceKind::ApplicationLoopback, L"", pid, mode};
         wa::Result r = engine->start(wa::BackendKind::WasapiShared, source, L"", 0,
                                      false, {}, {}, nullptr, {});
         std::lock_guard<std::mutex> lk(job->mtx);
@@ -620,9 +621,13 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
     ImGui::EndChild();
 
     ImGui::SeparatorText("Control");
+    const bool freezeParams = appLoopbackStartPending_ || appLoopbackStarted_;
+    if (freezeParams) ImGui::BeginDisabled();
     ImGui::SetNextItemWidth(-1);
     ImGui::InputText(wa::ui_text::kApplicationLoopbackPidLabel,
                      appLoopbackPid_, sizeof(appLoopbackPid_));
+    ImGui::Checkbox(wa::ui_text::kApplicationLoopbackExclude, &appLoopbackExclude_);
+    if (freezeParams) ImGui::EndDisabled();
 
     const ImVec2 ctrlBtn(120.0f, ImGui::GetFrameHeight() * 1.3f);
     bool startPending = appLoopbackStartPending_;
@@ -636,8 +641,12 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
             if (!wa::parseApplicationLoopbackPid(appLoopbackPid_, pid)) {
                 logLines_.push_back("application loopback error: invalid PID");
             } else {
-                logLines_.push_back("application loopback starting");
-                beginApplicationLoopbackStart(pid);
+                const wa::ProcessLoopbackMode mode = appLoopbackExclude_
+                    ? wa::ProcessLoopbackMode::ExcludeTree
+                    : wa::ProcessLoopbackMode::IncludeTree;
+                logLines_.push_back(std::string("application loopback starting mode=") +
+                                    wa::processLoopbackModeName(mode));
+                beginApplicationLoopbackStart(pid, mode);
             }
         }
     } else {
@@ -654,6 +663,13 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
     ImGui::Text("overall=%s  cap=%s  sr=%u",
         ss[(int)appLoopbackMs_.overall], ss[(int)appLoopbackMs_.capState],
         appLoopbackMs_.sampleRate);
+    // Running/pending: mode latched at Start; idle: preview from checkbox.
+    const wa::ProcessLoopbackMode statusMode =
+        freezeParams
+            ? appLoopbackMode_
+            : (appLoopbackExclude_ ? wa::ProcessLoopbackMode::ExcludeTree
+                                   : wa::ProcessLoopbackMode::IncludeTree);
+    ImGui::Text("mode=%s", wa::processLoopbackModeName(statusMode));
     ImGui::Text("xrun=%llu", (unsigned long long)appLoopbackMs_.capXruns);
     ImGui::Text("frames=%llu", (unsigned long long)appLoopbackMs_.capWrittenFrames);
     ImGui::Text("silent-packet=%llu  idle-fill=%llu",

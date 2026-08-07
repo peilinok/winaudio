@@ -49,7 +49,7 @@ private:
 
     void refreshMonitorDevices();
     void refreshApplicationLoopbackSessions();
-    void beginApplicationLoopbackStart(uint32_t pid);
+    void beginApplicationLoopbackStart(uint32_t pid, wa::ProcessLoopbackMode mode);
     void drainApplicationLoopbackStart();
     void drawMonitorPage();
     void drawLoopbackPage();
@@ -104,10 +104,12 @@ private:
     bool                        loopbackSilentRender_ = true;
     bool                        appLoopbackStarted_ = false;
     bool                        appLoopbackStartPending_ = false;
+    bool                        appLoopbackExclude_ = false; // checkbox; false = IncludeTree
     bool                        appLoopbackSessionsLoaded_ = false;
     std::vector<wa::AudioSessionProcess> appLoopbackSessions_;
     int                         appLoopbackSessionIdx_ = -1;
     char                        appLoopbackPid_[32] = "";
+    wa::ProcessLoopbackMode     appLoopbackMode_ = wa::ProcessLoopbackMode::IncludeTree;
     std::thread                 appLoopbackStartThread_;
     std::shared_ptr<AppLoopbackStartJob> appLoopbackStartJob_;
 

@@ -67,6 +67,7 @@ TEST(AppLoopbackUiText, ExposesRequiredControls) {
     EXPECT_STREQ(wa::ui_text::kApplicationLoopbackTab, "Application Loopback");
     EXPECT_STREQ(wa::ui_text::kApplicationLoopbackRefresh, "Refresh");
     EXPECT_STREQ(wa::ui_text::kApplicationLoopbackPidLabel, "PID");
+    EXPECT_STREQ(wa::ui_text::kApplicationLoopbackExclude, "Exclude");
     EXPECT_STREQ(wa::ui_text::kApplicationLoopbackSessions, "Sessions");
 }
 
