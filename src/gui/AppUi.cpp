@@ -623,9 +623,12 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
     ImGui::SeparatorText("Control");
     const bool freezeParams = appLoopbackStartPending_ || appLoopbackStarted_;
     if (freezeParams) ImGui::BeginDisabled();
-    ImGui::SetNextItemWidth(-1);
-    ImGui::InputText(wa::ui_text::kApplicationLoopbackPidLabel,
-                     appLoopbackPid_, sizeof(appLoopbackPid_));
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted(wa::ui_text::kApplicationLoopbackPidLabel);
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(120.0f);
+    ImGui::InputText("##appLoopbackPid", appLoopbackPid_, sizeof(appLoopbackPid_));
+    ImGui::SameLine();
     ImGui::Checkbox(wa::ui_text::kApplicationLoopbackExclude, &appLoopbackExclude_);
     if (freezeParams) ImGui::EndDisabled();
 
