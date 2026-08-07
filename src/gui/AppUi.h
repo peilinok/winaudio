@@ -32,6 +32,7 @@ private:
         double   xLink0 = 0.0, xLink1 = 0.0;
         std::vector<float> envX, envMin, envMax;
         float comboRatio = 0.5f;
+        bool  chartsFrozen = false; // pause chart data refresh only; audio continues
         bool  plotHovPrev[18] = {}; // capture wave/spec slots for up to 8 channels + render slots
 
         std::vector<std::complex<float>> workCap, workRender;
@@ -64,6 +65,7 @@ private:
     void ensureRunningVisuals(const wa::MonitorStatus& status, VisualState& viz,
                               bool includeRender);
     void drawChartsColumn(wa::MonitorEngine& engine, const wa::MonitorStatus& status, VisualState& viz);
+    void drawChartsFreezeToolbar(VisualState& viz, const wa::MonitorStatus& status);
     void drawChartPanel(int id, wa::MonitorEngine& engine, const wa::MonitorStatus& status, VisualState& viz);
     void drawComboPanel(wa::MonitorEngine& engine, const wa::MonitorStatus& status, VisualState& viz, bool renderSide);
     void drawSpectrogramPanel(VisualState& viz, const char* plotId, wa::Spectrogram* spec, double histSec, float height, int slot);

@@ -29,4 +29,8 @@ inline constexpr int kAdvancedStreamOptionCount =
     static_cast<int>(sizeof(kAdvancedStreamOptions) / sizeof(kAdvancedStreamOptions[0]));
 inline constexpr const char* kAdvancedDuckingOptOut = "Ducking opt-out";
 
+inline constexpr const char* kChartsPause = "Pause charts";
+inline constexpr const char* kChartsResume = "Resume charts";
+inline constexpr const char* kChartsPaused = "PAUSED";
+
 } // namespace wa::ui_text
