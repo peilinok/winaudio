@@ -32,6 +32,7 @@ private:
         double   xLink0 = 0.0, xLink1 = 0.0;
         std::vector<float> envX, envMin, envMax;
         float comboRatio = 0.5f;
+        bool  chartsFrozen = false; // pause chart data refresh only; audio continues
         bool  plotHovPrev[18] = {}; // capture wave/spec slots for up to 8 channels + render slots
 
         std::vector<std::complex<float>> workCap, workRender;

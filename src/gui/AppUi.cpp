@@ -2,6 +2,7 @@
 #include "ApplicationLoopbackUiModel.h"
 #include "AppUiText.h"
 #include "CaptureChannelView.h"
+#include "ChartsFreezePolicy.h"
 #include "ComUtil.h"
 #include "imgui.h"
 #include "implot.h"
@@ -334,6 +335,7 @@ void AppUi::resetVisuals(VisualState& viz) {
     viz.capSpec.reset();
     viz.renderSpec.reset();
     viz.capChannelSpecs.clear();
+    viz.chartsFrozen = false;
     std::fill(std::begin(viz.plotHovPrev), std::end(viz.plotHovPrev), false);
 }
 
@@ -417,7 +419,9 @@ void AppUi::draw() {
     const int curRenderState = (int)ms_.renderState;
     if (prevRenderState_ == (int)wa::StreamState::Running &&
         curRenderState  != (int)wa::StreamState::Running) {
-        resetRenderVisuals(monitorViz_);
+        // Keep frozen render charts for inspection; wipe only when charts are live.
+        if (wa::charts_freeze::shouldResetRenderVisuals(monitorViz_.chartsFrozen))
+            resetRenderVisuals(monitorViz_);
     }
     prevRenderState_ = curRenderState;
 
@@ -879,6 +883,20 @@ void AppUi::drawChartsColumn(wa::MonitorEngine& engine, const wa::MonitorStatus&
                              VisualState& viz) {
     ensureRunningVisuals(status, viz, true);
 
+    const bool overallRunning =
+        (status.overall == wa::StreamState::Running && status.sampleRate > 0);
+    viz.chartsFrozen = wa::charts_freeze::applyLifecycle(overallRunning, viz.chartsFrozen);
+
+    // Charts toolbar: freeze visualization only (audio continues).
+    ImGui::BeginDisabled(!wa::charts_freeze::isControlEnabled(overallRunning));
+    if (ImGui::Button(viz.chartsFrozen ? wa::ui_text::kChartsResume : wa::ui_text::kChartsPause))
+        viz.chartsFrozen = !viz.chartsFrozen;
+    ImGui::EndDisabled();
+    if (viz.chartsFrozen) {
+        ImGui::SameLine();
+        ImGui::TextUnformatted(wa::ui_text::kChartsPaused);
+    }
+
     for (int pos = 0; pos < (int)chartOrder_.size(); ++pos) {
         int id = chartOrder_[pos];
         ImGui::PushID(pos);
@@ -1054,7 +1072,11 @@ void AppUi::drawComboPanel(wa::MonitorEngine& engine, const wa::MonitorStatus& s
     const uint32_t sr         = status.sampleRate;
     const bool overallRunning = (status.overall     == wa::StreamState::Running && sr > 0);
     const bool renderRunning  = (status.renderState == wa::StreamState::Running);
+    const bool refreshCharts  =
+        wa::charts_freeze::shouldRefreshCharts(overallRunning, viz.chartsFrozen);
     const auto capturePlan = wa::capture_channel_view::makePlan(status.captureChannels);
+    // Split layout follows the capture plan whenever the page is running (including frozen),
+    // so multi-channel panels stay mounted while chart data is held.
     const bool splitCapture = !renderSide && overallRunning && capturePlan.split;
 
     if (splitCapture) {
@@ -1069,11 +1091,13 @@ void AppUi::drawComboPanel(wa::MonitorEngine& engine, const wa::MonitorStatus& s
         for (uint32_t ch = 0; ch < shownChannels; ++ch) {
             std::vector<float>& wave = viz.capChannelWaves[(size_t)ch];
             bool ok = false;
-            if (viz.waveSr > 0 && nn > 0) {
+            if (refreshCharts && viz.waveSr > 0 && nn > 0) {
                 const int head = viz.waveN - (int)nn;
                 std::fill(wave.begin(), wave.begin() + head, 0.f);
                 ok = engine.snapshotCaptureChannelAt((uint16_t)ch, waveEnd, nn,
                                                      wave.data() + head);
+            } else if (viz.chartsFrozen && viz.waveSr > 0 && viz.waveN > 0) {
+                ok = true; // redraw last frozen channel buffer
             }
             const std::string title = "Capture Ch " + std::to_string(ch + 1u) + " waveform";
             ImGui::TextUnformatted(title.c_str());
@@ -1086,7 +1110,7 @@ void AppUi::drawComboPanel(wa::MonitorEngine& engine, const wa::MonitorStatus& s
             shownChannels,
             std::min<uint32_t>((uint32_t)viz.capChannelSpecs.size(),
                                (uint32_t)viz.capSpecWindows.size()));
-        if (viz.specSr > 0 && specChannels > 0) {
+        if (refreshCharts && viz.specSr > 0 && specChannels > 0) {
             const uint64_t written = engine.capWritten();
             wa::advanceAnalysis(written, viz.nextCapEnd, kFftWin, kFftHop, kCatchup, [&](uint64_t endIdx) {
                 bool allGot = true;
@@ -1123,9 +1147,10 @@ void AppUi::drawComboPanel(wa::MonitorEngine& engine, const wa::MonitorStatus& s
     }
 
     // Snapshot the newest samples into the tail of the history buffer (progressive fill).
+    // When charts are frozen, skip the snapshot and redraw the last buffers.
     std::vector<float>& wave = renderSide ? viz.renderWave : viz.capWave;
     bool ok = false;
-    if (overallRunning && viz.waveSr > 0 && (!renderSide || renderRunning)) {
+    if (refreshCharts && viz.waveSr > 0 && (!renderSide || renderRunning)) {
         const size_t avail = (size_t)(renderSide ? engine.renderWritten() : engine.capWritten());
         const size_t nn = std::min(avail, (size_t)viz.waveN);
         if (nn > 0) {
@@ -1135,6 +1160,9 @@ void AppUi::drawComboPanel(wa::MonitorEngine& engine, const wa::MonitorStatus& s
             ok = renderSide ? engine.snapshotRender(nn, wave.data() + head, end)
                             : engine.snapshotCapture(nn, wave.data() + head, end);
         }
+    } else if (viz.chartsFrozen && viz.waveSr > 0 && viz.waveN > 0 &&
+               (!renderSide || !viz.renderWave.empty())) {
+        ok = true;
     }
 
     const float waveH = kComboH * viz.comboRatio;
@@ -1154,8 +1182,8 @@ void AppUi::drawComboPanel(wa::MonitorEngine& engine, const wa::MonitorStatus& s
 
     // Advance the FFT analysis feeding this stream's spectrogram (relocated here from the former
     // spectrum panels): one column per hop, catching up a few frames per poll. workCap_/workRender_
-    // and magCap_/magRender_ are reused as scratch.
-    if (overallRunning && viz.specSr > 0 && (!renderSide || renderRunning)) {
+    // and magCap_/magRender_ are reused as scratch. Skipped while charts are frozen.
+    if (refreshCharts && viz.specSr > 0 && (!renderSide || renderRunning)) {
         uint64_t se = 0;
         const uint64_t written = renderSide ? engine.renderWritten() : engine.capWritten();
         uint64_t& nextEnd      = renderSide ? viz.nextRenderEnd : viz.nextCapEnd;
@@ -1172,7 +1200,14 @@ void AppUi::drawComboPanel(wa::MonitorEngine& engine, const wa::MonitorStatus& s
     }
 
     wa::Spectrogram* spec = nullptr;
-    if (overallRunning) spec = renderSide ? (renderRunning ? viz.renderSpec.get() : nullptr) : viz.capSpec.get();
+    if (overallRunning) {
+        // Live: render spectrogram only while playback runs. Frozen: keep last renderSpec even
+        // if playback was turned off mid-freeze (resetRenderVisuals is suppressed).
+        if (renderSide)
+            spec = (renderRunning || viz.chartsFrozen) ? viz.renderSpec.get() : nullptr;
+        else
+            spec = viz.capSpec.get();
+    }
     const uint32_t hz = (sr > 0) ? sr : 48000u;   // idle: assume 48 kHz for the axis ranges
     drawSpectrogramPanel(viz, renderSide ? "##renSpec" : "##capSpec", spec,
                          (double)(kSpecCols * kFftHop) / (double)hz, kComboH - waveH,

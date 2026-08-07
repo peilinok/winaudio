@@ -84,6 +84,12 @@ TEST(AdvancedOptionsUiText, ExposesExplicitClientPropertiesControls) {
               std::string::npos);
 }
 
+TEST(ChartsFreezeUiText, ExposesPauseResumeAndPausedLabels) {
+    EXPECT_STREQ(wa::ui_text::kChartsPause, "Pause charts");
+    EXPECT_STREQ(wa::ui_text::kChartsResume, "Resume charts");
+    EXPECT_STREQ(wa::ui_text::kChartsPaused, "PAUSED");
+}
+
 TEST(AppLoopbackUiModel, SelectingRowCopiesPidIntoEditableBuffer) {
     std::vector<AudioSessionProcess> rows = {
         {111u, L"one.exe"},

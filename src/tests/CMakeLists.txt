@@ -13,6 +13,7 @@ add_executable(WinAudioTests
     test_monitorengine.cpp
     test_spectrogram.cpp
     test_capture_channel_view.cpp
+    test_charts_freeze.cpp
     test_capabilities.cpp
     test_log.cpp
     test_loopback.cpp
