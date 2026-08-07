@@ -59,7 +59,8 @@ private:
     Microsoft::WRL::ComPtr<IUnknown> activated_;
 };
 
-Result activateProcessLoopbackClient(uint32_t processId, ComPtr<IAudioClient>& client) {
+Result activateProcessLoopbackClient(uint32_t processId, ProcessLoopbackMode processLoopbackMode,
+                                     ComPtr<IAudioClient>& client) {
 #if WA_HAS_AUDIOCLIENT_ACTIVATION_PARAMS && defined(VIRTUAL_AUDIO_DEVICE_PROCESS_LOOPBACK)
     auto done = std::make_shared<ActivationEvent>();
     if (!done->handle) {
@@ -71,7 +72,14 @@ Result activateProcessLoopbackClient(uint32_t processId, ComPtr<IAudioClient>& c
     activationParams.ActivationType = AUDIOCLIENT_ACTIVATION_TYPE_PROCESS_LOOPBACK;
     activationParams.ProcessLoopbackParams.TargetProcessId = processId;
     activationParams.ProcessLoopbackParams.ProcessLoopbackMode =
-        PROCESS_LOOPBACK_MODE_INCLUDE_TARGET_PROCESS_TREE;
+        (processLoopbackMode == ProcessLoopbackMode::ExcludeTree)
+            ? PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE
+            : PROCESS_LOOPBACK_MODE_INCLUDE_TARGET_PROCESS_TREE;
+
+    WA_LOG(wa::log::Level::Debug, "ApplicationLoopbackCaptureStream", "activate",
+           "pid=" + std::to_string(processId) +
+               " mode=" + processLoopbackModeName(processLoopbackMode),
+           "");
 
     PROPVARIANT prop{};
     prop.vt = VT_BLOB;
@@ -106,6 +114,7 @@ Result activateProcessLoopbackClient(uint32_t processId, ComPtr<IAudioClient>& c
     return Result::Ok();
 #else
     (void)processId;
+    (void)processLoopbackMode;
     (void)client;
     return Result::Fail(-1,
         "ApplicationLoopbackCaptureStream: Application Loopback requires Windows SDK 10.0.20348+");
@@ -115,8 +124,10 @@ Result activateProcessLoopbackClient(uint32_t processId, ComPtr<IAudioClient>& c
 } // namespace
 
 ApplicationLoopbackCaptureStream::ApplicationLoopbackCaptureStream(
-    WasapiMode mode, uint32_t processId, const AudioFormat* requested)
-    : mode_(mode), processId_(processId), hasRequested_(requested != nullptr) {
+    WasapiMode mode, uint32_t processId, const AudioFormat* requested,
+    ProcessLoopbackMode processLoopbackMode)
+    : mode_(mode), processId_(processId), processLoopbackMode_(processLoopbackMode),
+      hasRequested_(requested != nullptr) {
     if (requested) requestedFormat_ = *requested;
 }
 
@@ -220,7 +231,7 @@ void ApplicationLoopbackCaptureStream::signalReady(Result res) {
 }
 
 Result ApplicationLoopbackCaptureStream::activateClient() {
-    return activateProcessLoopbackClient(processId_, client_);
+    return activateProcessLoopbackClient(processId_, processLoopbackMode_, client_);
 }
 
 Result ApplicationLoopbackCaptureStream::initializeClient() {
@@ -291,7 +302,9 @@ void ApplicationLoopbackCaptureStream::threadMain() {
     }
 
     WA_LOG(wa::log::Level::Info, "ApplicationLoopbackCaptureStream", "Start",
-           "pid=" + std::to_string(processId_) + " fmt=" + wa::formatAudio(actualFormat_),
+           "pid=" + std::to_string(processId_) +
+               " mode=" + processLoopbackModeName(processLoopbackMode_) +
+               " fmt=" + wa::formatAudio(actualFormat_),
            "ok");
     signalReady(Result::Ok());
     runLoop();

@@ -15,7 +15,7 @@
 - **WASAPI 双后端**：Shared（共享模式）与 Exclusive（独占模式、低延迟），同一流程可切换后端做对比测试。
 - **采集 / 播放**：采集落盘 WAV，播放标准 RIFF WAV；可用 `--format` 指定目标格式（Shared 经 WASAPI 引擎 `AUTOCONVERTPCM` 转换；Exclusive 要求硬件原生支持）。
 - **系统 loopback**：以 render endpoint 为采集源回采系统输出，可选静音 render keepalive 保持时钟推进。
-- **Application Loopback**：按 PID 回采指定进程及其子进程树的音频（Shared-only；需要 Windows 10 build 20348 及以上）。
+- **Application Loopback**：按 PID 做 WASAPI process loopback（Shared-only；Windows 10 build 20348+）。默认 **IncludeTree**（只采目标进程及其子进程树）；可选 **ExcludeTree**（采 process-loopback 混音中除该进程树以外的部分）。
 - **双流延迟监听**：capture → 固定延迟 FIFO（漂移补偿）→ render 实时直通，显示 fifo 水位 / drift / xrun。
 - **设备能力查询**：Mix / Device / OEM 三来源格式 + 候选格式在 Shared/Exclusive 下的支持矩阵。
 - **格式探测**：检测设备是否支持指定格式（shared 反映 WASAPI 混音器转换能力，exclusive 反映硬件独占可用性）。
@@ -65,7 +65,18 @@ cd winaudio
 
 ### Application Loopback（按进程回采）
 
-打开 tab 后自动枚举当前有 Audio Session 的进程（进程名 + PID，按进程名排序），「Refresh」重新枚举；点击列表行会把 PID 填入下方输入框，也可手动输入任意非零 PID（不要求出现在列表中）。Start 后以 WASAPI process loopback（Shared）采集该进程及其子进程的音频；实际 2ch+ 时按 `Ch N` 分开显示采集到的前 8 个 channel。
+打开 tab 后自动枚举当前有 Audio Session 的进程（进程名 + PID，按进程名排序），「Refresh」重新枚举；点击列表行会把 PID 填入下方输入框，也可手动输入任意非零 PID（不要求出现在列表中）。
+
+Control 区同一行：**PID** 输入 + **Exclude** checkbox（默认未勾选）。
+
+| 模式 | UI | Status / 日志 | 语义（Windows process tree） |
+|------|----|---------------|------------------------------|
+| **IncludeTree**（默认） | Exclude 未勾 | `mode=IncludeTree` | 只采集目标 PID 及其**子进程树**的音频 |
+| **ExcludeTree** | 勾选 Exclude | `mode=ExcludeTree` | 采集 process-loopback 混音中**除**该进程树以外的部分 |
+
+Start 后以 WASAPI process loopback（Shared）按上表模式开流；Starting / Running 时 PID 与 Exclude 一并禁用，改 mode 需先 Stop 再 Start。实际 2ch+ 时按 `Ch N` 分开显示采集到的前 8 个 channel。
+
+不支持：多 PID 列表、运行中热切换 mode、CLI 入口（仅 GUI）。
 
 ## CLI 使用
 
@@ -144,6 +155,7 @@ WinAudioCli monitor [--cap <id>] [--render <id>] [--delay-ms N] [--seconds N] [-
 - **漂移补偿为单帧丢/插 + crossfade**：跨时钟域设备组合（如 USB 麦克风 + HDMI 输出）漂移率高；同接口 loopback 漂移很小。
 - GUI 采集侧 waveform / spectrogram 对实际 2ch+ 格式按 `Ch N` 分开显示，最多显示前 8 个 channel；播放端可视化与电平指示仍为单声道降混。
 - 系统 loopback 与 Application Loopback 仅支持 Shared 后端。
+- Application Loopback 的 Exclude 作用于**整个目标进程树**（含子进程），不是任意多 PID 过滤；与 System Loopback tab 路径不同，对比时请按实际听感理解。
 - waveIn / waveOut（MME 后端）未实现。
 
 ## 开发

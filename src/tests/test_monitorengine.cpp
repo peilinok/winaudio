@@ -641,7 +641,23 @@ TEST(MonitorEngine, ApplicationLoopbackCaptureSourceReachesFactory) {
     EXPECT_EQ(rig.lastCaptureSource.kind, CaptureSourceKind::ApplicationLoopback);
     EXPECT_TRUE(rig.lastCaptureSource.deviceId.empty());
     EXPECT_EQ(rig.lastCaptureSource.processId, 4242u);
+    EXPECT_EQ(rig.lastCaptureSource.processLoopbackMode, ProcessLoopbackMode::IncludeTree);
     EXPECT_EQ(rig.renderOpenCount.load(), 0);
+    eng.stop();
+}
+
+TEST(MonitorEngine, ApplicationLoopbackExcludeTreeModeReachesFactory) {
+    FakeRig rig;
+    MonitorEngine eng(rig.factory(), rig.silentFactory());
+    CaptureSource source{CaptureSourceKind::ApplicationLoopback, L"", 4242u,
+                         ProcessLoopbackMode::ExcludeTree};
+
+    ASSERT_TRUE(eng.start(BackendKind::WasapiShared, source, L"", 50, false));
+
+    EXPECT_TRUE(rig.sawCaptureSource);
+    EXPECT_EQ(rig.lastCaptureSource.kind, CaptureSourceKind::ApplicationLoopback);
+    EXPECT_EQ(rig.lastCaptureSource.processId, 4242u);
+    EXPECT_EQ(rig.lastCaptureSource.processLoopbackMode, ProcessLoopbackMode::ExcludeTree);
     eng.stop();
 }
 

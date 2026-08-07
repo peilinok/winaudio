@@ -35,7 +35,7 @@ cmake --build build-x86 --config Release -j
 数据流主线（多数改动落在这条链上）：
 
 ```
-capture source（endpoint | system loopback | application loopback(PID)）
+capture source（endpoint | system loopback | application loopback(PID + ProcessLoopbackMode)）
   ├─ Engine：单流。采集→WAV / WAV→render 播放 / probeFormat 格式探测
   └─ MonitorEngine：双流直通。capture → DelayFifo（固定延迟+漂移补偿）→ render
                     ├─ ScopeBuffer tap ×2（cap 保留实际 channel 快照，ren 为 mono tap）
@@ -43,7 +43,7 @@ capture source（endpoint | system loopback | application loopback(PID)）
 ```
 
 - **分层**：前端把 `BackendKind`（`WasapiShared` / `WasapiExclusive`）传给 Engine/MonitorEngine，同一上层流程可切后端做对比测试；流生命周期统一为 open → start → poll → stop → close（`IAudioBackend.h`）。
-- **`src/core/WasapiStream.{h,cpp}` 是 WASAPI 心脏**：基类做模式感知格式协商（Shared = `GetMixFormat` + `AUTOCONVERTPCM`；Exclusive = `IsFormatSupported` + `AUDCLNT_E_BUFFER_SIZE_NOT_ALIGNED` 对齐重试）、事件驱动线程模型、同步启动握手；派生出 capture / render / system-loopback / silent-render 各流。按 PID 的 process loopback 在 `ApplicationLoopbackCapture.*`（Shared-only）。
+- **`src/core/WasapiStream.{h,cpp}` 是 WASAPI 心脏**：基类做模式感知格式协商（Shared = `GetMixFormat` + `AUTOCONVERTPCM`；Exclusive = `IsFormatSupported` + `AUDCLNT_E_BUFFER_SIZE_NOT_ALIGNED` 对齐重试）、事件驱动线程模型、同步启动握手；派生出 capture / render / system-loopback / silent-render 各流。按 PID 的 process loopback 在 `ApplicationLoopbackCapture.*`（Shared-only）：`CaptureSource::processLoopbackMode` 为 `IncludeTree`（默认）或 `ExcludeTree`，激活时映射 Win32 `PROCESS_LOOPBACK_MODE_*_TARGET_PROCESS_TREE`；GUI Application Loopback tab 用 Exclude checkbox 选择（运行中不可改）。
 - **跨线程原语**（音频线程 ↔ GUI/控制线程的唯一通道）：`RingBuffer`（SPSC + xrun 计数）、`ScopeBuffer`（seqlock 快照，读不阻塞写；capture 可按 channel snapshot，legacy snapshot 仍返回 mono/downmix）、`DelayFifo`（单帧丢/插 + crossfade）、`Analysis`（采样计数节拍触发 FFT）。
 - **GUI**：逻辑集中在 `src/gui/AppUi.*`；用户可见文案集中在 `AppUiText.h`（有对应文案测试）；`Spectrogram.*` 纯 STL、可脱离 GUI 单测。ImGui / ImPlot / googletest 是 `third_party/` 内的 vendored 副本；spdlog 是唯一 git submodule。
 

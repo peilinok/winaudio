@@ -16,6 +16,6 @@
 
 ## Application Loopback
 
-Application Loopback 模式按 PID 捕获指定进程及其子进程树的音频。
+Application Loopback 按 PID 做 process loopback：默认 IncludeTree（目标进程树），可选 Exclude（ExcludeTree，混音去掉该进程树）。详见 README Application Loopback 小节。
 
 ![Application Loopback running](images/winaudio-application-loopback-running.png)

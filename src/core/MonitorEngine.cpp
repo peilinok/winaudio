@@ -78,8 +78,8 @@ std::unique_ptr<IAudioBackend> MonitorEngine::makeBackend(DataFlow flow, Backend
         if (source && source->kind == CaptureSourceKind::SystemLoopback)
             return std::make_unique<WasapiSystemLoopbackCaptureStream>(mode, requested);
         if (source && source->kind == CaptureSourceKind::ApplicationLoopback)
-            return std::make_unique<ApplicationLoopbackCaptureStream>(mode, source->processId,
-                                                                      requested);
+            return std::make_unique<ApplicationLoopbackCaptureStream>(
+                mode, source->processId, requested, source->processLoopbackMode);
         return std::make_unique<WasapiCaptureStream>(mode, requested);
     }
     return std::make_unique<WasapiRenderStream>(mode, requested);

@@ -18,10 +18,21 @@ enum class CaptureSourceKind {
     ApplicationLoopback,
 };
 
+// ApplicationLoopback only; Endpoint / SystemLoopback ignore this field.
+enum class ProcessLoopbackMode {
+    IncludeTree,
+    ExcludeTree,
+};
+
+inline const char* processLoopbackModeName(ProcessLoopbackMode mode) {
+    return mode == ProcessLoopbackMode::ExcludeTree ? "ExcludeTree" : "IncludeTree";
+}
+
 struct CaptureSource {
     CaptureSourceKind kind = CaptureSourceKind::Endpoint;
     DeviceId deviceId; // Endpoint: capture endpoint; SystemLoopback: render endpoint
     uint32_t processId = 0; // ApplicationLoopback target PID
+    ProcessLoopbackMode processLoopbackMode = ProcessLoopbackMode::IncludeTree;
 };
 
 struct LoopbackOptions {
