@@ -493,6 +493,7 @@ void AppUi::drawLoopbackPage() {
 
     ImGui::BeginChild("loopbackCharts", ImVec2(0, 0), true);
     ensureRunningVisuals(loopbackMs_, loopbackViz_, false);
+    drawChartsFreezeToolbar(loopbackViz_, loopbackMs_);
     ImGui::TextUnformatted("System audio waveform + spectrogram");
     drawChartPanel(0, loopback_, loopbackMs_, loopbackViz_);
     ImGui::EndChild();
@@ -518,6 +519,7 @@ void AppUi::drawApplicationLoopbackPage() {
 
     ImGui::BeginChild("appLoopbackCharts", ImVec2(0, 0), true);
     ensureRunningVisuals(appLoopbackMs_, appLoopbackViz_, false);
+    drawChartsFreezeToolbar(appLoopbackViz_, appLoopbackMs_);
     ImGui::TextUnformatted("Application audio waveform + spectrogram");
     if (appLoopback_)
         drawChartPanel(0, *appLoopback_, appLoopbackMs_, appLoopbackViz_);
@@ -879,15 +881,12 @@ void AppUi::drawAdvancedModal() {
     ImGui::EndPopup();
 }
 
-void AppUi::drawChartsColumn(wa::MonitorEngine& engine, const wa::MonitorStatus& status,
-                             VisualState& viz) {
-    ensureRunningVisuals(status, viz, true);
-
+void AppUi::drawChartsFreezeToolbar(VisualState& viz, const wa::MonitorStatus& status) {
+    // Shared by Monitor / Loopback / Application Loopback: freeze chart data only.
     const bool overallRunning =
         (status.overall == wa::StreamState::Running && status.sampleRate > 0);
     viz.chartsFrozen = wa::charts_freeze::applyLifecycle(overallRunning, viz.chartsFrozen);
 
-    // Charts toolbar: freeze visualization only (audio continues).
     ImGui::BeginDisabled(!wa::charts_freeze::isControlEnabled(overallRunning));
     if (ImGui::Button(viz.chartsFrozen ? wa::ui_text::kChartsResume : wa::ui_text::kChartsPause))
         viz.chartsFrozen = !viz.chartsFrozen;
@@ -896,6 +895,12 @@ void AppUi::drawChartsColumn(wa::MonitorEngine& engine, const wa::MonitorStatus&
         ImGui::SameLine();
         ImGui::TextUnformatted(wa::ui_text::kChartsPaused);
     }
+}
+
+void AppUi::drawChartsColumn(wa::MonitorEngine& engine, const wa::MonitorStatus& status,
+                             VisualState& viz) {
+    ensureRunningVisuals(status, viz, true);
+    drawChartsFreezeToolbar(viz, status);
 
     for (int pos = 0; pos < (int)chartOrder_.size(); ++pos) {
         int id = chartOrder_[pos];

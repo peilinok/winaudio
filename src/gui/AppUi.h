@@ -65,6 +65,7 @@ private:
     void ensureRunningVisuals(const wa::MonitorStatus& status, VisualState& viz,
                               bool includeRender);
     void drawChartsColumn(wa::MonitorEngine& engine, const wa::MonitorStatus& status, VisualState& viz);
+    void drawChartsFreezeToolbar(VisualState& viz, const wa::MonitorStatus& status);
     void drawChartPanel(int id, wa::MonitorEngine& engine, const wa::MonitorStatus& status, VisualState& viz);
     void drawComboPanel(wa::MonitorEngine& engine, const wa::MonitorStatus& status, VisualState& viz, bool renderSide);
     void drawSpectrogramPanel(VisualState& viz, const char* plotId, wa::Spectrogram* spec, double histSec, float height, int slot);
