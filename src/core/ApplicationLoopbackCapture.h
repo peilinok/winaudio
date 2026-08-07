@@ -24,7 +24,9 @@ AudioFormat defaultApplicationLoopbackFormat();
 class ApplicationLoopbackCaptureStream : public IAudioBackend {
 public:
     ApplicationLoopbackCaptureStream(WasapiMode mode, uint32_t processId,
-                                     const AudioFormat* requested);
+                                     const AudioFormat* requested,
+                                     ProcessLoopbackMode processLoopbackMode =
+                                         ProcessLoopbackMode::IncludeTree);
     ~ApplicationLoopbackCaptureStream() override;
 
     Result open(const DeviceId& id, const AudioFormat& fmt, RingBuffer* ring,
@@ -45,6 +47,7 @@ private:
 
     WasapiMode mode_;
     uint32_t processId_ = 0;
+    ProcessLoopbackMode processLoopbackMode_ = ProcessLoopbackMode::IncludeTree;
     bool hasRequested_ = false;
     AudioFormat requestedFormat_{};
     StreamParams params_{};

@@ -25,6 +25,20 @@ TEST(CaptureSource, CanRepresentApplicationLoopbackProcess) {
     EXPECT_EQ(source.kind, CaptureSourceKind::ApplicationLoopback);
     EXPECT_TRUE(source.deviceId.empty());
     EXPECT_EQ(source.processId, 4242u);
+    EXPECT_EQ(source.processLoopbackMode, ProcessLoopbackMode::IncludeTree);
+}
+
+TEST(CaptureSource, DefaultsProcessLoopbackModeToIncludeTree) {
+    CaptureSource source;
+    EXPECT_EQ(source.processLoopbackMode, ProcessLoopbackMode::IncludeTree);
+}
+
+TEST(CaptureSource, CanRepresentApplicationLoopbackExcludeTree) {
+    CaptureSource source{CaptureSourceKind::ApplicationLoopback, L"", 4242u,
+                         ProcessLoopbackMode::ExcludeTree};
+    EXPECT_EQ(source.kind, CaptureSourceKind::ApplicationLoopback);
+    EXPECT_EQ(source.processId, 4242u);
+    EXPECT_EQ(source.processLoopbackMode, ProcessLoopbackMode::ExcludeTree);
 }
 
 TEST(WasapiSystemLoopbackCaptureStream, RejectsExclusiveInOpen) {
