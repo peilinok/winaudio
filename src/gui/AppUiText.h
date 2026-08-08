@@ -32,5 +32,8 @@ inline constexpr const char* kAdvancedDuckingOptOut = "Ducking opt-out";
 inline constexpr const char* kChartsPause = "Pause charts";
 inline constexpr const char* kChartsResume = "Resume charts";
 inline constexpr const char* kChartsPaused = "PAUSED";
+inline constexpr const char* kChartsZoomOut = "Zoom out";
+inline constexpr const char* kChartsZoomIn = "Zoom in";
+inline constexpr const char* kChartsResetView = "Reset view";
 
 } // namespace wa::ui_text

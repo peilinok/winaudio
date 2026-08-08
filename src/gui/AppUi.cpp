@@ -3,6 +3,7 @@
 #include "AppUiText.h"
 #include "CaptureChannelView.h"
 #include "ChartsFreezePolicy.h"
+#include "ChartsTimeZoomPolicy.h"
 #include "ComUtil.h"
 #include "imgui.h"
 #include "implot.h"
@@ -336,6 +337,7 @@ void AppUi::resetVisuals(VisualState& viz) {
     viz.renderSpec.reset();
     viz.capChannelSpecs.clear();
     viz.chartsFrozen = false;
+    viz.resetYAxes = false;
     std::fill(std::begin(viz.plotHovPrev), std::end(viz.plotHovPrev), false);
 }
 
@@ -496,6 +498,7 @@ void AppUi::drawLoopbackPage() {
     drawChartsFreezeToolbar(loopbackViz_, loopbackMs_);
     ImGui::TextUnformatted("System audio waveform + spectrogram");
     drawChartPanel(0, loopback_, loopbackMs_, loopbackViz_);
+    loopbackViz_.resetYAxes = false;
     ImGui::EndChild();
     ImGui::EndChild();
 
@@ -523,6 +526,7 @@ void AppUi::drawApplicationLoopbackPage() {
     ImGui::TextUnformatted("Application audio waveform + spectrogram");
     if (appLoopback_)
         drawChartPanel(0, *appLoopback_, appLoopbackMs_, appLoopbackViz_);
+    appLoopbackViz_.resetYAxes = false;
     ImGui::EndChild();
     ImGui::EndChild();
 
@@ -882,7 +886,7 @@ void AppUi::drawAdvancedModal() {
 }
 
 void AppUi::drawChartsFreezeToolbar(VisualState& viz, const wa::MonitorStatus& status) {
-    // Shared by Monitor / Loopback / Application Loopback: freeze chart data only.
+    // Shared by Monitor / Loopback / Application Loopback: freeze + time zoom / reset.
     const bool overallRunning =
         (status.overall == wa::StreamState::Running && status.sampleRate > 0);
     viz.chartsFrozen = wa::charts_freeze::applyLifecycle(overallRunning, viz.chartsFrozen);
@@ -894,6 +898,42 @@ void AppUi::drawChartsFreezeToolbar(VisualState& viz, const wa::MonitorStatus& s
     if (viz.chartsFrozen) {
         ImGui::SameLine();
         ImGui::TextUnformatted(wa::ui_text::kChartsPaused);
+    }
+
+    // History length for the shared time axis (same window as wave/spec buffers).
+    const uint32_t sr = (status.sampleRate > 0) ? status.sampleRate
+                       : (viz.waveSr > 0)       ? viz.waveSr
+                                                : 48000u;
+    const double historyH = (viz.waveN > 0 && viz.waveSr > 0)
+                                ? (double)viz.waveN / (double)viz.waveSr
+                                : (double)(kSpecCols * kFftHop) / (double)sr;
+    const double hopSec = (double)kFftHop / (double)sr;
+    if (viz.xLink1 <= viz.xLink0)
+        viz.xLink1 = historyH > 0.0 ? historyH : viz.xLink0;
+
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!wa::charts_time_zoom::canZoomOut(viz.xLink0, viz.xLink1, historyH));
+    if (ImGui::Button(wa::ui_text::kChartsZoomOut)) {
+        const auto z = wa::charts_time_zoom::zoomCentered(viz.xLink0, viz.xLink1, historyH, hopSec, 2.0);
+        viz.xLink0 = z.x0;
+        viz.xLink1 = z.x1;
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    ImGui::BeginDisabled(
+        !wa::charts_time_zoom::canZoomIn(viz.xLink0, viz.xLink1, historyH, hopSec));
+    if (ImGui::Button(wa::ui_text::kChartsZoomIn)) {
+        const auto z = wa::charts_time_zoom::zoomCentered(viz.xLink0, viz.xLink1, historyH, hopSec, 0.5);
+        viz.xLink0 = z.x0;
+        viz.xLink1 = z.x1;
+    }
+    ImGui::EndDisabled();
+    ImGui::SameLine();
+    if (ImGui::Button(wa::ui_text::kChartsResetView)) {
+        const auto full = wa::charts_time_zoom::fullHistory(historyH);
+        viz.xLink0 = full.x0;
+        viz.xLink1 = full.x1;
+        viz.resetYAxes = true; // applied once by each plot this frame; cleared after charts draw
     }
 }
 
@@ -932,6 +972,7 @@ void AppUi::drawChartsColumn(wa::MonitorEngine& engine, const wa::MonitorStatus&
         }
         ImGui::PopID();
     }
+    viz.resetYAxes = false; // one-shot Y restore consumed by all plots this frame
 }
 
 // Plasma-like colormap whose low end fades to fully transparent: silence shows the normal plot
@@ -994,7 +1035,8 @@ void AppUi::drawSpectrogramPanel(VisualState& viz, const char* plotId, wa::Spect
         // Clamp panning/zooming to the buffered history / frequency range — no empty space.
         ImPlot::SetupAxisLimitsConstraints(ImAxis_X1, 0.0, histSec);
         ImPlot::SetupAxisLimitsConstraints(ImAxis_Y1, loL, hiL);
-        ImPlot::SetupAxisLimits(ImAxis_Y1, lo0, hiL, ImGuiCond_Once);
+        ImPlot::SetupAxisLimits(ImAxis_Y1, lo0, hiL,
+                                viz.resetYAxes ? ImGuiCond_Always : ImGuiCond_Once);
         if (nTick > 0) ImPlot::SetupAxisTicks(ImAxis_Y1, tickV, nTick, tickL);
         if (spec)
             ImPlot::PlotHeatmap("##hm", spec->data(), spec->rows(), spec->cols(), -96.0, 0.0, nullptr,
@@ -1025,7 +1067,8 @@ void AppUi::drawWaveformPanel(VisualState& viz, const char* plotId, const float*
                                           : (double)(kSpecCols * kFftHop) / 48000.0;
     ImPlot::SetupAxisLimitsConstraints(ImAxis_X1, 0.0, hist);
     ImPlot::SetupAxisLimitsConstraints(ImAxis_Y1, -1.0, 1.0);
-    ImPlot::SetupAxisLimits(ImAxis_Y1, -1.0, 1.0, ImGuiCond_Once);
+    ImPlot::SetupAxisLimits(ImAxis_Y1, -1.0, 1.0,
+                            viz.resetYAxes ? ImGuiCond_Always : ImGuiCond_Once);
     // dB ruler for the warped scale (positions = dbWarp of the label, with kWaveDbFloor = -60).
     static const double kAmpV[] = {-1.0, -0.9, -0.8, -0.6, -0.2, 0.0, 0.2, 0.6, 0.8, 0.9, 1.0};
     static const char*  kAmpL[] = {"0", "-6", "-12", "-24", "-48", "-inf", "-48", "-24", "-12", "-6", "0"};
