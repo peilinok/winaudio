@@ -90,6 +90,12 @@ TEST(ChartsFreezeUiText, ExposesPauseResumeAndPausedLabels) {
     EXPECT_STREQ(wa::ui_text::kChartsPaused, "PAUSED");
 }
 
+TEST(ChartsTimeZoomUiText, ExposesZoomAndResetLabels) {
+    EXPECT_STREQ(wa::ui_text::kChartsZoomOut, "Zoom out");
+    EXPECT_STREQ(wa::ui_text::kChartsZoomIn, "Zoom in");
+    EXPECT_STREQ(wa::ui_text::kChartsResetView, "Reset view");
+}
+
 TEST(AppLoopbackUiModel, SelectingRowCopiesPidIntoEditableBuffer) {
     std::vector<AudioSessionProcess> rows = {
         {111u, L"one.exe"},
