@@ -33,6 +33,10 @@ constexpr size_t kCatchup  = 8;     // max analysis frames to fast-forward per p
 constexpr int    kSpecRows = 128;   // spectrogram log-frequency rows
 constexpr int    kSpecCols = 480;   // time columns -> kSpecCols*kFftHop = 491520 samples ~= 10.2 s @ 48 kHz
 constexpr float  kWaveDbFloor = -60.0f;  // waveform dB display floor (center line reads -inf)
+// Zoomed-out envelope style: translucent body + opaque outline (keeps dB min/max LOD readable).
+constexpr ImVec4 kWaveColor          = ImVec4(0.40f, 0.89f, 0.59f, 1.00f);  // Audition green
+constexpr float  kWaveEnvFillAlpha   = 0.55f;  // medium transparency (0.45–0.60 band)
+constexpr float  kWaveEnvLineWeight  = 1.0f;   // 1 px min/max outline
 constexpr uint32_t kMaxCaptureChannelsShown = wa::capture_channel_view::kMaxCaptureChannelsShown;
 // Waveform shares the spectrogram's time window: kSpecCols*kFftHop samples (see drawChartsColumn).
 // Chart panel heights (px).
@@ -1050,8 +1054,8 @@ void AppUi::drawSpectrogramPanel(VisualState& viz, const char* plotId, wa::Spect
 
 // Draw one waveform over the shared time axis (xLink0_..xLink1_ seconds). wave[i] is at t = i/sr,
 // so the buffer's tail holds the newest samples (right edge). Level-of-detail: zoomed in -> raw
-// line; zoomed out -> per-pixel min/max envelope, so detail sharpens as you zoom and the waveform
-// stays column-aligned with the spectrogram.
+// line; zoomed out -> per-pixel min/max envelope with translucent fill + opaque outline so far
+// view stays readable while remaining column-aligned with the spectrogram.
 void AppUi::drawWaveformPanel(VisualState& viz, const char* plotId, const float* wave, int n,
                               uint32_t sr, bool haveData, float height, int slot) {
     if (!ImPlot::BeginPlot(plotId, ImVec2(-1, height))) return;
@@ -1086,7 +1090,7 @@ void AppUi::drawWaveformPanel(VisualState& viz, const char* plotId, const float*
             if (visN <= (int)(2.0f * pw)) {
                 viz.envMax.resize((size_t)visN);                     // scratch: warped raw samples
                 for (int i = 0; i < visN; ++i) viz.envMax[(size_t)i] = dbWarp(wave[iLo + i]);
-                ImPlot::SetNextLineStyle(ImVec4(0.40f, 0.89f, 0.59f, 1.00f));   // Audition green
+                ImPlot::SetNextLineStyle(kWaveColor);
                 ImPlot::PlotLine("##wave", viz.envMax.data(), visN, invSr, (double)iLo * invSr);
             } else {
                 const int cols = (int)pw;
@@ -1102,8 +1106,13 @@ void AppUi::drawWaveformPanel(VisualState& viz, const char* plotId, const float*
                     viz.envMin[(size_t)c] = dbWarp(mn);              // warp commutes with min/max
                     viz.envMax[(size_t)c] = dbWarp(mx);
                 }
-                ImPlot::SetNextFillStyle(ImVec4(0.40f, 0.89f, 0.59f, 1.00f), 1.0f);   // Audition green, solid
+                // Translucent body (FillAlpha multiplies color.w) + opaque min/max outline.
+                ImPlot::SetNextFillStyle(kWaveColor, kWaveEnvFillAlpha);
                 ImPlot::PlotShaded("##wave", viz.envX.data(), viz.envMin.data(), viz.envMax.data(), cols);
+                ImPlot::SetNextLineStyle(kWaveColor, kWaveEnvLineWeight);
+                ImPlot::PlotLine("##waveMax", viz.envX.data(), viz.envMax.data(), cols);
+                ImPlot::SetNextLineStyle(kWaveColor, kWaveEnvLineWeight);
+                ImPlot::PlotLine("##waveMin", viz.envX.data(), viz.envMin.data(), cols);
             }
         }
     }
