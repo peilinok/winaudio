@@ -1,5 +1,6 @@
 add_executable(WinAudioGui
     AppUi.cpp
+    ChartDataPipeline.cpp
     main.cpp
     Spectrogram.cpp
 )

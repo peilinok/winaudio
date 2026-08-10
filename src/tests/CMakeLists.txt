@@ -16,12 +16,14 @@ add_executable(WinAudioTests
     test_capture_channel_view.cpp
     test_charts_freeze.cpp
     test_charts_time_zoom.cpp
+    test_chart_data_pipeline.cpp
     test_capabilities.cpp
     test_log.cpp
     test_loopback.cpp
     test_audio_session_enumerator.cpp
     test_cli_options.cpp
     ${CMAKE_SOURCE_DIR}/src/gui/Spectrogram.cpp   # compiled into tests, as in the current setup
+    ${CMAKE_SOURCE_DIR}/src/gui/ChartDataPipeline.cpp
 )
 target_include_directories(WinAudioTests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}

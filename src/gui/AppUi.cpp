@@ -2,13 +2,13 @@
 #include "ApplicationLoopbackUiModel.h"
 #include "AppUiText.h"
 #include "CaptureChannelView.h"
+#include "ChartDataPipeline.h"
 #include "ChartsFreezePolicy.h"
 #include "ChartsTimeZoomPolicy.h"
 #include "ComUtil.h"
+#include "MonitorScopeReader.h"
 #include "imgui.h"
 #include "implot.h"
-#include "Fft.h"
-#include "Analysis.h"
 #include "FormatSpec.h"
 #include "Log.h"
 #include <algorithm>
@@ -1129,12 +1129,25 @@ void AppUi::drawComboPanel(wa::MonitorEngine& engine, const wa::MonitorStatus& s
     const uint32_t sr         = status.sampleRate;
     const bool overallRunning = (status.overall     == wa::StreamState::Running && sr > 0);
     const bool renderRunning  = (status.renderState == wa::StreamState::Running);
-    const bool refreshCharts  =
-        wa::charts_freeze::shouldRefreshCharts(overallRunning, viz.chartsFrozen);
     const auto capturePlan = wa::capture_channel_view::makePlan(status.captureChannels);
     // Split layout follows the capture plan whenever the page is running (including frozen),
     // so multi-channel panels stay mounted while chart data is held.
     const bool splitCapture = !renderSide && overallRunning && capturePlan.split;
+
+    // Chart Data Pipeline: hop-aligned spectrum + latest wave history; freeze gated inside.
+    wa::MonitorScopeReader reader(
+        engine, renderSide ? wa::MonitorScopeReader::Side::Render
+                           : wa::MonitorScopeReader::Side::Capture);
+    wa::ChartRefreshParams refreshParams;
+    refreshParams.reader = &reader;
+    refreshParams.frozen = viz.chartsFrozen;
+    // Live: require overall (+ render when render-side). Frozen: still "active" so haveWave
+    // can report retained buffers; pipeline skips writes when frozen.
+    refreshParams.streamActive =
+        overallRunning && (viz.chartsFrozen || !renderSide || renderRunning);
+    refreshParams.fftWin = kFftWin;
+    refreshParams.fftHop = kFftHop;
+    refreshParams.maxCatchup = kCatchup;
 
     if (splitCapture) {
         const uint32_t actualChannels = capturePlan.actualChannels;
@@ -1143,49 +1156,26 @@ void AppUi::drawComboPanel(wa::MonitorEngine& engine, const wa::MonitorStatus& s
         if (actualChannels > shownChannels)
             ImGui::Text("Capture channels: %u / %u channels shown", shownChannels, actualChannels);
 
-        const uint64_t waveEnd = engine.capWritten();
-        const size_t nn = (size_t)std::min<uint64_t>(waveEnd, (uint64_t)viz.waveN);
+        wa::ChartBuffers buffers;
+        buffers.channelWaves = &viz.capChannelWaves;
+        buffers.channelCount = shownChannels;
+        buffers.waveN = viz.waveN;
+        buffers.waveSr = viz.waveSr;
+        buffers.channelSpecWindows = &viz.capSpecWindows;
+        buffers.channelSpecs = &viz.capChannelSpecs;
+        buffers.work = &viz.workCap;
+        buffers.mag = &viz.magCap;
+        buffers.nextEnd = &viz.nextCapEnd;
+        buffers.specSr = viz.specSr;
+        const wa::ChartRefreshResult refreshed = wa::refreshCharts(refreshParams, buffers);
+
         for (uint32_t ch = 0; ch < shownChannels; ++ch) {
             std::vector<float>& wave = viz.capChannelWaves[(size_t)ch];
-            bool ok = false;
-            if (refreshCharts && viz.waveSr > 0 && nn > 0) {
-                const int head = viz.waveN - (int)nn;
-                std::fill(wave.begin(), wave.begin() + head, 0.f);
-                ok = engine.snapshotCaptureChannelAt((uint16_t)ch, waveEnd, nn,
-                                                     wave.data() + head);
-            } else if (viz.chartsFrozen && viz.waveSr > 0 && viz.waveN > 0) {
-                ok = true; // redraw last frozen channel buffer
-            }
             const std::string title = "Capture Ch " + std::to_string(ch + 1u) + " waveform";
             ImGui::TextUnformatted(title.c_str());
             const std::string plotId = "##capWaveCh" + std::to_string(ch);
-            drawWaveformPanel(viz, plotId.c_str(), wave.data(), viz.waveN, viz.waveSr, ok,
-                              kMultiWaveH, kSlotCapWaveBase + (int)ch);
-        }
-
-        const uint32_t specChannels = std::min<uint32_t>(
-            shownChannels,
-            std::min<uint32_t>((uint32_t)viz.capChannelSpecs.size(),
-                               (uint32_t)viz.capSpecWindows.size()));
-        if (refreshCharts && viz.specSr > 0 && specChannels > 0) {
-            const uint64_t written = engine.capWritten();
-            wa::advanceAnalysis(written, viz.nextCapEnd, kFftWin, kFftHop, kCatchup, [&](uint64_t endIdx) {
-                bool allGot = true;
-                for (uint32_t ch = 0; ch < specChannels; ++ch) {
-                    if (!engine.snapshotCaptureChannelAt((uint16_t)ch, endIdx, kFftWin,
-                                                         viz.capSpecWindows[(size_t)ch].data())) {
-                        allGot = false;
-                        break;
-                    }
-                }
-                if (!allGot) return;
-                for (uint32_t ch = 0; ch < specChannels; ++ch) {
-                    wa::magnitudeSpectrumDb(viz.capSpecWindows[(size_t)ch].data(), kFftWin,
-                                            viz.workCap.data(), viz.magCap);
-                    if (viz.capChannelSpecs[(size_t)ch])
-                        viz.capChannelSpecs[(size_t)ch]->pushColumn(viz.magCap);
-                }
-            });
+            drawWaveformPanel(viz, plotId.c_str(), wave.data(), viz.waveN, viz.waveSr,
+                              refreshed.haveWave, kMultiWaveH, kSlotCapWaveBase + (int)ch);
         }
 
         const uint32_t hz = (sr > 0) ? sr : 48000u;
@@ -1203,24 +1193,22 @@ void AppUi::drawComboPanel(wa::MonitorEngine& engine, const wa::MonitorStatus& s
         return;
     }
 
-    // Snapshot the newest samples into the tail of the history buffer (progressive fill).
-    // When charts are frozen, skip the snapshot and redraw the last buffers.
     std::vector<float>& wave = renderSide ? viz.renderWave : viz.capWave;
-    bool ok = false;
-    if (refreshCharts && viz.waveSr > 0 && (!renderSide || renderRunning)) {
-        const size_t avail = (size_t)(renderSide ? engine.renderWritten() : engine.capWritten());
-        const size_t nn = std::min(avail, (size_t)viz.waveN);
-        if (nn > 0) {
-            const int head = viz.waveN - (int)nn;
-            std::fill(wave.begin(), wave.begin() + head, 0.f);
-            uint64_t end = 0;
-            ok = renderSide ? engine.snapshotRender(nn, wave.data() + head, end)
-                            : engine.snapshotCapture(nn, wave.data() + head, end);
-        }
-    } else if (viz.chartsFrozen && viz.waveSr > 0 && viz.waveN > 0 &&
-               (!renderSide || !viz.renderWave.empty())) {
+    wa::ChartBuffers buffers;
+    buffers.wave = wave.empty() ? nullptr : wave.data();
+    buffers.waveN = viz.waveN;
+    buffers.waveSr = viz.waveSr;
+    buffers.specWin = &viz.specWin;
+    buffers.work = renderSide ? &viz.workRender : &viz.workCap;
+    buffers.mag = renderSide ? &viz.magRender : &viz.magCap;
+    buffers.spectrogram = renderSide ? viz.renderSpec.get() : viz.capSpec.get();
+    buffers.nextEnd = renderSide ? &viz.nextRenderEnd : &viz.nextCapEnd;
+    buffers.specSr = viz.specSr;
+    const wa::ChartRefreshResult refreshed = wa::refreshCharts(refreshParams, buffers);
+    bool ok = refreshed.haveWave;
+    if (!ok && viz.chartsFrozen && viz.waveSr > 0 && viz.waveN > 0 &&
+        (!renderSide || !viz.renderWave.empty()))
         ok = true;
-    }
 
     const float waveH = kComboH * viz.comboRatio;
     drawWaveformPanel(viz, renderSide ? "##renWave" : "##capWave", wave.data(), viz.waveN, viz.waveSr, ok,
@@ -1236,25 +1224,6 @@ void AppUi::drawComboPanel(wa::MonitorEngine& engine, const wa::MonitorStatus& s
     ImGui::GetWindowDrawList()->AddLine(ImVec2(smn.x, (smn.y + smx.y) * 0.5f),
                                         ImVec2(smx.x, (smn.y + smx.y) * 0.5f),
                                         ImGui::GetColorU32(ImGuiCol_Separator), 1.0f);
-
-    // Advance the FFT analysis feeding this stream's spectrogram (relocated here from the former
-    // spectrum panels): one column per hop, catching up a few frames per poll. workCap_/workRender_
-    // and magCap_/magRender_ are reused as scratch. Skipped while charts are frozen.
-    if (refreshCharts && viz.specSr > 0 && (!renderSide || renderRunning)) {
-        uint64_t se = 0;
-        const uint64_t written = renderSide ? engine.renderWritten() : engine.capWritten();
-        uint64_t& nextEnd      = renderSide ? viz.nextRenderEnd : viz.nextCapEnd;
-        wa::advanceAnalysis(written, nextEnd, kFftWin, kFftHop, kCatchup, [&](uint64_t) {
-            const bool got = renderSide ? engine.snapshotRender(kFftWin, viz.specWin.data(), se)
-                                        : engine.snapshotCapture(kFftWin, viz.specWin.data(), se);
-            if (!got) return;
-            std::vector<std::complex<float>>& work = renderSide ? viz.workRender : viz.workCap;
-            std::vector<float>&               mag  = renderSide ? viz.magRender  : viz.magCap;
-            wa::magnitudeSpectrumDb(viz.specWin.data(), kFftWin, work.data(), mag);
-            if (wa::Spectrogram* sp = renderSide ? viz.renderSpec.get() : viz.capSpec.get())
-                sp->pushColumn(mag);
-        });
-    }
 
     wa::Spectrogram* spec = nullptr;
     if (overallRunning) {
