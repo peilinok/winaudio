@@ -79,6 +79,47 @@ TEST(ScopeBuffer, SnapshotChannelEndingAtUsesRequestedWindow) {
     sb.pushInterleaved(more.data(), 16);
     EXPECT_FALSE(sb.snapshotChannelEndingAt(1, 6, 3, out));
 }
+TEST(ScopeBuffer, SnapshotEndingAtDownmixUsesRequestedWindow) {
+    ScopeBuffer sb(16, 2);
+    std::vector<float> in;
+    for (int i = 0; i < 10; ++i) {
+        in.push_back((float)i);           // ch0
+        in.push_back((float)(100 + i));   // ch1
+    }
+    sb.pushInterleaved(in.data(), 10);
+
+    // Frames ending at 6: indices 3,4,5 -> avg (3+103)/2, (4+104)/2, (5+105)/2
+    float out[3] = {};
+    ASSERT_TRUE(sb.snapshotEndingAt(6, 3, out));
+    EXPECT_FLOAT_EQ(out[0], 53.0f);
+    EXPECT_FLOAT_EQ(out[1], 54.0f);
+    EXPECT_FLOAT_EQ(out[2], 55.0f);
+
+    EXPECT_FALSE(sb.snapshotEndingAt(11, 3, out)); // beyond written
+
+    // Same roll-off contract as channel EndingAt: old window becomes unavailable.
+    std::vector<float> more;
+    for (int i = 10; i < 26; ++i) {
+        more.push_back((float)i);
+        more.push_back((float)(100 + i));
+    }
+    sb.pushInterleaved(more.data(), 16);
+    EXPECT_FALSE(sb.snapshotEndingAt(6, 3, out));
+}
+TEST(ScopeBuffer, SnapshotEndingAtMonoMatchesLatestWindow) {
+    ScopeBuffer sb(64);
+    std::vector<float> in(32);
+    for (size_t i = 0; i < 32; ++i) in[i] = (float)i;
+    sb.push(in.data(), 32);
+
+    float latest[8] = {};
+    float at[8] = {};
+    uint64_t end = 0;
+    ASSERT_TRUE(sb.snapshotLatest(8, latest, end));
+    EXPECT_EQ(end, 32u);
+    ASSERT_TRUE(sb.snapshotEndingAt(end, 8, at));
+    for (int i = 0; i < 8; ++i) EXPECT_FLOAT_EQ(at[i], latest[i]);
+}
 TEST(ScopeBuffer, ConcurrentSpscConsistency) {
     ScopeBuffer sb(8192);
     std::atomic<bool> stop{false};

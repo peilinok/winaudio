@@ -15,6 +15,7 @@
 #include <thread>
 #include <vector>
 #include "MonitorEngine.h"
+#include "MonitorScopeReader.h"
 #include "RingBuffer.h"
 
 using namespace wa;
@@ -345,6 +346,88 @@ TEST(MonitorEngine, CaptureChannelSnapshotAtUsesRequestedEndIndex) {
     }
 
     EXPECT_FALSE(eng.snapshotCaptureChannelAt(1, frames + 1, 8, out));
+
+    eng.stop();
+}
+
+TEST(MonitorEngine, CaptureSnapshotAtDownmixUsesRequestedEndIndex) {
+    FakeRig rig;
+    rig.capFmt = {48000, 2, 16, false};
+    MonitorEngine eng(rig.factory());
+    ASSERT_TRUE(static_cast<bool>(eng.start(BackendKind::WasapiShared, L"", L"", 20, false)));
+    ASSERT_NE(rig.capPtr, nullptr);
+
+    const uint32_t frames = 256;
+    std::vector<int16_t> left(frames);
+    std::vector<int16_t> right(frames);
+    for (uint32_t i = 0; i < frames; ++i) {
+        left[i] = static_cast<int16_t>(100 + i);
+        right[i] = static_cast<int16_t>(1000 + i);
+    }
+    auto pcm = makeStereoPcm(left, right);
+    rig.capPtr->pushPcm(pcm.data(), pcm.size());
+
+    ASSERT_TRUE(waitFor([&] { return eng.capWritten() >= frames; }))
+        << "capWritten never reached " << frames;
+
+    float out[8] = {};
+    ASSERT_TRUE(eng.snapshotCaptureAt(128, 8, out));
+    for (uint32_t k = 0; k < 8; ++k) {
+        const uint32_t idx = 120 + k;
+        const float expected =
+            (static_cast<float>(left[idx]) + static_cast<float>(right[idx])) * 0.5f / 32768.f;
+        EXPECT_NEAR(out[k], expected, 1e-4f) << "mono mismatch at k=" << k;
+    }
+    EXPECT_FALSE(eng.snapshotCaptureAt(frames + 1, 8, out));
+    EXPECT_EQ(eng.captureScopeChannels(), 2u);
+
+    eng.stop();
+}
+
+TEST(MonitorScopeReader, CaptureAdapterMatchesEngineSnapshotAt) {
+    FakeRig rig;
+    rig.capFmt = {48000, 2, 16, false};
+    MonitorEngine eng(rig.factory());
+    ASSERT_TRUE(static_cast<bool>(eng.start(BackendKind::WasapiShared, L"", L"", 20, false)));
+    ASSERT_NE(rig.capPtr, nullptr);
+
+    const uint32_t frames = 128;
+    std::vector<int16_t> left(frames);
+    std::vector<int16_t> right(frames);
+    for (uint32_t i = 0; i < frames; ++i) {
+        left[i] = static_cast<int16_t>(i);
+        right[i] = static_cast<int16_t>(1000 + i);
+    }
+    auto pcm = makeStereoPcm(left, right);
+    rig.capPtr->pushPcm(pcm.data(), pcm.size());
+    ASSERT_TRUE(waitFor([&] { return eng.capWritten() >= frames; }));
+
+    MonitorScopeReader cap(eng, MonitorScopeReader::Side::Capture);
+    EXPECT_EQ(cap.written(), eng.capWritten());
+    EXPECT_EQ(cap.channels(), eng.captureScopeChannels());
+
+    float viaEngine[8] = {};
+    float viaReader[8] = {};
+    ASSERT_TRUE(eng.snapshotCaptureAt(64, 8, viaEngine));
+    ASSERT_TRUE(cap.snapshotEndingAt(64, 8, viaReader));
+    for (int i = 0; i < 8; ++i) EXPECT_FLOAT_EQ(viaEngine[i], viaReader[i]);
+
+    float ch[4] = {};
+    ASSERT_TRUE(cap.snapshotChannelEndingAt(0, 64, 4, ch));
+
+    eng.stop();
+}
+
+TEST(MonitorScopeReader, RenderSideIsMonoOnly) {
+    FakeRig rig;
+    MonitorEngine eng(rig.factory());
+    // playback on so render scope exists and can receive delayed samples
+    ASSERT_TRUE(static_cast<bool>(eng.start(BackendKind::WasapiShared, L"", L"", 20, true)));
+
+    MonitorScopeReader ren(eng, MonitorScopeReader::Side::Render);
+    EXPECT_EQ(ren.channels(), 1u);
+    float out[4] = {};
+    EXPECT_FALSE(ren.snapshotChannelEndingAt(1, 4, 4, out));
 
     eng.stop();
 }
