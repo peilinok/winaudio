@@ -98,12 +98,15 @@ public:
     void   setRenderParams(const StreamParams& p);                  // 运行中可调;下次 engage 取快照生效
 
     bool snapshotCapture(size_t n, float* out, uint64_t& endIdxOut);
+    bool snapshotCaptureAt(uint64_t endIdx, size_t n, float* out);
     bool snapshotCaptureChannel(uint16_t channel, size_t n, float* out, uint64_t& endIdxOut);
     bool snapshotCaptureChannelAt(uint16_t channel, uint64_t endIdx, size_t n, float* out);
     bool snapshotRender (size_t n, float* out, uint64_t& endIdxOut);
+    bool snapshotRenderAt(uint64_t endIdx, size_t n, float* out);
 
     uint64_t capWritten()    const;
     uint64_t renderWritten() const;
+    uint16_t captureScopeChannels() const;
 
 private:
     void   pumpLoop();

@@ -106,6 +106,31 @@ public:
         return false;                                    // couldn't get a quiet window (caller skips a frame)
     }
 
+    // Consistent mono/downmix snapshot of n frames ending at endIdx (exclusive).
+    // Same availability contract as snapshotChannelEndingAt; n <= capacity/2.
+    bool snapshotEndingAt(uint64_t endIdx, size_t n, float* out) const {
+        const size_t cap = capacityFrames();
+        if (n == 0 || n > cap / 2) return false;
+        for (int attempt = 0; attempt < 16; ++attempt) {
+            const uint64_t s0 = seq_.load(std::memory_order_acquire);
+            if (s0 & 1u) continue;
+            const uint64_t w0 = written_.load(std::memory_order_acquire);
+            if (!windowAvailable(w0, endIdx, n, cap)) return false;
+            const uint64_t start = endIdx - n;
+            const float invCh = 1.0f / static_cast<float>(channels_);
+            for (size_t i = 0; i < n; ++i) {
+                const size_t frame = static_cast<size_t>((start + i) % cap);
+                const float* src = &buf_[frame * static_cast<size_t>(channels_)];
+                float sum = 0.0f;
+                for (uint16_t ch = 0; ch < channels_; ++ch) sum += src[ch];
+                out[i] = sum * invCh;
+            }
+            const uint64_t s1 = seq_.load(std::memory_order_acquire);
+            if (s0 == s1) return true;
+        }
+        return false;
+    }
+
 private:
     size_t capacityFrames() const { return buf_.size() / static_cast<size_t>(channels_); }
     static bool windowAvailable(uint64_t written, uint64_t endIdx, size_t n, size_t cap) {

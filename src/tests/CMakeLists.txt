@@ -9,6 +9,7 @@ add_executable(WinAudioTests
     test_wavfile.cpp
     test_formatspec.cpp
     test_scopebuffer.cpp
+    test_scope_reader.cpp
     test_analysis.cpp
     test_monitorengine.cpp
     test_spectrogram.cpp

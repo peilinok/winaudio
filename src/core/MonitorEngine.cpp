@@ -529,6 +529,11 @@ bool MonitorEngine::snapshotCapture(size_t n, float* out, uint64_t& endIdxOut) {
     return s ? s->snapshotLatest(n, out, endIdxOut) : false;
 }
 
+bool MonitorEngine::snapshotCaptureAt(uint64_t endIdx, size_t n, float* out) {
+    ScopeBuffer* s = captureScope_.get();
+    return s ? s->snapshotEndingAt(endIdx, n, out) : false;
+}
+
 bool MonitorEngine::snapshotCaptureChannel(uint16_t channel, size_t n, float* out,
                                            uint64_t& endIdxOut) {
     ScopeBuffer* s = captureScope_.get();
@@ -546,6 +551,11 @@ bool MonitorEngine::snapshotRender(size_t n, float* out, uint64_t& endIdxOut) {
     return s ? s->snapshotLatest(n, out, endIdxOut) : false;
 }
 
+bool MonitorEngine::snapshotRenderAt(uint64_t endIdx, size_t n, float* out) {
+    ScopeBuffer* s = renderScope_.get();
+    return s ? s->snapshotEndingAt(endIdx, n, out) : false;
+}
+
 uint64_t MonitorEngine::capWritten() const {
     ScopeBuffer* s = captureScope_.get();
     return s ? s->totalWritten() : 0;
@@ -554,6 +564,11 @@ uint64_t MonitorEngine::capWritten() const {
 uint64_t MonitorEngine::renderWritten() const {
     ScopeBuffer* s = renderScope_.get();
     return s ? s->totalWritten() : 0;
+}
+
+uint16_t MonitorEngine::captureScopeChannels() const {
+    ScopeBuffer* s = captureScope_.get();
+    return s ? s->channels() : 0;
 }
 
 } // namespace wa
