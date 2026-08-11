@@ -475,7 +475,8 @@ void AppUi::drawMonitorPage() {
     ImGui::SameLine();
 
     ImGui::BeginChild("charts", ImVec2(0, 0), true);
-    drawChartsColumn(monitor_, ms_, monitorViz_);
+    drawChartHost(&monitor_, ms_, monitorViz_, wa::chart_host::Mode::DualReorderable,
+                  nullptr, &chartOrder_);
     ImGui::EndChild();
     ImGui::EndChild();
 
@@ -498,11 +499,8 @@ void AppUi::drawLoopbackPage() {
     ImGui::SameLine();
 
     ImGui::BeginChild("loopbackCharts", ImVec2(0, 0), true);
-    ensureRunningVisuals(loopbackMs_, loopbackViz_, false);
-    drawChartsFreezeToolbar(loopbackViz_, loopbackMs_);
-    ImGui::TextUnformatted("System audio waveform + spectrogram");
-    drawChartPanel(0, loopback_, loopbackMs_, loopbackViz_);
-    loopbackViz_.resetYAxes = false;
+    drawChartHost(&loopback_, loopbackMs_, loopbackViz_, wa::chart_host::Mode::CaptureOnly,
+                  "System audio waveform + spectrogram", nullptr);
     ImGui::EndChild();
     ImGui::EndChild();
 
@@ -525,12 +523,9 @@ void AppUi::drawApplicationLoopbackPage() {
     ImGui::SameLine();
 
     ImGui::BeginChild("appLoopbackCharts", ImVec2(0, 0), true);
-    ensureRunningVisuals(appLoopbackMs_, appLoopbackViz_, false);
-    drawChartsFreezeToolbar(appLoopbackViz_, appLoopbackMs_);
-    ImGui::TextUnformatted("Application audio waveform + spectrogram");
-    if (appLoopback_)
-        drawChartPanel(0, *appLoopback_, appLoopbackMs_, appLoopbackViz_);
-    appLoopbackViz_.resetYAxes = false;
+    drawChartHost(appLoopback_.get(), appLoopbackMs_, appLoopbackViz_,
+                  wa::chart_host::Mode::CaptureOnly,
+                  "Application audio waveform + spectrogram", nullptr);
     ImGui::EndChild();
     ImGui::EndChild();
 
@@ -941,42 +936,66 @@ void AppUi::drawChartsFreezeToolbar(VisualState& viz, const wa::MonitorStatus& s
     }
 }
 
-void AppUi::drawChartsColumn(wa::MonitorEngine& engine, const wa::MonitorStatus& status,
-                             VisualState& viz) {
-    ensureRunningVisuals(status, viz, true);
+void AppUi::drawChartHost(wa::MonitorEngine* engine, const wa::MonitorStatus& status,
+                          VisualState& viz, wa::chart_host::Mode mode, const char* caption,
+                          std::vector<int>* order) {
+    // Chart Host: ensure → freeze/zoom toolbar → panels → clear one-shot Y reset.
+    const bool includeRender = (mode == wa::chart_host::Mode::DualReorderable);
+    ensureRunningVisuals(status, viz, includeRender);
     drawChartsFreezeToolbar(viz, status);
 
-    for (int pos = 0; pos < (int)chartOrder_.size(); ++pos) {
-        int id = chartOrder_[pos];
-        ImGui::PushID(pos);
-        const float bh = ImGui::GetFrameHeight();
-        ImGui::Button("##drag", ImVec2(bh, bh));             // drag handle (move icon drawn on top)
-        if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
-        const ImVec2 hmn = ImGui::GetItemRectMin(), hmx = ImGui::GetItemRectMax();
-        drawMoveIcon(ImGui::GetWindowDrawList(),
-                     ImVec2((hmn.x + hmx.x) * 0.5f, (hmn.y + hmx.y) * 0.5f),
-                     ImGui::GetFontSize(), ImGui::GetColorU32(ImGuiCol_Text));
-        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
-            ImGui::SetDragDropPayload("CHART_POS", &pos, sizeof(int));
-            ImGui::TextUnformatted(chartTitle(id));
-            ImGui::EndDragDropSource();
-        }
-        ImGui::SameLine(); ImGui::TextUnformatted(chartTitle(id));
-        drawChartPanel(id, engine, status, viz);
-        if (ImGui::BeginDragDropTarget()) {
-            if (const ImGuiPayload* pl = ImGui::AcceptDragDropPayload("CHART_POS")) {
-                int from = *(const int*)pl->Data;
-                if (from != pos) {
-                    int moved = chartOrder_[from];
-                    chartOrder_.erase(chartOrder_.begin() + from);
-                    chartOrder_.insert(chartOrder_.begin() + pos, moved);
-                }
+    if (caption && caption[0] != '\0')
+        ImGui::TextUnformatted(caption);
+
+    if (mode == wa::chart_host::Mode::DualReorderable) {
+        // Sanitize / complete order each frame; reorder UI mutates and writes back if order != null.
+        std::vector<int> panelOrder =
+            wa::chart_host::resolvePanelIds(mode, order ? *order : std::vector<int>{});
+        if (order) *order = panelOrder;
+
+        for (int pos = 0; pos < (int)panelOrder.size(); ++pos) {
+            const int id = panelOrder[(size_t)pos];
+            if (!engine) continue;
+            ImGui::PushID(pos);
+            const float bh = ImGui::GetFrameHeight();
+            ImGui::Button("##drag", ImVec2(bh, bh));
+            if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+            const ImVec2 hmn = ImGui::GetItemRectMin(), hmx = ImGui::GetItemRectMax();
+            drawMoveIcon(ImGui::GetWindowDrawList(),
+                         ImVec2((hmn.x + hmx.x) * 0.5f, (hmn.y + hmx.y) * 0.5f),
+                         ImGui::GetFontSize(), ImGui::GetColorU32(ImGuiCol_Text));
+            if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
+                ImGui::SetDragDropPayload("CHART_POS", &pos, sizeof(int));
+                ImGui::TextUnformatted(chartTitle(id));
+                ImGui::EndDragDropSource();
             }
-            ImGui::EndDragDropTarget();
+            ImGui::SameLine();
+            ImGui::TextUnformatted(chartTitle(id));
+            drawChartPanel(id, *engine, status, viz);
+            if (ImGui::BeginDragDropTarget()) {
+                if (const ImGuiPayload* pl = ImGui::AcceptDragDropPayload("CHART_POS")) {
+                    const int from = *(const int*)pl->Data;
+                    if (from != pos && from >= 0 && from < (int)panelOrder.size()) {
+                        const int moved = panelOrder[(size_t)from];
+                        panelOrder.erase(panelOrder.begin() + from);
+                        panelOrder.insert(panelOrder.begin() + pos, moved);
+                        if (order) *order = panelOrder;
+                    }
+                }
+                ImGui::EndDragDropTarget();
+            }
+            ImGui::PopID();
         }
-        ImGui::PopID();
+    } else {
+        // Capture-only: single capture combo; skip draw when engine is null.
+        if (engine) {
+            const auto ids = wa::chart_host::resolvePanelIds(mode, {});
+            for (int id : ids)
+                drawChartPanel(id, *engine, status, viz);
+        }
     }
-    viz.resetYAxes = false; // one-shot Y restore consumed by all plots this frame
+
+    viz.resetYAxes = false;
 }
 
 // Plasma-like colormap whose low end fades to fully transparent: silence shows the normal plot

@@ -17,6 +17,7 @@ add_executable(WinAudioTests
     test_charts_freeze.cpp
     test_charts_time_zoom.cpp
     test_chart_data_pipeline.cpp
+    test_chart_host.cpp
     test_capabilities.cpp
     test_log.cpp
     test_loopback.cpp

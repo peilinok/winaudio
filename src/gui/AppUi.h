@@ -6,6 +6,7 @@
 #include <thread>
 #include <vector>
 #include "AudioSessionEnumerator.h"
+#include "ChartHost.h"
 #include "DeviceEnumerator.h"
 #include "MonitorEngine.h"
 #include "Spectrogram.h"
@@ -65,7 +66,11 @@ private:
     void recomputeDefaultFormat();
     void ensureRunningVisuals(const wa::MonitorStatus& status, VisualState& viz,
                               bool includeRender);
-    void drawChartsColumn(wa::MonitorEngine& engine, const wa::MonitorStatus& status, VisualState& viz);
+    // Chart Host: right-hand charts column (ensure + toolbar + panels + clear resetYAxes).
+    // engine may be null (capture-only toolbar only). order non-null only for DualReorderable.
+    void drawChartHost(wa::MonitorEngine* engine, const wa::MonitorStatus& status, VisualState& viz,
+                       wa::chart_host::Mode mode, const char* caption = nullptr,
+                       std::vector<int>* order = nullptr);
     void drawChartsFreezeToolbar(VisualState& viz, const wa::MonitorStatus& status);
     void drawChartPanel(int id, wa::MonitorEngine& engine, const wa::MonitorStatus& status, VisualState& viz);
     void drawComboPanel(wa::MonitorEngine& engine, const wa::MonitorStatus& status, VisualState& viz, bool renderSide);
