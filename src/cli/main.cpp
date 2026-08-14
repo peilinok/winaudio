@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <string>
 #include <vector>
+#include "CaptureTrackList.h"
 #include "Engine.h"
 #include "DeviceEnumerator.h"
 #include "ComUtil.h"
@@ -132,17 +133,36 @@ int wmain(int argc, wchar_t** argv) {
         }
         LoopbackOptions loopbackOptions = wa::cli::parseLoopbackOptions(argc, argv);
         CaptureSource source{loopback ? CaptureSourceKind::SystemLoopback : CaptureSourceKind::Endpoint, id};
-        Result r = eng.startCapture(kind, source, out, haveFmt ? &fmt : nullptr,
-                                    loopbackOptions);
+        CaptureTrackList list;
+        CaptureTrackCreate spec{};
+        spec.kind = kind;
+        spec.source = source;
+        spec.wavPath = out;
+        spec.requested = haveFmt ? &fmt : nullptr;
+        spec.loopbackOptions = loopbackOptions;
+        TrackId idTrack = 0;
+        Result r = list.create(spec, &idTrack);
         if (!r) { std::printf("capture start failed: %s\n", r.message.c_str()); return 2; }
+        StreamState last = StreamState::Running;
+        std::string err;
         for (int i = 0; i < seconds * 10; ++i) {
             Sleep(100);
-            EngineStatus s = eng.poll();
-            std::printf("\rL=%.2f R=%.2f over=%llu under=%llu  ",
-                s.levelL, s.levelR,
-                (unsigned long long)s.overruns, (unsigned long long)s.underruns);
+            auto st = list.poll();
+            const float l = st.empty() ? 0.f : st[0].levelL;
+            const float rlev = st.empty() ? 0.f : st[0].levelR;
+            const uint64_t ov = st.empty() ? 0 : st[0].overruns;
+            if (!st.empty()) {
+                last = st[0].state;
+                err = st[0].message;
+            }
+            std::printf("\rL=%.2f R=%.2f over=%llu  ",
+                l, rlev, (unsigned long long)ov);
         }
-        eng.stop();
+        list.destroyAll();
+        if (last == StreamState::Error) {
+            std::printf("\ncapture error: %s\n", err.c_str());
+            return 2;
+        }
         std::printf("\nwrote %ls\n", out.c_str());
         return 0;
     }

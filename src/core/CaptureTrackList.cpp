@@ -1,0 +1,286 @@
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include "CaptureTrackList.h"
+#include "ApplicationLoopbackCapture.h"
+#include "AudioFormatStr.h"
+#include "Log.h"
+#include "RingBuffer.h"
+#include "WasapiStream.h"
+#include "WavFile.h"
+#include <windows.h>
+#include <algorithm>
+#include <cmath>
+#include <thread>
+
+namespace wa {
+
+namespace {
+constexpr size_t kRingBytes = 1u << 20;
+
+void computeLevels(const uint8_t* data, size_t bytes, const AudioFormat& fmt,
+                   float& l, float& r) {
+    l = r = 0.f;
+    if (fmt.channels == 0) return;
+    const uint16_t ch = fmt.channels;
+    if (fmt.isFloat && fmt.bitsPerSample == 32) {
+        const float* s = reinterpret_cast<const float*>(data);
+        size_t n = bytes / 4;
+        for (size_t i = 0; i + ch <= n; i += ch) {
+            l = std::max(l, std::fabs(s[i]));
+            r = std::max(r, std::fabs(s[i + (ch > 1 ? 1 : 0)]));
+        }
+    } else if (!fmt.isFloat && fmt.bitsPerSample == 16) {
+        const int16_t* s = reinterpret_cast<const int16_t*>(data);
+        size_t n = bytes / 2;
+        for (size_t i = 0; i + ch <= n; i += ch) {
+            l = std::max(l, std::fabs(s[i] / 32768.f));
+            r = std::max(r, std::fabs(s[i + (ch > 1 ? 1 : 0)] / 32768.f));
+        }
+    }
+}
+
+bool isLoopbackKind(CaptureSourceKind kind) {
+    return kind == CaptureSourceKind::SystemLoopback
+        || kind == CaptureSourceKind::ApplicationLoopback;
+}
+
+const char* sourceName(CaptureSourceKind kind) {
+    switch (kind) {
+    case CaptureSourceKind::SystemLoopback:      return "system-loopback";
+    case CaptureSourceKind::ApplicationLoopback: return "application-loopback";
+    default:                                     return "endpoint";
+    }
+}
+} // namespace
+
+struct CaptureTrackList::Member {
+    TrackId     id = 0;
+    CaptureSource source{};
+    std::wstring wavPath;
+    std::unique_ptr<IAudioBackend> backend;
+    std::unique_ptr<IAudioBackend> silent;
+    std::unique_ptr<RingBuffer>    ring;
+    std::thread pump;
+    std::atomic<bool> running{false};
+    std::mutex mtx;
+    CaptureTrackStatus status{};
+
+    void stopPumpAndBackends() {
+        running.store(false, std::memory_order_relaxed);
+        if (pump.joinable()) pump.join();
+        if (silent) {
+            silent->stop();
+            silent->close();
+            silent.reset();
+        }
+        if (backend) {
+            backend->stop();
+            backend->close();
+            backend.reset();
+        }
+        ring.reset();
+    }
+};
+
+CaptureTrackList::CaptureTrackList(BackendFactory factory, SilentRenderFactory silentFactory)
+    : factory_(std::move(factory)), silentFactory_(std::move(silentFactory)) {}
+
+CaptureTrackList::~CaptureTrackList() { destroyAll(); }
+
+static std::unique_ptr<IAudioBackend> makeDefaultCaptureBackend(BackendKind kind,
+                                                         const CaptureSource& source,
+                                                         const AudioFormat* requested) {
+    const WasapiMode mode = (kind == BackendKind::WasapiExclusive) ? WasapiMode::Exclusive
+                                                                   : WasapiMode::Shared;
+    if (source.kind == CaptureSourceKind::SystemLoopback)
+        return std::make_unique<WasapiSystemLoopbackCaptureStream>(mode, requested);
+    if (source.kind == CaptureSourceKind::ApplicationLoopback)
+        return std::make_unique<ApplicationLoopbackCaptureStream>(
+            mode, source.processId, requested, source.processLoopbackMode);
+    return std::make_unique<WasapiCaptureStream>(mode, requested);
+}
+
+Result CaptureTrackList::create(const CaptureTrackCreate& spec, TrackId* outId) {
+    if (isLoopbackKind(spec.source.kind) && spec.kind == BackendKind::WasapiExclusive) {
+        WA_LOG(wa::log::Level::Err, "CaptureTrackList", "create",
+               "source=" + std::string(sourceName(spec.source.kind)),
+               "exclusive rejected");
+        return Result::Fail(-1, "WASAPI loopback requires Shared mode");
+    }
+
+    auto m = std::make_unique<Member>();
+    m->source = spec.source;
+    m->wavPath = spec.wavPath;
+    m->status.source = spec.source;
+    m->status.state = StreamState::Idle;
+
+    WA_LOG(wa::log::Level::Info, "CaptureTrackList", "create",
+           std::string("source=") + sourceName(spec.source.kind)
+               + " id=" + (spec.source.deviceId.empty()
+                               ? std::string("(default)")
+                               : wa::narrowAscii(spec.source.deviceId))
+               + (spec.source.kind == CaptureSourceKind::ApplicationLoopback
+                      ? " pid=" + std::to_string(spec.source.processId)
+                      : std::string())
+               + (spec.requested ? " fmt=" + wa::formatAudio(*spec.requested)
+                                 : std::string()),
+           "");
+
+    try {
+        m->ring = std::make_unique<RingBuffer>(kRingBytes);
+        if (factory_)
+            m->backend = factory_(spec.source, spec.requested);
+        else
+            m->backend = makeDefaultCaptureBackend(spec.kind, spec.source, spec.requested);
+        if (!m->backend) {
+            WA_LOG(wa::log::Level::Err, "CaptureTrackList", "create", "", "factory null");
+            return Result::Fail(-1, "CaptureTrackList: capture factory returned null");
+        }
+
+        Result r = m->backend->open(spec.source.deviceId, AudioFormat{}, m->ring.get(),
+                                    StreamParams{});
+        if (!r) {
+            WA_LOG(wa::log::Level::Err, "CaptureTrackList", "create", "open", r.message);
+            return r;
+        }
+        r = m->backend->start();
+        if (!r) {
+            WA_LOG(wa::log::Level::Err, "CaptureTrackList", "create", "start", r.message);
+            m->backend->close();
+            return r;
+        }
+
+        if (spec.source.kind == CaptureSourceKind::SystemLoopback
+            && spec.loopbackOptions.silentRender) {
+            if (silentFactory_)
+                m->silent = silentFactory_(nullptr);
+            else if (!factory_)
+                m->silent = std::make_unique<WasapiSilentRenderStream>(WasapiMode::Shared,
+                                                                       nullptr);
+            if (m->silent) {
+                WA_LOG(wa::log::Level::Info, "CaptureTrackList", "silentRender.start",
+                       "dev=" + (spec.source.deviceId.empty()
+                                     ? std::string("(default)")
+                                     : wa::narrowAscii(spec.source.deviceId)),
+                       "requested");
+                Result sr = m->silent->open(spec.source.deviceId, AudioFormat{}, nullptr, {});
+                if (sr)
+                    sr = m->silent->start();
+                if (!sr) {
+                    WA_LOG(wa::log::Level::Warn, "CaptureTrackList", "silentRender", "",
+                           sr.message);
+                    m->silent->stop();
+                    m->silent->close();
+                    m->silent.reset();
+                } else {
+                    WA_LOG(wa::log::Level::Info, "CaptureTrackList", "silentRender.started",
+                           "", "ok");
+                }
+            }
+        }
+
+        m->running.store(true, std::memory_order_relaxed);
+        {
+            std::lock_guard<std::mutex> lk(m->mtx);
+            m->status.state = StreamState::Running;
+            m->status.actualFormat = m->backend->stats().actualFormat;
+        }
+        m->pump = std::thread([mem = m.get()] {
+            wa::log::setThreadName("ctl-cap");
+            AudioFormat fmt = mem->backend->stats().actualFormat;
+            WavWriter writer;
+            const bool wantWav = !mem->wavPath.empty();
+            if (wantWav) {
+                Result wr = writer.open(mem->wavPath, fmt);
+                if (!wr) {
+                    WA_LOG(wa::log::Level::Err, "CaptureTrackList", "wav.open", "", wr.message);
+                    std::lock_guard<std::mutex> lk(mem->mtx);
+                    mem->status.state = StreamState::Error;
+                    mem->status.message = wr.message.empty() ? "cannot open output wav"
+                                                             : wr.message;
+                    mem->running.store(false, std::memory_order_relaxed);
+                    return;
+                }
+            }
+            std::vector<uint8_t> buf(16384);
+            while (mem->running.load(std::memory_order_relaxed)) {
+                size_t got = mem->ring->read(buf.data(), buf.size());
+                if (got == 0) {
+                    Sleep(5);
+                    continue;
+                }
+                if (wantWav && writer.write(buf.data(), got) != got) {
+                    WA_LOG(wa::log::Level::Err, "CaptureTrackList", "wav.write", "", "short write");
+                    std::lock_guard<std::mutex> lk(mem->mtx);
+                    mem->status.state = StreamState::Error;
+                    mem->status.message = "wav write failed";
+                    mem->running.store(false, std::memory_order_relaxed);
+                    return;
+                }
+                float l = 0.f, r = 0.f;
+                computeLevels(buf.data(), got, fmt, l, r);
+                std::lock_guard<std::mutex> lk(mem->mtx);
+                mem->status.levelL = l;
+                mem->status.levelR = r;
+                mem->status.actualFormat = fmt;
+                mem->status.overruns = mem->ring->overruns();
+            }
+            if (wantWav) writer.close();
+        });
+    } catch (const std::exception& e) {
+        m->stopPumpAndBackends();
+        WA_LOG(wa::log::Level::Err, "CaptureTrackList", "create", "", e.what());
+        return Result::Fail(-1, e.what());
+    }
+
+    std::lock_guard<std::mutex> lk(mtx_);
+    m->id = nextId_++;
+    m->status.id = m->id;
+    if (outId) *outId = m->id;
+    WA_LOG(wa::log::Level::Info, "CaptureTrackList", "create",
+           "id=" + std::to_string(m->id)
+               + " fmt=" + wa::formatAudio(m->status.actualFormat),
+           "ok");
+    members_.push_back(std::move(m));
+    return Result::Ok();
+}
+
+void CaptureTrackList::destroy(TrackId id) {
+    std::unique_ptr<Member> gone;
+    {
+        std::lock_guard<std::mutex> lk(mtx_);
+        auto it = std::find_if(members_.begin(), members_.end(),
+                               [id](const std::unique_ptr<Member>& m) { return m->id == id; });
+        if (it == members_.end()) return;
+        gone = std::move(*it);
+        members_.erase(it);
+    }
+    WA_LOG(wa::log::Level::Info, "CaptureTrackList", "destroy",
+           "id=" + std::to_string(id), "");
+    gone->stopPumpAndBackends();
+}
+
+void CaptureTrackList::destroyAll() {
+    std::vector<std::unique_ptr<Member>> gone;
+    {
+        std::lock_guard<std::mutex> lk(mtx_);
+        gone.swap(members_);
+    }
+    WA_LOG(wa::log::Level::Info, "CaptureTrackList", "destroyAll",
+           "n=" + std::to_string(gone.size()), "");
+    for (auto& m : gone) m->stopPumpAndBackends();
+}
+
+std::vector<CaptureTrackStatus> CaptureTrackList::poll() const {
+    std::lock_guard<std::mutex> lk(mtx_);
+    std::vector<CaptureTrackStatus> out;
+    out.reserve(members_.size());
+    for (const auto& m : members_) {
+        std::lock_guard<std::mutex> mlk(m->mtx);
+        out.push_back(m->status);
+    }
+    return out;
+}
+
+} // namespace wa

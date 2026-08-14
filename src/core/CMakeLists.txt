@@ -12,6 +12,7 @@ add_library(WinAudioCore STATIC
     Engine.cpp
     FormatSpec.cpp
     MonitorEngine.cpp
+    CaptureTrackList.cpp
     Capabilities.cpp
     Log.cpp
 )
