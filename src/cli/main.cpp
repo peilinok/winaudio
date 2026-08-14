@@ -252,6 +252,8 @@ int wmain(int argc, wchar_t** argv) {
                                  true, {}, {}, haveFmt ? &capFmt : nullptr,
                                  loopbackOptions);
         if (!r) { std::printf("monitor start failed: %s\n", r.message.c_str()); return 2; }
+        bool sawErr = false;
+        uint32_t errCode = 0;
         for (int i = 0; i < seconds * 5; ++i) {
             Sleep(200);
             wa::MonitorStatus s = mon.poll();
@@ -260,13 +262,17 @@ int wmain(int argc, wchar_t** argv) {
                 s.fifoFillMs, (unsigned long long)s.driftFixes,
                 (unsigned long long)s.capXruns, (unsigned long long)s.renderXruns);
             std::fflush(stdout);
-            if (s.overall == wa::StreamState::Error) {
+            if (s.overall == wa::StreamState::Error && !sawErr) {
                 std::printf("\nerr=%u\n", s.errorCode);
-                mon.stop();
-                return 2;
+                sawErr = true;
+                errCode = s.errorCode;
             }
         }
         mon.stop();
+        if (sawErr) {
+            std::printf("monitor ended with err=%u\n", errCode);
+            return 2;
+        }
         std::printf("\ndone\n");
         return 0;
     }
