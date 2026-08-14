@@ -18,8 +18,10 @@ static void usage() {
     std::printf(
         "WinAudioCli list  [--render|--capture]\n"
         "WinAudioCli capture --out <file.wav> [--device <id>] [--seconds N] [--loopback]\n"
-        "                    [--no-silent-render] [--backend wasapi-shared|wasapi-exclusive]\n"
-        "                    [--format 48000/16/2] (both backends)\n"
+        "                    [--pid N] [--exclude-tree] [--no-silent-render]\n"
+        "                    [--backend wasapi-shared|wasapi-exclusive] [--format 48000/16/2]\n"
+        "                    [--track --out <file.wav> [--device <id>] [--loopback|--pid N]\n"
+        "                              [--exclude-tree] [--format ...] [--no-silent-render]]...\n"
         "WinAudioCli play    --in  <file.wav> [--device <id>]\n"
         "                    [--backend wasapi-shared|wasapi-exclusive]\n"
         "WinAudioCli probe   --format 48000/16/2 [--device <id>] [--render|--capture]\n"
@@ -30,6 +32,7 @@ static void usage() {
         "  (shared: WASAPI engine bridges sample rate on render side;\n"
         "   exclusive: render device must support capture format)\n"
         "  --loopback uses render endpoint ids for capture --device / monitor --cap.\n"
+        "  capture --track starts one Capture Track per segment; omit --track for one --out.\n"
         "WinAudioCli caps  [--device <id>] [--render|--capture]\n");
 }
 
@@ -118,52 +121,59 @@ int wmain(int argc, wchar_t** argv) {
 
     Engine eng;
     if (cmd == L"capture") {
-        std::wstring out = arg(argc, argv, L"--out");
-        if (out.empty()) { usage(); return 1; }
-        std::wstring id = arg(argc, argv, L"--device");
-        std::wstring secStr = arg(argc, argv, L"--seconds");
-        int seconds = secStr.empty() ? 5 : _wtoi(secStr.c_str());
-        AudioFormat fmt{};
-        bool haveFmt = formatArg(argc, argv, fmt);
-        const bool loopback = has(argc, argv, L"--loopback");
-        BackendKind kind = backendArg(argc, argv);
-        if (loopback && kind == BackendKind::WasapiExclusive) {
-            std::printf("capture: --loopback requires --backend wasapi-shared\n");
+        auto group = wa::cli::parseCaptureGroup(argc, argv);
+        if (!group.ok) {
+            std::printf("%s\n", group.message.c_str());
             return 2;
         }
-        LoopbackOptions loopbackOptions = wa::cli::parseLoopbackOptions(argc, argv);
-        CaptureSource source{loopback ? CaptureSourceKind::SystemLoopback : CaptureSourceKind::Endpoint, id};
         CaptureTrackList list;
-        CaptureTrackCreate spec{};
-        spec.kind = kind;
-        spec.source = source;
-        spec.wavPath = out;
-        spec.requested = haveFmt ? &fmt : nullptr;
-        spec.loopbackOptions = loopbackOptions;
-        TrackId idTrack = 0;
-        Result r = list.create(spec, &idTrack);
-        if (!r) { std::printf("capture start failed: %s\n", r.message.c_str()); return 2; }
-        StreamState last = StreamState::Running;
+        static CaptureTrackList* gCaptureList = nullptr;
+        gCaptureList = &list;
+        SetConsoleCtrlHandler([](DWORD) -> BOOL {
+            if (gCaptureList) gCaptureList->destroyAll();
+            return FALSE;
+        }, TRUE);
+        bool anyCreateFail = false;
+        std::vector<std::wstring> outs;
+        outs.reserve(group.tracks.size());
+        for (const auto& seg : group.tracks) {
+            auto spec = wa::cli::captureCreateFromSegment(seg, group.backend);
+            TrackId id = 0;
+            Result r = list.create(spec, &id);
+            if (!r) {
+                std::printf("capture start failed: %s\n", r.message.c_str());
+                anyCreateFail = true;
+                continue;
+            }
+            outs.push_back(seg.out);
+        }
+        if (list.poll().empty()) return 2;
+        bool anyError = anyCreateFail;
         std::string err;
-        for (int i = 0; i < seconds * 10; ++i) {
+        for (int i = 0; i < group.seconds * 10; ++i) {
             Sleep(100);
             auto st = list.poll();
-            const float l = st.empty() ? 0.f : st[0].levelL;
-            const float rlev = st.empty() ? 0.f : st[0].levelR;
-            const uint64_t ov = st.empty() ? 0 : st[0].overruns;
-            if (!st.empty()) {
-                last = st[0].state;
-                err = st[0].message;
+            float l = 0.f, rlev = 0.f;
+            uint64_t ov = 0;
+            for (const auto& s : st) {
+                l = s.levelL;
+                rlev = s.levelR;
+                ov += s.overruns;
+                if (s.state == StreamState::Error) {
+                    anyError = true;
+                    if (!s.message.empty()) err = s.message;
+                }
             }
-            std::printf("\rL=%.2f R=%.2f over=%llu  ",
-                l, rlev, (unsigned long long)ov);
+            std::printf("\rtracks=%zu L=%.2f R=%.2f over=%llu  ",
+                st.size(), l, rlev, (unsigned long long)ov);
         }
         list.destroyAll();
-        if (last == StreamState::Error) {
+        if (anyError) {
             std::printf("\ncapture error: %s\n", err.c_str());
             return 2;
         }
-        std::printf("\nwrote %ls\n", out.c_str());
+        for (const auto& p : outs) std::printf("\nwrote %ls", p.c_str());
+        std::printf("\n");
         return 0;
     }
 
