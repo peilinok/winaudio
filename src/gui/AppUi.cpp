@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 
@@ -22,6 +23,28 @@ static std::string wtou(const std::wstring& w) {
     int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), nullptr, 0, nullptr, nullptr);
     std::string s(n, 0);
     WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), s.data(), n, nullptr, nullptr);
+    return s;
+}
+
+static std::wstring utow(const char* u) {
+    if (!u || !*u) return {};
+    int n = MultiByteToWideChar(CP_UTF8, 0, u, -1, nullptr, 0);
+    if (n <= 1) return {};
+    std::wstring w(static_cast<size_t>(n - 1), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, u, -1, w.data(), n);
+    return w;
+}
+
+static wa::MonitorStatus statusFromTrack(const wa::CaptureTrackStatus& t) {
+    wa::MonitorStatus s{};
+    s.overall = t.state;
+    s.capState = t.state;
+    s.sampleRate = t.actualFormat.sampleRate;
+    s.captureChannels = t.actualFormat.channels;
+    s.capXruns = t.overruns;
+    s.capWrittenFrames = t.writtenFrames;
+    s.capLevel = (t.levelL > t.levelR) ? t.levelL : t.levelR;
+    s.silentRenderState = t.silentRenderState;
     return s;
 }
 
@@ -113,7 +136,7 @@ void AppUi::stopAll() {
         appLoopbackStartThread_.join();
     }
     monitor_.stop();
-    loopback_.stop();
+    loopbackTracks_.destroyAll();
     if (appLoopback_) appLoopback_->stop();
 }
 
@@ -419,7 +442,6 @@ void AppUi::draw() {
     // Poll once; detect renderState Running->non-Running to clear stale playback chart data.
     drainApplicationLoopbackStart();
     ms_ = monitor_.poll();
-    loopbackMs_ = loopback_.poll();
     if (!appLoopbackStartPending_ && appLoopback_)
         appLoopbackMs_ = appLoopback_->poll();
     const int curRenderState = (int)ms_.renderState;
@@ -499,8 +521,40 @@ void AppUi::drawLoopbackPage() {
     ImGui::SameLine();
 
     ImGui::BeginChild("loopbackCharts", ImVec2(0, 0), true);
-    drawChartHost(&loopback_, loopbackMs_, loopbackViz_, wa::chart_host::Mode::CaptureOnly,
-                  "System audio waveform + spectrogram", nullptr);
+    const auto tracks = loopbackTracks_.poll();
+    for (size_t i = 0; i < loopbackViz_.size();) {
+        bool live = false;
+        for (const auto& t : tracks) {
+            if (t.id == loopbackViz_[i].first) { live = true; break; }
+        }
+        if (!live) loopbackViz_.erase(loopbackViz_.begin() + static_cast<std::ptrdiff_t>(i));
+        else ++i;
+    }
+    if (tracks.empty()) {
+        ImGui::TextUnformatted(wa::ui_text::kLoopbackEmptyHint);
+    } else {
+        for (const auto& t : tracks) {
+            VisualState* viz = nullptr;
+            for (auto& p : loopbackViz_) {
+                if (p.first == t.id) { viz = &p.second; break; }
+            }
+            if (!viz) {
+                loopbackViz_.push_back({t.id, VisualState{}});
+                viz = &loopbackViz_.back().second;
+            }
+            ImGui::PushID(static_cast<int>(t.id));
+            std::string cap = "Track " + std::to_string(t.id);
+            if (t.actualFormat.sampleRate)
+                cap += "  " + std::to_string(t.actualFormat.sampleRate) + " Hz / "
+                    + std::to_string(t.actualFormat.channels) + " ch";
+            if (t.state == wa::StreamState::Error && !t.message.empty())
+                cap += "  [" + t.message + "]";
+            wa::TrackScopeReader reader(loopbackTracks_, t.id);
+            drawChartHost(nullptr, statusFromTrack(t), *viz, wa::chart_host::Mode::CaptureOnly,
+                          cap.c_str(), nullptr, &reader);
+            ImGui::PopID();
+        }
+    }
     ImGui::EndChild();
     ImGui::EndChild();
 
@@ -556,51 +610,54 @@ void AppUi::drawLoopbackLeftPanel() {
         ImGui::EndCombo();
     }
 
+    ImGui::InputText(wa::ui_text::kLoopbackWavOptional, loopbackWav_, sizeof(loopbackWav_));
+    ImGui::InputText(wa::ui_text::kLoopbackFormatOptional, loopbackFmt_, sizeof(loopbackFmt_));
+    ImGui::Checkbox(wa::ui_text::kLoopbackSilentRender, &loopbackSilentRender_);
+
     ImGui::SeparatorText("Control");
     const ImVec2 ctrlBtn(120.0f, ImGui::GetFrameHeight() * 1.3f);
-    if (!loopbackStarted_) {
-        if (ImGui::Button("Start", ctrlBtn)) {
-            wa::DeviceId id = renderDevices_.empty() ? L"" : renderDevices_[(size_t)loopbackDevIdx_].id;
-            wa::CaptureSource source{wa::CaptureSourceKind::SystemLoopback, id};
-            wa::LoopbackOptions loopbackOptions{};
-            loopbackOptions.silentRender = loopbackSilentRender_;
-            wa::Result r = loopback_.start(wa::BackendKind::WasapiShared, source, L"", 0,
-                                           false, {}, {}, nullptr, loopbackOptions);
-            logLines_.push_back(r ? "loopback started" : ("loopback error: " + r.message));
-            if (r) {
-                loopbackStarted_ = true;
-                resetVisuals(loopbackViz_);
-            }
+    if (ImGui::Button(wa::ui_text::kLoopbackCreate, ctrlBtn)) {
+        wa::DeviceId id = renderDevices_.empty() ? L"" : renderDevices_[(size_t)loopbackDevIdx_].id;
+        wa::CaptureTrackCreate spec{};
+        spec.kind = wa::BackendKind::WasapiShared;
+        spec.source = wa::CaptureSource{wa::CaptureSourceKind::SystemLoopback, id};
+        spec.wavPath = utow(loopbackWav_);
+        spec.loopbackOptions.silentRender = loopbackSilentRender_;
+        wa::AudioFormat fmt{};
+        if (loopbackFmt_[0] != '\0' && wa::parseFormatSpec(loopbackFmt_, fmt))
+            spec.requested = &fmt;
+        else if (loopbackFmt_[0] != '\0') {
+            logLines_.push_back("loopback create error: invalid format");
         }
-    } else {
-        if (ImGui::Button("Stop", ctrlBtn)) {
-            loopback_.stop();
-            loopbackStarted_ = false;
-            resetVisuals(loopbackViz_);
-            logLines_.push_back("loopback stopped");
+        if (loopbackFmt_[0] == '\0' || spec.requested) {
+            wa::TrackId tid = 0;
+            wa::Result r = loopbackTracks_.create(spec, &tid);
+            logLines_.push_back(r ? ("loopback track created id=" + std::to_string(tid))
+                                  : ("loopback error: " + r.message));
         }
     }
-    if (!loopbackStarted_) {
-        ImGui::Checkbox("Silent render keepalive", &loopbackSilentRender_);
-    } else {
-        ImGui::BeginDisabled();
-        ImGui::Checkbox("Silent render keepalive", &loopbackSilentRender_);
-        ImGui::EndDisabled();
+    ImGui::SameLine();
+    if (ImGui::Button(wa::ui_text::kLoopbackDestroyAll, ctrlBtn)) {
+        loopbackTracks_.destroyAll();
+        loopbackViz_.clear();
+        logLines_.push_back("loopback destroy all");
     }
 
-    ImGui::SeparatorText("Status");
+    ImGui::SeparatorText(wa::ui_text::kLoopbackTracks);
     const char* ss[] = {"Idle", "Running", "Error"};
-    ImGui::Text("overall=%s  cap=%s  sr=%u",
-        ss[(int)loopbackMs_.overall], ss[(int)loopbackMs_.capState], loopbackMs_.sampleRate);
-    ImGui::Text("xrun=%llu", (unsigned long long)loopbackMs_.capXruns);
-    ImGui::Text("frames=%llu", (unsigned long long)loopbackMs_.capWrittenFrames);
-    ImGui::Text("silent-packet=%llu  idle-fill=%llu",
-        (unsigned long long)loopbackMs_.loopbackSilentPacketFrames,
-        (unsigned long long)loopbackMs_.loopbackIdleSilenceFrames);
-    ImGui::Text("silent render=%s",
-        ss[(int)loopbackMs_.silentRenderState]);
-    ImGui::ProgressBar(loopbackMs_.capLevel, ImVec2(-1, 0), "level");
-
+    const auto tracks = loopbackTracks_.poll();
+    for (const auto& t : tracks) {
+        ImGui::PushID(static_cast<int>(t.id));
+        ImGui::Text("id=%llu  %s  sr=%u  xrun=%llu",
+                    (unsigned long long)t.id, ss[(int)t.state],
+                    t.actualFormat.sampleRate, (unsigned long long)t.overruns);
+        ImGui::ProgressBar((t.levelL > t.levelR) ? t.levelL : t.levelR, ImVec2(-1, 0), "level");
+        if (ImGui::Button(wa::ui_text::kLoopbackDestroy)) {
+            loopbackTracks_.destroy(t.id);
+            logLines_.push_back("loopback track destroyed id=" + std::to_string(t.id));
+        }
+        ImGui::PopID();
+    }
 }
 
 void AppUi::drawApplicationLoopbackLeftPanel() {
@@ -938,7 +995,7 @@ void AppUi::drawChartsFreezeToolbar(VisualState& viz, const wa::MonitorStatus& s
 
 void AppUi::drawChartHost(wa::MonitorEngine* engine, const wa::MonitorStatus& status,
                           VisualState& viz, wa::chart_host::Mode mode, const char* caption,
-                          std::vector<int>* order) {
+                          std::vector<int>* order, wa::ScopeReader* captureReader) {
     // Chart Host: ensure → freeze/zoom toolbar → panels → clear one-shot Y reset.
     const bool includeRender = (mode == wa::chart_host::Mode::DualReorderable);
     ensureRunningVisuals(status, viz, includeRender);
@@ -971,7 +1028,9 @@ void AppUi::drawChartHost(wa::MonitorEngine* engine, const wa::MonitorStatus& st
             }
             ImGui::SameLine();
             ImGui::TextUnformatted(chartTitle(id));
-            drawChartPanel(id, *engine, status, viz);
+            wa::MonitorScopeReader cap(*engine, wa::MonitorScopeReader::Side::Capture);
+            wa::MonitorScopeReader ren(*engine, wa::MonitorScopeReader::Side::Render);
+            drawChartPanel(id, cap, &ren, status, viz);
             if (ImGui::BeginDragDropTarget()) {
                 if (const ImGuiPayload* pl = ImGui::AcceptDragDropPayload("CHART_POS")) {
                     const int from = *(const int*)pl->Data;
@@ -987,11 +1046,14 @@ void AppUi::drawChartHost(wa::MonitorEngine* engine, const wa::MonitorStatus& st
             ImGui::PopID();
         }
     } else {
-        // Capture-only: single capture combo; skip draw when engine is null.
-        if (engine) {
-            const auto ids = wa::chart_host::resolvePanelIds(mode, {});
+        const auto ids = wa::chart_host::resolvePanelIds(mode, {});
+        if (captureReader) {
             for (int id : ids)
-                drawChartPanel(id, *engine, status, viz);
+                drawChartPanel(id, *captureReader, nullptr, status, viz);
+        } else if (engine) {
+            wa::MonitorScopeReader ownedCap(*engine, wa::MonitorScopeReader::Side::Capture);
+            for (int id : ids)
+                drawChartPanel(id, ownedCap, nullptr, status, viz);
         }
     }
 
@@ -1143,7 +1205,7 @@ void AppUi::drawWaveformPanel(VisualState& viz, const char* plotId, const float*
 // One combined cell per stream: waveform on top, spectrogram below (Audition-style), sharing the
 // linked time axis, with a draggable horizontal splitter between them. comboRatio_ is shared by
 // both streams so the capture and render cells stay height-aligned for side-by-side comparison.
-void AppUi::drawComboPanel(wa::MonitorEngine& engine, const wa::MonitorStatus& status,
+void AppUi::drawComboPanel(wa::ScopeReader& reader, const wa::MonitorStatus& status,
                            VisualState& viz, bool renderSide) {
     const uint32_t sr         = status.sampleRate;
     const bool overallRunning = (status.overall     == wa::StreamState::Running && sr > 0);
@@ -1154,9 +1216,6 @@ void AppUi::drawComboPanel(wa::MonitorEngine& engine, const wa::MonitorStatus& s
     const bool splitCapture = !renderSide && overallRunning && capturePlan.split;
 
     // Chart Data Pipeline: hop-aligned spectrum + latest wave history; freeze gated inside.
-    wa::MonitorScopeReader reader(
-        engine, renderSide ? wa::MonitorScopeReader::Side::Render
-                           : wa::MonitorScopeReader::Side::Capture);
     wa::ChartRefreshParams refreshParams;
     refreshParams.reader = &reader;
     refreshParams.frozen = viz.chartsFrozen;
@@ -1259,14 +1318,14 @@ void AppUi::drawComboPanel(wa::MonitorEngine& engine, const wa::MonitorStatus& s
                          renderSide ? kSlotRenSpectro : kSlotCapSpectroBase);
 }
 
-void AppUi::drawChartPanel(int id, wa::MonitorEngine& engine, const wa::MonitorStatus& status,
-                           VisualState& viz) {
+void AppUi::drawChartPanel(int id, wa::ScopeReader& captureReader, wa::ScopeReader* renderReader,
+                           const wa::MonitorStatus& status, VisualState& viz) {
     switch (id) {
-    case 0:   // Capture waveform + spectrogram combo
-        drawComboPanel(engine, status, viz, false);
+    case 0:
+        drawComboPanel(captureReader, status, viz, false);
         break;
-    case 1:   // Render waveform + spectrogram combo — data only while playback runs
-        drawComboPanel(engine, status, viz, true);
+    case 1:
+        if (renderReader) drawComboPanel(*renderReader, status, viz, true);
         break;
     default:
         break;

@@ -6,10 +6,12 @@
 #include <thread>
 #include <vector>
 #include "AudioSessionEnumerator.h"
+#include "CaptureTrackList.h"
 #include "ChartHost.h"
 #include "DeviceEnumerator.h"
 #include "MonitorEngine.h"
 #include "Spectrogram.h"
+#include "TrackScopeReader.h"
 
 class AppUi {
 public:
@@ -70,10 +72,12 @@ private:
     // engine may be null (capture-only toolbar only). order non-null only for DualReorderable.
     void drawChartHost(wa::MonitorEngine* engine, const wa::MonitorStatus& status, VisualState& viz,
                        wa::chart_host::Mode mode, const char* caption = nullptr,
-                       std::vector<int>* order = nullptr);
+                       std::vector<int>* order = nullptr, wa::ScopeReader* captureReader = nullptr);
     void drawChartsFreezeToolbar(VisualState& viz, const wa::MonitorStatus& status);
-    void drawChartPanel(int id, wa::MonitorEngine& engine, const wa::MonitorStatus& status, VisualState& viz);
-    void drawComboPanel(wa::MonitorEngine& engine, const wa::MonitorStatus& status, VisualState& viz, bool renderSide);
+    void drawChartPanel(int id, wa::ScopeReader& captureReader, wa::ScopeReader* renderReader,
+                        const wa::MonitorStatus& status, VisualState& viz);
+    void drawComboPanel(wa::ScopeReader& reader, const wa::MonitorStatus& status, VisualState& viz,
+                        bool renderSide);
     void drawSpectrogramPanel(VisualState& viz, const char* plotId, wa::Spectrogram* spec, double histSec, float height, int slot);
     void drawWaveformPanel(VisualState& viz, const char* plotId, const float* wave, int n, uint32_t sr, bool haveData, float height, int slot);
     void drawLogPanel(const char* childId, bool showLevelFilter);
@@ -82,12 +86,11 @@ private:
     void resetRenderVisuals(VisualState& viz);
 
     wa::MonitorEngine    monitor_;
-    wa::MonitorEngine    loopback_;
+    wa::CaptureTrackList loopbackTracks_;
     std::unique_ptr<wa::MonitorEngine> appLoopback_ = std::make_unique<wa::MonitorEngine>();
     wa::DeviceEnumerator enumerator_;
     wa::AudioSessionEnumerator sessionEnumerator_;
     wa::MonitorStatus    ms_;   // polled once per frame in draw(); shared by helper methods
-    wa::MonitorStatus    loopbackMs_;
     wa::MonitorStatus    appLoopbackMs_;
 
     int  backendIdx_      = 0;
@@ -108,8 +111,9 @@ private:
     int                         loopbackDevIdx_ = 0;
     int                         delayMs_      = 100;
     bool                        monitorStarted_ = false;
-    bool                        loopbackStarted_ = false;
     bool                        loopbackSilentRender_ = true;
+    char                        loopbackWav_[260] = "";
+    char                        loopbackFmt_[32] = "";
     bool                        appLoopbackStarted_ = false;
     bool                        appLoopbackStartPending_ = false;
     bool                        appLoopbackExclude_ = false; // checkbox; false = IncludeTree
@@ -134,6 +138,6 @@ private:
     wa::DeviceCapabilities capsCache_{};
 
     VisualState monitorViz_;
-    VisualState loopbackViz_;
+    std::vector<std::pair<wa::TrackId, VisualState>> loopbackViz_;
     VisualState appLoopbackViz_;
 };
