@@ -11,6 +11,7 @@
 #include <vector>
 #include "CaptureTrackList.h"
 #include "RingBuffer.h"
+#include "TrackScopeReader.h"
 
 using namespace wa;
 
@@ -46,6 +47,10 @@ public:
     std::atomic<bool>* stoppedOut_ = nullptr;
     bool               failOpen_ = false;
     RingBuffer*        ring_ = nullptr;
+
+    void pushPcm(const void* data, size_t bytes) {
+        if (ring_) ring_->write(data, bytes);
+    }
 };
 
 struct ListRig {
@@ -232,6 +237,41 @@ TEST(CaptureTrackList, SecondListUnaffectedByDestroyAll) {
     ASSERT_EQ(listB.poll().size(), 1u);
     EXPECT_EQ(listB.poll()[0].state, StreamState::Running);
     listB.destroyAll();
+}
+
+TEST(CaptureTrackList, TapsAreIndependent) {
+    ListRig rig;
+    CaptureTrackList list(rig.factory());
+    TrackId a = 0, b = 0;
+    ASSERT_TRUE(list.create({}, &a));
+    ASSERT_TRUE(list.create({}, &b));
+    ASSERT_EQ(rig.caps.size(), 2u);
+
+    const int16_t one[4] = {1000, 1000, 1000, 1000};
+    const int16_t two[8] = {2000, 2000, 2000, 2000, 2000, 2000, 2000, 2000};
+    rig.caps[0]->pushPcm(one, sizeof(one));
+    rig.caps[1]->pushPcm(two, sizeof(two));
+
+    ASSERT_TRUE(waitFor([&] { return list.written(a) >= 2 && list.written(b) >= 4; }));
+    EXPECT_GE(list.written(a), 2u);
+    EXPECT_GE(list.written(b), 4u);
+    EXPECT_EQ(list.tapChannels(a), 2);
+    float sa[2] = {};
+    float sb[4] = {};
+    uint64_t ea = 0, eb = 0;
+    ASSERT_TRUE(list.snapshotLatest(a, 2, sa, ea));
+    ASSERT_TRUE(list.snapshotLatest(b, 4, sb, eb));
+    EXPECT_NEAR(sa[0], 1000.f / 32768.f, 1e-4f);
+    EXPECT_NEAR(sb[0], 2000.f / 32768.f, 1e-4f);
+    {
+        TrackScopeReader ra(list, a);
+        EXPECT_EQ(ra.channels(), 2);
+        EXPECT_GE(ra.written(), 2u);
+    }
+    list.destroy(a);
+    EXPECT_EQ(list.written(a), 0u);
+    EXPECT_GE(list.written(b), 4u);
+    list.destroyAll();
 }
 
 TEST(CaptureTrackList, OptionalWavStillRuns) {

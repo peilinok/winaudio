@@ -6,6 +6,8 @@
 #include "AudioFormatStr.h"
 #include "Log.h"
 #include "RingBuffer.h"
+#include "SampleConvert.h"
+#include "ScopeBuffer.h"
 #include "WasapiStream.h"
 #include "WavFile.h"
 #include <windows.h>
@@ -61,6 +63,7 @@ struct CaptureTrackList::Member {
     std::unique_ptr<IAudioBackend> backend;
     std::unique_ptr<IAudioBackend> silent;
     std::unique_ptr<RingBuffer>    ring;
+    std::unique_ptr<ScopeBuffer>   tap;
     std::thread pump;
     std::atomic<bool> running{false};
     std::mutex mtx;
@@ -80,6 +83,7 @@ struct CaptureTrackList::Member {
             backend.reset();
         }
         ring.reset();
+        tap.reset();
     }
 };
 
@@ -151,6 +155,7 @@ Result CaptureTrackList::create(const CaptureTrackCreate& spec, TrackId* outId) 
             return r;
         }
 
+        StreamState silentSt = StreamState::Idle;
         if (spec.source.kind == CaptureSourceKind::SystemLoopback
             && spec.loopbackOptions.silentRender) {
             if (silentFactory_)
@@ -173,22 +178,34 @@ Result CaptureTrackList::create(const CaptureTrackCreate& spec, TrackId* outId) 
                     m->silent->stop();
                     m->silent->close();
                     m->silent.reset();
+                    silentSt = StreamState::Error;
                 } else {
                     WA_LOG(wa::log::Level::Info, "CaptureTrackList", "silentRender.started",
                            "", "ok");
+                    silentSt = StreamState::Running;
                 }
             }
         }
 
+        {
+            const AudioFormat fmt = m->backend->stats().actualFormat;
+            const uint32_t sr = fmt.sampleRate ? fmt.sampleRate : 48000u;
+            const uint16_t ch = fmt.channels ? fmt.channels : static_cast<uint16_t>(1);
+            const size_t scopeCap = std::max<size_t>(static_cast<size_t>(sr) * 2u, 1048576u);
+            m->tap = std::make_unique<ScopeBuffer>(scopeCap, ch);
+        }
         m->running.store(true, std::memory_order_relaxed);
         {
             std::lock_guard<std::mutex> lk(m->mtx);
             m->status.state = StreamState::Running;
             m->status.actualFormat = m->backend->stats().actualFormat;
+            m->status.silentRenderState = silentSt;
         }
         m->pump = std::thread([mem = m.get()] {
             wa::log::setThreadName("ctl-cap");
             AudioFormat fmt = mem->backend->stats().actualFormat;
+            const uint32_t frameBytes = fmt.blockAlign();
+            const uint16_t ch = fmt.channels ? fmt.channels : static_cast<uint16_t>(1);
             WavWriter writer;
             const bool wantWav = !mem->wavPath.empty();
             if (wantWav) {
@@ -204,12 +221,16 @@ Result CaptureTrackList::create(const CaptureTrackCreate& spec, TrackId* outId) 
                 }
             }
             std::vector<uint8_t> buf(16384);
+            std::vector<float> interleaved(4096u * ch, 0.f);
             while (mem->running.load(std::memory_order_relaxed)) {
                 size_t got = mem->ring->read(buf.data(), buf.size());
-                if (got == 0) {
+                if (got == 0 || frameBytes == 0) {
                     Sleep(5);
                     continue;
                 }
+                const size_t frames = got / frameBytes;
+                got = frames * frameBytes;
+                if (frames == 0) continue;
                 if (wantWav && writer.write(buf.data(), got) != got) {
                     WA_LOG(wa::log::Level::Err, "CaptureTrackList", "wav.write", "", "short write");
                     std::lock_guard<std::mutex> lk(mem->mtx);
@@ -218,6 +239,15 @@ Result CaptureTrackList::create(const CaptureTrackCreate& spec, TrackId* outId) 
                     mem->running.store(false, std::memory_order_relaxed);
                     return;
                 }
+                if (mem->tap && frames > 0) {
+                    size_t done = 0;
+                    while (done < frames) {
+                        const size_t chunk = (frames - done > 4096u) ? 4096u : (frames - done);
+                        pcmToFloat(buf.data() + done * frameBytes, chunk, fmt, interleaved.data());
+                        mem->tap->pushInterleaved(interleaved.data(), chunk);
+                        done += chunk;
+                    }
+                }
                 float l = 0.f, r = 0.f;
                 computeLevels(buf.data(), got, fmt, l, r);
                 std::lock_guard<std::mutex> lk(mem->mtx);
@@ -225,6 +255,7 @@ Result CaptureTrackList::create(const CaptureTrackCreate& spec, TrackId* outId) 
                 mem->status.levelR = r;
                 mem->status.actualFormat = fmt;
                 mem->status.overruns = mem->ring->overruns();
+                mem->status.writtenFrames = mem->tap ? mem->tap->totalWritten() : 0;
             }
             if (wantWav) writer.close();
         });
@@ -270,6 +301,44 @@ void CaptureTrackList::destroyAll() {
     WA_LOG(wa::log::Level::Info, "CaptureTrackList", "destroyAll",
            "n=" + std::to_string(gone.size()), "");
     for (auto& m : gone) m->stopPumpAndBackends();
+}
+
+const CaptureTrackList::Member* CaptureTrackList::findUnlocked(TrackId id) const {
+    for (const auto& m : members_) {
+        if (m->id == id) return m.get();
+    }
+    return nullptr;
+}
+
+uint64_t CaptureTrackList::written(TrackId id) const {
+    std::lock_guard<std::mutex> lk(mtx_);
+    const Member* m = findUnlocked(id);
+    return (m && m->tap) ? m->tap->totalWritten() : 0;
+}
+
+uint16_t CaptureTrackList::tapChannels(TrackId id) const {
+    std::lock_guard<std::mutex> lk(mtx_);
+    const Member* m = findUnlocked(id);
+    return (m && m->tap) ? m->tap->channels() : 0;
+}
+
+bool CaptureTrackList::snapshotLatest(TrackId id, size_t n, float* out, uint64_t& endIdxOut) const {
+    std::lock_guard<std::mutex> lk(mtx_);
+    const Member* m = findUnlocked(id);
+    return (m && m->tap) ? m->tap->snapshotLatest(n, out, endIdxOut) : false;
+}
+
+bool CaptureTrackList::snapshotEndingAt(TrackId id, uint64_t endIdx, size_t n, float* out) const {
+    std::lock_guard<std::mutex> lk(mtx_);
+    const Member* m = findUnlocked(id);
+    return (m && m->tap) ? m->tap->snapshotEndingAt(endIdx, n, out) : false;
+}
+
+bool CaptureTrackList::snapshotChannelEndingAt(TrackId id, uint16_t channel, uint64_t endIdx,
+                                               size_t n, float* out) const {
+    std::lock_guard<std::mutex> lk(mtx_);
+    const Member* m = findUnlocked(id);
+    return (m && m->tap) ? m->tap->snapshotChannelEndingAt(channel, endIdx, n, out) : false;
 }
 
 std::vector<CaptureTrackStatus> CaptureTrackList::poll() const {

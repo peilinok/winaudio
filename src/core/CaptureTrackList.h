@@ -30,6 +30,8 @@ struct CaptureTrackStatus {
     float         levelL = 0.f;
     float         levelR = 0.f;
     uint64_t      overruns = 0;
+    uint64_t      writtenFrames = 0;
+    StreamState   silentRenderState = StreamState::Idle;
     std::string   message;
 };
 
@@ -53,6 +55,13 @@ public:
     void   destroyAll();
     std::vector<CaptureTrackStatus> poll() const;
 
+    uint64_t written(TrackId id) const;
+    uint16_t tapChannels(TrackId id) const;
+    bool snapshotLatest(TrackId id, size_t n, float* out, uint64_t& endIdxOut) const;
+    bool snapshotEndingAt(TrackId id, uint64_t endIdx, size_t n, float* out) const;
+    bool snapshotChannelEndingAt(TrackId id, uint16_t channel, uint64_t endIdx, size_t n,
+                                 float* out) const;
+
 private:
     struct Member;
     BackendFactory       factory_;
@@ -60,6 +69,8 @@ private:
     TrackId              nextId_ = 1;
     std::vector<std::unique_ptr<Member>> members_;
     mutable std::mutex   mtx_;
+
+    const Member* findUnlocked(TrackId id) const;
 };
 
 } // namespace wa
