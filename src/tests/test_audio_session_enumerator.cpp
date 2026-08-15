@@ -69,6 +69,8 @@ TEST(AppLoopbackUiText, ExposesRequiredControls) {
     EXPECT_STREQ(wa::ui_text::kApplicationLoopbackPidLabel, "PID");
     EXPECT_STREQ(wa::ui_text::kApplicationLoopbackExclude, "Exclude");
     EXPECT_STREQ(wa::ui_text::kApplicationLoopbackSessions, "Sessions");
+    EXPECT_STREQ(wa::ui_text::kApplicationLoopbackEmptyHint,
+                 "Create a Track to capture application audio.");
 }
 
 TEST(AdvancedOptionsUiText, ExposesExplicitClientPropertiesControls) {

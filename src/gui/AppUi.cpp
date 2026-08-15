@@ -127,17 +127,9 @@ void AppUi::refreshMonitorDevices() {
 }
 
 void AppUi::stopAll() {
-    if (appLoopbackStartPending_) {
-        if (appLoopbackStartThread_.joinable())
-            appLoopbackStartThread_.detach();
-        appLoopbackStartPending_ = false;
-        appLoopbackStartJob_.reset();
-    } else if (appLoopbackStartThread_.joinable()) {
-        appLoopbackStartThread_.join();
-    }
     monitor_.stop();
     loopbackTracks_.destroyAll();
-    if (appLoopback_) appLoopback_->stop();
+    appLoopbackTracks_.destroyAll();
 }
 
 void AppUi::refreshApplicationLoopbackSessions() {
@@ -154,64 +146,6 @@ void AppUi::refreshApplicationLoopbackSessions() {
                                             appLoopbackSessionsLoaded_,
                                             appLoopbackSessionIdx_,
                                             std::move(rows));
-}
-
-void AppUi::beginApplicationLoopbackStart(uint32_t pid, wa::ProcessLoopbackMode mode) {
-    if (appLoopbackStartThread_.joinable())
-        appLoopbackStartThread_.join();
-
-    auto job = std::make_shared<AppLoopbackStartJob>();
-    appLoopbackStartJob_ = job;
-    appLoopbackStartPending_ = true;
-    appLoopbackMode_ = mode;
-
-    appLoopbackStartThread_ = std::thread([job, pid, mode] {
-        auto engine = std::make_unique<wa::MonitorEngine>();
-        wa::CaptureSource source{wa::CaptureSourceKind::ApplicationLoopback, L"", pid, mode};
-        wa::Result r = engine->start(wa::BackendKind::WasapiShared, source, L"", 0,
-                                     false, {}, {}, nullptr, {});
-        std::lock_guard<std::mutex> lk(job->mtx);
-        job->result = std::move(r);
-        if (job->result)
-            job->engine = std::move(engine);
-        job->done = true;
-    });
-}
-
-void AppUi::drainApplicationLoopbackStart() {
-    if (!appLoopbackStartPending_ || !appLoopbackStartJob_)
-        return;
-
-    auto job = appLoopbackStartJob_;
-    wa::Result result = wa::Result::Ok();
-    std::unique_ptr<wa::MonitorEngine> startedEngine;
-    {
-        std::lock_guard<std::mutex> lk(job->mtx);
-        if (!job->done)
-            return;
-        result = job->result;
-        if (result)
-            startedEngine = std::move(job->engine);
-    }
-
-    if (appLoopbackStartThread_.joinable())
-        appLoopbackStartThread_.join();
-    appLoopbackStartPending_ = false;
-    appLoopbackStartJob_.reset();
-
-    if (result && startedEngine) {
-        if (appLoopback_)
-            appLoopback_->stop();
-        appLoopback_ = std::move(startedEngine);
-        appLoopbackStarted_ = true;
-        resetVisuals(appLoopbackViz_);
-        logLines_.push_back("application loopback started");
-    } else {
-        appLoopbackStarted_ = false;
-        logLines_.push_back("application loopback error: " +
-                            (result ? std::string("start completed without engine")
-                                    : result.message));
-    }
 }
 
 void AppUi::pushLog(int /*level*/, const std::string& line) {
@@ -440,10 +374,7 @@ void AppUi::draw() {
                         logLines_.begin() + (logLines_.size() - kMaxLogLines));
 
     // Poll once; detect renderState Running->non-Running to clear stale playback chart data.
-    drainApplicationLoopbackStart();
     ms_ = monitor_.poll();
-    if (!appLoopbackStartPending_ && appLoopback_)
-        appLoopbackMs_ = appLoopback_->poll();
     const int curRenderState = (int)ms_.renderState;
     if (prevRenderState_ == (int)wa::StreamState::Running &&
         curRenderState  != (int)wa::StreamState::Running) {
@@ -508,6 +439,49 @@ void AppUi::drawMonitorPage() {
     ImGui::EndChild();
 }
 
+void AppUi::drawStackedCaptureTrackHosts(wa::CaptureTrackList& list,
+                                         std::vector<std::pair<wa::TrackId, VisualState>>& viz,
+                                         const char* emptyHint) {
+    const auto tracks = list.poll();
+    for (size_t i = 0; i < viz.size();) {
+        bool live = false;
+        for (const auto& t : tracks) {
+            if (t.id == viz[i].first) { live = true; break; }
+        }
+        if (!live) viz.erase(viz.begin() + static_cast<std::ptrdiff_t>(i));
+        else ++i;
+    }
+    if (tracks.empty()) {
+        ImGui::TextUnformatted(emptyHint);
+        return;
+    }
+    for (const auto& t : tracks) {
+        VisualState* vs = nullptr;
+        for (auto& p : viz) {
+            if (p.first == t.id) { vs = &p.second; break; }
+        }
+        if (!vs) {
+            viz.push_back({t.id, VisualState{}});
+            vs = &viz.back().second;
+        }
+        ImGui::PushID(static_cast<int>(t.id));
+        std::string cap = "Track " + std::to_string(t.id);
+        if (t.source.kind == wa::CaptureSourceKind::ApplicationLoopback) {
+            cap += "  pid=" + std::to_string(t.source.processId);
+            cap += std::string("  ") + wa::processLoopbackModeName(t.source.processLoopbackMode);
+        }
+        if (t.actualFormat.sampleRate)
+            cap += "  " + std::to_string(t.actualFormat.sampleRate) + " Hz / "
+                + std::to_string(t.actualFormat.channels) + " ch";
+        if (t.state == wa::StreamState::Error && !t.message.empty())
+            cap += "  [" + t.message + "]";
+        wa::TrackScopeReader reader(list, t.id);
+        drawChartHost(nullptr, statusFromTrack(t), *vs, wa::chart_host::Mode::CaptureOnly,
+                      cap.c_str(), nullptr, &reader);
+        ImGui::PopID();
+    }
+}
+
 void AppUi::drawLoopbackPage() {
     constexpr float kLogHeight = 200.0f;
     const float availY = ImGui::GetContentRegionAvail().y;
@@ -521,40 +495,7 @@ void AppUi::drawLoopbackPage() {
     ImGui::SameLine();
 
     ImGui::BeginChild("loopbackCharts", ImVec2(0, 0), true);
-    const auto tracks = loopbackTracks_.poll();
-    for (size_t i = 0; i < loopbackViz_.size();) {
-        bool live = false;
-        for (const auto& t : tracks) {
-            if (t.id == loopbackViz_[i].first) { live = true; break; }
-        }
-        if (!live) loopbackViz_.erase(loopbackViz_.begin() + static_cast<std::ptrdiff_t>(i));
-        else ++i;
-    }
-    if (tracks.empty()) {
-        ImGui::TextUnformatted(wa::ui_text::kLoopbackEmptyHint);
-    } else {
-        for (const auto& t : tracks) {
-            VisualState* viz = nullptr;
-            for (auto& p : loopbackViz_) {
-                if (p.first == t.id) { viz = &p.second; break; }
-            }
-            if (!viz) {
-                loopbackViz_.push_back({t.id, VisualState{}});
-                viz = &loopbackViz_.back().second;
-            }
-            ImGui::PushID(static_cast<int>(t.id));
-            std::string cap = "Track " + std::to_string(t.id);
-            if (t.actualFormat.sampleRate)
-                cap += "  " + std::to_string(t.actualFormat.sampleRate) + " Hz / "
-                    + std::to_string(t.actualFormat.channels) + " ch";
-            if (t.state == wa::StreamState::Error && !t.message.empty())
-                cap += "  [" + t.message + "]";
-            wa::TrackScopeReader reader(loopbackTracks_, t.id);
-            drawChartHost(nullptr, statusFromTrack(t), *viz, wa::chart_host::Mode::CaptureOnly,
-                          cap.c_str(), nullptr, &reader);
-            ImGui::PopID();
-        }
-    }
+    drawStackedCaptureTrackHosts(loopbackTracks_, loopbackViz_, wa::ui_text::kLoopbackEmptyHint);
     ImGui::EndChild();
     ImGui::EndChild();
 
@@ -577,9 +518,8 @@ void AppUi::drawApplicationLoopbackPage() {
     ImGui::SameLine();
 
     ImGui::BeginChild("appLoopbackCharts", ImVec2(0, 0), true);
-    drawChartHost(appLoopback_.get(), appLoopbackMs_, appLoopbackViz_,
-                  wa::chart_host::Mode::CaptureOnly,
-                  "Application audio waveform + spectrogram", nullptr);
+    drawStackedCaptureTrackHosts(appLoopbackTracks_, appLoopbackViz_,
+                                 wa::ui_text::kApplicationLoopbackEmptyHint);
     ImGui::EndChild();
     ImGui::EndChild();
 
@@ -686,9 +626,6 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
     }
     ImGui::EndChild();
 
-    ImGui::SeparatorText("Control");
-    const bool freezeParams = appLoopbackStartPending_ || appLoopbackStarted_;
-    if (freezeParams) ImGui::BeginDisabled();
     ImGui::AlignTextToFramePadding();
     ImGui::TextUnformatted(wa::ui_text::kApplicationLoopbackPidLabel);
     ImGui::SameLine();
@@ -696,55 +633,66 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
     ImGui::InputText("##appLoopbackPid", appLoopbackPid_, sizeof(appLoopbackPid_));
     ImGui::SameLine();
     ImGui::Checkbox(wa::ui_text::kApplicationLoopbackExclude, &appLoopbackExclude_);
-    if (freezeParams) ImGui::EndDisabled();
+    ImGui::InputText(wa::ui_text::kLoopbackWavOptional, appLoopbackWav_, sizeof(appLoopbackWav_));
+    ImGui::InputText(wa::ui_text::kLoopbackFormatOptional, appLoopbackFmt_, sizeof(appLoopbackFmt_));
 
+    ImGui::SeparatorText("Control");
     const ImVec2 ctrlBtn(120.0f, ImGui::GetFrameHeight() * 1.3f);
-    bool startPending = appLoopbackStartPending_;
-    if (startPending) {
-        ImGui::BeginDisabled();
-        ImGui::Button("Starting...", ctrlBtn);
-        ImGui::EndDisabled();
-    } else if (!appLoopbackStarted_) {
-        if (ImGui::Button("Start", ctrlBtn)) {
-            uint32_t pid = 0;
-            if (!wa::parseApplicationLoopbackPid(appLoopbackPid_, pid)) {
-                logLines_.push_back("application loopback error: invalid PID");
-            } else {
-                const wa::ProcessLoopbackMode mode = appLoopbackExclude_
-                    ? wa::ProcessLoopbackMode::ExcludeTree
-                    : wa::ProcessLoopbackMode::IncludeTree;
-                logLines_.push_back(std::string("application loopback starting mode=") +
-                                    wa::processLoopbackModeName(mode));
-                beginApplicationLoopbackStart(pid, mode);
+    if (ImGui::Button(wa::ui_text::kLoopbackCreate, ctrlBtn)) {
+        uint32_t pid = 0;
+        if (!wa::parseApplicationLoopbackPid(appLoopbackPid_, pid)) {
+            logLines_.push_back("application loopback create error: invalid PID");
+        } else {
+            const wa::ProcessLoopbackMode mode = appLoopbackExclude_
+                ? wa::ProcessLoopbackMode::ExcludeTree
+                : wa::ProcessLoopbackMode::IncludeTree;
+            wa::CaptureTrackCreate spec{};
+            spec.kind = wa::BackendKind::WasapiShared;
+            spec.source = wa::CaptureSource{wa::CaptureSourceKind::ApplicationLoopback, L"",
+                                            pid, mode};
+            spec.wavPath = utow(appLoopbackWav_);
+            wa::AudioFormat fmt{};
+            if (appLoopbackFmt_[0] != '\0' && wa::parseFormatSpec(appLoopbackFmt_, fmt))
+                spec.requested = &fmt;
+            else if (appLoopbackFmt_[0] != '\0') {
+                logLines_.push_back("application loopback create error: invalid format");
+            }
+            if (appLoopbackFmt_[0] == '\0' || spec.requested) {
+                wa::TrackId tid = 0;
+                wa::Result r = appLoopbackTracks_.create(spec, &tid);
+                logLines_.push_back(r
+                    ? ("application loopback track created id=" + std::to_string(tid)
+                       + " pid=" + std::to_string(pid)
+                       + " mode=" + wa::processLoopbackModeName(mode))
+                    : ("application loopback error: " + r.message));
             }
         }
-    } else {
-        if (ImGui::Button("Stop", ctrlBtn)) {
-            if (appLoopback_) appLoopback_->stop();
-            appLoopbackStarted_ = false;
-            resetVisuals(appLoopbackViz_);
-            logLines_.push_back("application loopback stopped");
-        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button(wa::ui_text::kLoopbackDestroyAll, ctrlBtn)) {
+        appLoopbackTracks_.destroyAll();
+        appLoopbackViz_.clear();
+        logLines_.push_back("application loopback destroy all");
     }
 
-    ImGui::SeparatorText("Status");
+    ImGui::SeparatorText(wa::ui_text::kLoopbackTracks);
     const char* ss[] = {"Idle", "Running", "Error"};
-    ImGui::Text("overall=%s  cap=%s  sr=%u",
-        ss[(int)appLoopbackMs_.overall], ss[(int)appLoopbackMs_.capState],
-        appLoopbackMs_.sampleRate);
-    // Running/pending: mode latched at Start; idle: preview from checkbox.
-    const wa::ProcessLoopbackMode statusMode =
-        freezeParams
-            ? appLoopbackMode_
-            : (appLoopbackExclude_ ? wa::ProcessLoopbackMode::ExcludeTree
-                                   : wa::ProcessLoopbackMode::IncludeTree);
-    ImGui::Text("mode=%s", wa::processLoopbackModeName(statusMode));
-    ImGui::Text("xrun=%llu", (unsigned long long)appLoopbackMs_.capXruns);
-    ImGui::Text("frames=%llu", (unsigned long long)appLoopbackMs_.capWrittenFrames);
-    ImGui::Text("silent-packet=%llu  idle-fill=%llu",
-        (unsigned long long)appLoopbackMs_.loopbackSilentPacketFrames,
-        (unsigned long long)appLoopbackMs_.loopbackIdleSilenceFrames);
-    ImGui::ProgressBar(appLoopbackMs_.capLevel, ImVec2(-1, 0), "level");
+    const auto tracks = appLoopbackTracks_.poll();
+    for (const auto& t : tracks) {
+        ImGui::PushID(static_cast<int>(t.id));
+        ImGui::Text("id=%llu  %s  pid=%u  %s  sr=%u  xrun=%llu",
+                    (unsigned long long)t.id, ss[(int)t.state],
+                    t.source.processId,
+                    wa::processLoopbackModeName(t.source.processLoopbackMode),
+                    t.actualFormat.sampleRate, (unsigned long long)t.overruns);
+        ImGui::ProgressBar((t.levelL > t.levelR) ? t.levelL : t.levelR, ImVec2(-1, 0), "level");
+        if (ImGui::Button(wa::ui_text::kLoopbackDestroy)) {
+            appLoopbackTracks_.destroy(t.id);
+            logLines_.push_back("application loopback track destroyed id="
+                                + std::to_string(t.id));
+        }
+        ImGui::PopID();
+    }
 }
 
 void AppUi::drawLeftPanel() {

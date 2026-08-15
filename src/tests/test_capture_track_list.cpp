@@ -212,6 +212,42 @@ TEST(CaptureTrackList, ExclusiveLoopbackRejected) {
     EXPECT_TRUE(list.poll().empty());
 }
 
+TEST(CaptureTrackList, ExclusiveApplicationLoopbackRejected) {
+    ListRig rig;
+    CaptureTrackList list(rig.factory());
+    CaptureTrackCreate spec{};
+    spec.kind = BackendKind::WasapiExclusive;
+    spec.source.kind = CaptureSourceKind::ApplicationLoopback;
+    spec.source.processId = 4242;
+    EXPECT_FALSE(list.create(spec, nullptr));
+    EXPECT_TRUE(list.poll().empty());
+}
+
+TEST(CaptureTrackList, ApplicationLoopbackPreservesPidAndMode) {
+    ListRig rig;
+    CaptureTrackList list(rig.factory());
+    CaptureTrackCreate spec{};
+    spec.source.kind = CaptureSourceKind::ApplicationLoopback;
+    spec.source.processId = 4242;
+    spec.source.processLoopbackMode = ProcessLoopbackMode::ExcludeTree;
+    TrackId id = 0;
+    ASSERT_TRUE(list.create(spec, &id));
+    auto st = list.poll();
+    ASSERT_EQ(st.size(), 1u);
+    EXPECT_EQ(st[0].source.kind, CaptureSourceKind::ApplicationLoopback);
+    EXPECT_EQ(st[0].source.processId, 4242u);
+    EXPECT_EQ(st[0].source.processLoopbackMode, ProcessLoopbackMode::ExcludeTree);
+
+    CaptureTrackCreate other = spec;
+    other.source.processLoopbackMode = ProcessLoopbackMode::IncludeTree;
+    TrackId b = 0;
+    ASSERT_TRUE(list.create(other, &b));
+    TrackId c = 0;
+    ASSERT_TRUE(list.create(spec, &c));
+    EXPECT_EQ(list.poll().size(), 3u);
+    list.destroyAll();
+}
+
 TEST(CaptureTrackList, CreateFailureDoesNotDestroySibling) {
     ListRig rig;
     CaptureTrackList list(rig.factory());

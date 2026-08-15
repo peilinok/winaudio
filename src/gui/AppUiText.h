@@ -44,5 +44,7 @@ inline constexpr const char* kLoopbackSilentRender = "Silent render keepalive";
 inline constexpr const char* kLoopbackWavOptional = "WAV (optional)";
 inline constexpr const char* kLoopbackFormatOptional = "Format (optional)";
 inline constexpr const char* kLoopbackEmptyHint = "Create a Track to capture system audio.";
+inline constexpr const char* kApplicationLoopbackEmptyHint =
+    "Create a Track to capture application audio.";
 
 } // namespace wa::ui_text
