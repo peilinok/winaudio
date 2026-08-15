@@ -1,5 +1,7 @@
 # WinAudio Application Loopback Implementation Plan
 
+> **Historical executed plan.** Do not treat this file as a living spec. Product behavior for Application Loopback as Capture Tracks (multi-path GUI/CLI, lifetime, isolation) is specified in [../specs/2026-08-14-winaudio-multi-track-loopback-design.md](../specs/2026-08-14-winaudio-multi-track-loopback-design.md). Process-loopback activation and session enumeration described here remain useful implementation history.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add a fully working GUI Application Loopback tab that discovers active WASAPI audio-session processes, allows choosing or manually entering any PID, and captures that process tree through Windows process-loopback audio.
