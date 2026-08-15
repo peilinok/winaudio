@@ -7,8 +7,8 @@ Windows audio test tool: capture, loopback, delayed monitor pass-through, and ch
 ### Capture and monitor
 
 **Monitor**:
-A dual-stream session that captures audio and optionally plays it back after a fixed delay, with scope taps for charts.
-_Avoid_: Engine session (when meaning the product feature), pass-through alone
+A dual-stream session that pairs exactly one Capture Track with at most one Render Track after a fixed delay, with scope taps for charts.
+_Avoid_: Engine session (when meaning the product feature), pass-through alone, Track (when meaning the whole pair)
 
 **System Loopback**:
 Capture of mixed system (render-device) audio rather than a microphone endpoint.
@@ -37,15 +37,15 @@ Fixed sample-count step between successive analysis windows that feed one spectr
 _Avoid_: Frame (GUI frame), buffer period alone
 
 **Chart freeze**:
-User-visible pause of chart data refresh only; capture and playback continue.
+User-visible pause of chart data refresh only; capture and playback continue. On a loopback page it applies to one Track’s Chart Host, not the whole page.
 _Avoid_: Pause (when meaning stop the session), Stop
 
 **Linked time axis**:
-Shared horizontal time window across waveforms and spectrograms on one page.
-_Avoid_: x-zoom alone, history length (buffer capacity)
+Shared horizontal time window across waveforms and spectrograms of one Track (including that Track’s channels). Loopback pages do not share one axis across Tracks. The Monitor page still links the pair.
+_Avoid_: x-zoom alone, history length (buffer capacity), page-wide axis (when several Tracks are shown)
 
 **Chart Host**:
-The right-hand charts column on a page: ensure visual buffers, freeze/zoom toolbar, draw the active chart panels, and clear one-shot view resets. Does not own the left control panel or the log region.
+Chart chrome for one visualization unit: freeze/zoom toolbar and the active panels. A loopback page stacks one Capture-only host per Capture Track. Does not own the left control panel or the log region.
 _Avoid_: whole page layout, Chart Data Pipeline, drawComboPanel alone
 
 **Dual reorderable host**:
@@ -58,10 +58,26 @@ _Avoid_: mono monitor (when meaning audio channels)
 
 ### Streams
 
+**Track**:
+A unidirectional stream the user can create and destroy on its own: either a capture of one source or a playback to one render endpoint. Create starts it immediately; there is no idle Track. It owns that source or endpoint, its own scope tap, and its own lifetime and status.
+_Avoid_: session (when meaning one direction), channel, mix, page, Monitor (when meaning one direction)
+
+**Capture source**:
+The kind and identity of what a Capture Track captures: a capture endpoint, a System Loopback render endpoint, or an Application Loopback process tree. It is the recipe, not the running instance.
+_Avoid_: Track, device (when meaning the whole instance)
+
+**Capture Track**:
+A Track that binds one Capture source and may own a WAV sink (optional on the GUI; required per Track on CLI capture).
+_Avoid_: record track, input track, Capture side (when meaning the Track itself)
+
+**Render Track**:
+A Track that plays to one render endpoint.
+_Avoid_: playback track, output track, silent render (helper keepalive is not a Track)
+
 **Capture side**:
-The input leg of a monitor or loopback session (endpoint, system loopback, or application loopback).
+The input leg of a Monitor — exactly one Capture Track — or a Capture Track on a loopback page.
 _Avoid_: Record side, mic only
 
 **Render side**:
-The delayed playback leg of a monitor session when sync playback is engaged.
+The delayed playback leg of a Monitor when sync playback is engaged — at most one Render Track.
 _Avoid_: Output only, speaker path alone

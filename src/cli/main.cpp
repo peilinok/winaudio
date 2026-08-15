@@ -20,8 +20,9 @@ static void usage() {
         "WinAudioCli capture --out <file.wav> [--device <id>] [--seconds N] [--loopback]\n"
         "                    [--pid N] [--exclude-tree] [--no-silent-render]\n"
         "                    [--backend wasapi-shared|wasapi-exclusive] [--format 48000/16/2]\n"
-        "                    [--track --out <file.wav> [--device <id>] [--loopback|--pid N]\n"
-        "                              [--exclude-tree] [--format ...] [--no-silent-render]]...\n"
+        "WinAudioCli capture --track --out <file.wav> [--device <id>] [--loopback|--pid N]\n"
+        "                    [--exclude-tree] [--format ...] [--no-silent-render]\n"
+        "                    [--track --out <file.wav> ...]... [--seconds N] [--backend ...]\n"
         "WinAudioCli play    --in  <file.wav> [--device <id>]\n"
         "                    [--backend wasapi-shared|wasapi-exclusive]\n"
         "WinAudioCli probe   --format 48000/16/2 [--device <id>] [--render|--capture]\n"
@@ -32,7 +33,10 @@ static void usage() {
         "  (shared: WASAPI engine bridges sample rate on render side;\n"
         "   exclusive: render device must support capture format)\n"
         "  --loopback uses render endpoint ids for capture --device / monitor --cap.\n"
-        "  capture --track starts one Capture Track per segment; omit --track for one --out.\n"
+        "  capture: no --track + one --out = one Capture Track; repeat --track for a group.\n"
+        "  each --track needs --out; source is --pid [--exclude-tree] or --loopback or endpoint.\n"
+        "  --format and --no-silent-render are per Capture Track; --seconds and --backend once.\n"
+        "  --pid and --loopback cannot be combined in one --track segment.\n"
         "WinAudioCli caps  [--device <id>] [--render|--capture]\n");
 }
 
