@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <string>
 #include <vector>
+#include "CaptureTrackList.h"
 #include "Engine.h"
 #include "DeviceEnumerator.h"
 #include "ComUtil.h"
@@ -17,8 +18,11 @@ static void usage() {
     std::printf(
         "WinAudioCli list  [--render|--capture]\n"
         "WinAudioCli capture --out <file.wav> [--device <id>] [--seconds N] [--loopback]\n"
-        "                    [--no-silent-render] [--backend wasapi-shared|wasapi-exclusive]\n"
-        "                    [--format 48000/16/2] (both backends)\n"
+        "                    [--pid N] [--exclude-tree] [--no-silent-render]\n"
+        "                    [--backend wasapi-shared|wasapi-exclusive] [--format 48000/16/2]\n"
+        "WinAudioCli capture --track --out <file.wav> [--device <id>] [--loopback|--pid N]\n"
+        "                    [--exclude-tree] [--format ...] [--no-silent-render]\n"
+        "                    [--track --out <file.wav> ...]... [--seconds N] [--backend ...]\n"
         "WinAudioCli play    --in  <file.wav> [--device <id>]\n"
         "                    [--backend wasapi-shared|wasapi-exclusive]\n"
         "WinAudioCli probe   --format 48000/16/2 [--device <id>] [--render|--capture]\n"
@@ -29,6 +33,10 @@ static void usage() {
         "  (shared: WASAPI engine bridges sample rate on render side;\n"
         "   exclusive: render device must support capture format)\n"
         "  --loopback uses render endpoint ids for capture --device / monitor --cap.\n"
+        "  capture: no --track + one --out = one Capture Track; repeat --track for a group.\n"
+        "  each --track needs --out; source is --pid [--exclude-tree] or --loopback or endpoint.\n"
+        "  --format and --no-silent-render are per Capture Track; --seconds and --backend once.\n"
+        "  --pid and --loopback cannot be combined in one --track segment.\n"
         "WinAudioCli caps  [--device <id>] [--render|--capture]\n");
 }
 
@@ -117,33 +125,59 @@ int wmain(int argc, wchar_t** argv) {
 
     Engine eng;
     if (cmd == L"capture") {
-        std::wstring out = arg(argc, argv, L"--out");
-        if (out.empty()) { usage(); return 1; }
-        std::wstring id = arg(argc, argv, L"--device");
-        std::wstring secStr = arg(argc, argv, L"--seconds");
-        int seconds = secStr.empty() ? 5 : _wtoi(secStr.c_str());
-        AudioFormat fmt{};
-        bool haveFmt = formatArg(argc, argv, fmt);
-        const bool loopback = has(argc, argv, L"--loopback");
-        BackendKind kind = backendArg(argc, argv);
-        if (loopback && kind == BackendKind::WasapiExclusive) {
-            std::printf("capture: --loopback requires --backend wasapi-shared\n");
+        auto group = wa::cli::parseCaptureGroup(argc, argv);
+        if (!group.ok) {
+            std::printf("%s\n", group.message.c_str());
             return 2;
         }
-        LoopbackOptions loopbackOptions = wa::cli::parseLoopbackOptions(argc, argv);
-        CaptureSource source{loopback ? CaptureSourceKind::SystemLoopback : CaptureSourceKind::Endpoint, id};
-        Result r = eng.startCapture(kind, source, out, haveFmt ? &fmt : nullptr,
-                                    loopbackOptions);
-        if (!r) { std::printf("capture start failed: %s\n", r.message.c_str()); return 2; }
-        for (int i = 0; i < seconds * 10; ++i) {
-            Sleep(100);
-            EngineStatus s = eng.poll();
-            std::printf("\rL=%.2f R=%.2f over=%llu under=%llu  ",
-                s.levelL, s.levelR,
-                (unsigned long long)s.overruns, (unsigned long long)s.underruns);
+        CaptureTrackList list;
+        static CaptureTrackList* gCaptureList = nullptr;
+        gCaptureList = &list;
+        SetConsoleCtrlHandler([](DWORD) -> BOOL {
+            if (gCaptureList) gCaptureList->destroyAll();
+            return FALSE;
+        }, TRUE);
+        bool anyCreateFail = false;
+        std::vector<std::wstring> outs;
+        outs.reserve(group.tracks.size());
+        for (const auto& seg : group.tracks) {
+            auto spec = wa::cli::captureCreateFromSegment(seg, group.backend);
+            TrackId id = 0;
+            Result r = list.create(spec, &id);
+            if (!r) {
+                std::printf("capture start failed: %s\n", r.message.c_str());
+                anyCreateFail = true;
+                continue;
+            }
+            outs.push_back(seg.out);
         }
-        eng.stop();
-        std::printf("\nwrote %ls\n", out.c_str());
+        if (list.poll().empty()) return 2;
+        bool anyError = anyCreateFail;
+        std::string err;
+        for (int i = 0; i < group.seconds * 10; ++i) {
+            Sleep(100);
+            auto st = list.poll();
+            float l = 0.f, rlev = 0.f;
+            uint64_t ov = 0;
+            for (const auto& s : st) {
+                l = s.levelL;
+                rlev = s.levelR;
+                ov += s.overruns;
+                if (s.state == StreamState::Error) {
+                    anyError = true;
+                    if (!s.message.empty()) err = s.message;
+                }
+            }
+            std::printf("\rtracks=%zu L=%.2f R=%.2f over=%llu  ",
+                st.size(), l, rlev, (unsigned long long)ov);
+        }
+        list.destroyAll();
+        if (anyError) {
+            std::printf("\ncapture error: %s\n", err.c_str());
+            return 2;
+        }
+        for (const auto& p : outs) std::printf("\nwrote %ls", p.c_str());
+        std::printf("\n");
         return 0;
     }
 
@@ -232,6 +266,8 @@ int wmain(int argc, wchar_t** argv) {
                                  true, {}, {}, haveFmt ? &capFmt : nullptr,
                                  loopbackOptions);
         if (!r) { std::printf("monitor start failed: %s\n", r.message.c_str()); return 2; }
+        bool sawErr = false;
+        uint32_t errCode = 0;
         for (int i = 0; i < seconds * 5; ++i) {
             Sleep(200);
             wa::MonitorStatus s = mon.poll();
@@ -240,13 +276,17 @@ int wmain(int argc, wchar_t** argv) {
                 s.fifoFillMs, (unsigned long long)s.driftFixes,
                 (unsigned long long)s.capXruns, (unsigned long long)s.renderXruns);
             std::fflush(stdout);
-            if (s.overall == wa::StreamState::Error) {
+            if (s.overall == wa::StreamState::Error && !sawErr) {
                 std::printf("\nerr=%u\n", s.errorCode);
-                mon.stop();
-                return 2;
+                sawErr = true;
+                errCode = s.errorCode;
             }
         }
         mon.stop();
+        if (sawErr) {
+            std::printf("monitor ended with err=%u\n", errCode);
+            return 2;
+        }
         std::printf("\ndone\n");
         return 0;
     }

@@ -64,6 +64,8 @@ public:
         return s;
     }
     void* dataReadyEvent() const override { return evt_; }
+    bool inError() const override { return runtimeError_.load(std::memory_order_relaxed); }
+    void failRuntime() { runtimeError_.store(true, std::memory_order_relaxed); }
 
     // Test driver: push raw interleaved PCM bytes into the capture ring + wake pump.
     void pushPcm(const void* data, size_t bytes) {
@@ -83,6 +85,7 @@ public:
     StreamParams      lastOpenParams_{};
     RingBuffer*       ring_ = nullptr;
     HANDLE            evt_  = nullptr;
+    std::atomic<bool> runtimeError_{false};
     AudioFormat       lastRequested_{};
     bool              sawRequested_ = false;
 };
@@ -185,15 +188,15 @@ TEST(MonitorEngine, RateMismatchFails) {
     MonitorEngine eng(rig.factory());
     Result r = eng.start(BackendKind::WasapiShared, L"", L"", 50);
 
-    EXPECT_FALSE(static_cast<bool>(r));
+    EXPECT_TRUE(static_cast<bool>(r)) << "capture stays up when render cannot engage";
     MonitorStatus st = eng.poll();
-    EXPECT_NE(st.overall, StreamState::Running);
     EXPECT_EQ(st.overall, StreamState::Error);
     EXPECT_EQ(st.errorCode, static_cast<uint32_t>(MonitorError::RateMismatch));
-    EXPECT_EQ(st.capState, StreamState::Idle); // capture rolled back
-    // Clean rollback: both fakes were stopped.
+    EXPECT_EQ(st.capState, StreamState::Running);
+    EXPECT_EQ(st.renderState, StreamState::Error);
+    EXPECT_FALSE(rig.capStopped.load()) << "capture must not auto-stop";
+    eng.stop();
     EXPECT_TRUE(rig.capStopped.load());
-    EXPECT_TRUE(rig.renderStopped.load());
 }
 
 TEST(MonitorEngine, PrefillThenRunning) {
@@ -439,11 +442,15 @@ TEST(MonitorEngine, StartRollbackOnRenderFail) {
     MonitorEngine eng(rig.factory());
     Result r = eng.start(BackendKind::WasapiShared, L"", L"", 50);
 
-    EXPECT_FALSE(static_cast<bool>(r));
+    EXPECT_TRUE(static_cast<bool>(r));
     MonitorStatus st = eng.poll();
-    EXPECT_EQ(st.overall, StreamState::Error); // engage failure -> Error (capture rolled back)
+    EXPECT_EQ(st.overall, StreamState::Error);
     EXPECT_EQ(st.errorCode, static_cast<uint32_t>(MonitorError::RenderStart));
-    EXPECT_TRUE(rig.capStopped.load()) << "capture backend must be stopped on rollback";
+    EXPECT_EQ(st.capState, StreamState::Running);
+    EXPECT_EQ(st.renderState, StreamState::Error);
+    EXPECT_FALSE(rig.capStopped.load()) << "capture must not auto-stop on render Error";
+    eng.stop();
+    EXPECT_TRUE(rig.capStopped.load());
 }
 
 TEST(MonitorEngine, StopJoinsCleanly) {
@@ -610,7 +617,7 @@ TEST(MonitorEngine, EnablePlaybackRateMismatch) {
     EXPECT_EQ(st.renderState, StreamState::Error);
     EXPECT_EQ(st.errorCode, static_cast<uint32_t>(MonitorError::RateMismatch));
     EXPECT_EQ(st.capState, StreamState::Running) << "capture must continue after render engage failure";
-    EXPECT_EQ(st.overall, StreamState::Running);
+    EXPECT_EQ(st.overall, StreamState::Error);
 
     eng.stop();
 }
@@ -910,10 +917,66 @@ TEST(MonitorEngine, LoopbackRuntimePlaybackRejectsSameRenderDevice) {
     })) << "runtime playback feedback guard did not reject render engage";
 
     MonitorStatus st = eng.poll();
-    EXPECT_EQ(st.overall, StreamState::Running);
+    EXPECT_EQ(st.overall, StreamState::Error);
     EXPECT_EQ(st.capState, StreamState::Running);
     EXPECT_EQ(st.renderState, StreamState::Error);
     EXPECT_EQ(st.errorCode, static_cast<uint32_t>(MonitorError::LoopbackFeedback));
     EXPECT_EQ(rig.renderOpenCount.load(), 0);
     eng.stop();
+}
+
+TEST(MonitorEngine, RuntimeCaptureErrorDoesNotStopRender) {
+    FakeRig rig;
+    MonitorEngine eng(rig.factory());
+    ASSERT_TRUE(eng.start(BackendKind::WasapiShared, L"", L"", 50, true));
+    ASSERT_NE(rig.capPtr, nullptr);
+    ASSERT_NE(rig.renderPtr, nullptr);
+
+    std::vector<int16_t> ramp(4000, 9);
+    auto pcm = makeRampPcm(ramp, rig.capFmt.channels);
+    rig.capPtr->pushPcm(pcm.data(), pcm.size());
+    ASSERT_TRUE(waitFor([&] { return eng.poll().fifoFillMs > 0.f; }));
+
+    rig.capPtr->failRuntime();
+    rig.capPtr->pushPcm(pcm.data(), pcm.size());
+    ASSERT_TRUE(waitFor([&] { return eng.poll().capState == StreamState::Error; }));
+
+    MonitorStatus st = eng.poll();
+    EXPECT_EQ(st.overall, StreamState::Error);
+    EXPECT_EQ(st.capState, StreamState::Error);
+    EXPECT_EQ(st.renderState, StreamState::Running);
+    EXPECT_FALSE(rig.renderStopped.load());
+    EXPECT_GT(st.fifoFillMs, 0.f) << "DelayFifo must survive capture Error";
+
+    eng.stop();
+    EXPECT_TRUE(rig.capStopped.load());
+    EXPECT_TRUE(rig.renderStopped.load());
+}
+
+TEST(MonitorEngine, RuntimeRenderErrorDoesNotStopCaptureOrFifo) {
+    FakeRig rig;
+    MonitorEngine eng(rig.factory());
+    ASSERT_TRUE(eng.start(BackendKind::WasapiShared, L"", L"", 50, true));
+    ASSERT_NE(rig.capPtr, nullptr);
+    ASSERT_NE(rig.renderPtr, nullptr);
+
+    std::vector<int16_t> ramp(4000, 11);
+    auto pcm = makeRampPcm(ramp, rig.capFmt.channels);
+    rig.capPtr->pushPcm(pcm.data(), pcm.size());
+    ASSERT_TRUE(waitFor([&] { return eng.poll().fifoFillMs > 0.f; }));
+
+    rig.renderPtr->failRuntime();
+    rig.capPtr->pushPcm(pcm.data(), pcm.size());
+    ASSERT_TRUE(waitFor([&] { return eng.poll().renderState == StreamState::Error; }));
+
+    MonitorStatus st = eng.poll();
+    EXPECT_EQ(st.overall, StreamState::Error);
+    EXPECT_EQ(st.renderState, StreamState::Error);
+    EXPECT_EQ(st.capState, StreamState::Running);
+    EXPECT_FALSE(rig.capStopped.load());
+    EXPECT_GT(st.fifoFillMs, 0.f) << "DelayFifo must survive render Error";
+
+    eng.stop();
+    EXPECT_TRUE(rig.capStopped.load());
+    EXPECT_TRUE(rig.renderStopped.load());
 }

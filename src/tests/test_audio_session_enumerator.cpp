@@ -69,6 +69,8 @@ TEST(AppLoopbackUiText, ExposesRequiredControls) {
     EXPECT_STREQ(wa::ui_text::kApplicationLoopbackPidLabel, "PID");
     EXPECT_STREQ(wa::ui_text::kApplicationLoopbackExclude, "Exclude");
     EXPECT_STREQ(wa::ui_text::kApplicationLoopbackSessions, "Sessions");
+    EXPECT_STREQ(wa::ui_text::kApplicationLoopbackEmptyHint,
+                 "Create a Track to capture application audio.");
 }
 
 TEST(AdvancedOptionsUiText, ExposesExplicitClientPropertiesControls) {
@@ -94,6 +96,14 @@ TEST(ChartsTimeZoomUiText, ExposesZoomAndResetLabels) {
     EXPECT_STREQ(wa::ui_text::kChartsZoomOut, "Zoom out");
     EXPECT_STREQ(wa::ui_text::kChartsZoomIn, "Zoom in");
     EXPECT_STREQ(wa::ui_text::kChartsResetView, "Reset view");
+    EXPECT_STREQ(wa::ui_text::kLoopbackCreate, "Create Track");
+    EXPECT_STREQ(wa::ui_text::kLoopbackDestroy, "Destroy");
+    EXPECT_STREQ(wa::ui_text::kLoopbackDestroyAll, "Destroy all");
+    EXPECT_STREQ(wa::ui_text::kLoopbackTracks, "Tracks");
+    EXPECT_STREQ(wa::ui_text::kLoopbackSilentRender, "Silent render keepalive");
+    EXPECT_STREQ(wa::ui_text::kLoopbackWavOptional, "WAV (optional)");
+    EXPECT_STREQ(wa::ui_text::kLoopbackFormatOptional, "Format (optional)");
+    EXPECT_STREQ(wa::ui_text::kLoopbackEmptyHint, "Create a Track to capture system audio.");
 }
 
 TEST(AppLoopbackUiModel, SelectingRowCopiesPidIntoEditableBuffer) {

@@ -36,4 +36,15 @@ inline constexpr const char* kChartsZoomOut = "Zoom out";
 inline constexpr const char* kChartsZoomIn = "Zoom in";
 inline constexpr const char* kChartsResetView = "Reset view";
 
+inline constexpr const char* kLoopbackCreate = "Create Track";
+inline constexpr const char* kLoopbackDestroy = "Destroy";
+inline constexpr const char* kLoopbackDestroyAll = "Destroy all";
+inline constexpr const char* kLoopbackTracks = "Tracks";
+inline constexpr const char* kLoopbackSilentRender = "Silent render keepalive";
+inline constexpr const char* kLoopbackWavOptional = "WAV (optional)";
+inline constexpr const char* kLoopbackFormatOptional = "Format (optional)";
+inline constexpr const char* kLoopbackEmptyHint = "Create a Track to capture system audio.";
+inline constexpr const char* kApplicationLoopbackEmptyHint =
+    "Create a Track to capture application audio.";
+
 } // namespace wa::ui_text

@@ -260,7 +260,7 @@ Result MonitorEngine::start(BackendKind kind, const CaptureSource& capSource,
     delayMsAtomic_.store(delayMs, std::memory_order_relaxed);
     capDataReadyEvent_ = capBackend_->dataReadyEvent();
 
-    // --- Optional render at start (synchronous engage -> full rollback on failure = CLI parity) ---
+    // Optional render at start. Capture stays up if render cannot engage.
     wantPlayback_.store(playbackEnabled, std::memory_order_relaxed);
     if (playbackEnabled) {
         if (Result r = engageRender(); !r) {
@@ -272,16 +272,23 @@ Result MonitorEngine::start(BackendKind kind, const CaptureSource& capSource,
                                : (code == static_cast<long>(MonitorError::LoopbackFeedback))
                                    ? MonitorError::LoopbackFeedback
                                    : MonitorError::RenderStart;
-            return rollback(StreamState::Error, err, code, std::move(msg));   // stops capture too
+            renderState_.store(StreamState::Error, std::memory_order_relaxed);
+            errorCode_.store(static_cast<uint32_t>(err), std::memory_order_relaxed);
+            overall_.store(StreamState::Error, std::memory_order_relaxed);
+            wantPlayback_.store(false, std::memory_order_relaxed);
+        } else {
+            overall_.store(StreamState::Running, std::memory_order_relaxed);
         }
+    } else {
+        overall_.store(StreamState::Running, std::memory_order_relaxed);
     }
-
-    // Capture is up -> engine Running (independent of render prefill).
-    overall_.store(StreamState::Running, std::memory_order_relaxed);
-    WA_LOG(wa::log::Level::Info, "MonitorEngine", "engine.running",
+    const StreamState overall = overall_.load(std::memory_order_relaxed);
+    WA_LOG(wa::log::Level::Info, "MonitorEngine",
+           overall == StreamState::Error ? "engine.error" : "engine.running",
            "cap=" + wa::narrowAscii(capSource.deviceId) +
            " ren=" + wa::narrowAscii(renderId) +
-           " sr=" + std::to_string(capFmt_.sampleRate), "ok");
+           " sr=" + std::to_string(capFmt_.sampleRate),
+           overall == StreamState::Error ? "render-failed-capture-up" : "ok");
 
     running_.store(true, std::memory_order_release);
     try {
@@ -410,13 +417,34 @@ void MonitorEngine::pumpLoop() {
                         ? MonitorError::LoopbackFeedback
                         : MonitorError::RenderStart),
                     std::memory_order_relaxed);
+                overall_.store(StreamState::Error, std::memory_order_relaxed);
                 wantPlayback_.store(false, std::memory_order_relaxed); // don't retry every wake
-                // capture continues untouched
+                // capture continues; DelayFifo is only created on successful engage
             }
-        } else if (!want && active) {
+        } else if (!want && active
+                   && renderState_.load(std::memory_order_relaxed) != StreamState::Error) {
             disengageRender();
         }
-        const bool renderActive = (renderBackend_ != nullptr);
+
+        if (capBackend_ && capBackend_->inError()
+            && capState_.load(std::memory_order_relaxed) != StreamState::Error) {
+            WA_LOG(wa::log::Level::Err, "MonitorEngine", "capture.runtime", "", "inError");
+            capState_.store(StreamState::Error, std::memory_order_relaxed);
+            overall_.store(StreamState::Error, std::memory_order_relaxed);
+            errorCode_.store(static_cast<uint32_t>(MonitorError::CaptureStart),
+                             std::memory_order_relaxed);
+        }
+        if (renderBackend_ && renderBackend_->inError()
+            && renderState_.load(std::memory_order_relaxed) != StreamState::Error) {
+            WA_LOG(wa::log::Level::Err, "MonitorEngine", "render.runtime", "", "inError");
+            renderState_.store(StreamState::Error, std::memory_order_relaxed);
+            overall_.store(StreamState::Error, std::memory_order_relaxed);
+            errorCode_.store(static_cast<uint32_t>(MonitorError::RenderStart),
+                             std::memory_order_relaxed);
+        }
+
+        const bool renderActive = (renderBackend_ != nullptr)
+            && renderState_.load(std::memory_order_relaxed) != StreamState::Error;
         const uint16_t renderCh         = renderCh_;
         const uint32_t renderFrameBytes = renderFrameBytes_;
 

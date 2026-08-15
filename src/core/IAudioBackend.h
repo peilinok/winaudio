@@ -71,6 +71,9 @@ public:
     // Auto-reset event a monitor pump can wait on; signaled after each capture ring write.
     // nullptr if the backend provides no such signal (default).
     virtual void* dataReadyEvent() const { return nullptr; }
+
+    // Runtime fault observed by a pump; default is healthy. Does not stop the peer stream.
+    virtual bool inError() const { return false; }
 };
 
 } // namespace wa
