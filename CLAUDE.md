@@ -92,3 +92,17 @@ capture source（endpoint | system loopback | application loopback(PID + Process
 
 - 回答用中文；代码、注释、日志文本、API 标识符保持英文。
 - `AGENTS.md` 只是指向本文件的指针；agent 规则统一维护在这里。
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues on peilinok/winaudio (`gh` CLI). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` at the repo root and `docs/adr/`. See `docs/agents/domain.md`.
