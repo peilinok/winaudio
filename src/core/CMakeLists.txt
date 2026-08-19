@@ -9,6 +9,7 @@ add_library(WinAudioCore STATIC
     ApplicationLoopbackCapture.cpp
     DeviceEnumerator.cpp
     WasapiStream.cpp
+    StreamInit.cpp
     Engine.cpp
     FormatSpec.cpp
     MonitorEngine.cpp
