@@ -81,3 +81,15 @@ _Avoid_: Record side, mic only
 **Render side**:
 The delayed playback leg of a Monitor when sync playback is engaged — at most one Render Track.
 _Avoid_: Output only, speaker path alone
+
+**Stream params**:
+Advanced open-time settings for one Track: category, option, offload, ducking, buffer length, and user-overridable stream flags. All-default means follow the system and the current Stream init recipe.
+_Avoid_: StreamOption (that is only the APO / raw / match-format field), client properties alone, AUDCLNT_STREAMFLAGS
+
+**Stream flags**:
+Initialize flags consumed by Stream init. User-overridable flags live in stream params (AutoConvert). Event-driven callback is locked on. Loopback extras stay caller-supplied, not in stream params.
+_Avoid_: StreamOption, AUDCLNT_STREAMOPTIONS, extraSharedInitFlags
+
+**Stream init**:
+The share-mode recipe shared by every Track and by silent-render: mix vs requested conversion, exclusive probe and align-retry, duration, and stream flags. Loopback extras are supplied by the caller; Stream init does not inspect the Capture source. Endpoint or Application Loopback activation sits outside it, as do client properties, ducking, and the pump.
+_Avoid_: Client Init, prepareClient, format negotiation (that is only the format half)

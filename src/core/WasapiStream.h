@@ -43,7 +43,6 @@ protected:
     virtual void   preRoll() {}           // render: one silent buffer; capture: nothing
     virtual void   runLoop() = 0;         // drain/feed loop; runs while running_
     virtual void   resetService() = 0;    // Reset() the service ComPtr (called from close())
-    virtual DWORD  extraSharedInitFlags() const { return 0; }
 
     bool isExclusive() const { return mode_ == WasapiMode::Exclusive; }
 
@@ -57,6 +56,7 @@ protected:
     std::atomic<uint64_t> silentPacketFrames_{0};
     void*       hEvent_ = nullptr;        // HANDLE
     ComPtr<IAudioClient> client_;
+    DWORD extraInitFlags_ = 0; // caller-supplied extras (e.g. LOOPBACK)
 
 private:
     void   threadMain();
@@ -103,7 +103,6 @@ public:
                 const StreamParams& params) override;
 protected:
     EDataFlow dataFlow() const override { return eRender; }
-    DWORD extraSharedInitFlags() const override { return AUDCLNT_STREAMFLAGS_LOOPBACK; }
     uint32_t idleSilenceFrames(uint32_t timeoutMs) const override {
         return loopbackSilenceFramesForTimeout(actualFormat_.sampleRate, timeoutMs);
     }

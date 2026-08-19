@@ -1,6 +1,7 @@
 #include "WasapiStream.h"
 #include "RingBuffer.h"
 #include "FormatSpec.h"
+#include "StreamInit.h"
 #include <audiopolicy.h>
 #include <system_error>
 #include <cstring>
@@ -192,46 +193,18 @@ Result WasapiStream::applyDucking() {
 
 Result WasapiStream::prepareClient(IMMDevice* dev) {
     if (mode_ == WasapiMode::Shared) {
-        REFERENCE_TIME dur = params_.bufferMs
-            ? static_cast<REFERENCE_TIME>(params_.bufferMs) * 10'000
-            : 10'000'000 / 10; // default: 100 ms buffer
-        const DWORD extraFlags = extraSharedInitFlags();
-
-        if (hasRequested_) {
-            // Caller specified a format: ask WASAPI's engine to convert via AUTOCONVERTPCM.
-            // Without these flags Initialize returns AUDCLNT_E_UNSUPPORTED_FORMAT for any
-            // non-mix format even in shared mode.
-            actualFormat_ = requestedFormat_;
-            frameBytes_ = actualFormat_.blockAlign();
-            WAVEFORMATEXTENSIBLE wfx = toWaveFormatExtensible(requestedFormat_);
-            HRESULT hr = client_->Initialize(
-                AUDCLNT_SHAREMODE_SHARED,
-                AUDCLNT_STREAMFLAGS_EVENTCALLBACK |
-                AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM |
-                AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY |
-                extraFlags,
-                dur, 0,
-                reinterpret_cast<WAVEFORMATEX*>(&wfx), nullptr);
-            WA_LOG(wa::log::Level::Debug, "WasapiStream", "Initialize(shared,requested)", "fmt=" + wa::formatAudio(requestedFormat_), wa::log::hrName(hr));
-            if (FAILED(hr)) { WA_LOG(wa::log::Level::Err, "WasapiStream", "Initialize(shared,requested)", "fmt=" + wa::formatAudio(requestedFormat_), wa::log::hrName(hr)); return HrToResult(hr, "WasapiStream: Initialize(shared, requested)"); }
-            return Result::Ok();
+        AudioClientInitAdapter adapter(client_.Get());
+        StreamInitRequest req;
+        req.requested = hasRequested_ ? &requestedFormat_ : nullptr;
+        req.params = params_;
+        req.extraFlags = extraInitFlags_;
+        StreamInitOutcome out;
+        Result r = streamInitShared(adapter, req, out);
+        if (r) {
+            actualFormat_ = out.actualFormat;
+            frameBytes_ = out.frameBytes;
         }
-
-        // Default: use the device mix format (no conversion flags needed).
-        WAVEFORMATEX* mix = nullptr;
-        HRESULT hr = client_->GetMixFormat(&mix);
-        WA_LOG(wa::log::Level::Debug, "WasapiStream", "GetMixFormat", "", wa::log::hrName(hr));
-        if (FAILED(hr)) { WA_LOG(wa::log::Level::Err, "WasapiStream", "GetMixFormat", "", wa::log::hrName(hr)); return HrToResult(hr, "WasapiStream: GetMixFormat"); }
-        if (!mix) return Result::Fail(-1, "WasapiStream: GetMixFormat returned null");
-        actualFormat_ = fromWaveFormat(mix);
-        frameBytes_ = actualFormat_.blockAlign();
-        hr = client_->Initialize(AUDCLNT_SHAREMODE_SHARED,
-                                 AUDCLNT_STREAMFLAGS_EVENTCALLBACK | extraFlags,
-                                 dur, 0, mix, nullptr);
-        WA_LOG(wa::log::Level::Debug, "WasapiStream", "Initialize(shared)", "fmt=" + wa::formatAudio(actualFormat_), wa::log::hrName(hr));
-        CoTaskMemFree(mix);
-        if (FAILED(hr)) { WA_LOG(wa::log::Level::Err, "WasapiStream", "Initialize(shared)", "fmt=" + wa::formatAudio(actualFormat_), wa::log::hrName(hr)); return HrToResult(hr, "WasapiStream: Initialize(shared)"); }
-        return Result::Ok();
+        return r;
     }
     // ---- Exclusive ----
     // Candidate formats: the explicitly requested one, else (capture only) a fallback list.
@@ -446,7 +419,9 @@ void WasapiCaptureStream::runLoop() {
 
 WasapiSystemLoopbackCaptureStream::WasapiSystemLoopbackCaptureStream(
     WasapiMode mode, const AudioFormat* requested)
-    : WasapiCaptureStream(mode, requested) {}
+    : WasapiCaptureStream(mode, requested) {
+    extraInitFlags_ = AUDCLNT_STREAMFLAGS_LOOPBACK;
+}
 
 Result WasapiSystemLoopbackCaptureStream::open(const DeviceId& id, const AudioFormat& fmt,
                                                RingBuffer* ring, const StreamParams& params) {
