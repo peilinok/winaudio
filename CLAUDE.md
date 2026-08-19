@@ -86,7 +86,7 @@ capture source（endpoint | system loopback | application loopback(PID + Process
   2. **How**：关键设计取舍，一两段即可。
   3. **Testing**：`test.bat` Debug + Release 结果；涉及真实设备的改动附人工冒烟结论（CLI `monitor` 或 GUI）；GUI 界面改动附截图。
 - 一个 PR 聚焦一个主题，控制体量（数百行级，重构和功能分开提）；未完成的开 Draft PR。
-- 合并前提：CI（Debug + Release）全绿。合并方式为 merge commit（保留分支上的分层提交历史），所以分支上每个 commit 都须符合上述规范，不要依赖 squash 兜底。
+- 合并前提：CI（Debug + Release）全绿。合并方式**只能 squash**（GitHub 已关 merge commit / rebase；`protect-main` 规则集 `allowed_merge_methods` 仅 `squash`）。`main` 上一条 PR 一条 commit，标题用 PR 标题（Conventional Commits，进 Release Notes）。开 PR 用 `gh pr merge --squash`，不要 `--merge` / `--rebase`。分支上仍可按 `core → cli/gui → docs` 分层提交便于审阅，但它们不会进入 `main`。
 
 ## 约定
 
