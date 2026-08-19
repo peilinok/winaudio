@@ -13,6 +13,7 @@ TEST(StreamParams, DefaultIsAllDefault) {
     EXPECT_TRUE(p.isDefault());
     EXPECT_FALSE(p.anyClientProps());
     EXPECT_EQ(p.bufferMs, 0u);
+    EXPECT_EQ(p.autoConvert, AutoConvert::Default);
 }
 
 TEST(StreamParams, Predicates) {
@@ -24,10 +25,15 @@ TEST(StreamParams, Predicates) {
     b.clientProperties.offload = true;
     EXPECT_FALSE(b.anyClientProps()); EXPECT_TRUE(b.isDefault());
 
-    StreamParams d; d.ducking = DuckingMode::OptOut;      // ducking 不属于 client-props
+    StreamParams d; d.ducking = DuckingMode::OptOut;      // ducking is not a client-props field
     EXPECT_FALSE(d.anyClientProps()); EXPECT_FALSE(d.isDefault());
-    StreamParams e; e.bufferMs = 50;                       // bufferMs 也不属于
+    StreamParams e; e.bufferMs = 50;                       // bufferMs is not either
     EXPECT_FALSE(e.anyClientProps()); EXPECT_FALSE(e.isDefault());
+
+    StreamParams force; force.autoConvert = AutoConvert::Force;
+    EXPECT_FALSE(force.anyClientProps()); EXPECT_FALSE(force.isDefault());
+    StreamParams off; off.autoConvert = AutoConvert::Off;
+    EXPECT_FALSE(off.anyClientProps()); EXPECT_FALSE(off.isDefault());
 }
 
 TEST(StreamParams, CategoryMapping) {

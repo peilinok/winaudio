@@ -107,7 +107,7 @@ TEST(StreamInitShared, MixDefaultUsesEventCallbackOnly) {
     EXPECT_EQ(fake.lastFormat, out.actualFormat);
 }
 
-TEST(StreamInitShared, RequestedDefaultAddsAutoconvertAndSrc) {
+TEST(StreamInitShared, RequestedDefaultAddsAutoConvertAndSrc) {
     FakeAudioClientInit fake;
     AudioFormat want{44100, 2, 16, false};
     StreamInitRequest req;
@@ -136,7 +136,7 @@ TEST(StreamInitShared, CallerLoopbackExtraAppearsInFlags) {
                                                  AUDCLNT_STREAMFLAGS_LOOPBACK));
 }
 
-TEST(StreamInitShared, RequestedPlusLoopbackExtraORsAutoconvert) {
+TEST(StreamInitShared, RequestedPlusLoopbackExtraORsAutoConvert) {
     FakeAudioClientInit fake;
     AudioFormat want{44100, 2, 16, false};
     StreamInitRequest req;
@@ -151,6 +151,37 @@ TEST(StreamInitShared, RequestedPlusLoopbackExtraORsAutoconvert) {
                            AUDCLNT_STREAMFLAGS_LOOPBACK;
     EXPECT_EQ(fake.lastFlags, expected);
     EXPECT_EQ(out.actualFormat, want);
+}
+
+TEST(StreamInitShared, RequestedOffOmitsAutoConvert) {
+    FakeAudioClientInit fake;
+    AudioFormat want{44100, 2, 16, false};
+    StreamInitRequest req;
+    req.requested = &want;
+    req.params.autoConvert = AutoConvert::Off;
+    StreamInitOutcome out;
+    Result r = streamInitShared(fake, req, out);
+    ASSERT_TRUE(static_cast<bool>(r)) << r.message;
+    EXPECT_EQ(fake.lastShareMode, AUDCLNT_SHAREMODE_SHARED);
+    EXPECT_EQ(fake.lastFlags, static_cast<DWORD>(AUDCLNT_STREAMFLAGS_EVENTCALLBACK));
+    EXPECT_EQ(out.actualFormat, want);
+    EXPECT_EQ(fake.lastFormat, want);
+}
+
+TEST(StreamInitShared, MixForceAddsAutoConvertAndSrc) {
+    FakeAudioClientInit fake;
+    StreamInitRequest req;
+    req.params.autoConvert = AutoConvert::Force;
+    StreamInitOutcome out;
+    Result r = streamInitShared(fake, req, out);
+    ASSERT_TRUE(static_cast<bool>(r)) << r.message;
+    EXPECT_EQ(fake.lastShareMode, AUDCLNT_SHAREMODE_SHARED);
+    const DWORD expected = AUDCLNT_STREAMFLAGS_EVENTCALLBACK |
+                           AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM |
+                           AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY;
+    EXPECT_EQ(fake.lastFlags, expected);
+    EXPECT_EQ(out.actualFormat, fake.mixFormat);
+    EXPECT_EQ(fake.lastFormat, fake.mixFormat);
 }
 
 TEST(StreamInitShared, BufferMsSetsDuration) {
@@ -256,6 +287,58 @@ TEST(StreamInitExclusive, CaptureNoneSupportedFailsWithoutInitialize) {
     EXPECT_FALSE(static_cast<bool>(r));
     EXPECT_EQ(r.code, static_cast<long>(AUDCLNT_E_UNSUPPORTED_FORMAT));
     EXPECT_EQ(fake.initializeCount, 0);
+}
+
+TEST(StreamInitExclusive, AutoConvertForceFailsWithoutInitialize) {
+    FakeAudioClientInit fake;
+    AudioFormat want{48000, 2, 16, false};
+    fake.supportedFormats.push_back(want);
+    StreamInitRequest req;
+    req.requested = &want;
+    req.params.autoConvert = AutoConvert::Force;
+    StreamInitOutcome out;
+    Result r = streamInitExclusive(fake, req, out);
+    EXPECT_FALSE(static_cast<bool>(r));
+    EXPECT_EQ(fake.initializeCount, 0);
+    EXPECT_EQ(fake.rebuildCount, 0);
+    EXPECT_TRUE(fake.probedFormats.empty());
+}
+
+TEST(StreamInitExclusive, AutoConvertOffKeepsProbeAndEventCallback) {
+    FakeAudioClientInit fake;
+    AudioFormat want{48000, 2, 16, false};
+    fake.supportedFormats.push_back(want);
+    StreamInitRequest req;
+    req.requested = &want;
+    req.params.autoConvert = AutoConvert::Off;
+    StreamInitOutcome out;
+    Result r = streamInitExclusive(fake, req, out);
+    ASSERT_TRUE(static_cast<bool>(r)) << r.message;
+    EXPECT_EQ(fake.lastShareMode, AUDCLNT_SHAREMODE_EXCLUSIVE);
+    EXPECT_EQ(fake.lastFlags, static_cast<DWORD>(AUDCLNT_STREAMFLAGS_EVENTCALLBACK));
+    EXPECT_EQ(out.actualFormat, want);
+    EXPECT_EQ(fake.initializeCount, 1);
+}
+
+TEST(StreamInitExclusive, AutoConvertOffNotAlignedRebuildsThenRetries) {
+    FakeAudioClientInit fake;
+    AudioFormat want{48000, 2, 16, false};
+    fake.supportedFormats.push_back(want);
+    fake.failFirstInitWithNotAligned = true;
+    fake.minPeriod = 300000;
+    fake.alignedFrames = 480;
+    StreamInitRequest req;
+    req.requested = &want;
+    req.params.autoConvert = AutoConvert::Off;
+    StreamInitOutcome out;
+    Result r = streamInitExclusive(fake, req, out);
+    ASSERT_TRUE(static_cast<bool>(r)) << r.message;
+    EXPECT_EQ(fake.rebuildCount, 1);
+    EXPECT_EQ(fake.initializeCount, 2);
+    EXPECT_EQ(fake.lastDuration, 100000);
+    EXPECT_EQ(fake.lastPeriodicity, 100000);
+    EXPECT_EQ(fake.lastFlags, static_cast<DWORD>(AUDCLNT_STREAMFLAGS_EVENTCALLBACK));
+    EXPECT_EQ(out.actualFormat, want);
 }
 
 TEST(StreamInitExclusive, BufferMsSetsEqualDurationAndPeriodicity) {
