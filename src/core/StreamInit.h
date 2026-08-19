@@ -1,8 +1,10 @@
 #pragma once
 #include "AudioFormat.h"
+#include "ComUtil.h"
 #include "Result.h"
 #include "StreamParams.h"
 #include <audioclient.h>
+#include <mmdeviceapi.h>
 
 namespace wa {
 
@@ -15,23 +17,39 @@ public:
     virtual HRESULT initialize(AUDCLNT_SHAREMODE shareMode, DWORD streamFlags,
                                REFERENCE_TIME bufferDuration, REFERENCE_TIME periodicity,
                                const WAVEFORMATEX* format) = 0;
+    virtual HRESULT isFormatSupported(AUDCLNT_SHAREMODE shareMode,
+                                      const WAVEFORMATEX* format) = 0;
+    virtual HRESULT getDevicePeriod(REFERENCE_TIME* defaultPeriod,
+                                    REFERENCE_TIME* minimumPeriod) = 0;
+    virtual HRESULT getBufferSize(UINT32* frames) = 0;
+    virtual HRESULT rebuild() = 0;
 };
 
 class AudioClientInitAdapter : public AudioClientInit {
 public:
-    explicit AudioClientInitAdapter(IAudioClient* client);
+    AudioClientInitAdapter(ComPtr<IAudioClient>& client, IMMDevice* device);
     HRESULT getMixFormat(WAVEFORMATEX** mix) override;
     HRESULT initialize(AUDCLNT_SHAREMODE shareMode, DWORD streamFlags,
                        REFERENCE_TIME bufferDuration, REFERENCE_TIME periodicity,
                        const WAVEFORMATEX* format) override;
+    HRESULT isFormatSupported(AUDCLNT_SHAREMODE shareMode,
+                              const WAVEFORMATEX* format) override;
+    HRESULT getDevicePeriod(REFERENCE_TIME* defaultPeriod,
+                            REFERENCE_TIME* minimumPeriod) override;
+    HRESULT getBufferSize(UINT32* frames) override;
+    HRESULT rebuild() override;
 private:
-    IAudioClient* client_ = nullptr;
+    ComPtr<IAudioClient>& client_;
+    IMMDevice* device_ = nullptr;
 };
 
+enum class StreamInitDirection : uint8_t { Capture, Render };
+
 struct StreamInitRequest {
-    const AudioFormat* requested = nullptr; // null = use mix format
+    const AudioFormat* requested = nullptr; // null = mix (Shared) or exclusive candidates
     StreamParams params{};
     uint32_t extraFlags = 0;
+    StreamInitDirection direction = StreamInitDirection::Capture;
 };
 
 struct StreamInitOutcome {
@@ -41,5 +59,9 @@ struct StreamInitOutcome {
 
 Result streamInitShared(AudioClientInit& client, const StreamInitRequest& req,
                         StreamInitOutcome& out);
+Result streamInitExclusive(AudioClientInit& client, const StreamInitRequest& req,
+                           StreamInitOutcome& out);
+Result streamInit(AUDCLNT_SHAREMODE shareMode, AudioClientInit& client,
+                  const StreamInitRequest& req, StreamInitOutcome& out);
 
 } // namespace wa

@@ -1,6 +1,5 @@
 #include "WasapiStream.h"
 #include "RingBuffer.h"
-#include "FormatSpec.h"
 #include "StreamInit.h"
 #include <audiopolicy.h>
 #include <system_error>
@@ -192,74 +191,24 @@ Result WasapiStream::applyDucking() {
 }
 
 Result WasapiStream::prepareClient(IMMDevice* dev) {
-    if (mode_ == WasapiMode::Shared) {
-        AudioClientInitAdapter adapter(client_.Get());
-        StreamInitRequest req;
-        req.requested = hasRequested_ ? &requestedFormat_ : nullptr;
-        req.params = params_;
-        req.extraFlags = extraInitFlags_;
-        StreamInitOutcome out;
-        Result r = streamInitShared(adapter, req, out);
-        if (r) {
-            actualFormat_ = out.actualFormat;
-            frameBytes_ = out.frameBytes;
-        }
-        return r;
+    AudioClientInitAdapter adapter(client_, dev);
+    StreamInitRequest req;
+    req.requested = hasRequested_ ? &requestedFormat_ : nullptr;
+    req.params = params_;
+    req.extraFlags = extraInitFlags_;
+    req.direction = (dataFlow() == eCapture)
+        ? StreamInitDirection::Capture
+        : StreamInitDirection::Render;
+    StreamInitOutcome out;
+    const AUDCLNT_SHAREMODE shareMode = isExclusive()
+        ? AUDCLNT_SHAREMODE_EXCLUSIVE
+        : AUDCLNT_SHAREMODE_SHARED;
+    Result r = streamInit(shareMode, adapter, req, out);
+    if (r) {
+        actualFormat_ = out.actualFormat;
+        frameBytes_ = out.frameBytes;
     }
-    // ---- Exclusive ----
-    // Candidate formats: the explicitly requested one, else (capture only) a fallback list.
-    std::vector<AudioFormat> candidates;
-    if (hasRequested_) candidates.push_back(requestedFormat_);
-    else if (dataFlow() == eCapture) candidates = defaultExclusiveCaptureCandidates();
-    else return Result::Fail(-1, "WasapiStream: exclusive render requires an explicit format");
-
-    int idx = selectSupportedFormat(candidates, [this](const AudioFormat& cand) {
-        WAVEFORMATEXTENSIBLE wfx = toWaveFormatExtensible(cand);
-        HRESULT hr = client_->IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE,
-                         reinterpret_cast<WAVEFORMATEX*>(&wfx), nullptr);
-        WA_LOG(wa::log::Level::Debug, "WasapiStream", "IsFormatSupported(exclusive)", "fmt=" + wa::formatAudio(cand), wa::log::hrName(hr));
-        return hr == S_OK;
-    });
-    if (idx < 0)
-        return Result::Fail(static_cast<long>(AUDCLNT_E_UNSUPPORTED_FORMAT),
-                            "WasapiStream: no supported exclusive format");
-
-    actualFormat_ = candidates[idx];
-    frameBytes_ = actualFormat_.blockAlign();
-
-    REFERENCE_TIME defPer = 0, minPer = 0;
-    HRESULT hrGP = client_->GetDevicePeriod(&defPer, &minPer);
-    WA_LOG(wa::log::Level::Warn, "WasapiStream", "GetDevicePeriod", "", wa::log::hrName(hrGP));
-    REFERENCE_TIME dur = params_.bufferMs
-        ? static_cast<REFERENCE_TIME>(params_.bufferMs) * 10'000
-        : minPer;
-
-    WAVEFORMATEXTENSIBLE wfx = toWaveFormatExtensible(actualFormat_);
-    HRESULT hr = client_->Initialize(AUDCLNT_SHAREMODE_EXCLUSIVE,
-                     AUDCLNT_STREAMFLAGS_EVENTCALLBACK, dur, dur,
-                     reinterpret_cast<WAVEFORMATEX*>(&wfx), nullptr);
-    WA_LOG(wa::log::Level::Debug, "WasapiStream", "Initialize(exclusive)", "fmt=" + wa::formatAudio(actualFormat_), wa::log::hrName(hr));
-    if (hr == AUDCLNT_E_BUFFER_SIZE_NOT_ALIGNED) {
-        UINT32 aligned = 0;
-        HRESULT hrGBS = client_->GetBufferSize(&aligned);
-        WA_LOG(wa::log::Level::Warn, "WasapiStream", "GetBufferSize(realign)", "", wa::log::hrName(hrGBS));
-        dur = alignedBufferDuration100ns(actualFormat_.sampleRate, aligned);
-        // MSDN: the client must be rebuilt before re-Initializing with the aligned size.
-        // Note: advanced client props (category/option/offload) are rejected in open() for
-        // exclusive mode, so re-Activate here does not lose any SetClientProperties state.
-        client_.Reset();
-        HRESULT hr2 = dev->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
-                          reinterpret_cast<void**>(client_.GetAddressOf()));
-        WA_LOG(wa::log::Level::Debug, "WasapiStream", "Activate(realign)", "", wa::log::hrName(hr2));
-        if (FAILED(hr2)) { WA_LOG(wa::log::Level::Err, "WasapiStream", "Activate(realign)", "", wa::log::hrName(hr2)); return HrToResult(hr2, "WasapiStream: exclusive realign Activate"); }
-        WAVEFORMATEXTENSIBLE wfx2 = toWaveFormatExtensible(actualFormat_);
-        hr = client_->Initialize(AUDCLNT_SHAREMODE_EXCLUSIVE,
-                 AUDCLNT_STREAMFLAGS_EVENTCALLBACK, dur, dur,
-                 reinterpret_cast<WAVEFORMATEX*>(&wfx2), nullptr);
-        WA_LOG(wa::log::Level::Debug, "WasapiStream", "Initialize(exclusive,realign)", "fmt=" + wa::formatAudio(actualFormat_), wa::log::hrName(hr));
-    }
-    if (FAILED(hr)) { WA_LOG(wa::log::Level::Err, "WasapiStream", "Initialize(exclusive)", "fmt=" + wa::formatAudio(actualFormat_), wa::log::hrName(hr)); return HrToResult(hr, "WasapiStream: Initialize(exclusive)"); }
-    return Result::Ok();
+    return r;
 }
 
 void WasapiStream::threadMain() {
