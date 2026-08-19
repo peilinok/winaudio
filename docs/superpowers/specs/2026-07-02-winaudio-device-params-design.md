@@ -124,7 +124,8 @@ void   setRenderParams(const StreamParams& p);   // 运行中可调,下次 engag
 
 - 参数持久化(重启回"跟随系统")。
 - CLI 暴露高级参数。
-- loopback、其余 `AUDCLNT_STREAMFLAGS_*`、会话音量/静音、通知回调。
+- loopback extras、除 AutoConvert 以外的其余 `AUDCLNT_STREAMFLAGS_*`、会话音量/静音、通知回调。
+  AutoConvert（Default / Force / Off）已进入 Stream params，由 Stream init 合成 Initialize flags；见 ADR-0001。EVENTCALLBACK 锁定；LOOPBACK 仍由调用者 extras 传入。
 - 运行中热改**采集**参数(必须 Stop/Start)。
 - 弹窗内格式(采样率/位深)配置——Exclusive 格式仍由现有 CLI `--format`/候选协商逻辑负责。
 
