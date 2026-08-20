@@ -13,9 +13,9 @@
 #include <wrl/implements.h>
 #include "AudioFormat.h"
 #include "AudioFormatStr.h"
-#include "FormatSpec.h"
 #include "Log.h"
 #include "RingBuffer.h"
+#include "StreamInit.h"
 
 namespace wa {
 namespace {
@@ -135,17 +135,16 @@ AudioFormat defaultApplicationLoopbackFormat() {
     return AudioFormat{44100, 2, 16, false};
 }
 
-Result initializeApplicationLoopbackClient(ComPtr<IAudioClient>& client, const AudioFormat& fmt,
-                                           DWORD flags, REFERENCE_TIME dur,
-                                           const char* where) {
-    WAVEFORMATEXTENSIBLE wfx = toWaveFormatExtensible(fmt);
-    HRESULT hr = client->Initialize(
-        AUDCLNT_SHAREMODE_SHARED,
-        flags | AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM |
-            AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY,
-        dur, 0, reinterpret_cast<WAVEFORMATEX*>(&wfx), nullptr);
-    if (FAILED(hr)) return HrToResult(hr, where);
-    return Result::Ok();
+Result streamInitApplicationLoopback(AudioClientInit& client, StreamInitRequest req,
+                                     StreamInitOutcome& out) {
+    req.extraFlags |= AUDCLNT_STREAMFLAGS_LOOPBACK;
+    Result r = streamInitShared(client, req, out);
+    if (r || req.requested) return r;
+    AudioFormat fallback = defaultApplicationLoopbackFormat();
+    req.requested = &fallback;
+    WA_LOG(wa::log::Level::Warn, "ApplicationLoopbackCaptureStream", "streamInit(mix)",
+           r.message, "fallback 44100/2/16");
+    return streamInitShared(client, req, out);
 }
 
 ApplicationLoopbackCaptureStream::~ApplicationLoopbackCaptureStream() { close(); }
@@ -235,33 +234,18 @@ Result ApplicationLoopbackCaptureStream::activateClient() {
 }
 
 Result ApplicationLoopbackCaptureStream::initializeClient() {
-    REFERENCE_TIME dur = params_.bufferMs
-        ? static_cast<REFERENCE_TIME>(params_.bufferMs) * 10000
-        : 1000000; // 100 ms
-    DWORD flags = AUDCLNT_STREAMFLAGS_EVENTCALLBACK | AUDCLNT_STREAMFLAGS_LOOPBACK;
-
-    if (hasRequested_) {
-        actualFormat_ = requestedFormat_;
-        frameBytes_ = actualFormat_.blockAlign();
-        return initializeApplicationLoopbackClient(client_, actualFormat_, flags, dur,
-            "ApplicationLoopbackCaptureStream: Initialize(requested)");
+    AudioClientInitAdapter adapter(client_, nullptr);
+    StreamInitRequest req;
+    req.requested = hasRequested_ ? &requestedFormat_ : nullptr;
+    req.params = params_;
+    req.direction = StreamInitDirection::Capture;
+    StreamInitOutcome out;
+    Result r = streamInitApplicationLoopback(adapter, req, out);
+    if (r) {
+        actualFormat_ = out.actualFormat;
+        frameBytes_ = out.frameBytes;
     }
-
-    WAVEFORMATEX* mix = nullptr;
-    HRESULT hr = client_->GetMixFormat(&mix);
-    if (SUCCEEDED(hr) && mix) {
-        actualFormat_ = fromWaveFormat(mix);
-        frameBytes_ = actualFormat_.blockAlign();
-        hr = client_->Initialize(AUDCLNT_SHAREMODE_SHARED, flags, dur, 0, mix, nullptr);
-        CoTaskMemFree(mix);
-        if (SUCCEEDED(hr)) return Result::Ok();
-    }
-    if (mix) CoTaskMemFree(mix);
-
-    actualFormat_ = defaultApplicationLoopbackFormat();
-    frameBytes_ = actualFormat_.blockAlign();
-    return initializeApplicationLoopbackClient(client_, actualFormat_, flags, dur,
-        "ApplicationLoopbackCaptureStream: Initialize(fallback)");
+    return r;
 }
 
 Result ApplicationLoopbackCaptureStream::createService() {
