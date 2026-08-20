@@ -83,7 +83,7 @@ The delayed playback leg of a Monitor when sync playback is engaged — at most 
 _Avoid_: Output only, speaker path alone
 
 **Stream params**:
-Advanced open-time settings for one Track: category, option, offload, ducking, buffer length, and user-overridable stream flags. All-default means follow the system and the current Stream init recipe.
+Advanced open-time settings for one Track: category, option, offload, ducking, buffer length, and user-overridable stream flags including AutoConvert (`Default` | `Force` | `Off`). All-default means follow the system and the current Stream init recipe.
 _Avoid_: StreamOption (that is only the APO / raw / match-format field), client properties alone, AUDCLNT_STREAMFLAGS
 
 **Stream flags**:

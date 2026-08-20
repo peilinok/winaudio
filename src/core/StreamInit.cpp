@@ -2,10 +2,32 @@
 #include "FormatSpec.h"
 #include "Log.h"
 #include "AudioFormatStr.h"
+#include <cstdio>
 #include <string>
 #include <vector>
 
 namespace wa {
+namespace {
+
+DWORD sharedInitFlags(const StreamInitRequest& req) {
+    DWORD flags = AUDCLNT_STREAMFLAGS_EVENTCALLBACK | req.extraFlags;
+    const bool addAutoConvert =
+        req.params.autoConvert == AutoConvert::Force ||
+        (req.params.autoConvert == AutoConvert::Default && req.requested != nullptr);
+    if (addAutoConvert) {
+        flags |= AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM |
+                 AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY;
+    }
+    return flags;
+}
+
+std::string initArgs(const AudioFormat& fmt, DWORD flags) {
+    char buf[16];
+    std::snprintf(buf, sizeof(buf), "0x%X", static_cast<unsigned>(flags));
+    return "fmt=" + wa::formatAudio(fmt) + " flags=" + buf;
+}
+
+} // namespace
 
 AudioClientInitAdapter::AudioClientInitAdapter(ComPtr<IAudioClient>& client, IMMDevice* device)
     : client_(client), device_(device) {}
@@ -50,23 +72,19 @@ Result streamInitShared(AudioClientInit& client, const StreamInitRequest& req,
     const REFERENCE_TIME dur = req.params.bufferMs
         ? static_cast<REFERENCE_TIME>(req.params.bufferMs) * 10'000
         : 10'000'000 / 10; // default: 100 ms buffer
-    const DWORD extraFlags = req.extraFlags;
+    const DWORD flags = sharedInitFlags(req);
 
     if (req.requested) {
         out.actualFormat = *req.requested;
         out.frameBytes = out.actualFormat.blockAlign();
         WAVEFORMATEXTENSIBLE wfx = toWaveFormatExtensible(*req.requested);
-        const DWORD flags = AUDCLNT_STREAMFLAGS_EVENTCALLBACK |
-                            AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM |
-                            AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY |
-                            extraFlags;
         HRESULT hr = client.initialize(AUDCLNT_SHAREMODE_SHARED, flags, dur, 0,
                                        reinterpret_cast<WAVEFORMATEX*>(&wfx));
         WA_LOG(wa::log::Level::Debug, "StreamInit", "Initialize(shared,requested)",
-               "fmt=" + wa::formatAudio(*req.requested), wa::log::hrName(hr));
+               initArgs(*req.requested, flags), wa::log::hrName(hr));
         if (FAILED(hr)) {
             WA_LOG(wa::log::Level::Err, "StreamInit", "Initialize(shared,requested)",
-                   "fmt=" + wa::formatAudio(*req.requested), wa::log::hrName(hr));
+                   initArgs(*req.requested, flags), wa::log::hrName(hr));
             return HrToResult(hr, "WasapiStream: Initialize(shared, requested)");
         }
         return Result::Ok();
@@ -82,15 +100,13 @@ Result streamInitShared(AudioClientInit& client, const StreamInitRequest& req,
     if (!mix) return Result::Fail(-1, "WasapiStream: GetMixFormat returned null");
     out.actualFormat = fromWaveFormat(mix);
     out.frameBytes = out.actualFormat.blockAlign();
-    hr = client.initialize(AUDCLNT_SHAREMODE_SHARED,
-                           AUDCLNT_STREAMFLAGS_EVENTCALLBACK | extraFlags,
-                           dur, 0, mix);
+    hr = client.initialize(AUDCLNT_SHAREMODE_SHARED, flags, dur, 0, mix);
     WA_LOG(wa::log::Level::Debug, "StreamInit", "Initialize(shared)",
-           "fmt=" + wa::formatAudio(out.actualFormat), wa::log::hrName(hr));
+           initArgs(out.actualFormat, flags), wa::log::hrName(hr));
     CoTaskMemFree(mix);
     if (FAILED(hr)) {
         WA_LOG(wa::log::Level::Err, "StreamInit", "Initialize(shared)",
-               "fmt=" + wa::formatAudio(out.actualFormat), wa::log::hrName(hr));
+               initArgs(out.actualFormat, flags), wa::log::hrName(hr));
         return HrToResult(hr, "WasapiStream: Initialize(shared)");
     }
     return Result::Ok();
@@ -98,6 +114,12 @@ Result streamInitShared(AudioClientInit& client, const StreamInitRequest& req,
 
 Result streamInitExclusive(AudioClientInit& client, const StreamInitRequest& req,
                            StreamInitOutcome& out) {
+    if (req.params.autoConvert == AutoConvert::Force) {
+        WA_LOG(wa::log::Level::Debug, "StreamInit", "AutoConvert",
+               "mode=exclusive value=Force", "rejected");
+        return Result::Fail(-1, "WasapiStream: exclusive AutoConvert Force is not supported");
+    }
+
     std::vector<AudioFormat> candidates;
     if (req.requested) {
         candidates.push_back(*req.requested);
@@ -137,7 +159,7 @@ Result streamInitExclusive(AudioClientInit& client, const StreamInitRequest& req
     HRESULT hr = client.initialize(AUDCLNT_SHAREMODE_EXCLUSIVE, flags, dur, dur,
                                    reinterpret_cast<WAVEFORMATEX*>(&wfx));
     WA_LOG(wa::log::Level::Debug, "StreamInit", "Initialize(exclusive)",
-           "fmt=" + wa::formatAudio(out.actualFormat), wa::log::hrName(hr));
+           initArgs(out.actualFormat, flags), wa::log::hrName(hr));
     if (hr == AUDCLNT_E_BUFFER_SIZE_NOT_ALIGNED) {
         UINT32 aligned = 0;
         HRESULT hrGBS = client.getBufferSize(&aligned);
@@ -156,11 +178,11 @@ Result streamInitExclusive(AudioClientInit& client, const StreamInitRequest& req
         hr = client.initialize(AUDCLNT_SHAREMODE_EXCLUSIVE, flags, dur, dur,
                                reinterpret_cast<WAVEFORMATEX*>(&wfx2));
         WA_LOG(wa::log::Level::Debug, "StreamInit", "Initialize(exclusive,realign)",
-               "fmt=" + wa::formatAudio(out.actualFormat), wa::log::hrName(hr));
+               initArgs(out.actualFormat, flags), wa::log::hrName(hr));
     }
     if (FAILED(hr)) {
         WA_LOG(wa::log::Level::Err, "StreamInit", "Initialize(exclusive)",
-               "fmt=" + wa::formatAudio(out.actualFormat), wa::log::hrName(hr));
+               initArgs(out.actualFormat, flags), wa::log::hrName(hr));
         return HrToResult(hr, "WasapiStream: Initialize(exclusive)");
     }
     return Result::Ok();

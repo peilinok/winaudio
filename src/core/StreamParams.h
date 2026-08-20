@@ -10,6 +10,7 @@ enum class AudioCategory : uint8_t { Other, Communications, Media, Movie,
 enum class StreamOption  : uint8_t { None, Raw, MatchFormat, Ambisonics,
                                      PostVolumeLoopback };          // AUDCLNT_STREAMOPTIONS
 enum class DuckingMode   : uint8_t { Default, OptOut };            // render-only
+enum class AutoConvert   : uint8_t { Default, Force, Off };        // AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM
 
 struct ClientProperties {
     bool          enabled  = false;                          // false = do not call SetClientProperties
@@ -22,10 +23,12 @@ struct StreamParams {
     ClientProperties clientProperties{};
     DuckingMode      ducking  = DuckingMode::Default;
     uint32_t         bufferMs = 0;                    // 0 = current behavior (Shared 100 ms / Excl minPer)
+    AutoConvert      autoConvert = AutoConvert::Default;
 
     bool anyClientProps() const { return clientProperties.enabled; }
     bool isDefault() const {
-        return !anyClientProps() && ducking == DuckingMode::Default && bufferMs == 0;
+        return !anyClientProps() && ducking == DuckingMode::Default && bufferMs == 0
+            && autoConvert == AutoConvert::Default;
     }
 };
 
