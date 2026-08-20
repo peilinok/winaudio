@@ -15,11 +15,18 @@
 #include <vector>
 #include "ComUtil.h"
 #include "IAudioBackend.h"
+#include "StreamInit.h"
 #include "WasapiStream.h"
 
 namespace wa {
 
 AudioFormat defaultApplicationLoopbackFormat();
+
+// Application Loopback adapter around Shared Stream init: always supplies LOOPBACK
+// extras, and on mix failure retries once with 44100/2/16 requested. Ordinary
+// Tracks call Stream init directly and do not get this fallback.
+Result streamInitApplicationLoopback(AudioClientInit& client, StreamInitRequest req,
+                                     StreamInitOutcome& out);
 
 class ApplicationLoopbackCaptureStream : public IAudioBackend {
 public:
