@@ -8,6 +8,7 @@
 #include "CaptureTrackList.h"
 #include "ChartHost.h"
 #include "DeviceEnumerator.h"
+#include "DumpUi.h"
 #include "MonitorEngine.h"
 #include "Spectrogram.h"
 #include "TrackScopeReader.h"
@@ -51,7 +52,11 @@ private:
     void drawApplicationLoopbackPage();
     void drawLoopbackLeftPanel();
     void drawApplicationLoopbackLeftPanel();
-    void drawDumpControls(wa::CaptureTrackList& list, const wa::CaptureTrackStatus& t);
+    enum class DumpPickKind { None, Loopback, AppLoopback, MonitorCap, MonitorRen };
+    void drawDumpControls(wa::CaptureTrackList& list, const wa::CaptureTrackStatus& t,
+                          DumpPickKind kind, const char* destroyedLog);
+    void beginDumpPick(DumpPickKind kind, wa::TrackId trackId = 0);
+    void applyDumpPick();
     void drawStackedCaptureTrackHosts(wa::CaptureTrackList& list,
                                       std::vector<std::pair<wa::TrackId, VisualState>>& viz,
                                       const char* emptyHint);
@@ -124,6 +129,10 @@ private:
     int                    fmtBackendShown_ = -1;
     int                    capDevShown_     = -1;
     wa::DeviceCapabilities capsCache_{};
+
+    wa::dump_ui::FolderPicker dumpPicker_;
+    DumpPickKind              dumpPickKind_ = DumpPickKind::None;
+    wa::TrackId               dumpPickTrackId_ = 0;
 
     VisualState monitorViz_;
     std::vector<std::pair<wa::TrackId, VisualState>> loopbackViz_;

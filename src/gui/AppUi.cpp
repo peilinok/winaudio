@@ -374,6 +374,8 @@ void AppUi::draw() {
         logLines_.erase(logLines_.begin(),
                         logLines_.begin() + (logLines_.size() - kMaxLogLines));
 
+    applyDumpPick();
+
     // Poll once; detect renderState Running->non-Running to clear stale playback chart data.
     ms_ = monitor_.poll();
     const int curRenderState = (int)ms_.renderState;
@@ -530,7 +532,55 @@ void AppUi::drawApplicationLoopbackPage() {
     ImGui::EndChild();
 }
 
-void AppUi::drawDumpControls(wa::CaptureTrackList& list, const wa::CaptureTrackStatus& t) {
+void AppUi::beginDumpPick(DumpPickKind kind, wa::TrackId trackId) {
+    if (dumpPicker_.busy()) return;
+    dumpPickKind_ = kind;
+    dumpPickTrackId_ = trackId;
+    if (!dumpPicker_.start(wa::dump_ui::loadDumpFolder())) {
+        dumpPickKind_ = DumpPickKind::None;
+        dumpPickTrackId_ = 0;
+    }
+}
+
+void AppUi::applyDumpPick() {
+    std::wstring folder;
+    bool accepted = false;
+    if (!dumpPicker_.take(folder, accepted)) return;
+    const DumpPickKind kind = dumpPickKind_;
+    const wa::TrackId tid = dumpPickTrackId_;
+    dumpPickKind_ = DumpPickKind::None;
+    dumpPickTrackId_ = 0;
+    if (!accepted || kind == DumpPickKind::None) return;
+    wa::dump_ui::saveDumpFolder(folder);
+
+    auto logStart = [&](wa::Result r, const std::wstring& path) {
+        logLines_.push_back(r ? ("dump started " + wtou(path))
+                              : ("dump start error: " + r.message));
+    };
+    if (kind == DumpPickKind::Loopback || kind == DumpPickKind::AppLoopback) {
+        wa::CaptureTrackList& list =
+            (kind == DumpPickKind::Loopback) ? loopbackTracks_ : appLoopbackTracks_;
+        wa::Result r = list.startDump(tid, folder);
+        std::wstring path;
+        for (const auto& s : list.poll())
+            if (s.id == tid) path = s.dumpPath;
+        logStart(r, path);
+        return;
+    }
+    if (kind == DumpPickKind::MonitorCap) {
+        wa::Result r = monitor_.startDumpCapture(folder);
+        logStart(r, monitor_.poll().capDumpPath);
+        return;
+    }
+    if (kind == DumpPickKind::MonitorRen) {
+        wa::Result r = monitor_.startDumpRender(folder);
+        logStart(r, monitor_.poll().renderDumpPath);
+    }
+}
+
+void AppUi::drawDumpControls(wa::CaptureTrackList& list, const wa::CaptureTrackStatus& t,
+                             DumpPickKind kind, const char* destroyedLog) {
+    const bool picking = dumpPicker_.busy();
     if (t.dumping) {
         if (ImGui::Button(wa::ui_text::kDumpStop)) {
             const std::wstring path = t.dumpPath;
@@ -539,28 +589,22 @@ void AppUi::drawDumpControls(wa::CaptureTrackList& list, const wa::CaptureTrackS
                                   : ("dump stop error: " + r.message));
             if (r) wa::dump_ui::revealDumpFile(path);
         }
-        if (!t.dumpFileName.empty()) {
-            ImGui::SameLine();
-            ImGui::TextDisabled("%s", wtou(t.dumpFileName).c_str());
-        }
     } else {
-        ImGui::BeginDisabled(t.state != wa::StreamState::Running);
-        if (ImGui::Button(wa::ui_text::kDump)) {
-            std::wstring folder = wa::dump_ui::loadDumpFolder();
-            if (wa::dump_ui::pickDumpFolder(folder)) {
-                wa::dump_ui::saveDumpFolder(folder);
-                wa::Result r = list.startDump(t.id, folder);
-                if (r) {
-                    std::wstring path;
-                    for (const auto& s : list.poll())
-                        if (s.id == t.id) path = s.dumpPath;
-                    logLines_.push_back("dump started " + wtou(path));
-                } else {
-                    logLines_.push_back("dump start error: " + r.message);
-                }
-            }
-        }
+        ImGui::BeginDisabled(t.state != wa::StreamState::Running || picking);
+        if (ImGui::Button(wa::ui_text::kDump))
+            beginDumpPick(kind, t.id);
         ImGui::EndDisabled();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button(wa::ui_text::kLoopbackDestroy)) {
+        const std::wstring dumpPath = t.dumping ? t.dumpPath : std::wstring{};
+        list.destroy(t.id);
+        if (!dumpPath.empty()) wa::dump_ui::revealDumpFile(dumpPath);
+        logLines_.push_back(std::string(destroyedLog) + std::to_string(t.id));
+    }
+    if (t.dumping && !t.dumpFileName.empty()) {
+        ImGui::SameLine();
+        ImGui::TextDisabled("%s", wtou(t.dumpFileName).c_str());
     }
 }
 
@@ -629,13 +673,8 @@ void AppUi::drawLoopbackLeftPanel() {
                     (unsigned long long)t.id, ss[(int)t.state],
                     t.actualFormat.sampleRate, (unsigned long long)t.overruns);
         ImGui::ProgressBar((t.levelL > t.levelR) ? t.levelL : t.levelR, ImVec2(-1, 0), "level");
-        drawDumpControls(loopbackTracks_, t);
-        if (ImGui::Button(wa::ui_text::kLoopbackDestroy)) {
-            const std::wstring dumpPath = t.dumping ? t.dumpPath : std::wstring{};
-            loopbackTracks_.destroy(t.id);
-            if (!dumpPath.empty()) wa::dump_ui::revealDumpFile(dumpPath);
-            logLines_.push_back("loopback track destroyed id=" + std::to_string(t.id));
-        }
+        drawDumpControls(loopbackTracks_, t, DumpPickKind::Loopback,
+                         "loopback track destroyed id=");
         ImGui::PopID();
     }
 }
@@ -728,14 +767,8 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
                     wa::processLoopbackModeName(t.source.processLoopbackMode),
                     t.actualFormat.sampleRate, (unsigned long long)t.overruns);
         ImGui::ProgressBar((t.levelL > t.levelR) ? t.levelL : t.levelR, ImVec2(-1, 0), "level");
-        drawDumpControls(appLoopbackTracks_, t);
-        if (ImGui::Button(wa::ui_text::kLoopbackDestroy)) {
-            const std::wstring dumpPath = t.dumping ? t.dumpPath : std::wstring{};
-            appLoopbackTracks_.destroy(t.id);
-            if (!dumpPath.empty()) wa::dump_ui::revealDumpFile(dumpPath);
-            logLines_.push_back("application loopback track destroyed id="
-                                + std::to_string(t.id));
-        }
+        drawDumpControls(appLoopbackTracks_, t, DumpPickKind::AppLoopback,
+                         "application loopback track destroyed id=");
         ImGui::PopID();
     }
 }
@@ -828,6 +861,7 @@ void AppUi::drawLeftPanel() {
         if (monitorStarted_) monitor_.setPlaybackEnabled(playbackEnabled_);
     }
 
+    const bool dumpPicking = dumpPicker_.busy();
     ImGui::BeginDisabled(!monitorStarted_ || ms_.capState != wa::StreamState::Running);
     ImGui::PushID("capDump");
     if (ms_.capDumping) {
@@ -842,14 +876,11 @@ void AppUi::drawLeftPanel() {
             ImGui::SameLine();
             ImGui::TextDisabled("%s", wtou(ms_.capDumpFileName).c_str());
         }
-    } else if (ImGui::Button(wa::ui_text::kDumpCapture)) {
-        std::wstring folder = wa::dump_ui::loadDumpFolder();
-        if (wa::dump_ui::pickDumpFolder(folder)) {
-            wa::dump_ui::saveDumpFolder(folder);
-            wa::Result r = monitor_.startDumpCapture(folder);
-            logLines_.push_back(r ? ("dump started " + wtou(monitor_.poll().capDumpPath))
-                                  : ("dump start error: " + r.message));
-        }
+    } else {
+        ImGui::BeginDisabled(dumpPicking);
+        if (ImGui::Button(wa::ui_text::kDumpCapture))
+            beginDumpPick(DumpPickKind::MonitorCap);
+        ImGui::EndDisabled();
     }
     ImGui::PopID();
     ImGui::EndDisabled();
@@ -869,14 +900,11 @@ void AppUi::drawLeftPanel() {
             ImGui::SameLine();
             ImGui::TextDisabled("%s", wtou(ms_.renderDumpFileName).c_str());
         }
-    } else if (ImGui::Button(wa::ui_text::kDumpRender)) {
-        std::wstring folder = wa::dump_ui::loadDumpFolder();
-        if (wa::dump_ui::pickDumpFolder(folder)) {
-            wa::dump_ui::saveDumpFolder(folder);
-            wa::Result r = monitor_.startDumpRender(folder);
-            logLines_.push_back(r ? ("dump started " + wtou(monitor_.poll().renderDumpPath))
-                                  : ("dump start error: " + r.message));
-        }
+    } else {
+        ImGui::BeginDisabled(dumpPicking);
+        if (ImGui::Button(wa::ui_text::kDumpRender))
+            beginDumpPick(DumpPickKind::MonitorRen);
+        ImGui::EndDisabled();
     }
     ImGui::PopID();
     ImGui::EndDisabled();

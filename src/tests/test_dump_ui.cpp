@@ -5,6 +5,14 @@
 #include <windows.h>
 #include "DumpUi.h"
 
+TEST(DumpUi, FolderPickerTakeEmptyWhenIdle) {
+    wa::dump_ui::FolderPicker p;
+    EXPECT_FALSE(p.busy());
+    std::wstring folder;
+    bool accepted = true;
+    EXPECT_FALSE(p.take(folder, accepted));
+}
+
 TEST(DumpUi, DownloadsFolderIsNonEmpty) {
     EXPECT_FALSE(wa::dump_ui::downloadsFolder().empty());
 }

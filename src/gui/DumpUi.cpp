@@ -96,7 +96,8 @@ bool pickDumpFolder(std::wstring& folder) {
                 item->Release();
             }
         }
-        hr = dlg->Show(GetActiveWindow());
+        // No owner: do not disable the GUI window (caller may be a worker thread).
+        hr = dlg->Show(nullptr);
         if (SUCCEEDED(hr)) {
             IShellItem* result = nullptr;
             if (SUCCEEDED(dlg->GetResult(&result)) && result) {
@@ -115,6 +116,47 @@ bool pickDumpFolder(std::wstring& folder) {
     }
     if (uninit) CoUninitialize();
     return ok;
+}
+
+FolderPicker::~FolderPicker() {
+    if (thread_.joinable()) thread_.join();
+}
+
+bool FolderPicker::start(const std::wstring& initialFolder) {
+    if (busy_.load(std::memory_order_acquire)) return false;
+    if (thread_.joinable()) thread_.join();
+    {
+        std::lock_guard<std::mutex> lk(mtx_);
+        accepted_ = false;
+        folder_.clear();
+    }
+    done_.store(false, std::memory_order_release);
+    busy_.store(true, std::memory_order_release);
+    thread_ = std::thread(&FolderPicker::worker, this, initialFolder);
+    return true;
+}
+
+bool FolderPicker::take(std::wstring& folder, bool& accepted) {
+    if (!done_.load(std::memory_order_acquire)) return false;
+    if (thread_.joinable()) thread_.join();
+    std::lock_guard<std::mutex> lk(mtx_);
+    folder = folder_;
+    accepted = accepted_;
+    done_.store(false, std::memory_order_release);
+    return true;
+}
+
+void FolderPicker::worker(std::wstring initial) {
+    wa::log::setThreadName("dump-ui");
+    std::wstring folder = initial;
+    const bool ok = pickDumpFolder(folder);
+    {
+        std::lock_guard<std::mutex> lk(mtx_);
+        accepted_ = ok;
+        folder_ = ok ? folder : std::wstring{};
+    }
+    done_.store(true, std::memory_order_release);
+    busy_.store(false, std::memory_order_release);
 }
 
 void revealDumpFile(const std::wstring& path) {
