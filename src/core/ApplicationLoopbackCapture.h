@@ -28,6 +28,13 @@ AudioFormat defaultApplicationLoopbackFormat();
 Result streamInitApplicationLoopback(AudioClientInit& client, StreamInitRequest req,
                                      StreamInitOutcome& out);
 
+// SetClientProperties when enabled, then Stream init (LOOPBACK + 44100 mix-fallback).
+// Stream init does not own client properties.
+Result applyApplicationLoopbackClientProperties(AudioClientInit& client,
+                                                const StreamParams& params);
+Result openApplicationLoopbackClient(AudioClientInit& client, StreamInitRequest req,
+                                     StreamInitOutcome& out);
+
 class ApplicationLoopbackCaptureStream : public IAudioBackend {
 public:
     ApplicationLoopbackCaptureStream(WasapiMode mode, uint32_t processId,

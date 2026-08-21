@@ -148,6 +148,13 @@ public:
     REFERENCE_TIME lastPeriodicity = -1;
     AudioFormat lastFormat{};
     int initializeCount = 0;
+    int setClientPropertiesCount = 0;
+    int isOffloadCapableCount = 0;
+    int initializeCountAtSetClientProperties = -1;
+    AudioClientProperties lastProps{};
+    HRESULT propsHr = S_OK;
+    HRESULT offloadHr = S_OK;
+    BOOL offloadCapable = TRUE;
 
     HRESULT getMixFormat(WAVEFORMATEX** mix) override {
         if (FAILED(mixHr)) return mixHr;
@@ -183,6 +190,17 @@ public:
     HRESULT getDevicePeriod(REFERENCE_TIME*, REFERENCE_TIME*) override { return E_NOTIMPL; }
     HRESULT getBufferSize(UINT32*) override { return E_NOTIMPL; }
     HRESULT rebuild() override { return E_NOTIMPL; }
+    HRESULT setClientProperties(const AudioClientProperties& props) override {
+        ++setClientPropertiesCount;
+        initializeCountAtSetClientProperties = initializeCount;
+        lastProps = props;
+        return propsHr;
+    }
+    HRESULT isOffloadCapable(AUDIO_STREAM_CATEGORY, BOOL* capable) override {
+        ++isOffloadCapableCount;
+        if (capable) *capable = offloadCapable;
+        return offloadHr;
+    }
 };
 
 } // namespace
@@ -289,4 +307,76 @@ TEST(ApplicationLoopbackStreamInit, MixForceAddsAutoConvertAndLoopback) {
                            AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY;
     EXPECT_EQ(fake.lastFlags, expected);
     EXPECT_EQ(fake.initializeCount, 1);
+}
+
+TEST(ApplicationLoopbackClientProperties, DisabledSkipsSetClientProperties) {
+    FakeAppLoopbackClient fake;
+    StreamInitRequest req;
+    StreamInitOutcome out;
+    Result r = openApplicationLoopbackClient(fake, req, out);
+    ASSERT_TRUE(static_cast<bool>(r)) << r.message;
+    EXPECT_EQ(fake.setClientPropertiesCount, 0);
+    EXPECT_EQ(fake.isOffloadCapableCount, 0);
+    EXPECT_EQ(fake.initializeCount, 1);
+}
+
+TEST(ApplicationLoopbackClientProperties, EnabledSetsMappedFieldsBeforeInitialize) {
+    FakeAppLoopbackClient fake;
+    StreamInitRequest req;
+    req.params.clientProperties.enabled = true;
+    req.params.clientProperties.category = AudioCategory::Media;
+    req.params.clientProperties.offload = false;
+    req.params.clientProperties.option = StreamOption::Raw;
+    StreamInitOutcome out;
+    Result r = openApplicationLoopbackClient(fake, req, out);
+    ASSERT_TRUE(static_cast<bool>(r)) << r.message;
+    EXPECT_EQ(fake.setClientPropertiesCount, 1);
+    EXPECT_EQ(fake.isOffloadCapableCount, 0);
+    EXPECT_EQ(fake.initializeCountAtSetClientProperties, 0);
+    EXPECT_EQ(fake.initializeCount, 1);
+    EXPECT_EQ(fake.lastProps.cbSize, sizeof(AudioClientProperties));
+    EXPECT_EQ(fake.lastProps.eCategory, AudioCategory_Media);
+    EXPECT_EQ(fake.lastProps.bIsOffload, FALSE);
+    EXPECT_EQ(fake.lastProps.Options, AUDCLNT_STREAMOPTIONS_RAW);
+}
+
+TEST(ApplicationLoopbackClientProperties, OffloadChecksCapability) {
+    FakeAppLoopbackClient fake;
+    StreamInitRequest req;
+    req.params.clientProperties.enabled = true;
+    req.params.clientProperties.offload = true;
+    req.params.clientProperties.category = AudioCategory::GameMedia;
+    StreamInitOutcome out;
+    Result r = openApplicationLoopbackClient(fake, req, out);
+    ASSERT_TRUE(static_cast<bool>(r)) << r.message;
+    EXPECT_EQ(fake.isOffloadCapableCount, 1);
+    EXPECT_EQ(fake.setClientPropertiesCount, 1);
+    EXPECT_EQ(fake.lastProps.bIsOffload, TRUE);
+    EXPECT_EQ(fake.lastProps.eCategory, AudioCategory_GameMedia);
+}
+
+TEST(ApplicationLoopbackClientProperties, SetClientPropertiesFailureFailsOpen) {
+    FakeAppLoopbackClient fake;
+    fake.propsHr = E_FAIL;
+    StreamInitRequest req;
+    req.params.clientProperties.enabled = true;
+    StreamInitOutcome out;
+    Result r = openApplicationLoopbackClient(fake, req, out);
+    EXPECT_FALSE(static_cast<bool>(r));
+    EXPECT_EQ(fake.setClientPropertiesCount, 1);
+    EXPECT_EQ(fake.initializeCount, 0);
+}
+
+TEST(ApplicationLoopbackClientProperties, OffloadNotCapableFailsOpen) {
+    FakeAppLoopbackClient fake;
+    fake.offloadCapable = FALSE;
+    StreamInitRequest req;
+    req.params.clientProperties.enabled = true;
+    req.params.clientProperties.offload = true;
+    StreamInitOutcome out;
+    Result r = openApplicationLoopbackClient(fake, req, out);
+    EXPECT_FALSE(static_cast<bool>(r));
+    EXPECT_EQ(fake.isOffloadCapableCount, 1);
+    EXPECT_EQ(fake.setClientPropertiesCount, 0);
+    EXPECT_EQ(fake.initializeCount, 0);
 }
