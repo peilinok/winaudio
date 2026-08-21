@@ -120,6 +120,20 @@ TEST(WavSink, AutoNameUsesPrefixFormatAndTimestamp) {
     DeleteFileW(sink.poll().path.c_str());
 }
 
+TEST(WavSink, AutoNameKeepsCallerPrefixTokens) {
+    AudioFormat fmt{48000, 2, 16, false};
+    const int16_t sample[2] = {1, -1};
+    WavSink sink;
+    ASSERT_TRUE(sink.start(tempDir(), L"app-loopback_chrome.exe_4242", fmt))
+        << sink.poll().message;
+    const std::string nameA = narrow(sink.poll().fileName);
+    ASSERT_EQ(sink.push(sample, sizeof(sample)), sizeof(sample));
+    ASSERT_TRUE(sink.stop());
+    EXPECT_TRUE(std::regex_match(nameA, std::regex(
+        R"(app-loopback_chrome\.exe_4242_48000_2ch_16_\d{8}_\d{6}\.wav)"))) << nameA;
+    DeleteFileW(sink.poll().path.c_str());
+}
+
 TEST(WavSink, AutoNameCollisionGetsNumericSuffix) {
     AudioFormat fmt{44100, 1, 24, false};
     WavSink first;

@@ -55,12 +55,45 @@ const char* sourceName(CaptureSourceKind kind) {
     }
 }
 
-const char* dumpPrefix(CaptureSourceKind kind) {
+const wchar_t* dumpPrefixKind(CaptureSourceKind kind) {
     switch (kind) {
-    case CaptureSourceKind::SystemLoopback:      return "loopback";
-    case CaptureSourceKind::ApplicationLoopback: return "app-loopback";
-    default:                                     return "capture";
+    case CaptureSourceKind::SystemLoopback:      return L"loopback";
+    case CaptureSourceKind::ApplicationLoopback: return L"app-loopback";
+    default:                                     return L"capture";
     }
+}
+
+std::wstring sanitizeDumpToken(std::wstring s) {
+    for (wchar_t& c : s) {
+        if (c < 32 || c == L'<' || c == L'>' || c == L':' || c == L'"' ||
+            c == L'/' || c == L'\\' || c == L'|' || c == L'?' || c == L'*')
+            c = L'_';
+    }
+    while (!s.empty() && (s.back() == L' ' || s.back() == L'.'))
+        s.pop_back();
+    return s.empty() ? L"unknown" : s;
+}
+
+std::wstring processDumpName(uint32_t pid) {
+    HANDLE h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (!h) return L"unknown";
+    wchar_t path[MAX_PATH] = {};
+    DWORD n = MAX_PATH;
+    std::wstring name;
+    if (QueryFullProcessImageNameW(h, 0, path, &n) && n > 0) {
+        const std::wstring p(path, n);
+        const size_t slash = p.find_last_of(L"\\/");
+        name = (slash == std::wstring::npos) ? p : p.substr(slash + 1);
+    }
+    CloseHandle(h);
+    return sanitizeDumpToken(std::move(name));
+}
+
+std::wstring dumpPrefixFor(const CaptureSource& src) {
+    std::wstring p = dumpPrefixKind(src.kind);
+    if (src.kind == CaptureSourceKind::ApplicationLoopback)
+        p += L'_' + processDumpName(src.processId) + L'_' + std::to_wstring(src.processId);
+    return p;
 }
 } // namespace
 
@@ -332,7 +365,7 @@ const CaptureTrackList::Member* CaptureTrackList::findUnlocked(TrackId id) const
 Result CaptureTrackList::startDump(TrackId id, const std::wstring& folder) {
     Member* m = nullptr;
     AudioFormat fmt{};
-    CaptureSourceKind kind = CaptureSourceKind::Endpoint;
+    CaptureSource source{};
     {
         std::lock_guard<std::mutex> lk(mtx_);
         m = findUnlocked(id);
@@ -343,9 +376,10 @@ Result CaptureTrackList::startDump(TrackId id, const std::wstring& folder) {
         if (m->sink.isRunning())
             return Result::Fail(-1, "CaptureTrackList: dump already running");
         fmt = m->status.actualFormat;
-        kind = m->source.kind;
+        source = m->source;
     }
-    Result r = m->sink.start(folder, dumpPrefix(kind), fmt);
+    const std::wstring prefix = dumpPrefixFor(source);
+    Result r = m->sink.start(folder, prefix, fmt);
     if (!r) {
         WA_LOG(wa::log::Level::Err, "CaptureTrackList", "dump.start",
                "id=" + std::to_string(id), r.message);
@@ -353,7 +387,7 @@ Result CaptureTrackList::startDump(TrackId id, const std::wstring& folder) {
     }
     m->wavFatal = false;
     WA_LOG(wa::log::Level::Info, "CaptureTrackList", "dump.start",
-           "id=" + std::to_string(id) + " prefix=" + dumpPrefix(kind), "ok");
+           "id=" + std::to_string(id) + " prefix=" + wa::narrowAscii(prefix), "ok");
     return Result::Ok();
 }
 

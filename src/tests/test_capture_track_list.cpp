@@ -365,6 +365,27 @@ TEST(CaptureTrackList, LiveDumpWritesPushedPcm) {
     list.destroy(id);
 }
 
+TEST(CaptureTrackList, AppLoopbackDumpNameIncludesPidAndProcessName) {
+    ListRig rig;
+    CaptureTrackList list(rig.factory());
+    CaptureTrackCreate spec{};
+    spec.source.kind = CaptureSourceKind::ApplicationLoopback;
+    spec.source.processId = 4242;
+    TrackId id = 0;
+    ASSERT_TRUE(list.create(spec, &id));
+    wchar_t dir[MAX_PATH]{};
+    GetTempPathW(MAX_PATH, dir);
+    ASSERT_TRUE(list.startDump(id, dir));
+    const std::wstring name = list.poll()[0].dumpFileName;
+    list.stopDump(id);
+    DeleteFileW(list.poll()[0].dumpPath.c_str());
+    list.destroy(id);
+
+    // Name lookup may fail in CI (no such PID) and fall back to "unknown".
+    EXPECT_EQ(name.find(L"app-loopback_"), 0u);
+    EXPECT_NE(name.find(L"4242"), std::wstring::npos);
+}
+
 TEST(CaptureTrackList, LiveDumpRejectedWhenAlreadyDumping) {
     ListRig rig;
     CaptureTrackList list(rig.factory());

@@ -31,6 +31,7 @@ public:
     WavSink& operator=(const WavSink&) = delete;
 
     Result startExact(const std::wstring& path, const AudioFormat& fmt);
+    Result start(const std::wstring& folder, const std::wstring& prefix, const AudioFormat& fmt);
     Result start(const std::wstring& folder, const char* prefix, const AudioFormat& fmt);
     size_t push(const void* data, size_t bytes);
     Result stop();

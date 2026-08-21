@@ -52,8 +52,8 @@ std::wstring typeToken(const AudioFormat& fmt) {
     return t;
 }
 
-std::wstring autoStem(const char* prefix, const AudioFormat& fmt, const SYSTEMTIME& st) {
-    return wideAscii(prefix) + L'_' + std::to_wstring(fmt.sampleRate) + L'_' +
+std::wstring autoStem(const std::wstring& prefix, const AudioFormat& fmt, const SYSTEMTIME& st) {
+    return prefix + L'_' + std::to_wstring(fmt.sampleRate) + L'_' +
            std::to_wstring(fmt.channels) + L"ch_" + typeToken(fmt) + L'_' +
            std::to_wstring(st.wYear) +
            (st.wMonth < 10 ? L"0" : L"") + std::to_wstring(st.wMonth) +
@@ -77,12 +77,17 @@ std::wstring uniqueWavPath(const std::wstring& folder, const std::wstring& stem)
 WavSink::WavSink() = default;
 WavSink::~WavSink() { stop(); }
 
-Result WavSink::start(const std::wstring& folder, const char* prefix, const AudioFormat& fmt) {
-    if (folder.empty() || !prefix || !*prefix)
+Result WavSink::start(const std::wstring& folder, const std::wstring& prefix,
+                      const AudioFormat& fmt) {
+    if (folder.empty() || prefix.empty())
         return Result::Fail(-1, "WavSink: folder and prefix required");
     SYSTEMTIME st{};
     GetLocalTime(&st);
     return begin(uniqueWavPath(folder, autoStem(prefix, fmt, st)), fmt);
+}
+
+Result WavSink::start(const std::wstring& folder, const char* prefix, const AudioFormat& fmt) {
+    return start(folder, wideAscii(prefix), fmt);
 }
 
 Result WavSink::startExact(const std::wstring& path, const AudioFormat& fmt) {
