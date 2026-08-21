@@ -24,9 +24,10 @@ public:
         : fmt_(fmt), failStart_(failStart), stoppedOut_(stoppedOut), failOpen_(failOpen) {}
 
     Result open(const DeviceId&, const AudioFormat&, RingBuffer* ring,
-                const StreamParams&) override {
+                const StreamParams& params) override {
         if (failOpen_) return Result::Fail(122, "fake: open failed");
         ring_ = ring;
+        lastOpenParams_ = params;
         return Result::Ok();
     }
     Result start() override {
@@ -48,6 +49,9 @@ public:
     std::atomic<bool>* stoppedOut_ = nullptr;
     bool               failOpen_ = false;
     RingBuffer*        ring_ = nullptr;
+    StreamParams       lastOpenParams_{};
+    AudioFormat        lastRequested_{};
+    bool               sawRequested_ = false;
 
     void pushPcm(const void* data, size_t bytes) {
         if (ring_) ring_->write(data, bytes);
@@ -59,13 +63,27 @@ struct ListRig {
     bool failOpen = false;
     bool failStart = false;
     std::vector<FakeBackend*> caps;
+    std::vector<FakeBackend*> silents;
     std::vector<std::unique_ptr<std::atomic<bool>>> stopped;
 
     CaptureTrackList::BackendFactory factory() {
-        return [this](const CaptureSource&, const AudioFormat*) {
+        return [this](const CaptureSource&, const AudioFormat* req) {
             stopped.push_back(std::make_unique<std::atomic<bool>>(false));
             auto b = std::make_unique<FakeBackend>(fmt, failStart, stopped.back().get(), failOpen);
+            b->sawRequested_ = req != nullptr;
+            if (req) b->lastRequested_ = *req;
             caps.push_back(b.get());
+            return b;
+        };
+    }
+
+    CaptureTrackList::SilentRenderFactory silentFactory() {
+        return [this](const AudioFormat* req) {
+            stopped.push_back(std::make_unique<std::atomic<bool>>(false));
+            auto b = std::make_unique<FakeBackend>(fmt, false, stopped.back().get(), false);
+            b->sawRequested_ = req != nullptr;
+            if (req) b->lastRequested_ = *req;
+            silents.push_back(b.get());
             return b;
         };
     }
@@ -455,5 +473,99 @@ TEST(CaptureTrackList, OptionalWavStillRuns) {
     TrackId id = 0;
     ASSERT_TRUE(list.create(spec, &id));
     EXPECT_EQ(list.poll()[0].state, StreamState::Running);
+    list.destroyAll();
+}
+
+TEST(CaptureTrackList, DefaultCreateOpensWithDefaultStreamParamsAndNoRequestedFormat) {
+    ListRig rig;
+    CaptureTrackList list(rig.factory());
+    TrackId id = 0;
+    ASSERT_TRUE(list.create({}, &id));
+    ASSERT_EQ(rig.caps.size(), 1u);
+    EXPECT_TRUE(rig.caps[0]->lastOpenParams_.isDefault());
+    EXPECT_FALSE(rig.caps[0]->sawRequested_);
+    list.destroyAll();
+}
+
+TEST(CaptureTrackList, CreatePassesRequestedFormatToBackend) {
+    ListRig rig;
+    CaptureTrackList list(rig.factory());
+    AudioFormat want{44100, 1, 24, false};
+    CaptureTrackCreate spec{};
+    spec.requested = &want;
+    TrackId id = 0;
+    ASSERT_TRUE(list.create(spec, &id));
+    ASSERT_EQ(rig.caps.size(), 1u);
+    EXPECT_TRUE(rig.caps[0]->sawRequested_);
+    EXPECT_EQ(rig.caps[0]->lastRequested_, want);
+    list.destroyAll();
+}
+
+TEST(CaptureTrackList, CreatePassesStreamParamsToOpen) {
+    ListRig rig;
+    CaptureTrackList list(rig.factory());
+    CaptureTrackCreate spec{};
+    spec.streamParams.clientProperties.enabled = true;
+    spec.streamParams.clientProperties.category = AudioCategory::Speech;
+    spec.streamParams.clientProperties.offload = true;
+    spec.streamParams.clientProperties.option = StreamOption::Raw;
+    spec.streamParams.bufferMs = 50;
+    TrackId id = 0;
+    ASSERT_TRUE(list.create(spec, &id));
+    ASSERT_EQ(rig.caps.size(), 1u);
+    const StreamParams& got = rig.caps[0]->lastOpenParams_;
+    EXPECT_TRUE(got.clientProperties.enabled);
+    EXPECT_EQ(got.clientProperties.category, AudioCategory::Speech);
+    EXPECT_TRUE(got.clientProperties.offload);
+    EXPECT_EQ(got.clientProperties.option, StreamOption::Raw);
+    EXPECT_EQ(got.bufferMs, 50u);
+    EXPECT_FALSE(got.isDefault());
+    list.destroyAll();
+}
+
+TEST(CaptureTrackList, SystemAndApplicationLoopbackBothPassStreamParams) {
+    ListRig rig;
+    CaptureTrackList list(rig.factory());
+    CaptureTrackCreate sys{};
+    sys.source.kind = CaptureSourceKind::SystemLoopback;
+    sys.loopbackOptions.silentRender = false;
+    sys.streamParams.bufferMs = 20;
+    TrackId a = 0;
+    ASSERT_TRUE(list.create(sys, &a));
+
+    CaptureTrackCreate app{};
+    app.source.kind = CaptureSourceKind::ApplicationLoopback;
+    app.source.processId = 4242;
+    app.streamParams.clientProperties.enabled = true;
+    app.streamParams.clientProperties.category = AudioCategory::Media;
+    TrackId b = 0;
+    ASSERT_TRUE(list.create(app, &b));
+
+    ASSERT_EQ(rig.caps.size(), 2u);
+    EXPECT_EQ(rig.caps[0]->lastOpenParams_.bufferMs, 20u);
+    EXPECT_TRUE(rig.caps[1]->lastOpenParams_.clientProperties.enabled);
+    EXPECT_EQ(rig.caps[1]->lastOpenParams_.clientProperties.category, AudioCategory::Media);
+    list.destroyAll();
+}
+
+TEST(CaptureTrackList, SilentRenderOpenStaysDefaultWhenCaptureHasStreamParams) {
+    ListRig rig;
+    CaptureTrackList list(rig.factory(), rig.silentFactory());
+    CaptureTrackCreate spec{};
+    spec.source.kind = CaptureSourceKind::SystemLoopback;
+    spec.loopbackOptions.silentRender = true;
+    spec.streamParams.bufferMs = 80;
+    spec.streamParams.clientProperties.enabled = true;
+    AudioFormat want{48000, 2, 16, false};
+    spec.requested = &want;
+    TrackId id = 0;
+    ASSERT_TRUE(list.create(spec, &id));
+    ASSERT_EQ(rig.caps.size(), 1u);
+    ASSERT_EQ(rig.silents.size(), 1u);
+    EXPECT_EQ(rig.caps[0]->lastOpenParams_.bufferMs, 80u);
+    EXPECT_TRUE(rig.caps[0]->lastOpenParams_.clientProperties.enabled);
+    EXPECT_TRUE(rig.caps[0]->sawRequested_);
+    EXPECT_TRUE(rig.silents[0]->lastOpenParams_.isDefault());
+    EXPECT_FALSE(rig.silents[0]->sawRequested_);
     list.destroyAll();
 }
