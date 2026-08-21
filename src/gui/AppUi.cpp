@@ -6,6 +6,7 @@
 #include "ChartsFreezePolicy.h"
 #include "ChartsTimeZoomPolicy.h"
 #include "ComUtil.h"
+#include "DumpUi.h"
 #include "MonitorScopeReader.h"
 #include "imgui.h"
 #include "implot.h"
@@ -373,6 +374,8 @@ void AppUi::draw() {
         logLines_.erase(logLines_.begin(),
                         logLines_.begin() + (logLines_.size() - kMaxLogLines));
 
+    applyDumpPick();
+
     // Poll once; detect renderState Running->non-Running to clear stale playback chart data.
     ms_ = monitor_.poll();
     const int curRenderState = (int)ms_.renderState;
@@ -529,6 +532,82 @@ void AppUi::drawApplicationLoopbackPage() {
     ImGui::EndChild();
 }
 
+void AppUi::beginDumpPick(DumpPickKind kind, wa::TrackId trackId) {
+    if (dumpPicker_.busy()) return;
+    dumpPickKind_ = kind;
+    dumpPickTrackId_ = trackId;
+    if (!dumpPicker_.start(wa::dump_ui::loadDumpFolder())) {
+        dumpPickKind_ = DumpPickKind::None;
+        dumpPickTrackId_ = 0;
+    }
+}
+
+void AppUi::applyDumpPick() {
+    std::wstring folder;
+    bool accepted = false;
+    if (!dumpPicker_.take(folder, accepted)) return;
+    const DumpPickKind kind = dumpPickKind_;
+    const wa::TrackId tid = dumpPickTrackId_;
+    dumpPickKind_ = DumpPickKind::None;
+    dumpPickTrackId_ = 0;
+    if (!accepted || kind == DumpPickKind::None) return;
+    wa::dump_ui::saveDumpFolder(folder);
+
+    auto logStart = [&](wa::Result r, const std::wstring& path) {
+        logLines_.push_back(r ? ("dump started " + wtou(path))
+                              : ("dump start error: " + r.message));
+    };
+    if (kind == DumpPickKind::Loopback || kind == DumpPickKind::AppLoopback) {
+        wa::CaptureTrackList& list =
+            (kind == DumpPickKind::Loopback) ? loopbackTracks_ : appLoopbackTracks_;
+        wa::Result r = list.startDump(tid, folder);
+        std::wstring path;
+        for (const auto& s : list.poll())
+            if (s.id == tid) path = s.dumpPath;
+        logStart(r, path);
+        return;
+    }
+    if (kind == DumpPickKind::MonitorCap) {
+        wa::Result r = monitor_.startDumpCapture(folder);
+        logStart(r, monitor_.poll().capDumpPath);
+        return;
+    }
+    if (kind == DumpPickKind::MonitorRen) {
+        wa::Result r = monitor_.startDumpRender(folder);
+        logStart(r, monitor_.poll().renderDumpPath);
+    }
+}
+
+void AppUi::drawDumpControls(wa::CaptureTrackList& list, const wa::CaptureTrackStatus& t,
+                             DumpPickKind kind, const char* destroyedLog) {
+    const bool picking = dumpPicker_.busy();
+    if (t.dumping) {
+        if (ImGui::Button(wa::ui_text::kDumpStop)) {
+            const std::wstring path = t.dumpPath;
+            wa::Result r = list.stopDump(t.id);
+            logLines_.push_back(r ? ("dump stopped " + wtou(path))
+                                  : ("dump stop error: " + r.message));
+            if (r) wa::dump_ui::revealDumpFile(path);
+        }
+    } else {
+        ImGui::BeginDisabled(t.state != wa::StreamState::Running || picking);
+        if (ImGui::Button(wa::ui_text::kDump))
+            beginDumpPick(kind, t.id);
+        ImGui::EndDisabled();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button(wa::ui_text::kLoopbackDestroy)) {
+        const std::wstring dumpPath = t.dumping ? t.dumpPath : std::wstring{};
+        list.destroy(t.id);
+        if (!dumpPath.empty()) wa::dump_ui::revealDumpFile(dumpPath);
+        logLines_.push_back(std::string(destroyedLog) + std::to_string(t.id));
+    }
+    if (t.dumping && !t.dumpFileName.empty()) {
+        ImGui::SameLine();
+        ImGui::TextDisabled("%s", wtou(t.dumpFileName).c_str());
+    }
+}
+
 void AppUi::drawLoopbackLeftPanel() {
     if (!monitorDevicesLoaded_) refreshMonitorDevices();
 
@@ -550,7 +629,6 @@ void AppUi::drawLoopbackLeftPanel() {
         ImGui::EndCombo();
     }
 
-    ImGui::InputText(wa::ui_text::kLoopbackWavOptional, loopbackWav_, sizeof(loopbackWav_));
     ImGui::InputText(wa::ui_text::kLoopbackFormatOptional, loopbackFmt_, sizeof(loopbackFmt_));
     ImGui::Checkbox(wa::ui_text::kLoopbackSilentRender, &loopbackSilentRender_);
 
@@ -561,7 +639,6 @@ void AppUi::drawLoopbackLeftPanel() {
         wa::CaptureTrackCreate spec{};
         spec.kind = wa::BackendKind::WasapiShared;
         spec.source = wa::CaptureSource{wa::CaptureSourceKind::SystemLoopback, id};
-        spec.wavPath = utow(loopbackWav_);
         spec.loopbackOptions.silentRender = loopbackSilentRender_;
         wa::AudioFormat fmt{};
         if (loopbackFmt_[0] != '\0' && wa::parseFormatSpec(loopbackFmt_, fmt))
@@ -578,8 +655,12 @@ void AppUi::drawLoopbackLeftPanel() {
     }
     ImGui::SameLine();
     if (ImGui::Button(wa::ui_text::kLoopbackDestroyAll, ctrlBtn)) {
+        std::vector<std::wstring> dumpPaths;
+        for (const auto& t : loopbackTracks_.poll())
+            if (t.dumping) dumpPaths.push_back(t.dumpPath);
         loopbackTracks_.destroyAll();
         loopbackViz_.clear();
+        for (const auto& p : dumpPaths) wa::dump_ui::revealDumpFile(p);
         logLines_.push_back("loopback destroy all");
     }
 
@@ -592,10 +673,8 @@ void AppUi::drawLoopbackLeftPanel() {
                     (unsigned long long)t.id, ss[(int)t.state],
                     t.actualFormat.sampleRate, (unsigned long long)t.overruns);
         ImGui::ProgressBar((t.levelL > t.levelR) ? t.levelL : t.levelR, ImVec2(-1, 0), "level");
-        if (ImGui::Button(wa::ui_text::kLoopbackDestroy)) {
-            loopbackTracks_.destroy(t.id);
-            logLines_.push_back("loopback track destroyed id=" + std::to_string(t.id));
-        }
+        drawDumpControls(loopbackTracks_, t, DumpPickKind::Loopback,
+                         "loopback track destroyed id=");
         ImGui::PopID();
     }
 }
@@ -633,7 +712,6 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
     ImGui::InputText("##appLoopbackPid", appLoopbackPid_, sizeof(appLoopbackPid_));
     ImGui::SameLine();
     ImGui::Checkbox(wa::ui_text::kApplicationLoopbackExclude, &appLoopbackExclude_);
-    ImGui::InputText(wa::ui_text::kLoopbackWavOptional, appLoopbackWav_, sizeof(appLoopbackWav_));
     ImGui::InputText(wa::ui_text::kLoopbackFormatOptional, appLoopbackFmt_, sizeof(appLoopbackFmt_));
 
     ImGui::SeparatorText("Control");
@@ -650,7 +728,6 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
             spec.kind = wa::BackendKind::WasapiShared;
             spec.source = wa::CaptureSource{wa::CaptureSourceKind::ApplicationLoopback, L"",
                                             pid, mode};
-            spec.wavPath = utow(appLoopbackWav_);
             wa::AudioFormat fmt{};
             if (appLoopbackFmt_[0] != '\0' && wa::parseFormatSpec(appLoopbackFmt_, fmt))
                 spec.requested = &fmt;
@@ -670,8 +747,12 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
     }
     ImGui::SameLine();
     if (ImGui::Button(wa::ui_text::kLoopbackDestroyAll, ctrlBtn)) {
+        std::vector<std::wstring> dumpPaths;
+        for (const auto& t : appLoopbackTracks_.poll())
+            if (t.dumping) dumpPaths.push_back(t.dumpPath);
         appLoopbackTracks_.destroyAll();
         appLoopbackViz_.clear();
+        for (const auto& p : dumpPaths) wa::dump_ui::revealDumpFile(p);
         logLines_.push_back("application loopback destroy all");
     }
 
@@ -686,11 +767,8 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
                     wa::processLoopbackModeName(t.source.processLoopbackMode),
                     t.actualFormat.sampleRate, (unsigned long long)t.overruns);
         ImGui::ProgressBar((t.levelL > t.levelR) ? t.levelL : t.levelR, ImVec2(-1, 0), "level");
-        if (ImGui::Button(wa::ui_text::kLoopbackDestroy)) {
-            appLoopbackTracks_.destroy(t.id);
-            logLines_.push_back("application loopback track destroyed id="
-                                + std::to_string(t.id));
-        }
+        drawDumpControls(appLoopbackTracks_, t, DumpPickKind::AppLoopback,
+                         "application loopback track destroyed id=");
         ImGui::PopID();
     }
 }
@@ -757,9 +835,13 @@ void AppUi::drawLeftPanel() {
         }
     } else {
         if (ImGui::Button("Stop", ctrlBtn)) {
+            const std::wstring capDump = ms_.capDumping ? ms_.capDumpPath : std::wstring{};
+            const std::wstring renDump = ms_.renderDumping ? ms_.renderDumpPath : std::wstring{};
             monitor_.stop();
             monitorStarted_ = false;
             resetVisuals(monitorViz_);
+            if (!capDump.empty()) wa::dump_ui::revealDumpFile(capDump);
+            if (!renDump.empty()) wa::dump_ui::revealDumpFile(renDump);
             logLines_.push_back("monitor stopped");
         }
     }
@@ -769,8 +851,63 @@ void AppUi::drawLeftPanel() {
 
     // Playback checkbox — always toggleable; applies live while running, else takes effect on next Start.
     if (ImGui::Checkbox("同步播放 (playback)", &playbackEnabled_)) {
+        if (monitorStarted_ && !playbackEnabled_ && ms_.renderDumping) {
+            const std::wstring path = ms_.renderDumpPath;
+            wa::Result r = monitor_.stopDumpRender();
+            logLines_.push_back(r ? ("dump stopped " + wtou(path))
+                                  : ("dump stop error: " + r.message));
+            if (r) wa::dump_ui::revealDumpFile(path);
+        }
         if (monitorStarted_) monitor_.setPlaybackEnabled(playbackEnabled_);
     }
+
+    const bool dumpPicking = dumpPicker_.busy();
+    ImGui::BeginDisabled(!monitorStarted_ || ms_.capState != wa::StreamState::Running);
+    ImGui::PushID("capDump");
+    if (ms_.capDumping) {
+        if (ImGui::Button(wa::ui_text::kDumpStop)) {
+            const std::wstring path = ms_.capDumpPath;
+            wa::Result r = monitor_.stopDumpCapture();
+            logLines_.push_back(r ? ("dump stopped " + wtou(path))
+                                  : ("dump stop error: " + r.message));
+            if (r) wa::dump_ui::revealDumpFile(path);
+        }
+        if (!ms_.capDumpFileName.empty()) {
+            ImGui::SameLine();
+            ImGui::TextDisabled("%s", wtou(ms_.capDumpFileName).c_str());
+        }
+    } else {
+        ImGui::BeginDisabled(dumpPicking);
+        if (ImGui::Button(wa::ui_text::kDumpCapture))
+            beginDumpPick(DumpPickKind::MonitorCap);
+        ImGui::EndDisabled();
+    }
+    ImGui::PopID();
+    ImGui::EndDisabled();
+
+    ImGui::BeginDisabled(!monitorStarted_ || !playbackEnabled_
+                         || ms_.renderState != wa::StreamState::Running);
+    ImGui::PushID("renDump");
+    if (ms_.renderDumping) {
+        if (ImGui::Button(wa::ui_text::kDumpStop)) {
+            const std::wstring path = ms_.renderDumpPath;
+            wa::Result r = monitor_.stopDumpRender();
+            logLines_.push_back(r ? ("dump stopped " + wtou(path))
+                                  : ("dump stop error: " + r.message));
+            if (r) wa::dump_ui::revealDumpFile(path);
+        }
+        if (!ms_.renderDumpFileName.empty()) {
+            ImGui::SameLine();
+            ImGui::TextDisabled("%s", wtou(ms_.renderDumpFileName).c_str());
+        }
+    } else {
+        ImGui::BeginDisabled(dumpPicking);
+        if (ImGui::Button(wa::ui_text::kDumpRender))
+            beginDumpPick(DumpPickKind::MonitorRen);
+        ImGui::EndDisabled();
+    }
+    ImGui::PopID();
+    ImGui::EndDisabled();
 
     // --- Status ---
     ImGui::SeparatorText("Status");

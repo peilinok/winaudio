@@ -50,7 +50,7 @@ cd winaudio
 
 运行 `WinAudioGui.exe`，包含 **Monitor** / **Loopback** / **Application Loopback** 三个 tab。日志默认写运行目录下的 `winaudio.log`（双击启动即 exe 目录），左栏日志面板可运行时切换级别、清空、自动滚动。
 
-领域用语：**Track** 是一路可单独创建/销毁的单向流（采集或播放），Create 立即开流，没有 idle Track；**Capture source** 是配方（设备 / PID+mode），不是正在跑的那一路；**Capture Track** 绑定一个 Capture source，GUI 上 WAV 可选；**Monitor** 是唯一的双流会话名；**Chart Host** 是一路图的工具栏 + 面板。两个 loopback 页各自一份列表，每次启动为空；切走 tab 不会停采集。
+领域用语：**Track** 是一路可单独创建/销毁的单向流（采集或播放），Create 立即开流，没有 idle Track；**Capture source** 是配方（设备 / PID+mode），不是正在跑的那一路；**Capture Track** 绑定一个 Capture source，GUI 上可随时 Dump / Stop dump；**Monitor** 是唯一的双流会话名；**Chart Host** 是一路图的工具栏 + 面板。两个 loopback 页各自一份列表，每次启动为空；切走 tab 不会停采集。
 
 ### Monitor（双流延迟监听）
 
@@ -58,7 +58,7 @@ cd winaudio
 
 - **Devices**：选择采集设备（默认系统默认设备）与后端（Shared / Exclusive）；「Capture caps…」弹窗显示该设备的三来源格式与 Shared/Exclusive 能力矩阵。
 - **Format**：显示当前将用格式（如 `48000 Hz, 16-bit, 2-ch`）；候选下拉第一项为 System default，随后是当前后端支持的候选格式，末项 Custom 可手动输入；切换设备或后端时自动重算默认值。
-- **Control**：「Options」弹窗配置高级流参数——capture/render 各自的 `SetClientProperties` 总开关、category、offload、stream option（None / Raw / MatchFormat / Ambisonics / Post-volume loopback）、ducking（仅 render）、buffer ms；弹窗仅 Start 前可改。「同步播放」checkbox 实时启停 render 直通流（Exclusive 模式要求渲染设备支持采集格式）。
+- **Control**：「Options」弹窗配置高级流参数——capture/render 各自的 `SetClientProperties` 总开关、category、offload、stream option（None / Raw / MatchFormat / Ambisonics / Post-volume loopback）、ducking（仅 render）、buffer ms；弹窗仅 Start 前可改。「同步播放」checkbox 实时启停 render 直通流（Exclusive 模式要求渲染设备支持采集格式）。**Dump capture** / **Dump render** 各自随时开停 WAV sink（选文件夹、自动命名；播放未开时 Dump render 禁用）。
 - **Status**：实时显示 fifo ms / drift，方便观察跨设备时钟漂移。
 - Monitor 保持单一会话：Start / Stop 控制这一对，没有「Destroy all」跨页清列表。DelayFifo 属于 Monitor，不是 Track。
 
@@ -66,14 +66,14 @@ cd winaudio
 
 本页是一份 System Loopback **Capture Track** 列表（Shared-only），不是单路 Start/Stop。
 
-- **Create Track**：选一个 render device 作为 Capture source，可选填 WAV 与 format，「Silent render keepalive」默认开启（该路 live 期间不可改）。Create 立即开流，没有第二步 Start。同一 render device 允许同时开多路。
-- **Destroy** / **Destroy all**：Destroy 只拆这一路（采集、silent render helper、该路 WAV、该路图）。Destroy all 只清本页，不动 Application Loopback 或 Monitor。
+- **Create Track**：选一个 render device 作为 Capture source，可选填 format，「Silent render keepalive」默认开启（该路 live 期间不可改）。Create 立即开流，没有第二步 Start。同一 render device 允许同时开多路。
+- **Destroy** / **Destroy all**：Destroy 只拆这一路（采集、silent render helper、该路若在 dump 则收尾 WAV、该路图）。Destroy all 只清本页，不动 Application Loopback 或 Monitor。
 - 右侧为每路独立的 Capture-only **Chart Host**（波形 + 声谱图；2ch+ 时 `Ch N` 拆分仍在该 Track 内，最多前 8 个 channel）。Chart freeze 与 linked time axis 按 Track，路与路不共享时间轴或格式。
-- WAV 可选：不填只看图；填了则该路单独写文件。多路不会混成一个流或一个文件。
+- **Dump** / **Stop dump**：每路独立、运行中随时开停的 WAV sink。Start dump 选保存文件夹，文件名按固定 prefix、实际格式和时间戳生成；Stop dump（或 Destroy）成功后用资源管理器选中该文件。多路不会混成一个流或一个文件。
 
 ### Application Loopback（按进程回采）
 
-本页是一份 Application Loopback Capture Track 列表（Create / Destroy / Destroy all、堆叠 Chart Host、可选 WAV / format）。Capture source 是 **PID + IncludeTree / ExcludeTree**。Destroy 只拆这一路；Destroy all 只清本页的 Application Loopback Capture Track，不动 Loopback 页或 Monitor。
+本页是一份 Application Loopback Capture Track 列表（Create / Destroy / Destroy all、堆叠 Chart Host、可选 format、每路独立 Dump）。Capture source 是 **PID + IncludeTree / ExcludeTree**。Dump 文件名带进程名和 PID。Destroy 只拆这一路；Destroy all 只清本页的 Application Loopback Capture Track，不动 Loopback 页或 Monitor。
 
 打开 tab 后自动枚举当前有 Audio Session 的进程（进程名 + PID，按进程名排序），「Refresh」重新枚举。Session 列表只做发现：点击一行把 PID 填入输入框，也可手输任意非零 PID（不必出现在列表中）。点列表不会开流。
 

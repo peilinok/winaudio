@@ -12,6 +12,7 @@
 #include "IAudioBackend.h" // IAudioBackend, DataFlow, DeviceId
 #include "Result.h"
 #include "StreamParams.h"
+#include "WavSink.h"
 
 namespace wa {
 
@@ -56,6 +57,14 @@ struct MonitorStatus {
     float       capLevel    = 0.f;
     float       renderLevel = 0.f;
     uint32_t    errorCode   = 0;     // MonitorError
+    bool          capDumping = false;
+    bool          capDumpError = false;
+    std::wstring  capDumpPath;
+    std::wstring  capDumpFileName;
+    bool          renderDumping = false;
+    bool          renderDumpError = false;
+    std::wstring  renderDumpPath;
+    std::wstring  renderDumpFileName;
 };
 
 // Dual-stream delayed monitor pass-through: capture -> frame-domain DelayFifo
@@ -96,6 +105,10 @@ public:
     MonitorStatus poll();
     void   setPlaybackEnabled(bool enabled);                        // 运行期实时开关（GUI 线程）
     void   setRenderParams(const StreamParams& p);                  // 运行中可调;下次 engage 取快照生效
+    Result startDumpCapture(const std::wstring& folder);
+    Result stopDumpCapture();
+    Result startDumpRender(const std::wstring& folder);
+    Result stopDumpRender();
 
     bool snapshotCapture(size_t n, float* out, uint64_t& endIdxOut);
     bool snapshotCaptureAt(uint64_t endIdx, size_t n, float* out);
@@ -188,6 +201,9 @@ private:
     std::vector<float>   renderAdapt_;
     std::vector<float>   renderMono_;
     std::vector<uint8_t> renderBytes_;
+
+    WavSink capSink_;
+    WavSink renderSink_;
 };
 
 } // namespace wa

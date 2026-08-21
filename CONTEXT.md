@@ -7,7 +7,7 @@ Windows audio test tool: capture, loopback, delayed monitor pass-through, and ch
 ### Capture and monitor
 
 **Monitor**:
-A dual-stream session that pairs exactly one Capture Track with at most one Render Track after a fixed delay, with scope taps for charts.
+A dual-stream session that pairs exactly one Capture Track with at most one Render Track after a fixed delay, with scope taps for charts. Each side may own a live WAV sink (GUI Dump capture / Dump render).
 _Avoid_: Engine session (when meaning the product feature), pass-through alone, Track (when meaning the whole pair)
 
 **System Loopback**:
@@ -67,7 +67,7 @@ The kind and identity of what a Capture Track captures: a capture endpoint, a Sy
 _Avoid_: Track, device (when meaning the whole instance)
 
 **Capture Track**:
-A Track that binds one Capture source and may own a WAV sink (optional on the GUI; required per Track on CLI capture).
+A Track that binds one Capture source and may own a WAV sink (GUI: live start/stop Dump; CLI capture: required path at create).
 _Avoid_: record track, input track, Capture side (when meaning the Track itself)
 
 **Render Track**:

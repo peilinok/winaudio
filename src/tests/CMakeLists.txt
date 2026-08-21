@@ -8,6 +8,7 @@ add_executable(WinAudioTests
     test_ringbuffer.cpp
     test_sampleconvert.cpp
     test_wavfile.cpp
+    test_wav_sink.cpp
     test_formatspec.cpp
     test_scopebuffer.cpp
     test_scope_reader.cpp
@@ -25,15 +26,17 @@ add_executable(WinAudioTests
     test_loopback.cpp
     test_audio_session_enumerator.cpp
     test_cli_options.cpp
+    test_dump_ui.cpp
     ${CMAKE_SOURCE_DIR}/src/gui/Spectrogram.cpp   # compiled into tests, as in the current setup
     ${CMAKE_SOURCE_DIR}/src/gui/ChartDataPipeline.cpp
+    ${CMAKE_SOURCE_DIR}/src/gui/DumpUi.cpp
 )
 target_include_directories(WinAudioTests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/src/cli
     ${CMAKE_SOURCE_DIR}/src/gui                   # for Spectrogram.h
 )
-target_link_libraries(WinAudioTests PRIVATE WinAudioCore gtest_main)
+target_link_libraries(WinAudioTests PRIVATE WinAudioCore gtest_main shell32)
 wa_set_project_warnings(WinAudioTests)
 
 include(GoogleTest)

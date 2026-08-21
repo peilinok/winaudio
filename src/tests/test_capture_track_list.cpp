@@ -12,6 +12,7 @@
 #include "CaptureTrackList.h"
 #include "RingBuffer.h"
 #include "TrackScopeReader.h"
+#include "WavFile.h"
 
 using namespace wa;
 
@@ -308,6 +309,142 @@ TEST(CaptureTrackList, TapsAreIndependent) {
     EXPECT_EQ(list.written(a), 0u);
     EXPECT_GE(list.written(b), 4u);
     list.destroyAll();
+}
+
+TEST(CaptureTrackList, CreateTimeWavWritesPushedPcm) {
+    ListRig rig;
+    CaptureTrackList list(rig.factory());
+    CaptureTrackCreate spec{};
+    spec.wavPath = tempWav(L"pcm");
+    TrackId id = 0;
+    ASSERT_TRUE(list.create(spec, &id));
+    ASSERT_EQ(rig.caps.size(), 1u);
+    const int16_t pcm[8] = {1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000};
+    rig.caps[0]->pushPcm(pcm, sizeof(pcm));
+    ASSERT_TRUE(waitFor([&] { return list.written(id) >= 4; }));
+    list.destroy(id);
+
+    wa::WavReader r;
+    ASSERT_TRUE(r.open(spec.wavPath));
+    std::vector<int16_t> back(8, 0);
+    EXPECT_EQ(r.read(back.data(), sizeof(pcm)), sizeof(pcm));
+    EXPECT_EQ(std::vector<int16_t>(pcm, pcm + 8), back);
+    r.close();
+    DeleteFileW(spec.wavPath.c_str());
+}
+
+TEST(CaptureTrackList, LiveDumpWritesPushedPcm) {
+    ListRig rig;
+    CaptureTrackList list(rig.factory());
+    TrackId id = 0;
+    ASSERT_TRUE(list.create({}, &id));
+    wchar_t dir[MAX_PATH]{};
+    GetTempPathW(MAX_PATH, dir);
+    ASSERT_TRUE(list.startDump(id, dir));
+    auto st = list.poll();
+    ASSERT_EQ(st.size(), 1u);
+    EXPECT_TRUE(st[0].dumping);
+    EXPECT_FALSE(st[0].dumpFileName.empty());
+
+    const int16_t pcm[8] = {11, 22, 33, 44, 55, 66, 77, 88};
+    rig.caps[0]->pushPcm(pcm, sizeof(pcm));
+    ASSERT_TRUE(waitFor([&] { return list.written(id) >= 4; }));
+    ASSERT_TRUE(list.stopDump(id));
+    st = list.poll();
+    ASSERT_EQ(st.size(), 1u);
+    EXPECT_FALSE(st[0].dumping);
+    EXPECT_EQ(st[0].state, StreamState::Running);
+
+    wa::WavReader r;
+    ASSERT_TRUE(r.open(st[0].dumpPath));
+    std::vector<int16_t> back(8, 0);
+    EXPECT_EQ(r.read(back.data(), sizeof(pcm)), sizeof(pcm));
+    EXPECT_EQ(std::vector<int16_t>(pcm, pcm + 8), back);
+    r.close();
+    DeleteFileW(st[0].dumpPath.c_str());
+    list.destroy(id);
+}
+
+TEST(CaptureTrackList, AppLoopbackDumpNameIncludesPidAndProcessName) {
+    ListRig rig;
+    CaptureTrackList list(rig.factory());
+    CaptureTrackCreate spec{};
+    spec.source.kind = CaptureSourceKind::ApplicationLoopback;
+    spec.source.processId = 4242;
+    TrackId id = 0;
+    ASSERT_TRUE(list.create(spec, &id));
+    wchar_t dir[MAX_PATH]{};
+    GetTempPathW(MAX_PATH, dir);
+    ASSERT_TRUE(list.startDump(id, dir));
+    const std::wstring name = list.poll()[0].dumpFileName;
+    list.stopDump(id);
+    DeleteFileW(list.poll()[0].dumpPath.c_str());
+    list.destroy(id);
+
+    // Name lookup may fail in CI (no such PID) and fall back to "unknown".
+    EXPECT_EQ(name.find(L"app-loopback_"), 0u);
+    EXPECT_NE(name.find(L"4242"), std::wstring::npos);
+}
+
+TEST(CaptureTrackList, LiveDumpRejectedWhenAlreadyDumping) {
+    ListRig rig;
+    CaptureTrackList list(rig.factory());
+    TrackId id = 0;
+    ASSERT_TRUE(list.create({}, &id));
+    wchar_t dir[MAX_PATH]{};
+    GetTempPathW(MAX_PATH, dir);
+    ASSERT_TRUE(list.startDump(id, dir));
+    EXPECT_FALSE(list.startDump(id, dir));
+    list.stopDump(id);
+    DeleteFileW(list.poll()[0].dumpPath.c_str());
+    list.destroy(id);
+}
+
+TEST(CaptureTrackList, LiveDumpRejectedWhenTrackNotRunning) {
+    ListRig rig;
+    CaptureTrackList list(rig.factory());
+    CaptureTrackCreate spec{};
+    spec.wavPath = L"?:\\wa_ctl_not_a_path.wav";
+    TrackId id = 0;
+    ASSERT_TRUE(list.create(spec, &id));
+    ASSERT_EQ(list.poll()[0].state, StreamState::Error);
+    wchar_t dir[MAX_PATH]{};
+    GetTempPathW(MAX_PATH, dir);
+    EXPECT_FALSE(list.startDump(id, dir));
+    list.destroy(id);
+}
+
+TEST(CaptureTrackList, LiveDumpOpenFailureLeavesTrackRunning) {
+    ListRig rig;
+    CaptureTrackList list(rig.factory());
+    TrackId id = 0;
+    ASSERT_TRUE(list.create({}, &id));
+    EXPECT_FALSE(list.startDump(id, L"?:\\not-a-folder"));
+    auto st = list.poll();
+    ASSERT_EQ(st.size(), 1u);
+    EXPECT_EQ(st[0].state, StreamState::Running);
+    EXPECT_FALSE(st[0].dumping);
+    list.destroy(id);
+}
+
+TEST(CaptureTrackList, DestroyWhileDumpingFinalizesWav) {
+    ListRig rig;
+    CaptureTrackList list(rig.factory());
+    TrackId id = 0;
+    ASSERT_TRUE(list.create({}, &id));
+    wchar_t dir[MAX_PATH]{};
+    GetTempPathW(MAX_PATH, dir);
+    ASSERT_TRUE(list.startDump(id, dir));
+    const int16_t pcm[4] = {1, 2, 3, 4};
+    rig.caps[0]->pushPcm(pcm, sizeof(pcm));
+    ASSERT_TRUE(waitFor([&] { return list.written(id) >= 2; }));
+    const std::wstring path = list.poll()[0].dumpPath;
+    list.destroy(id);
+    EXPECT_TRUE(list.poll().empty());
+    wa::WavReader r;
+    ASSERT_TRUE(r.open(path));
+    r.close();
+    DeleteFileW(path.c_str());
 }
 
 TEST(CaptureTrackList, OptionalWavStillRuns) {

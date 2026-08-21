@@ -8,6 +8,7 @@
 #include "CaptureTrackList.h"
 #include "ChartHost.h"
 #include "DeviceEnumerator.h"
+#include "DumpUi.h"
 #include "MonitorEngine.h"
 #include "Spectrogram.h"
 #include "TrackScopeReader.h"
@@ -51,6 +52,11 @@ private:
     void drawApplicationLoopbackPage();
     void drawLoopbackLeftPanel();
     void drawApplicationLoopbackLeftPanel();
+    enum class DumpPickKind { None, Loopback, AppLoopback, MonitorCap, MonitorRen };
+    void drawDumpControls(wa::CaptureTrackList& list, const wa::CaptureTrackStatus& t,
+                          DumpPickKind kind, const char* destroyedLog);
+    void beginDumpPick(DumpPickKind kind, wa::TrackId trackId = 0);
+    void applyDumpPick();
     void drawStackedCaptureTrackHosts(wa::CaptureTrackList& list,
                                       std::vector<std::pair<wa::TrackId, VisualState>>& viz,
                                       const char* emptyHint);
@@ -104,14 +110,12 @@ private:
     int                         delayMs_      = 100;
     bool                        monitorStarted_ = false;
     bool                        loopbackSilentRender_ = true;
-    char                        loopbackWav_[260] = "";
     char                        loopbackFmt_[32] = "";
     bool                        appLoopbackExclude_ = false; // create recipe; false = IncludeTree
     bool                        appLoopbackSessionsLoaded_ = false;
     std::vector<wa::AudioSessionProcess> appLoopbackSessions_;
     int                         appLoopbackSessionIdx_ = -1;
     char                        appLoopbackPid_[32] = "";
-    char                        appLoopbackWav_[260] = "";
     char                        appLoopbackFmt_[32] = "";
 
     wa::StreamParams capParams_{};    // Advanced 弹窗编辑;Start 时传入(运行中只读)
@@ -125,6 +129,10 @@ private:
     int                    fmtBackendShown_ = -1;
     int                    capDevShown_     = -1;
     wa::DeviceCapabilities capsCache_{};
+
+    wa::dump_ui::FolderPicker dumpPicker_;
+    DumpPickKind              dumpPickKind_ = DumpPickKind::None;
+    wa::TrackId               dumpPickTrackId_ = 0;
 
     VisualState monitorViz_;
     std::vector<std::pair<wa::TrackId, VisualState>> loopbackViz_;

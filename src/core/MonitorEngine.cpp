@@ -366,6 +366,7 @@ Result MonitorEngine::engageRender() {
 
 void MonitorEngine::disengageRender() {
     WA_LOG(wa::log::Level::Info, "MonitorEngine", "render.disengaged", "", "");
+    renderSink_.stop();
     if (renderBackend_) renderBackend_->stop();
     renderBackend_.reset();
     renderRing_.reset();
@@ -381,6 +382,42 @@ void MonitorEngine::disengageRender() {
 
 void MonitorEngine::setPlaybackEnabled(bool enabled) {
     wantPlayback_.store(enabled, std::memory_order_release);   // pump converges to this next iteration
+}
+
+Result MonitorEngine::startDumpCapture(const std::wstring& folder) {
+    if (capState_.load(std::memory_order_acquire) != StreamState::Running)
+        return Result::Fail(-1, "MonitorEngine: capture not running");
+    Result r = capSink_.start(folder, "monitor-cap", capFmt_);
+    WA_LOG(r ? wa::log::Level::Info : wa::log::Level::Err, "MonitorEngine", "dump.cap.start",
+           "", r ? "ok" : r.message);
+    return r;
+}
+
+Result MonitorEngine::stopDumpCapture() {
+    const bool was = capSink_.isRunning();
+    Result r = capSink_.stop();
+    if (!was && r) return Result::Fail(-1, "MonitorEngine: capture dump not running");
+    WA_LOG(r ? wa::log::Level::Info : wa::log::Level::Err, "MonitorEngine", "dump.cap.stop",
+           "", r ? "ok" : r.message);
+    return r;
+}
+
+Result MonitorEngine::startDumpRender(const std::wstring& folder) {
+    if (renderState_.load(std::memory_order_acquire) != StreamState::Running)
+        return Result::Fail(-1, "MonitorEngine: render not running");
+    Result r = renderSink_.start(folder, "monitor-ren", renderFmt_);
+    WA_LOG(r ? wa::log::Level::Info : wa::log::Level::Err, "MonitorEngine", "dump.ren.start",
+           "", r ? "ok" : r.message);
+    return r;
+}
+
+Result MonitorEngine::stopDumpRender() {
+    const bool was = renderSink_.isRunning();
+    Result r = renderSink_.stop();
+    if (!was && r) return Result::Fail(-1, "MonitorEngine: render dump not running");
+    WA_LOG(r ? wa::log::Level::Info : wa::log::Level::Err, "MonitorEngine", "dump.ren.stop",
+           "", r ? "ok" : r.message);
+    return r;
 }
 
 void MonitorEngine::setRenderParams(const StreamParams& p) {
@@ -458,6 +495,8 @@ void MonitorEngine::pumpLoop() {
             downmixMono(capFloat_.data(), frames, capCh, capMono_.data());
             captureScope_->pushInterleaved(capFloat_.data(), frames);
             capLevel_.store(peakLevel(capMono_.data(), frames), std::memory_order_relaxed);
+            if (capSink_.isRunning())
+                capSink_.push(capScratch_.data(), frames * capFrameBytes);
 
             if (!renderActive) continue;   // capture-only: do not touch FIFO / render
 
@@ -473,6 +512,9 @@ void MonitorEngine::pumpLoop() {
                     renderLevel_.store(peakLevel(renderMono_.data(), popped), std::memory_order_relaxed);
                     adaptChannels(popBuf_.data(), capCh, renderAdapt_.data(), renderCh, popped);
                     floatToPcm(renderAdapt_.data(), popped, renderFmt_, renderBytes_.data());
+                    if (renderSink_.isRunning())
+                        renderSink_.push(renderBytes_.data(),
+                                         popped * static_cast<size_t>(renderFrameBytes));
                     const size_t wantBytes = static_cast<size_t>(popped) * renderFrameBytes;
                     const size_t freeBytes = renderRing_->availableWrite();
                     const size_t safeBytes = (std::min(wantBytes, freeBytes) / renderFrameBytes) * renderFrameBytes;
@@ -492,6 +534,8 @@ void MonitorEngine::pumpLoop() {
                 renderXruns_.store(renderDropped_.load(std::memory_order_relaxed), std::memory_order_relaxed);
         }
     }
+    capSink_.stop();
+    renderSink_.stop();
 }
 
 void MonitorEngine::teardown() {
@@ -549,6 +593,18 @@ MonitorStatus MonitorEngine::poll() {
     s.capLevel    = capLevel_.load(std::memory_order_relaxed);
     s.renderLevel = renderLevel_.load(std::memory_order_relaxed);
     s.errorCode   = errorCode_.load(std::memory_order_relaxed);
+    {
+        const WavSinkStatus cs = capSink_.poll();
+        s.capDumping = cs.state == WavSinkState::Running;
+        s.capDumpError = cs.state == WavSinkState::Error;
+        s.capDumpPath = cs.path;
+        s.capDumpFileName = cs.fileName;
+        const WavSinkStatus rs = renderSink_.poll();
+        s.renderDumping = rs.state == WavSinkState::Running;
+        s.renderDumpError = rs.state == WavSinkState::Error;
+        s.renderDumpPath = rs.path;
+        s.renderDumpFileName = rs.fileName;
+    }
     return s;
 }
 

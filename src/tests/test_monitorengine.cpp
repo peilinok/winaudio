@@ -17,6 +17,7 @@
 #include "MonitorEngine.h"
 #include "MonitorScopeReader.h"
 #include "RingBuffer.h"
+#include "WavFile.h"
 
 using namespace wa;
 
@@ -979,4 +980,120 @@ TEST(MonitorEngine, RuntimeRenderErrorDoesNotStopCaptureOrFifo) {
     eng.stop();
     EXPECT_TRUE(rig.capStopped.load());
     EXPECT_TRUE(rig.renderStopped.load());
+}
+
+TEST(MonitorEngine, CaptureDumpWritesPcmBeforeDelay) {
+    FakeRig rig;
+    MonitorEngine eng(rig.factory());
+    ASSERT_TRUE(static_cast<bool>(eng.start(BackendKind::WasapiShared, L"", L"", 50, false)));
+    wchar_t dir[MAX_PATH]{};
+    GetTempPathW(MAX_PATH, dir);
+    ASSERT_TRUE(eng.startDumpCapture(dir));
+    EXPECT_TRUE(eng.poll().capDumping);
+
+    std::vector<int16_t> ramp{1, 2, 3, 4, 5, 6, 7, 8};
+    auto pcm = makeRampPcm(ramp, rig.capFmt.channels);
+    ASSERT_NE(rig.capPtr, nullptr);
+    rig.capPtr->pushPcm(pcm.data(), pcm.size());
+    ASSERT_TRUE(waitFor([&] { return eng.capWritten() >= ramp.size(); }));
+    ASSERT_TRUE(eng.stopDumpCapture());
+    const std::wstring path = eng.poll().capDumpPath;
+    EXPECT_FALSE(eng.poll().capDumping);
+
+    WavReader r;
+    ASSERT_TRUE(r.open(path));
+    EXPECT_EQ(r.format().sampleRate, 48000u);
+    EXPECT_EQ(r.format().channels, 2);
+    EXPECT_FALSE(r.format().isFloat);
+    std::vector<int16_t> back(ramp.size() * 2, 0);
+    EXPECT_EQ(r.read(back.data(), back.size() * 2), back.size() * 2);
+    EXPECT_EQ(back[0], 1);
+    EXPECT_EQ(back[1], 1);
+    r.close();
+    DeleteFileW(path.c_str());
+    eng.stop();
+}
+
+TEST(MonitorEngine, RenderDumpRejectedWhenPlaybackOff) {
+    FakeRig rig;
+    MonitorEngine eng(rig.factory());
+    ASSERT_TRUE(static_cast<bool>(eng.start(BackendKind::WasapiShared, L"", L"", 50, false)));
+    wchar_t dir[MAX_PATH]{};
+    GetTempPathW(MAX_PATH, dir);
+    EXPECT_FALSE(eng.startDumpRender(dir));
+    EXPECT_FALSE(eng.poll().renderDumping);
+    EXPECT_EQ(eng.poll().capState, StreamState::Running);
+    eng.stop();
+}
+
+TEST(MonitorEngine, RenderDumpWritesAfterDelay) {
+    FakeRig rig;
+    MonitorEngine eng(rig.factory());
+    ASSERT_TRUE(static_cast<bool>(eng.start(BackendKind::WasapiShared, L"", L"", 50, true)));
+    ASSERT_EQ(eng.poll().renderState, StreamState::Running);
+    wchar_t dir[MAX_PATH]{};
+    GetTempPathW(MAX_PATH, dir);
+    ASSERT_TRUE(eng.startDumpRender(dir));
+    EXPECT_TRUE(eng.poll().renderDumping);
+
+    std::vector<int16_t> ramp(5000, 9);
+    auto pcm = makeRampPcm(ramp, rig.capFmt.channels);
+    rig.capPtr->pushPcm(pcm.data(), pcm.size());
+    ASSERT_TRUE(waitFor([&] { return eng.renderWritten() > 0; }));
+    ASSERT_TRUE(eng.stopDumpRender());
+    const std::wstring path = eng.poll().renderDumpPath;
+
+    WavReader r;
+    ASSERT_TRUE(r.open(path));
+    EXPECT_EQ(r.format().sampleRate, 48000u);
+    EXPECT_EQ(r.format().channels, 2);
+    EXPECT_FALSE(r.format().isFloat);
+    int16_t sample = 0;
+    EXPECT_GT(r.read(&sample, sizeof(sample)), 0u);
+    r.close();
+    DeleteFileW(path.c_str());
+    eng.stop();
+}
+
+TEST(MonitorEngine, SessionStopFinalizesCaptureDump) {
+    FakeRig rig;
+    MonitorEngine eng(rig.factory());
+    ASSERT_TRUE(static_cast<bool>(eng.start(BackendKind::WasapiShared, L"", L"", 50, false)));
+    wchar_t dir[MAX_PATH]{};
+    GetTempPathW(MAX_PATH, dir);
+    ASSERT_TRUE(eng.startDumpCapture(dir));
+    std::vector<int16_t> ramp(64, 3);
+    auto pcm = makeRampPcm(ramp, rig.capFmt.channels);
+    rig.capPtr->pushPcm(pcm.data(), pcm.size());
+    ASSERT_TRUE(waitFor([&] { return eng.capWritten() >= ramp.size(); }));
+    const std::wstring path = eng.poll().capDumpPath;
+    eng.stop();
+    WavReader r;
+    ASSERT_TRUE(r.open(path));
+    r.close();
+    DeleteFileW(path.c_str());
+}
+
+TEST(MonitorEngine, PlaybackOffFinalizesRenderDump) {
+    FakeRig rig;
+    MonitorEngine eng(rig.factory());
+    ASSERT_TRUE(static_cast<bool>(eng.start(BackendKind::WasapiShared, L"", L"", 50, true)));
+    wchar_t dir[MAX_PATH]{};
+    GetTempPathW(MAX_PATH, dir);
+    ASSERT_TRUE(eng.startDumpRender(dir));
+    std::vector<int16_t> ramp(5000, 4);
+    auto pcm = makeRampPcm(ramp, rig.capFmt.channels);
+    rig.capPtr->pushPcm(pcm.data(), pcm.size());
+    ASSERT_TRUE(waitFor([&] { return eng.renderWritten() > 0; }));
+    const std::wstring path = eng.poll().renderDumpPath;
+    eng.setPlaybackEnabled(false);
+    std::vector<int16_t> more(1024, 4);
+    auto pcm2 = makeRampPcm(more, rig.capFmt.channels);
+    rig.capPtr->pushPcm(pcm2.data(), pcm2.size());
+    ASSERT_TRUE(waitFor([&] { return eng.poll().renderState == StreamState::Idle; }));
+    WavReader r;
+    ASSERT_TRUE(r.open(path));
+    r.close();
+    DeleteFileW(path.c_str());
+    eng.stop();
 }

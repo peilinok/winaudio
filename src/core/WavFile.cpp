@@ -46,6 +46,11 @@ Result WavWriter::open(const std::wstring& path, const AudioFormat& fmt) {
     return Result::Ok();
 }
 
+void WavWriter::setStdioBuffer(size_t bytes) {
+    if (file_ && bytes > 0)
+        std::setvbuf(file_, nullptr, _IOFBF, bytes);
+}
+
 size_t WavWriter::write(const void* data, size_t bytes) {
     if (!file_) return 0;
     size_t n = std::fwrite(data, 1, bytes, file_);
