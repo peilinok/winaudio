@@ -7,6 +7,7 @@
 #include "AudioSessionEnumerator.h"
 #include "CaptureTrackList.h"
 #include "ChartHost.h"
+#include "CreateRecipe.h"
 #include "DeviceEnumerator.h"
 #include "DumpUi.h"
 #include "MonitorEngine.h"
@@ -65,6 +66,12 @@ private:
     void drawCapsModal();
     void drawFormatRegion();
     void recomputeDefaultFormat();
+    void recomputeLoopbackFormat();
+    void drawFormatRecipe(wa::create_recipe::FormatState& st,
+                          const std::vector<wa::AudioFormat>& candidates,
+                          const wa::AudioFormat& defaultDisplay,
+                          const char* comboId, wa::StreamParams& params);
+    void drawCaptureOptions(wa::StreamParams& params);
     void ensureRunningVisuals(const wa::MonitorStatus& status, VisualState& viz,
                               bool includeRender);
     // Chart Host: right-hand charts column (ensure + toolbar + panels + clear resetYAxes).
@@ -110,13 +117,13 @@ private:
     int                         delayMs_      = 100;
     bool                        monitorStarted_ = false;
     bool                        loopbackSilentRender_ = true;
-    char                        loopbackFmt_[32] = "";
+    wa::create_recipe::CreateRecipe loopbackRecipe_{};
     bool                        appLoopbackExclude_ = false; // create recipe; false = IncludeTree
     bool                        appLoopbackSessionsLoaded_ = false;
     std::vector<wa::AudioSessionProcess> appLoopbackSessions_;
     int                         appLoopbackSessionIdx_ = -1;
     char                        appLoopbackPid_[32] = "";
-    char                        appLoopbackFmt_[32] = "";
+    wa::create_recipe::CreateRecipe appLoopbackRecipe_{};
 
     wa::StreamParams capParams_{};    // Advanced 弹窗编辑;Start 时传入(运行中只读)
     wa::StreamParams renParams_{};
