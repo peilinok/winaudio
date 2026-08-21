@@ -187,7 +187,7 @@ Result CaptureTrackList::create(const CaptureTrackCreate& spec, TrackId* outId) 
         }
 
         Result r = m->backend->open(spec.source.deviceId, AudioFormat{}, m->ring.get(),
-                                    StreamParams{});
+                                    spec.streamParams);
         if (!r) {
             WA_LOG(wa::log::Level::Err, "CaptureTrackList", "create", "open", r.message);
             return r;

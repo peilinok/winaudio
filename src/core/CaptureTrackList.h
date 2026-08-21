@@ -19,6 +19,7 @@ struct CaptureTrackCreate {
     CaptureSource   source{};
     std::wstring    wavPath;
     const AudioFormat* requested = nullptr;
+    StreamParams    streamParams{};
     LoopbackOptions loopbackOptions{};
 };
 

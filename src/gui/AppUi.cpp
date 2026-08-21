@@ -124,6 +124,7 @@ void AppUi::refreshMonitorDevices() {
     capDevIdx_    = pick(capDevices_, prevCap);
     renderDevIdx_ = pick(renderDevices_, prevRen);
     loopbackDevIdx_ = pick(renderDevices_, prevLoopback);
+    loopbackRecipe_.deviceShown = -1;
     monitorDevicesLoaded_ = true;
 }
 
@@ -237,7 +238,7 @@ void AppUi::drawFormatRegion() {
     ImGui::SetNextItemWidth(-60.0f);
     ImGui::InputText("##fmtInput", fmtCustom_, sizeof(fmtCustom_));
     ImGui::SameLine();
-    if (ImGui::Button("Apply")) {
+    if (ImGui::Button(wa::ui_text::kApply)) {
         wa::AudioFormat parsed{};
         if (wa::parseFormatSpec(std::string(fmtCustom_), parsed)) {
             selectedFmt_  = parsed;
@@ -247,6 +248,120 @@ void AppUi::drawFormatRegion() {
             logLines_.push_back("invalid format");
         }
     }
+}
+
+static const char* kAudioCategories[] = {
+    "Other", "Communications", "Media", "Movie",
+    "Game chat", "Speech", "Sound effects", "Game media"
+};
+
+static void drawCaptureStreamParams(wa::StreamParams& p) {
+    bool capProps = p.clientProperties.enabled;
+    if (ImGui::Checkbox(wa::ui_text::kAdvancedSetClientProperties, &capProps))
+        p.clientProperties.enabled = capProps;
+    ImGui::BeginDisabled(!p.clientProperties.enabled);
+    int v = (int)p.clientProperties.category;
+    if (ImGui::Combo("Category", &v, kAudioCategories, IM_ARRAYSIZE(kAudioCategories)))
+        p.clientProperties.category = (wa::AudioCategory)v;
+    bool capOff = p.clientProperties.offload;
+    if (ImGui::Checkbox(wa::ui_text::kAdvancedHardwareOffload, &capOff))
+        p.clientProperties.offload = capOff;
+    v = (int)p.clientProperties.option;
+    if (ImGui::Combo("Stream option", &v, wa::ui_text::kAdvancedStreamOptions,
+                     wa::ui_text::kAdvancedStreamOptionCount))
+        p.clientProperties.option = (wa::StreamOption)v;
+    ImGui::EndDisabled();
+    v = (int)p.bufferMs;
+    if (ImGui::InputInt("Buffer (ms)", &v)) p.bufferMs = (uint32_t)std::clamp(v, 0, 2000);
+    if (ImGui::Button("Reset to system defaults")) p = wa::StreamParams{};
+}
+
+void AppUi::recomputeLoopbackFormat() {
+    wa::ComInitGuard com;
+    loopbackRecipe_.caps = wa::DeviceCapabilities{};
+    wa::DeviceId id = (!renderDevices_.empty() && loopbackDevIdx_ >= 0
+                       && loopbackDevIdx_ < (int)renderDevices_.size())
+                          ? renderDevices_[(size_t)loopbackDevIdx_].id
+                          : L"";
+    enumerator_.queryCapabilities(wa::DataFlow::Render, id, loopbackRecipe_.caps);
+    if (id != loopbackRecipe_.deviceId) {
+        wa::create_recipe::selectDefault(loopbackRecipe_.format, loopbackRecipe_.caps.mixFormat);
+        loopbackRecipe_.deviceId = id;
+    }
+    loopbackRecipe_.deviceShown = loopbackDevIdx_;
+}
+
+void AppUi::drawFormatRecipe(wa::create_recipe::FormatState& st,
+                             const std::vector<wa::AudioFormat>& candidates,
+                             const wa::AudioFormat& defaultDisplay,
+                             const char* comboId, wa::StreamParams& params) {
+    ImGui::PushID(comboId);
+    const int nOk = (int)candidates.size();
+    if (st.choiceIdx < -1 || st.choiceIdx > nOk) st.choiceIdx = 0;
+
+    auto fmtStr = [](const wa::AudioFormat& fmt) -> std::string {
+        std::string s = std::to_string(fmt.sampleRate) + "/" +
+                        std::to_string(fmt.bitsPerSample) + "/" +
+                        std::to_string(fmt.channels);
+        if (fmt.isFloat) s += "f";
+        return s;
+    };
+    if (st.haveRequested) {
+        ImGui::Text("Format: %u/%u/%u%s",
+                    st.selected.sampleRate, (unsigned)st.selected.bitsPerSample,
+                    (unsigned)st.selected.channels, st.selected.isFloat ? "f" : "");
+    } else if (st.selected.sampleRate) {
+        ImGui::Text("Format: %u/%u/%u%s (default)",
+                    st.selected.sampleRate, (unsigned)st.selected.bitsPerSample,
+                    (unsigned)st.selected.channels, st.selected.isFloat ? "f" : "");
+    } else {
+        ImGui::Text("Format: %s", wa::ui_text::kSystemDefault);
+    }
+
+    const std::string preview = (st.choiceIdx == 0) ? std::string(wa::ui_text::kSystemDefault)
+                              : (st.choiceIdx >= 1) ? fmtStr(candidates[(size_t)(st.choiceIdx - 1)])
+                              : fmtStr(st.selected);
+    ImGui::SetNextItemWidth(-80.0f);
+    if (ImGui::BeginCombo("##fmtCombo", preview.c_str())) {
+        const std::string defLabel = std::string(wa::ui_text::kSystemDefault) + "##0";
+        if (ImGui::Selectable(defLabel.c_str(), st.choiceIdx == 0))
+            wa::create_recipe::selectDefault(st, defaultDisplay);
+        for (int i = 0; i < nOk; ++i) {
+            const std::string label = fmtStr(candidates[(size_t)i]) + "##" + std::to_string(i + 1);
+            if (ImGui::Selectable(label.c_str(), st.choiceIdx == i + 1))
+                wa::create_recipe::selectCandidate(st, candidates[(size_t)i], i + 1);
+        }
+        ImGui::EndCombo();
+    }
+    drawCaptureOptions(params);
+
+    ImGui::SetNextItemWidth(-60.0f);
+    ImGui::InputText("##fmtInput", st.custom, sizeof(st.custom));
+    ImGui::SameLine();
+    if (ImGui::Button(wa::ui_text::kApply)) {
+        std::string err;
+        if (!wa::create_recipe::applyCustom(st, st.custom, &err))
+            logLines_.push_back(err);
+    }
+    ImGui::PopID();
+}
+
+void AppUi::drawCaptureOptions(wa::StreamParams& params) {
+    ImGui::SameLine();
+    if (ImGui::Button(wa::ui_text::kOptions))
+        ImGui::OpenPopup(wa::ui_text::kCaptureOptionsPopup);
+    if (!ImGui::BeginPopupModal(wa::ui_text::kCaptureOptionsPopup, nullptr,
+                                ImGuiWindowFlags_AlwaysAutoResize))
+        return;
+    ImGui::TextWrapped("%s", wa::ui_text::kAdvancedOptionsHelp);
+    ImGui::Separator();
+    ImGui::SeparatorText(wa::ui_text::kAdvancedCaptureSection);
+    ImGui::PushItemWidth(190);
+    drawCaptureStreamParams(params);
+    ImGui::PopItemWidth();
+    ImGui::Separator();
+    if (ImGui::Button("Close", ImVec2(120, 0))) ImGui::CloseCurrentPopup();
+    ImGui::EndPopup();
 }
 
 // Draw the Y-axis unit fixed at the plot's top-left (at the top of the tick numbers), with a
@@ -629,7 +744,11 @@ void AppUi::drawLoopbackLeftPanel() {
         ImGui::EndCombo();
     }
 
-    ImGui::InputText(wa::ui_text::kLoopbackFormatOptional, loopbackFmt_, sizeof(loopbackFmt_));
+    if (loopbackRecipe_.deviceShown != loopbackDevIdx_)
+        recomputeLoopbackFormat();
+    drawFormatRecipe(loopbackRecipe_.format,
+                     wa::create_recipe::sharedCandidates(loopbackRecipe_.caps),
+                     loopbackRecipe_.caps.mixFormat, "sysLbFmt", loopbackRecipe_.params);
     ImGui::Checkbox(wa::ui_text::kLoopbackSilentRender, &loopbackSilentRender_);
 
     ImGui::SeparatorText("Control");
@@ -640,18 +759,12 @@ void AppUi::drawLoopbackLeftPanel() {
         spec.kind = wa::BackendKind::WasapiShared;
         spec.source = wa::CaptureSource{wa::CaptureSourceKind::SystemLoopback, id};
         spec.loopbackOptions.silentRender = loopbackSilentRender_;
-        wa::AudioFormat fmt{};
-        if (loopbackFmt_[0] != '\0' && wa::parseFormatSpec(loopbackFmt_, fmt))
-            spec.requested = &fmt;
-        else if (loopbackFmt_[0] != '\0') {
-            logLines_.push_back("loopback create error: invalid format");
-        }
-        if (loopbackFmt_[0] == '\0' || spec.requested) {
-            wa::TrackId tid = 0;
-            wa::Result r = loopbackTracks_.create(spec, &tid);
-            logLines_.push_back(r ? ("loopback track created id=" + std::to_string(tid))
-                                  : ("loopback error: " + r.message));
-        }
+        spec.streamParams = loopbackRecipe_.params;
+        spec.requested = wa::create_recipe::requestedOrNull(loopbackRecipe_.format);
+        wa::TrackId tid = 0;
+        wa::Result r = loopbackTracks_.create(spec, &tid);
+        logLines_.push_back(r ? ("loopback track created id=" + std::to_string(tid))
+                              : ("loopback error: " + r.message));
     }
     ImGui::SameLine();
     if (ImGui::Button(wa::ui_text::kLoopbackDestroyAll, ctrlBtn)) {
@@ -712,7 +825,8 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
     ImGui::InputText("##appLoopbackPid", appLoopbackPid_, sizeof(appLoopbackPid_));
     ImGui::SameLine();
     ImGui::Checkbox(wa::ui_text::kApplicationLoopbackExclude, &appLoopbackExclude_);
-    ImGui::InputText(wa::ui_text::kLoopbackFormatOptional, appLoopbackFmt_, sizeof(appLoopbackFmt_));
+    drawFormatRecipe(appLoopbackRecipe_.format, {}, wa::AudioFormat{}, "appLbFmt",
+                     appLoopbackRecipe_.params);
 
     ImGui::SeparatorText("Control");
     const ImVec2 ctrlBtn(120.0f, ImGui::GetFrameHeight() * 1.3f);
@@ -728,21 +842,15 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
             spec.kind = wa::BackendKind::WasapiShared;
             spec.source = wa::CaptureSource{wa::CaptureSourceKind::ApplicationLoopback, L"",
                                             pid, mode};
-            wa::AudioFormat fmt{};
-            if (appLoopbackFmt_[0] != '\0' && wa::parseFormatSpec(appLoopbackFmt_, fmt))
-                spec.requested = &fmt;
-            else if (appLoopbackFmt_[0] != '\0') {
-                logLines_.push_back("application loopback create error: invalid format");
-            }
-            if (appLoopbackFmt_[0] == '\0' || spec.requested) {
-                wa::TrackId tid = 0;
-                wa::Result r = appLoopbackTracks_.create(spec, &tid);
-                logLines_.push_back(r
-                    ? ("application loopback track created id=" + std::to_string(tid)
-                       + " pid=" + std::to_string(pid)
-                       + " mode=" + wa::processLoopbackModeName(mode))
-                    : ("application loopback error: " + r.message));
-            }
+            spec.streamParams = appLoopbackRecipe_.params;
+            spec.requested = wa::create_recipe::requestedOrNull(appLoopbackRecipe_.format);
+            wa::TrackId tid = 0;
+            wa::Result r = appLoopbackTracks_.create(spec, &tid);
+            logLines_.push_back(r
+                ? ("application loopback track created id=" + std::to_string(tid)
+                   + " pid=" + std::to_string(pid)
+                   + " mode=" + wa::processLoopbackModeName(mode))
+                : ("application loopback error: " + r.message));
         }
     }
     ImGui::SameLine();
@@ -780,7 +888,7 @@ void AppUi::drawLeftPanel() {
     ImGui::SeparatorText("Devices");
     if (ImGui::Button("Refresh devices")) refreshMonitorDevices();
     ImGui::SameLine();
-    if (ImGui::Button("Options")) ImGui::OpenPopup("Audio parameters (advanced)");
+    if (ImGui::Button(wa::ui_text::kOptions)) ImGui::OpenPopup("Audio parameters (advanced)");
     if (ImGui::Button("Capture caps\xe2\x80\xa6")) {   // U+2026 HORIZONTAL ELLIPSIS
         wa::ComInitGuard com;
         wa::DeviceId capId = (capDevIdx_ >= 0 && capDevIdx_ < (int)capDevices_.size())
@@ -958,8 +1066,6 @@ void AppUi::drawAdvancedModal() {
         ImGui::TextColored(ImVec4(1.00f, 0.80f, 0.30f, 1.00f),
                            "Running: parameters are read-only. Stop the monitor to change them.");
     ImGui::Separator();
-    static const char* kCats[] = {"Other", "Communications", "Media", "Movie",
-                                  "Game chat", "Speech", "Sound effects", "Game media"};
 
     ImGui::BeginDisabled(monitorStarted_);              // view-only while running
 
@@ -967,24 +1073,7 @@ void AppUi::drawAdvancedModal() {
     ImGui::SeparatorText(wa::ui_text::kAdvancedCaptureSection);
     ImGui::PushID("capP");
     ImGui::PushItemWidth(190);
-    bool capProps = capParams_.clientProperties.enabled;
-    if (ImGui::Checkbox(wa::ui_text::kAdvancedSetClientProperties, &capProps))
-        capParams_.clientProperties.enabled = capProps;
-    ImGui::BeginDisabled(!capParams_.clientProperties.enabled);
-    int v = (int)capParams_.clientProperties.category;
-    if (ImGui::Combo("Category", &v, kCats, IM_ARRAYSIZE(kCats)))
-        capParams_.clientProperties.category = (wa::AudioCategory)v;
-    bool capOff = capParams_.clientProperties.offload;
-    if (ImGui::Checkbox(wa::ui_text::kAdvancedHardwareOffload, &capOff))
-        capParams_.clientProperties.offload = capOff;
-    v = (int)capParams_.clientProperties.option;
-    if (ImGui::Combo("Stream option", &v, wa::ui_text::kAdvancedStreamOptions,
-                     wa::ui_text::kAdvancedStreamOptionCount))
-        capParams_.clientProperties.option = (wa::StreamOption)v;
-    ImGui::EndDisabled();
-    v = (int)capParams_.bufferMs;
-    if (ImGui::InputInt("Buffer (ms)", &v)) capParams_.bufferMs = (uint32_t)std::clamp(v, 0, 2000);
-    if (ImGui::Button("Reset to system defaults")) capParams_ = wa::StreamParams{};
+    drawCaptureStreamParams(capParams_);
     ImGui::PopItemWidth();
     ImGui::PopID();
     ImGui::EndGroup();
@@ -999,8 +1088,8 @@ void AppUi::drawAdvancedModal() {
     if (ImGui::Checkbox(wa::ui_text::kAdvancedSetClientProperties, &renProps))
         renParams_.clientProperties.enabled = renProps;
     ImGui::BeginDisabled(!renParams_.clientProperties.enabled);
-    v = (int)renParams_.clientProperties.category;
-    if (ImGui::Combo("Category", &v, kCats, IM_ARRAYSIZE(kCats)))
+    int v = (int)renParams_.clientProperties.category;
+    if (ImGui::Combo("Category", &v, kAudioCategories, IM_ARRAYSIZE(kAudioCategories)))
         renParams_.clientProperties.category = (wa::AudioCategory)v;
     bool off = renParams_.clientProperties.offload;
     if (ImGui::Checkbox(wa::ui_text::kAdvancedHardwareOffload, &off))

@@ -67,6 +67,32 @@ HRESULT AudioClientInitAdapter::rebuild() {
                              reinterpret_cast<void**>(client_.GetAddressOf()));
 }
 
+HRESULT AudioClientInitAdapter::setClientProperties(const AudioClientProperties& props) {
+    ComPtr<IAudioClient2> client2;
+    HRESULT hr = client_->QueryInterface(__uuidof(IAudioClient2),
+                     reinterpret_cast<void**>(client2.GetAddressOf()));
+    WA_LOG(wa::log::Level::Debug, "AudioClientInitAdapter", "QueryInterface(IAudioClient2)",
+           "", wa::log::hrName(hr));
+    if (FAILED(hr) || !client2.Get()) return FAILED(hr) ? hr : E_NOINTERFACE;
+    hr = client2->SetClientProperties(&props);
+    WA_LOG(wa::log::Level::Debug, "AudioClientInitAdapter", "SetClientProperties",
+           "", wa::log::hrName(hr));
+    return hr;
+}
+
+HRESULT AudioClientInitAdapter::isOffloadCapable(AUDIO_STREAM_CATEGORY category, BOOL* capable) {
+    ComPtr<IAudioClient2> client2;
+    HRESULT hr = client_->QueryInterface(__uuidof(IAudioClient2),
+                     reinterpret_cast<void**>(client2.GetAddressOf()));
+    WA_LOG(wa::log::Level::Debug, "AudioClientInitAdapter", "QueryInterface(IAudioClient2)",
+           "", wa::log::hrName(hr));
+    if (FAILED(hr) || !client2.Get()) return FAILED(hr) ? hr : E_NOINTERFACE;
+    hr = client2->IsOffloadCapable(category, capable);
+    WA_LOG(wa::log::Level::Debug, "AudioClientInitAdapter", "IsOffloadCapable",
+           "", wa::log::hrName(hr));
+    return hr;
+}
+
 Result streamInitShared(AudioClientInit& client, const StreamInitRequest& req,
                         StreamInitOutcome& out) {
     const REFERENCE_TIME dur = req.params.bufferMs

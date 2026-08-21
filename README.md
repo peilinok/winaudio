@@ -66,14 +66,14 @@ cd winaudio
 
 本页是一份 System Loopback **Capture Track** 列表（Shared-only），不是单路 Start/Stop。
 
-- **Create Track**：选一个 render device 作为 Capture source，可选填 format，「Silent render keepalive」默认开启（该路 live 期间不可改）。Create 立即开流，没有第二步 Start。同一 render device 允许同时开多路。
+- **Create Track**：选一个 render device 作为 Capture source。Format 下拉为 System default（不传 requested，走 mix）+ 当前 render 设备 Shared 候选 + Custom Apply（`sr/bits/ch[f]`，与 Monitor 相同）。Options 为采集列（Set client properties、category、offload、stream option、buffer；无 Ducking、无 AutoConvert 控件），写入下一次 Create 的 Stream params。Silent render keepalive 默认开启，且始终全默认 mix，不继承本页配方。Create 立即开流，没有第二步 Start。同一 render device 允许同时开多路。本页配方与 Monitor / Application Loopback 互不共用；Destroy 和切 tab 不清配方。
 - **Destroy** / **Destroy all**：Destroy 只拆这一路（采集、silent render helper、该路若在 dump 则收尾 WAV、该路图）。Destroy all 只清本页，不动 Application Loopback 或 Monitor。
 - 右侧为每路独立的 Capture-only **Chart Host**（波形 + 声谱图；2ch+ 时 `Ch N` 拆分仍在该 Track 内，最多前 8 个 channel）。Chart freeze 与 linked time axis 按 Track，路与路不共享时间轴或格式。
 - **Dump** / **Stop dump**：每路独立、运行中随时开停的 WAV sink。Start dump 选保存文件夹，文件名按固定 prefix、实际格式和时间戳生成；Stop dump（或 Destroy）成功后用资源管理器选中该文件。多路不会混成一个流或一个文件。
 
 ### Application Loopback（按进程回采）
 
-本页是一份 Application Loopback Capture Track 列表（Create / Destroy / Destroy all、堆叠 Chart Host、可选 format、每路独立 Dump）。Capture source 是 **PID + IncludeTree / ExcludeTree**。Dump 文件名带进程名和 PID。Destroy 只拆这一路；Destroy all 只清本页的 Application Loopback Capture Track，不动 Loopback 页或 Monitor。
+本页是一份 Application Loopback Capture Track 列表（Create / Destroy / Destroy all、堆叠 Chart Host、每路独立 Dump）。Capture source 是 **PID + IncludeTree / ExcludeTree**。Format 下拉只有 System default，外加 Custom Apply（没有麦克风或扬声器候选表）。Options 同采集列，Create 把该页 Stream params 送进开流（enabled 时会 SetClientProperties）。配方与 Monitor / System Loopback 互不共用。Dump 文件名带进程名和 PID。Destroy 只拆这一路；Destroy all 只清本页的 Application Loopback Capture Track，不动 Loopback 页或 Monitor。运行中 Track 行只显示实际格式。
 
 打开 tab 后自动枚举当前有 Audio Session 的进程（进程名 + PID，按进程名排序），「Refresh」重新枚举。Session 列表只做发现：点击一行把 PID 填入输入框，也可手输任意非零 PID（不必出现在列表中）。点列表不会开流。
 

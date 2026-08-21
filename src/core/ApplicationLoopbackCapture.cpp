@@ -147,6 +147,49 @@ Result streamInitApplicationLoopback(AudioClientInit& client, StreamInitRequest 
     return streamInitShared(client, req, out);
 }
 
+Result applyApplicationLoopbackClientProperties(AudioClientInit& client,
+                                                const StreamParams& params) {
+    if (!params.anyClientProps()) return Result::Ok();
+    const ClientProperties& cp = params.clientProperties;
+    const AUDIO_STREAM_CATEGORY cat = mapCategory(cp.category);
+    if (cp.offload) {
+        BOOL capable = FALSE;
+        HRESULT hr = client.isOffloadCapable(cat, &capable);
+        WA_LOG(wa::log::Level::Debug, "ApplicationLoopbackCaptureStream", "IsOffloadCapable",
+               "", wa::log::hrName(hr));
+        if (FAILED(hr)) {
+            WA_LOG(wa::log::Level::Err, "ApplicationLoopbackCaptureStream", "IsOffloadCapable",
+                   "", wa::log::hrName(hr));
+            return HrToResult(hr, "ApplicationLoopbackCaptureStream: IsOffloadCapable");
+        }
+        if (!capable) {
+            return Result::Fail(-1,
+                "ApplicationLoopbackCaptureStream: device/category does not support hardware offload");
+        }
+    }
+    AudioClientProperties p{};
+    p.cbSize = sizeof(p);
+    p.bIsOffload = cp.offload ? TRUE : FALSE;
+    p.eCategory = cat;
+    p.Options = mapStreamOption(cp.option);
+    HRESULT hr = client.setClientProperties(p);
+    WA_LOG(wa::log::Level::Debug, "ApplicationLoopbackCaptureStream", "SetClientProperties",
+           "", wa::log::hrName(hr));
+    if (FAILED(hr)) {
+        WA_LOG(wa::log::Level::Err, "ApplicationLoopbackCaptureStream", "SetClientProperties",
+               "", wa::log::hrName(hr));
+        return HrToResult(hr, "ApplicationLoopbackCaptureStream: SetClientProperties");
+    }
+    return Result::Ok();
+}
+
+Result openApplicationLoopbackClient(AudioClientInit& client, StreamInitRequest req,
+                                     StreamInitOutcome& out) {
+    Result r = applyApplicationLoopbackClientProperties(client, req.params);
+    if (!r) return r;
+    return streamInitApplicationLoopback(client, req, out);
+}
+
 ApplicationLoopbackCaptureStream::~ApplicationLoopbackCaptureStream() { close(); }
 
 Result ApplicationLoopbackCaptureStream::open(const DeviceId&, const AudioFormat&,
@@ -240,7 +283,7 @@ Result ApplicationLoopbackCaptureStream::initializeClient() {
     req.params = params_;
     req.direction = StreamInitDirection::Capture;
     StreamInitOutcome out;
-    Result r = streamInitApplicationLoopback(adapter, req, out);
+    Result r = openApplicationLoopbackClient(adapter, req, out);
     if (r) {
         actualFormat_ = out.actualFormat;
         frameBytes_ = out.frameBytes;
