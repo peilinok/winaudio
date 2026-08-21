@@ -101,8 +101,11 @@ TEST(ChartsTimeZoomUiText, ExposesZoomAndResetLabels) {
     EXPECT_STREQ(wa::ui_text::kLoopbackDestroyAll, "Destroy all");
     EXPECT_STREQ(wa::ui_text::kLoopbackTracks, "Tracks");
     EXPECT_STREQ(wa::ui_text::kLoopbackSilentRender, "Silent render keepalive");
-    EXPECT_STREQ(wa::ui_text::kLoopbackWavOptional, "WAV (optional)");
     EXPECT_STREQ(wa::ui_text::kLoopbackFormatOptional, "Format (optional)");
+    EXPECT_STREQ(wa::ui_text::kDump, "Dump");
+    EXPECT_STREQ(wa::ui_text::kDumpStop, "Stop dump");
+    EXPECT_STREQ(wa::ui_text::kDumpCapture, "Dump capture");
+    EXPECT_STREQ(wa::ui_text::kDumpRender, "Dump render");
     EXPECT_STREQ(wa::ui_text::kLoopbackEmptyHint, "Create a Track to capture system audio.");
 }
 

@@ -41,8 +41,11 @@ inline constexpr const char* kLoopbackDestroy = "Destroy";
 inline constexpr const char* kLoopbackDestroyAll = "Destroy all";
 inline constexpr const char* kLoopbackTracks = "Tracks";
 inline constexpr const char* kLoopbackSilentRender = "Silent render keepalive";
-inline constexpr const char* kLoopbackWavOptional = "WAV (optional)";
 inline constexpr const char* kLoopbackFormatOptional = "Format (optional)";
+inline constexpr const char* kDump = "Dump";
+inline constexpr const char* kDumpStop = "Stop dump";
+inline constexpr const char* kDumpCapture = "Dump capture";
+inline constexpr const char* kDumpRender = "Dump render";
 inline constexpr const char* kLoopbackEmptyHint = "Create a Track to capture system audio.";
 inline constexpr const char* kApplicationLoopbackEmptyHint =
     "Create a Track to capture application audio.";

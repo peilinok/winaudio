@@ -51,6 +51,7 @@ private:
     void drawApplicationLoopbackPage();
     void drawLoopbackLeftPanel();
     void drawApplicationLoopbackLeftPanel();
+    void drawDumpControls(wa::CaptureTrackList& list, const wa::CaptureTrackStatus& t);
     void drawStackedCaptureTrackHosts(wa::CaptureTrackList& list,
                                       std::vector<std::pair<wa::TrackId, VisualState>>& viz,
                                       const char* emptyHint);
@@ -104,14 +105,12 @@ private:
     int                         delayMs_      = 100;
     bool                        monitorStarted_ = false;
     bool                        loopbackSilentRender_ = true;
-    char                        loopbackWav_[260] = "";
     char                        loopbackFmt_[32] = "";
     bool                        appLoopbackExclude_ = false; // create recipe; false = IncludeTree
     bool                        appLoopbackSessionsLoaded_ = false;
     std::vector<wa::AudioSessionProcess> appLoopbackSessions_;
     int                         appLoopbackSessionIdx_ = -1;
     char                        appLoopbackPid_[32] = "";
-    char                        appLoopbackWav_[260] = "";
     char                        appLoopbackFmt_[32] = "";
 
     wa::StreamParams capParams_{};    // Advanced 弹窗编辑;Start 时传入(运行中只读)
