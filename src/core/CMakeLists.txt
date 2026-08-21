@@ -5,6 +5,7 @@ add_library(WinAudioCore STATIC
     RingBuffer.cpp
     SampleConvert.cpp
     WavFile.cpp
+    WavSink.cpp
     AudioSessionEnumerator.cpp
     ApplicationLoopbackCapture.cpp
     DeviceEnumerator.cpp

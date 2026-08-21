@@ -8,6 +8,7 @@ add_executable(WinAudioTests
     test_ringbuffer.cpp
     test_sampleconvert.cpp
     test_wavfile.cpp
+    test_wav_sink.cpp
     test_formatspec.cpp
     test_scopebuffer.cpp
     test_scope_reader.cpp

@@ -11,6 +11,7 @@ class WavWriter {
 public:
     ~WavWriter();
     Result open(const std::wstring& path, const AudioFormat& fmt);
+    void   setStdioBuffer(size_t bytes);          // setvbuf; no-op if not open
     size_t write(const void* data, size_t bytes); // returns bytes written
     Result close();                               // patches sizes
 private:

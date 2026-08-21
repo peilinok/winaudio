@@ -9,7 +9,7 @@
 #include "SampleConvert.h"
 #include "ScopeBuffer.h"
 #include "WasapiStream.h"
-#include "WavFile.h"
+#include "WavSink.h"
 #include <windows.h>
 #include <algorithm>
 #include <cmath>
@@ -54,6 +54,14 @@ const char* sourceName(CaptureSourceKind kind) {
     default:                                     return "endpoint";
     }
 }
+
+const char* dumpPrefix(CaptureSourceKind kind) {
+    switch (kind) {
+    case CaptureSourceKind::SystemLoopback:      return "loopback";
+    case CaptureSourceKind::ApplicationLoopback: return "app-loopback";
+    default:                                     return "capture";
+    }
+}
 } // namespace
 
 struct CaptureTrackList::Member {
@@ -64,6 +72,8 @@ struct CaptureTrackList::Member {
     std::unique_ptr<IAudioBackend> silent;
     std::unique_ptr<RingBuffer>    ring;
     std::unique_ptr<ScopeBuffer>   tap;
+    WavSink sink;
+    bool wavFatal = false;
     std::thread pump;
     std::atomic<bool> running{false};
     std::mutex mtx;
@@ -72,6 +82,7 @@ struct CaptureTrackList::Member {
     void stopPumpAndBackends() {
         running.store(false, std::memory_order_relaxed);
         if (pump.joinable()) pump.join();
+        else sink.stop();
         if (silent) {
             silent->stop();
             silent->close();
@@ -193,33 +204,34 @@ Result CaptureTrackList::create(const CaptureTrackCreate& spec, TrackId* outId) 
             const uint16_t ch = fmt.channels ? fmt.channels : static_cast<uint16_t>(1);
             const size_t scopeCap = std::max<size_t>(static_cast<size_t>(sr) * 2u, 1048576u);
             m->tap = std::make_unique<ScopeBuffer>(scopeCap, ch);
+            if (!spec.wavPath.empty()) {
+                m->wavFatal = true;
+                Result wr = m->sink.startExact(spec.wavPath, fmt);
+                if (!wr) {
+                    WA_LOG(wa::log::Level::Err, "CaptureTrackList", "wav.open", "", wr.message);
+                    std::lock_guard<std::mutex> lk(m->mtx);
+                    m->status.state = StreamState::Error;
+                    m->status.message = wr.message.empty() ? "cannot open output wav"
+                                                           : wr.message;
+                    m->wavFatal = false;
+                }
+            }
         }
-        m->running.store(true, std::memory_order_relaxed);
+        const bool wavOpenFailed = m->status.state == StreamState::Error;
+        m->running.store(!wavOpenFailed, std::memory_order_relaxed);
         {
             std::lock_guard<std::mutex> lk(m->mtx);
-            m->status.state = StreamState::Running;
+            if (!wavOpenFailed)
+                m->status.state = StreamState::Running;
             m->status.actualFormat = m->backend->stats().actualFormat;
             m->status.silentRenderState = silentSt;
         }
+        if (!wavOpenFailed)
         m->pump = std::thread([mem = m.get()] {
             wa::log::setThreadName("ctl-cap");
             AudioFormat fmt = mem->backend->stats().actualFormat;
             const uint32_t frameBytes = fmt.blockAlign();
             const uint16_t ch = fmt.channels ? fmt.channels : static_cast<uint16_t>(1);
-            WavWriter writer;
-            const bool wantWav = !mem->wavPath.empty();
-            if (wantWav) {
-                Result wr = writer.open(mem->wavPath, fmt);
-                if (!wr) {
-                    WA_LOG(wa::log::Level::Err, "CaptureTrackList", "wav.open", "", wr.message);
-                    std::lock_guard<std::mutex> lk(mem->mtx);
-                    mem->status.state = StreamState::Error;
-                    mem->status.message = wr.message.empty() ? "cannot open output wav"
-                                                             : wr.message;
-                    mem->running.store(false, std::memory_order_relaxed);
-                    return;
-                }
-            }
             std::vector<uint8_t> buf(16384);
             std::vector<float> interleaved(4096u * ch, 0.f);
             while (mem->running.load(std::memory_order_relaxed)) {
@@ -231,13 +243,15 @@ Result CaptureTrackList::create(const CaptureTrackCreate& spec, TrackId* outId) 
                 const size_t frames = got / frameBytes;
                 got = frames * frameBytes;
                 if (frames == 0) continue;
-                if (wantWav && writer.write(buf.data(), got) != got) {
-                    WA_LOG(wa::log::Level::Err, "CaptureTrackList", "wav.write", "", "short write");
-                    std::lock_guard<std::mutex> lk(mem->mtx);
-                    mem->status.state = StreamState::Error;
-                    mem->status.message = "wav write failed";
-                    mem->running.store(false, std::memory_order_relaxed);
-                    return;
+                if (mem->sink.isRunning()) {
+                    const size_t wn = mem->sink.push(buf.data(), got);
+                    if (wn != got && mem->wavFatal) {
+                        WA_LOG(wa::log::Level::Err, "CaptureTrackList", "wav.write", "",
+                               "short write");
+                        std::lock_guard<std::mutex> lk(mem->mtx);
+                        mem->status.state = StreamState::Error;
+                        mem->status.message = "wav write failed";
+                    }
                 }
                 if (mem->tap && frames > 0) {
                     size_t done = 0;
@@ -257,7 +271,7 @@ Result CaptureTrackList::create(const CaptureTrackCreate& spec, TrackId* outId) 
                 mem->status.overruns = mem->ring->overruns();
                 mem->status.writtenFrames = mem->tap ? mem->tap->totalWritten() : 0;
             }
-            if (wantWav) writer.close();
+            mem->sink.stop();
         });
     } catch (const std::exception& e) {
         m->stopPumpAndBackends();
@@ -303,11 +317,60 @@ void CaptureTrackList::destroyAll() {
     for (auto& m : gone) m->stopPumpAndBackends();
 }
 
+CaptureTrackList::Member* CaptureTrackList::findUnlocked(TrackId id) {
+    return const_cast<Member*>(
+        static_cast<const CaptureTrackList*>(this)->findUnlocked(id));
+}
+
 const CaptureTrackList::Member* CaptureTrackList::findUnlocked(TrackId id) const {
     for (const auto& m : members_) {
         if (m->id == id) return m.get();
     }
     return nullptr;
+}
+
+Result CaptureTrackList::startDump(TrackId id, const std::wstring& folder) {
+    Member* m = nullptr;
+    AudioFormat fmt{};
+    CaptureSourceKind kind = CaptureSourceKind::Endpoint;
+    {
+        std::lock_guard<std::mutex> lk(mtx_);
+        m = findUnlocked(id);
+        if (!m) return Result::Fail(-1, "CaptureTrackList: unknown track");
+        std::lock_guard<std::mutex> mlk(m->mtx);
+        if (m->status.state != StreamState::Running)
+            return Result::Fail(-1, "CaptureTrackList: track not running");
+        if (m->sink.isRunning())
+            return Result::Fail(-1, "CaptureTrackList: dump already running");
+        fmt = m->status.actualFormat;
+        kind = m->source.kind;
+    }
+    Result r = m->sink.start(folder, dumpPrefix(kind), fmt);
+    if (!r) {
+        WA_LOG(wa::log::Level::Err, "CaptureTrackList", "dump.start",
+               "id=" + std::to_string(id), r.message);
+        return r;
+    }
+    m->wavFatal = false;
+    WA_LOG(wa::log::Level::Info, "CaptureTrackList", "dump.start",
+           "id=" + std::to_string(id) + " prefix=" + dumpPrefix(kind), "ok");
+    return Result::Ok();
+}
+
+Result CaptureTrackList::stopDump(TrackId id) {
+    Member* m = nullptr;
+    {
+        std::lock_guard<std::mutex> lk(mtx_);
+        m = findUnlocked(id);
+        if (!m) return Result::Fail(-1, "CaptureTrackList: unknown track");
+    }
+    const bool wasRunning = m->sink.isRunning();
+    Result r = m->sink.stop();
+    WA_LOG(r ? wa::log::Level::Info : wa::log::Level::Err, "CaptureTrackList", "dump.stop",
+           "id=" + std::to_string(id), r ? "ok" : r.message);
+    if (!wasRunning && r)
+        return Result::Fail(-1, "CaptureTrackList: dump not running");
+    return r;
 }
 
 uint64_t CaptureTrackList::written(TrackId id) const {
@@ -347,7 +410,14 @@ std::vector<CaptureTrackStatus> CaptureTrackList::poll() const {
     out.reserve(members_.size());
     for (const auto& m : members_) {
         std::lock_guard<std::mutex> mlk(m->mtx);
-        out.push_back(m->status);
+        CaptureTrackStatus s = m->status;
+        const WavSinkStatus ds = m->sink.poll();
+        s.dumping = ds.state == WavSinkState::Running;
+        s.dumpError = ds.state == WavSinkState::Error;
+        s.dumpPath = ds.path;
+        s.dumpFileName = ds.fileName;
+        s.dumpMessage = ds.message;
+        out.push_back(std::move(s));
     }
     return out;
 }

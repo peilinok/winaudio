@@ -33,6 +33,11 @@ struct CaptureTrackStatus {
     uint64_t      writtenFrames = 0;
     StreamState   silentRenderState = StreamState::Idle;
     std::string   message;
+    bool          dumping = false;
+    bool          dumpError = false;
+    std::wstring  dumpPath;
+    std::wstring  dumpFileName;
+    std::string   dumpMessage;
 };
 
 // Live Capture Tracks with independent lifetime. Create starts immediately.
@@ -53,6 +58,8 @@ public:
     Result create(const CaptureTrackCreate& spec, TrackId* outId);
     void   destroy(TrackId id);
     void   destroyAll();
+    Result startDump(TrackId id, const std::wstring& folder);
+    Result stopDump(TrackId id);
     std::vector<CaptureTrackStatus> poll() const;
 
     uint64_t written(TrackId id) const;
@@ -70,6 +77,7 @@ private:
     std::vector<std::unique_ptr<Member>> members_;
     mutable std::mutex   mtx_;
 
+    Member*       findUnlocked(TrackId id);
     const Member* findUnlocked(TrackId id) const;
 };
 
