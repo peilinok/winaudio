@@ -212,7 +212,8 @@ void AppUi::applyPipelineJoin() {
         etw = wa::matchEtwInitialize(session, pipelineEtw_.snapshot(), wa::etwNowMs());
     pipelineEtwHint_ = etw;
     const auto hooked = wa::shapeCallLog(pipelineCalls_, false);
-    pipelineNodes_ = wa::assemblePipeline(session, pipelineEndpoint_, etw, pipelineProbes_, hooked);
+    pipelineNodes_ = wa::assemblePipeline(session, pipelineEndpoint_, etw, pipelineProbes_,
+                                          hooked.entries);
 }
 
 void AppUi::runPipelineProbe() {
@@ -263,6 +264,7 @@ void AppUi::runPipelineAttach() {
         return;
     }
     pipelineAttachBanner_.clear();
+    pipelineAttach_.setPumpEnabled(pipelinePump_);
     logLines_.push_back("pipeline attached pid=" + std::to_string(pid));
     applyPipelineJoin();
 }
@@ -843,6 +845,10 @@ void AppUi::drawPipelinePage() {
     } else if (etwStatus == wa::EtwWatchStatus::Listening) {
         ImGui::TextUnformatted(wa::ui_text::kPipelineEtwListening);
     }
+    if (ImGui::Checkbox(wa::ui_text::kPipelinePump, &pipelinePump_)) {
+        if (pipelineAttach_.attached())
+            pipelineAttach_.setPumpEnabled(pipelinePump_);
+    }
     if (pipelineAttach_.attached()) {
         ImGui::TextUnformatted(wa::ui_text::kPipelineAttached);
     } else if (!pipelineAttachBanner_.empty()) {
@@ -927,7 +933,14 @@ void AppUi::drawPipelinePage() {
     ImGui::SameLine();
     ImGui::BeginChild("pipelineCallLog", ImVec2(0, 0), true);
     ImGui::SeparatorText(wa::ui_text::kPipelineCallLog);
-    const auto callLog = wa::shapeCallLog(pipelineCalls_, false);
+    std::vector<wa::HookedCall> callSrc = pipelineCalls_;
+    if (pipelinePump_ && pipelineAttach_.attached()) {
+        auto pump = pipelineAttach_.pumpRing();
+        callSrc.insert(callSrc.end(), pump.begin(), pump.end());
+        ImGui::Text("%s: %u", wa::ui_text::kPipelineXruns, pipelineAttach_.pumpXruns());
+    }
+    const auto callView = wa::shapeCallLog(callSrc, pipelinePump_);
+    const auto& callLog = callView.entries;
     if (callLog.empty()) {
         ImGui::TextWrapped("%s", wa::ui_text::kPipelineCallLogEmpty);
     } else if (ImGui::BeginTable("pipelineCalls", 5,

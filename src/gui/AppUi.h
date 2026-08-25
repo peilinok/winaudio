@@ -153,6 +153,7 @@ private:
     wa::OnDemandAttach pipelineAttach_;
     std::vector<wa::HookedCall> pipelineCalls_;
     std::string pipelineAttachBanner_;
+    bool pipelinePump_ = false;
 
     wa::StreamParams capParams_{};    // Advanced 弹窗编辑;Start 时传入(运行中只读)
     wa::StreamParams renParams_{};
