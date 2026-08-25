@@ -28,6 +28,7 @@ enable_testing()
 
 add_subdirectory(third_party)
 add_subdirectory(src/core)
+add_subdirectory(src/hook)
 add_subdirectory(src/cli)
 add_subdirectory(src/gui)
 add_subdirectory(src/tests)

@@ -71,6 +71,22 @@ struct EtwInitializeHint {
     std::optional<bool> matchFormat;
     std::optional<bool> exclusive;
     std::optional<int32_t> hresult;
+    std::optional<std::string> format;
+};
+
+struct HookedCall {
+    uint32_t streamId = 0;
+    int64_t timeMs = 0;
+    std::string iface;
+    std::string method;
+    std::string args;
+    int32_t hresult = 0;
+    bool pump = false;
+    std::optional<std::string> category;
+    std::optional<bool> raw;
+    std::optional<bool> matchFormat;
+    std::optional<bool> exclusive;
+    std::optional<std::string> format;
 };
 
 struct AdvertisedEffect {
@@ -88,11 +104,14 @@ struct ProbeSlice {
 
 const char* observationKindName(ObservationKind kind);
 
-// Pure join of session + endpoint + optional ETW + probes. No COM, no devices.
+// Pure join of session + endpoint + optional ETW + probes + hooked calls.
+// Hooked Initialize fields override matching ETW fields and stay Observed.
+// No COM, no devices.
 std::vector<PipelineNode> assemblePipeline(
     const LiveSessionView& session,
     const EndpointSnapshot& endpoint,
     const EtwInitializeHint& etw,
-    const std::vector<ProbeSlice>& probes);
+    const std::vector<ProbeSlice>& probes,
+    const std::vector<HookedCall>& hooked = {});
 
 }  // namespace wa
