@@ -62,5 +62,6 @@ inline constexpr const char* kPipelineEmpty =
 inline constexpr const char* kPipelineSelectHint =
     "Select a Live session to see its processing graph.";
 inline constexpr const char* kPipelineGraph = "Processing graph";
+inline constexpr const char* kPipelineProbe = "Probe this device";
 
 } // namespace wa::ui_text
