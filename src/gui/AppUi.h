@@ -14,6 +14,7 @@
 #include "EtwInitialize.h"
 #include "LiveSessionEnumerator.h"
 #include "MonitorEngine.h"
+#include "OnDemandAttach.h"
 #include "PipelineGraph.h"
 #include "SharedProbe.h"
 #include "Spectrogram.h"
@@ -57,6 +58,7 @@ private:
     void rebuildPipelineGraph();
     void applyPipelineJoin();
     void runPipelineProbe();
+    void runPipelineAttach();
     void drawMonitorPage();
     void drawPipelinePage();
     void drawLoopbackPage();
@@ -148,6 +150,9 @@ private:
     bool pipelineEtwStarted_ = false;
     wa::EndpointSnapshot pipelineEndpoint_;
     wa::EtwInitializeHint pipelineEtwHint_{};
+    wa::OnDemandAttach pipelineAttach_;
+    std::vector<wa::HookedCall> pipelineCalls_;
+    std::string pipelineAttachBanner_;
 
     wa::StreamParams capParams_{};    // Advanced 弹窗编辑;Start 时传入(运行中只读)
     wa::StreamParams renParams_{};

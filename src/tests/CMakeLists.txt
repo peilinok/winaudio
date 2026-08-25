@@ -29,6 +29,8 @@ add_executable(WinAudioTests
     test_live_session_list.cpp
     test_shared_probe.cpp
     test_etw_initialize.cpp
+    test_hooked_call.cpp
+    test_on_demand_attach.cpp
 
     test_cli_options.cpp
     test_dump_ui.cpp

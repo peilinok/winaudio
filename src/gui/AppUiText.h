@@ -65,5 +65,17 @@ inline constexpr const char* kPipelineGraph = "Processing graph";
 inline constexpr const char* kPipelineProbe = "Probe this device";
 inline constexpr const char* kPipelineEtwUnavailable = "ETW unavailable";
 inline constexpr const char* kPipelineEtwListening = "ETW listening";
+inline constexpr const char* kPipelineAttach = "Attach";
+inline constexpr const char* kPipelineCallLog = "Call log";
+inline constexpr const char* kPipelineAttached = "Attached";
+inline constexpr const char* kPipelineCallLogEmpty =
+    "No control-path calls yet. Attach to intercept Core Audio COM.";
+inline constexpr const char* kPipelineCrossBitness = "Attach failed: cross-bitness";
+inline constexpr const char* kPipelineNoDebug = "Attach failed: missing debug rights";
+inline constexpr const char* kPipelineCallColIface = "Iface";
+inline constexpr const char* kPipelineCallColMethod = "Method";
+inline constexpr const char* kPipelineCallColArgs = "Args";
+inline constexpr const char* kPipelineCallColHr = "HR";
+inline constexpr const char* kPipelineCallColStream = "Stream";
 
 } // namespace wa::ui_text

@@ -1,4 +1,5 @@
 #include "PipelineGraph.h"
+#include "HookedCall.h"
 #include <algorithm>
 #include <cstring>
 
@@ -220,33 +221,36 @@ std::vector<PipelineNode> assemblePipeline(
     const LiveSessionView& session,
     const EndpointSnapshot& endpoint,
     const EtwInitializeHint& etw,
-    const std::vector<ProbeSlice>& probes) {
+    const std::vector<ProbeSlice>& probes,
+    const std::vector<HookedCall>& hooked) {
+    const EtwInitializeHint hint = mergeInitializeHint(etw, extractHookedInitialize(hooked));
     std::vector<PipelineNode> out;
     const bool capture = session.flow == PipelineFlow::Capture;
 
     if (capture) {
         out.push_back(hardwareNode(endpoint));
         out.push_back(driverNode());
-        appendEngine(out, endpoint, etw, probes, true);
+        appendEngine(out, endpoint, hint, probes, true);
         out.push_back(sessionNode(session));
         out.push_back(appNode(session));
     } else {
         out.push_back(appNode(session));
         out.push_back(sessionNode(session));
-        appendEngine(out, endpoint, etw, probes, false);
+        appendEngine(out, endpoint, hint, probes, false);
         out.push_back(driverNode());
         out.push_back(hardwareNode(endpoint));
     }
 
-    if (etw.present && etw.hresult) {
-        // Attach HRESULT to the session node so Initialize result is visible even on Exclusive.
-        for (auto& n : out) {
-            if (n.id == "session") {
-                n.params.push_back(param("Initialize HRESULT", std::to_string(*etw.hresult),
-                                         ObservationKind::Observed));
-                break;
-            }
+    for (auto& n : out) {
+        if (n.id != "session") continue;
+        if (hint.present && hint.hresult) {
+            n.params.push_back(param("Initialize HRESULT", std::to_string(*hint.hresult),
+                                     ObservationKind::Observed));
         }
+        if (hint.present && hint.format) {
+            n.params.push_back(param("app stream format", *hint.format, ObservationKind::Observed));
+        }
+        break;
     }
     return out;
 }

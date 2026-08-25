@@ -134,6 +134,7 @@ void AppUi::stopAll() {
     loopbackTracks_.destroyAll();
     appLoopbackTracks_.destroyAll();
     pipelineEtw_.stop();
+    pipelineAttach_.stop();
 }
 
 void AppUi::refreshApplicationLoopbackSessions() {
@@ -210,7 +211,8 @@ void AppUi::applyPipelineJoin() {
     if (pipelineEtw_.status() == wa::EtwWatchStatus::Listening)
         etw = wa::matchEtwInitialize(session, pipelineEtw_.snapshot(), wa::etwNowMs());
     pipelineEtwHint_ = etw;
-    pipelineNodes_ = wa::assemblePipeline(session, pipelineEndpoint_, etw, pipelineProbes_);
+    const auto hooked = wa::shapeCallLog(pipelineCalls_, false);
+    pipelineNodes_ = wa::assemblePipeline(session, pipelineEndpoint_, etw, pipelineProbes_, hooked);
 }
 
 void AppUi::runPipelineProbe() {
@@ -246,6 +248,23 @@ void AppUi::runPipelineProbe() {
                                   " recipe error(s)")
                                : "pipeline probe completed");
     rebuildPipelineGraph();
+}
+
+void AppUi::runPipelineAttach() {
+    if (pipelineSelected_ < 0 || pipelineSelected_ >= (int)pipelineSessions_.size())
+        return;
+    const uint32_t pid = pipelineSessions_[(size_t)pipelineSelected_].processId;
+    pipelineCalls_.clear();
+    wa::Result r = pipelineAttach_.start(pid);
+    if (!r) {
+        pipelineAttachBanner_ = r.message;
+        logLines_.push_back("pipeline attach failed: " + r.message);
+        applyPipelineJoin();
+        return;
+    }
+    pipelineAttachBanner_.clear();
+    logLines_.push_back("pipeline attached pid=" + std::to_string(pid));
+    applyPipelineJoin();
 }
 
 void AppUi::pushLog(int /*level*/, const std::string& line) {
@@ -753,7 +772,7 @@ namespace {
 bool etwHintEqual(const wa::EtwInitializeHint& a, const wa::EtwInitializeHint& b) {
     return a.present == b.present && a.category == b.category && a.raw == b.raw &&
            a.matchFormat == b.matchFormat && a.exclusive == b.exclusive &&
-           a.hresult == b.hresult;
+           a.hresult == b.hresult && a.format == b.format;
 }
 
 ImVec4 kindColor(wa::ObservationKind kind) {
@@ -784,6 +803,13 @@ void AppUi::drawPipelinePage() {
         if (!etwHintEqual(hint, pipelineEtwHint_))
             applyPipelineJoin();
     }
+    if (pipelineAttach_.attached()) {
+        auto more = pipelineAttach_.drain();
+        if (!more.empty()) {
+            pipelineCalls_.insert(pipelineCalls_.end(), more.begin(), more.end());
+            applyPipelineJoin();
+        }
+    }
 
     constexpr float kLogHeight = 200.0f;
     const float availY = ImGui::GetContentRegionAvail().y;
@@ -801,6 +827,12 @@ void AppUi::drawPipelinePage() {
         runPipelineProbe();
     if (!canProbe) ImGui::EndDisabled();
     ImGui::SameLine();
+    const bool canAttach = pipelineSelected_ >= 0;
+    if (!canAttach) ImGui::BeginDisabled();
+    if (ImGui::Button(wa::ui_text::kPipelineAttach))
+        runPipelineAttach();
+    if (!canAttach) ImGui::EndDisabled();
+    ImGui::SameLine();
     if (ImGui::Checkbox(wa::ui_text::kPipelineShowSelf, &pipelineShowSelf_))
         refreshPipelineSessions();
     const wa::EtwWatchStatus etwStatus = pipelineEtw_.status();
@@ -810,6 +842,13 @@ void AppUi::drawPipelinePage() {
         ImGui::PopStyleColor();
     } else if (etwStatus == wa::EtwWatchStatus::Listening) {
         ImGui::TextUnformatted(wa::ui_text::kPipelineEtwListening);
+    }
+    if (pipelineAttach_.attached()) {
+        ImGui::TextUnformatted(wa::ui_text::kPipelineAttached);
+    } else if (!pipelineAttachBanner_.empty()) {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.90f, 0.55f, 0.55f, 1.f));
+        ImGui::TextWrapped("%s", pipelineAttachBanner_.c_str());
+        ImGui::PopStyleColor();
     }
 
     if (pipelineSessions_.empty()) {
@@ -834,8 +873,14 @@ void AppUi::drawPipelinePage() {
             std::snprintf(label, sizeof(label), "%s##ps%d",
                           s.flow == wa::PipelineFlow::Capture ? "capture" : "render", i);
             if (ImGui::Selectable(label, selected, ImGuiSelectableFlags_SpanAllColumns)) {
-                if (pipelineSelected_ != i)
+                if (pipelineSelected_ != i) {
                     pipelineProbes_.clear();
+                    if (pipelineAttach_.pid() != 0 && pipelineAttach_.pid() != s.processId) {
+                        pipelineAttach_.stop();
+                        pipelineCalls_.clear();
+                        pipelineAttachBanner_.clear();
+                    }
+                }
                 pipelineSelected_ = i;
                 rebuildPipelineGraph();
             }
@@ -857,7 +902,9 @@ void AppUi::drawPipelinePage() {
     ImGui::EndChild();
 
     ImGui::SameLine();
-    ImGui::BeginChild("pipelineGraph", ImVec2(0, 0), true);
+    const float rest = ImGui::GetContentRegionAvail().x;
+    const float graphW = std::max(240.0f, rest * 0.55f);
+    ImGui::BeginChild("pipelineGraph", ImVec2(graphW, 0), true);
     ImGui::SeparatorText(wa::ui_text::kPipelineGraph);
     if (pipelineSelected_ < 0) {
         ImGui::TextWrapped("%s", wa::ui_text::kPipelineSelectHint);
@@ -874,6 +921,39 @@ void AppUi::drawPipelinePage() {
             }
             ImGui::Spacing();
         }
+    }
+    ImGui::EndChild();
+
+    ImGui::SameLine();
+    ImGui::BeginChild("pipelineCallLog", ImVec2(0, 0), true);
+    ImGui::SeparatorText(wa::ui_text::kPipelineCallLog);
+    const auto callLog = wa::shapeCallLog(pipelineCalls_, false);
+    if (callLog.empty()) {
+        ImGui::TextWrapped("%s", wa::ui_text::kPipelineCallLogEmpty);
+    } else if (ImGui::BeginTable("pipelineCalls", 5,
+                                 ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
+                                     ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp)) {
+        ImGui::TableSetupColumn(wa::ui_text::kPipelineCallColIface);
+        ImGui::TableSetupColumn(wa::ui_text::kPipelineCallColMethod);
+        ImGui::TableSetupColumn(wa::ui_text::kPipelineCallColArgs);
+        ImGui::TableSetupColumn(wa::ui_text::kPipelineCallColHr, ImGuiTableColumnFlags_WidthFixed, 70.f);
+        ImGui::TableSetupColumn(wa::ui_text::kPipelineCallColStream,
+                                ImGuiTableColumnFlags_WidthFixed, 70.f);
+        ImGui::TableHeadersRow();
+        for (const auto& c : callLog) {
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::TextUnformatted(c.iface.c_str());
+            ImGui::TableSetColumnIndex(1);
+            ImGui::TextUnformatted(c.method.c_str());
+            ImGui::TableSetColumnIndex(2);
+            ImGui::TextUnformatted(c.args.c_str());
+            ImGui::TableSetColumnIndex(3);
+            ImGui::Text("%ld", static_cast<long>(c.hresult));
+            ImGui::TableSetColumnIndex(4);
+            ImGui::Text("%u", c.streamId);
+        }
+        ImGui::EndTable();
     }
     ImGui::EndChild();
     ImGui::EndChild();
