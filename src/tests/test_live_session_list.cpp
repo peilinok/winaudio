@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include "AppUiText.h"
+#include "EtwInitialize.h"
 #include "PipelineGraph.h"
 
 using namespace wa;
@@ -82,4 +83,10 @@ TEST(PipelineUiText, ExposesPipelineTabControls) {
                  "Select a Live session to see its processing graph.");
     EXPECT_STREQ(wa::ui_text::kPipelineGraph, "Processing graph");
     EXPECT_STREQ(wa::ui_text::kPipelineProbe, "Probe this device");
+    EXPECT_STREQ(wa::ui_text::kPipelineEtwUnavailable, "ETW unavailable");
+    EXPECT_STREQ(wa::ui_text::kPipelineEtwListening, "ETW listening");
+    EXPECT_STREQ(wa::etwWatchStatusText(wa::EtwWatchStatus::Unavailable),
+                 wa::ui_text::kPipelineEtwUnavailable);
+    EXPECT_STREQ(wa::etwWatchStatusText(wa::EtwWatchStatus::Listening),
+                 wa::ui_text::kPipelineEtwListening);
 }
