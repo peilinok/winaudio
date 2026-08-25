@@ -93,3 +93,41 @@ _Avoid_: StreamOption, AUDCLNT_STREAMOPTIONS, extraSharedInitFlags
 **Stream init**:
 The share-mode recipe shared by every Track and by silent-render: mix vs requested conversion, exclusive probe and align-retry, duration, and stream flags. Loopback extras are supplied by the caller; Stream init does not inspect the Capture source. Endpoint or Application Loopback activation sits outside it, as do client properties, ducking, and the pump.
 _Avoid_: Client Init, prepareClient, format negotiation (that is only the format half)
+
+### Pipeline inspector
+
+**Pipeline Inspector**:
+A reconstruction of one capture or render path (hardware mic → app, or app → hardware), from a Live session plus optional Hooked streams, the endpoint graph, Shared probes, and ETW Initialize hints. It intercepts Core Audio COM in the target app process; it does not intercept APO COM in audiodg.
+_Avoid_: APO dumper, API Monitor clone, session APO list
+
+**Live session**:
+A Windows audio session on one endpoint for one process — the mixer row used to discover who is capturing or playing. It is not a Track, not a Monitor, and may contain more than one Hooked stream.
+_Avoid_: session (when meaning a Track or Monitor), process (too coarse), WASAPI stream
+
+**Hooked stream**:
+One `IAudioClient` in a target process whose Core Audio COM calls are intercepted in-process. Control-path methods carry full arguments; buffer pump calls are metadata only. It is not an audiodg APO object.
+_Avoid_: Live session (the mixer row), attach as caller (we do not `GetService` their client from our process)
+
+**Core Audio intercept**:
+The closed COM set captured on a Hooked stream: device activate, `IAudioClient*`, capture/render clients (metadata only), `IAudioEffectsManager`, session control, stream/channel volume, and audio clock. Not XAudio2, DirectSound, or WinRT AudioGraph entry points, and not audiodg APO COM.
+_Avoid_: full Win32 hook table, APO intercept
+
+**On-demand attach**:
+Injection into the process PID of a Live session the user selected, only when GUI and target have the same bitness. Cross-bitness attach fails closed. The GUI stays unelevated; attach that lacks debug rights fails closed and the rest of the Inspector still runs. WinAudio does not inject every audio process and does not launch the target suspended.
+_Avoid_: global inject, monitor-new-process, attach as caller, always-admin GUI, 32-bit helper from x64 GUI
+
+**Call log**:
+The time-ordered list of intercepted Core Audio COM calls on Hooked streams: interface, method, arguments, HRESULT. Control-path calls are kept. Buffer pump metadata is off until enabled; when on, it uses a small ring (recent calls plus xrun counts) and never includes PCM. It sits beside the pipeline graph; it is not the graph.
+_Avoid_: API Monitor dump, PCM capture, ETW etl file, unbounded GetBuffer log
+
+**Observation kind**:
+The confidence label on a pipeline node or parameter: Observed, Probed, Inferred, Skipped, or Unknown. Hooked-stream arguments are Observed. Shared-probe effect types stay Probed and must not be shown as the target's APO instances.
+_Avoid_: guaranteed, actual APO instance, "what Chrome ran"
+
+**Shared probe**:
+A short-lived WASAPI Shared stream this process opens on the same endpoint as a Live session, to query advertised effect types when no Hooked stream is attached. Not Exclusive; not a clone of the target's stream.
+_Avoid_: Exclusive probe, Hooked stream
+
+**AudioClientInitialize (ETW)**:
+Initialize-related events used to fill Initialize fields for a Live session before On-demand attach, or when attach is absent. Match by PID + short time window + device id, or else Unknown. After attach, Hooked-stream calls override these fields.
+_Avoid_: CollectAudioLogs dump, pump/glitch trace
