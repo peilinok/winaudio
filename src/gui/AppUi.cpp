@@ -179,6 +179,8 @@ void AppUi::refreshPipelineSessions() {
             break;
         }
     }
+    if (pipelineSelected_ < 0)
+        pipelineProbes_.clear();
     rebuildPipelineGraph();
 }
 
@@ -194,7 +196,42 @@ void AppUi::rebuildPipelineGraph() {
     wa::Result r = endpointGraphReader_.snapshot(flow, utow(session.deviceId.c_str()), snap);
     if (!r)
         logLines_.push_back("pipeline endpoint snapshot failed: " + r.message);
-    pipelineNodes_ = wa::assemblePipeline(session, snap, {}, {});
+    pipelineNodes_ = wa::assemblePipeline(session, snap, {}, pipelineProbes_);
+}
+
+void AppUi::runPipelineProbe() {
+    if (pipelineProbing_) return;
+    if (pipelineSelected_ < 0 || pipelineSelected_ >= (int)pipelineSessions_.size())
+        return;
+
+    const auto sessionsCopy = pipelineSessions_;
+    const int selected = pipelineSelected_;
+    const wa::LiveSessionView session = pipelineSessions_[(size_t)pipelineSelected_];
+    const wa::DataFlow flow =
+        session.flow == wa::PipelineFlow::Capture ? wa::DataFlow::Capture : wa::DataFlow::Render;
+
+    pipelineProbing_ = true;
+    std::vector<wa::ProbeSlice> slices;
+    wa::Result r = wa::probeEndpointShared(flow, utow(session.deviceId.c_str()), slices);
+    pipelineProbing_ = false;
+
+    if (pipelineSessions_.size() != sessionsCopy.size() || pipelineSelected_ != selected) {
+        logLines_.push_back("pipeline probe ignored: Live session list changed");
+        return;
+    }
+    if (!r) {
+        logLines_.push_back("pipeline probe failed: " + r.message);
+        rebuildPipelineGraph();
+        return;
+    }
+    pipelineProbes_ = std::move(slices);
+    int failed = 0;
+    for (const auto& s : pipelineProbes_)
+        if (!s.error.empty()) ++failed;
+    logLines_.push_back(failed ? ("pipeline probe finished with " + std::to_string(failed) +
+                                  " recipe error(s)")
+                               : "pipeline probe completed");
+    rebuildPipelineGraph();
 }
 
 void AppUi::pushLog(int /*level*/, const std::string& line) {
@@ -725,6 +762,12 @@ void AppUi::drawPipelinePage() {
     if (ImGui::Button(wa::ui_text::kPipelineRefresh))
         refreshPipelineSessions();
     ImGui::SameLine();
+    const bool canProbe = pipelineSelected_ >= 0 && !pipelineProbing_;
+    if (!canProbe) ImGui::BeginDisabled();
+    if (ImGui::Button(wa::ui_text::kPipelineProbe))
+        runPipelineProbe();
+    if (!canProbe) ImGui::EndDisabled();
+    ImGui::SameLine();
     if (ImGui::Checkbox(wa::ui_text::kPipelineShowSelf, &pipelineShowSelf_))
         refreshPipelineSessions();
 
@@ -750,6 +793,8 @@ void AppUi::drawPipelinePage() {
             std::snprintf(label, sizeof(label), "%s##ps%d",
                           s.flow == wa::PipelineFlow::Capture ? "capture" : "render", i);
             if (ImGui::Selectable(label, selected, ImGuiSelectableFlags_SpanAllColumns)) {
+                if (pipelineSelected_ != i)
+                    pipelineProbes_.clear();
                 pipelineSelected_ = i;
                 rebuildPipelineGraph();
             }

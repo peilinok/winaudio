@@ -14,6 +14,7 @@
 #include "LiveSessionEnumerator.h"
 #include "MonitorEngine.h"
 #include "PipelineGraph.h"
+#include "SharedProbe.h"
 #include "Spectrogram.h"
 #include "TrackScopeReader.h"
 
@@ -53,6 +54,7 @@ private:
     void refreshApplicationLoopbackSessions();
     void refreshPipelineSessions();
     void rebuildPipelineGraph();
+    void runPipelineProbe();
     void drawMonitorPage();
     void drawPipelinePage();
     void drawLoopbackPage();
@@ -138,6 +140,8 @@ private:
     int  pipelineSelected_ = -1;
     std::vector<wa::LiveSessionView> pipelineSessions_;
     std::vector<wa::PipelineNode> pipelineNodes_;
+    std::vector<wa::ProbeSlice> pipelineProbes_;
+    bool pipelineProbing_ = false;
 
     wa::StreamParams capParams_{};    // Advanced 弹窗编辑;Start 时传入(运行中只读)
     wa::StreamParams renParams_{};

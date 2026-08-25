@@ -81,4 +81,5 @@ TEST(PipelineUiText, ExposesPipelineTabControls) {
     EXPECT_STREQ(wa::ui_text::kPipelineSelectHint,
                  "Select a Live session to see its processing graph.");
     EXPECT_STREQ(wa::ui_text::kPipelineGraph, "Processing graph");
+    EXPECT_STREQ(wa::ui_text::kPipelineProbe, "Probe this device");
 }
