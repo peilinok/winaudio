@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include "AppUiText.h"
 #include "EtwInitialize.h"
+#include "OnDemandAttach.h"
 #include "PipelineGraph.h"
 
 using namespace wa;
@@ -89,4 +90,19 @@ TEST(PipelineUiText, ExposesPipelineTabControls) {
                  wa::ui_text::kPipelineEtwUnavailable);
     EXPECT_STREQ(wa::etwWatchStatusText(wa::EtwWatchStatus::Listening),
                  wa::ui_text::kPipelineEtwListening);
+    EXPECT_STREQ(wa::ui_text::kPipelineAttach, "Attach");
+    EXPECT_STREQ(wa::ui_text::kPipelineCallLog, "Call log");
+    EXPECT_STREQ(wa::ui_text::kPipelineAttached, "Attached");
+    EXPECT_STREQ(wa::ui_text::kPipelineCallLogEmpty,
+                 "No control-path calls yet. Attach to intercept Core Audio COM.");
+    EXPECT_STREQ(wa::attachBlockText(wa::AttachBlock::CrossBitness),
+                 wa::ui_text::kPipelineCrossBitness);
+    EXPECT_STREQ(wa::attachBlockText(wa::AttachBlock::NoDebugRights),
+                 wa::ui_text::kPipelineNoDebug);
+    EXPECT_STREQ(wa::attachBlockText(wa::AttachBlock::None), wa::ui_text::kPipelineAttached);
+    EXPECT_STREQ(wa::ui_text::kPipelineCallColIface, "Iface");
+    EXPECT_STREQ(wa::ui_text::kPipelineCallColMethod, "Method");
+    EXPECT_STREQ(wa::ui_text::kPipelineCallColArgs, "Args");
+    EXPECT_STREQ(wa::ui_text::kPipelineCallColHr, "HR");
+    EXPECT_STREQ(wa::ui_text::kPipelineCallColStream, "Stream");
 }
