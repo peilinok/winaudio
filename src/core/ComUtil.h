@@ -17,7 +17,7 @@ template <class T> using ComPtr = Microsoft::WRL::ComPtr<T>;
 struct ComInitGuard {
     HRESULT hr;
     ComInitGuard() { hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED); }
-    ~ComInitGuard() { if (SUCCEEDED(hr)) CoUninitialize(); }
+    ~ComInitGuard() { if (hr == S_OK) CoUninitialize(); }
     bool ok() const { return SUCCEEDED(hr) || hr == RPC_E_CHANGED_MODE; }
 };
 

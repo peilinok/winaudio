@@ -83,6 +83,7 @@ struct ProbeSlice {
     std::string label;
     bool raw = false;
     std::vector<AdvertisedEffect> effects;
+    std::string error;
 };
 
 const char* observationKindName(ObservationKind kind);

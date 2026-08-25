@@ -26,6 +26,10 @@ void addProbeEffects(PipelineNode& node, const std::vector<ProbeSlice>& probes) 
     if (probes.empty())
         return;
     for (const auto& slice : probes) {
+        if (!slice.error.empty()) {
+            node.params.push_back(param(slice.label, slice.error, ObservationKind::Unknown));
+            continue;
+        }
         if (slice.effects.empty()) {
             node.params.push_back(param(slice.label, "(no advertised effects)", ObservationKind::Probed));
             continue;
@@ -191,11 +195,11 @@ void appendEngine(std::vector<PipelineNode>& out, const EndpointSnapshot& endpoi
     };
 
     if (capture) {
-        out.push_back(efxNode(endpoint, probes, exclusive));
+        out.push_back(efxNode(endpoint, {}, exclusive));
         pushSfxMfxSrc();
     } else {
         pushSfxMfxSrc();
-        out.push_back(efxNode(endpoint, probes, exclusive));
+        out.push_back(efxNode(endpoint, {}, exclusive));
     }
 }
 

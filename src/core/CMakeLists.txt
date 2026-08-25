@@ -20,6 +20,7 @@ add_library(WinAudioCore STATIC
     PipelineGraph.cpp
     LiveSessionEnumerator.cpp
     EndpointGraphReader.cpp
+    SharedProbe.cpp
 )
 target_include_directories(WinAudioCore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(WinAudioCore PUBLIC ole32 oleaut32 mmdevapi spdlog)
