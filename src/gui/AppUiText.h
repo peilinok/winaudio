@@ -77,5 +77,7 @@ inline constexpr const char* kPipelineCallColMethod = "Method";
 inline constexpr const char* kPipelineCallColArgs = "Args";
 inline constexpr const char* kPipelineCallColHr = "HR";
 inline constexpr const char* kPipelineCallColStream = "Stream";
+inline constexpr const char* kPipelinePump = "Record pump metadata";
+inline constexpr const char* kPipelineXruns = "xruns";
 
 } // namespace wa::ui_text

@@ -82,6 +82,7 @@ struct HookedCall {
     std::string args;
     int32_t hresult = 0;
     bool pump = false;
+    bool xrun = false;
     std::optional<std::string> category;
     std::optional<bool> raw;
     std::optional<bool> matchFormat;

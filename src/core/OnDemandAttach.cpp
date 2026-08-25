@@ -66,6 +66,7 @@ HookedCall fromPod(const hook_ipc::CallPod& p) {
     c.args = p.args;
     c.hresult = p.hresult;
     c.pump = p.pump != 0;
+    c.xrun = p.xrun != 0;
     if (p.hasCategory) c.category = std::string(p.category);
     if (p.hasRaw) c.raw = p.raw != 0;
     if (p.hasMatchFormat) c.matchFormat = p.matchFormat != 0;
@@ -237,7 +238,7 @@ Result OnDemandAttach::start(uint32_t pid) {
     HANDLE map = nullptr;
     DWORD mapErr = ERROR_SUCCESS;
     for (int i = 0; i < 40 && !map; ++i) {
-        map = OpenFileMappingW(FILE_MAP_READ, FALSE, mapNm);
+        map = OpenFileMappingW(FILE_MAP_ALL_ACCESS, FALSE, mapNm);
         mapErr = map ? ERROR_SUCCESS : GetLastError();
         if (!map) Sleep(50);
     }
@@ -248,7 +249,7 @@ Result OnDemandAttach::start(uint32_t pid) {
                             "Attach: hook mapping not ready");
     }
     auto* ring = static_cast<hook_ipc::Ring*>(
-        MapViewOfFile(map, FILE_MAP_READ, 0, 0, sizeof(hook_ipc::Ring)));
+        MapViewOfFile(map, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(hook_ipc::Ring)));
     WA_LOG(wa::log::Level::Debug, "Attach", "MapViewOfFile", wa::narrowAscii(mapNm),
            ring ? "S_OK" : wa::log::hrName(HRESULT_FROM_WIN32(GetLastError())));
     if (!ring || ring->magic != hook_ipc::kMagic) {
@@ -284,6 +285,29 @@ std::vector<HookedCall> OnDemandAttach::drain() {
     }
     impl_->readIndex = write;
     return out;
+}
+
+std::vector<HookedCall> OnDemandAttach::pumpRing() const {
+    std::vector<HookedCall> out;
+    if (!attached() || !impl_->ring->pumpEnabled) return out;
+    const uint32_t write = impl_->ring->pumpWriteIndex;
+    const uint32_t n = write < hook_ipc::kPumpCap ? write : hook_ipc::kPumpCap;
+    out.reserve(n);
+    for (uint32_t i = write - n; i < write; ++i)
+        out.push_back(fromPod(impl_->ring->pumpSlots[i % hook_ipc::kPumpCap]));
+    return out;
+}
+
+uint32_t OnDemandAttach::pumpXruns() const {
+    if (!attached()) return 0;
+    return impl_->ring->pumpXruns;
+}
+
+void OnDemandAttach::setPumpEnabled(bool on) {
+    if (!impl_ || !impl_->ring) return;
+    impl_->ring->pumpEnabled = on ? 1u : 0u;
+    WA_LOG(wa::log::Level::Debug, "Attach", "setPumpEnabled",
+           on ? "on" : "off", "S_OK");
 }
 
 }  // namespace wa

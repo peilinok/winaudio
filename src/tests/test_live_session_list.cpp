@@ -105,4 +105,6 @@ TEST(PipelineUiText, ExposesPipelineTabControls) {
     EXPECT_STREQ(wa::ui_text::kPipelineCallColArgs, "Args");
     EXPECT_STREQ(wa::ui_text::kPipelineCallColHr, "HR");
     EXPECT_STREQ(wa::ui_text::kPipelineCallColStream, "Stream");
+    EXPECT_STREQ(wa::ui_text::kPipelinePump, "Record pump metadata");
+    EXPECT_STREQ(wa::ui_text::kPipelineXruns, "xruns");
 }

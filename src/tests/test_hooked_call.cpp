@@ -53,8 +53,9 @@ TEST(CallLog, DropsPumpWhenDisabled) {
     pump.pump = true;
     HookedCall init = initCall();
     const auto log = shapeCallLog({pump, init}, false);
-    ASSERT_EQ(log.size(), 1u);
-    EXPECT_EQ(log[0].method, "Initialize");
+    ASSERT_EQ(log.entries.size(), 1u);
+    EXPECT_EQ(log.entries[0].method, "Initialize");
+    EXPECT_EQ(log.pumpXruns, 0u);
 }
 
 TEST(CallLog, KeepsControlPathActivateAndInitialize) {
@@ -64,18 +65,18 @@ TEST(CallLog, KeepsControlPathActivateAndInitialize) {
     act.args = "iid=IAudioClient";
     act.hresult = 0;
     const auto log = shapeCallLog({act, initCall()}, false);
-    ASSERT_EQ(log.size(), 2u);
-    EXPECT_EQ(log[0].method, "Activate");
-    EXPECT_EQ(log[1].method, "Initialize");
+    ASSERT_EQ(log.entries.size(), 2u);
+    EXPECT_EQ(log.entries[0].method, "Activate");
+    EXPECT_EQ(log.entries[1].method, "Initialize");
 }
 
 TEST(CallLog, NeverLeavesPcmInArgs) {
     HookedCall c = initCall();
     c.args = "share=shared pcm=010203 frames=480";
     const auto log = shapeCallLog({c}, false);
-    ASSERT_EQ(log.size(), 1u);
-    EXPECT_EQ(log[0].args.find("pcm="), std::string::npos);
-    EXPECT_NE(log[0].args.find("share=shared"), std::string::npos);
+    ASSERT_EQ(log.entries.size(), 1u);
+    EXPECT_EQ(log.entries[0].args.find("pcm="), std::string::npos);
+    EXPECT_NE(log.entries[0].args.find("share=shared"), std::string::npos);
 }
 
 TEST(HookedJoin, InitializeOverridesEtwCategoryAndRaw) {
@@ -140,4 +141,80 @@ TEST(HookedJoin, PumpRecordsDoNotProduceInitializeHint) {
     const auto* mfx = findNode(nodes, "mfx");
     ASSERT_NE(mfx, nullptr);
     EXPECT_TRUE(hasParam(*mfx, "category", "Media", ObservationKind::Observed));
+}
+
+TEST(CallLog, PumpRingDropsOldestAndKeepsControlPath) {
+    std::vector<HookedCall> in;
+    HookedCall init = initCall();
+    init.timeMs = 1;
+    in.push_back(init);
+    for (int i = 0; i < 20; ++i) {
+        HookedCall p;
+        p.iface = "IAudioCaptureClient";
+        p.method = "GetBuffer";
+        p.args = "frames=480";
+        p.pump = true;
+        p.timeMs = 10 + i;
+        p.hresult = 0;
+        in.push_back(p);
+    }
+    HookedCall stop;
+    stop.iface = "IAudioClient";
+    stop.method = "Stop";
+    stop.timeMs = 1000;
+    in.push_back(stop);
+
+    const auto log = shapeCallLog(in, true, 8);
+    size_t control = 0, pump = 0;
+    bool sawInit = false, sawStop = false;
+    int firstPumpTime = -1, lastPumpTime = -1;
+    for (const auto& c : log.entries) {
+        if (c.pump || isPumpMethod(c.method)) {
+            ++pump;
+            if (firstPumpTime < 0) firstPumpTime = static_cast<int>(c.timeMs);
+            lastPumpTime = static_cast<int>(c.timeMs);
+        } else {
+            ++control;
+            if (c.method == "Initialize") sawInit = true;
+            if (c.method == "Stop") sawStop = true;
+        }
+    }
+    EXPECT_EQ(control, 2u);
+    EXPECT_TRUE(sawInit);
+    EXPECT_TRUE(sawStop);
+    EXPECT_EQ(pump, 8u);
+    EXPECT_EQ(firstPumpTime, 22);
+    EXPECT_EQ(lastPumpTime, 29);
+}
+
+TEST(CallLog, XrunAggregationCountsDroppedPumpRecords) {
+    std::vector<HookedCall> in;
+    in.push_back(initCall());
+    for (int i = 0; i < 12; ++i) {
+        HookedCall p;
+        p.method = "GetBuffer";
+        p.pump = true;
+        p.xrun = (i % 3 == 0);
+        p.hresult = 0;
+        p.args = "frames=480";
+        in.push_back(p);
+    }
+    const auto log = shapeCallLog(in, true, 4);
+    EXPECT_EQ(log.pumpXruns, 4u);
+    size_t pump = 0;
+    for (const auto& c : log.entries)
+        if (c.pump) ++pump;
+    EXPECT_EQ(pump, 4u);
+}
+
+TEST(CallLog, EnabledPumpStillStripsPcm) {
+    HookedCall p;
+    p.method = "GetBuffer";
+    p.pump = true;
+    p.args = "frames=480 pcm=DEADBEEF";
+    const auto log = shapeCallLog({initCall(), p}, true, 8);
+    ASSERT_EQ(log.entries.size(), 2u);
+    for (const auto& c : log.entries) {
+        EXPECT_EQ(c.args.find("pcm="), std::string::npos);
+    }
 }

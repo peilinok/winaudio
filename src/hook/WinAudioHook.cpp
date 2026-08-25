@@ -16,6 +16,7 @@
 using wa::hook_ipc::CallPod;
 using wa::hook_ipc::Ring;
 using wa::hook_ipc::kCap;
+using wa::hook_ipc::kPumpCap;
 using wa::hook_ipc::kMagic;
 
 namespace {
@@ -40,6 +41,11 @@ using MuteGetFn = HRESULT(STDMETHODCALLTYPE*)(ISimpleAudioVolume*, BOOL*);
 using MuteSetFn = HRESULT(STDMETHODCALLTYPE*)(ISimpleAudioVolume*, BOOL, LPCGUID);
 using SessStateFn = HRESULT(STDMETHODCALLTYPE*)(IAudioSessionControl*, AudioSessionState*);
 using ClockFreqFn = HRESULT(STDMETHODCALLTYPE*)(IAudioClock*, UINT64*);
+using CapGetBufFn = HRESULT(STDMETHODCALLTYPE*)(IAudioCaptureClient*, BYTE**, UINT32*, DWORD*,
+                                                UINT64*, UINT64*);
+using CapRelBufFn = HRESULT(STDMETHODCALLTYPE*)(IAudioCaptureClient*, UINT32);
+using RenGetBufFn = HRESULT(STDMETHODCALLTYPE*)(IAudioRenderClient*, UINT32, BYTE**);
+using RenRelBufFn = HRESULT(STDMETHODCALLTYPE*)(IAudioRenderClient*, UINT32, DWORD);
 
 ActivateFn g_activate = nullptr;
 GetDeviceFn g_getDevice = nullptr;
@@ -57,6 +63,10 @@ MuteGetFn g_muteGet = nullptr;
 MuteSetFn g_muteSet = nullptr;
 SessStateFn g_sessState = nullptr;
 ClockFreqFn g_clockFreq = nullptr;
+CapGetBufFn g_capGet = nullptr;
+CapRelBufFn g_capRel = nullptr;
+RenGetBufFn g_renGet = nullptr;
+RenRelBufFn g_renRel = nullptr;
 
 void copyStr(char* dst, size_t n, const char* src) {
     if (!dst || n == 0) return;
@@ -79,6 +89,15 @@ int64_t nowMs() {
 void emit(CallPod pod) {
     if (!g_ring || g_quiet) return;
     pod.timeMs = nowMs();
+    if (pod.pump) {
+        if (!g_ring->pumpEnabled) return;
+        if (pod.xrun)
+            InterlockedIncrement(reinterpret_cast<volatile LONG*>(&g_ring->pumpXruns));
+        const LONG idx =
+            InterlockedIncrement(reinterpret_cast<volatile LONG*>(&g_ring->pumpWriteIndex));
+        g_ring->pumpSlots[static_cast<uint32_t>(idx - 1) % kPumpCap] = pod;
+        return;
+    }
     const LONG idx = InterlockedIncrement(reinterpret_cast<volatile LONG*>(&g_ring->writeIndex));
     const uint32_t slot = static_cast<uint32_t>(idx - 1) % kCap;
     g_ring->slots[slot] = pod;
@@ -251,9 +270,80 @@ HRESULT STDMETHODCALLTYPE HookClockFreq(IAudioClock* self, UINT64* freq) {
     return hr;
 }
 
+HRESULT STDMETHODCALLTYPE HookCapGetBuffer(IAudioCaptureClient* self, BYTE** data, UINT32* frames,
+                                           DWORD* flags, UINT64* pos, UINT64* qpc) {
+    const HRESULT hr =
+        g_capGet ? g_capGet(self, data, frames, flags, pos, qpc) : E_UNEXPECTED;
+    CallPod p{};
+    p.streamId = sid(self);
+    p.pump = 1;
+    copyStr(p.iface, sizeof(p.iface), "IAudioCaptureClient");
+    copyStr(p.method, sizeof(p.method), "GetBuffer");
+    const UINT32 n = (SUCCEEDED(hr) && frames) ? *frames : 0;
+    const DWORD fl = flags ? *flags : 0;
+    sprintf_s(p.args, "frames=%u flags=0x%lX", n, static_cast<unsigned long>(fl));
+    p.hresult = static_cast<int32_t>(hr);
+    p.xrun = (FAILED(hr) || (fl & AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY)) ? 1 : 0;
+    emit(p);
+    return hr;
+}
+
+HRESULT STDMETHODCALLTYPE HookCapReleaseBuffer(IAudioCaptureClient* self, UINT32 frames) {
+    const HRESULT hr = g_capRel ? g_capRel(self, frames) : E_UNEXPECTED;
+    CallPod p{};
+    p.streamId = sid(self);
+    p.pump = 1;
+    copyStr(p.iface, sizeof(p.iface), "IAudioCaptureClient");
+    copyStr(p.method, sizeof(p.method), "ReleaseBuffer");
+    sprintf_s(p.args, "frames=%u", frames);
+    p.hresult = static_cast<int32_t>(hr);
+    p.xrun = FAILED(hr) ? 1 : 0;
+    emit(p);
+    return hr;
+}
+
+HRESULT STDMETHODCALLTYPE HookRenGetBuffer(IAudioRenderClient* self, UINT32 frames, BYTE** data) {
+    const HRESULT hr = g_renGet ? g_renGet(self, frames, data) : E_UNEXPECTED;
+    CallPod p{};
+    p.streamId = sid(self);
+    p.pump = 1;
+    copyStr(p.iface, sizeof(p.iface), "IAudioRenderClient");
+    copyStr(p.method, sizeof(p.method), "GetBuffer");
+    sprintf_s(p.args, "frames=%u", frames);
+    p.hresult = static_cast<int32_t>(hr);
+    p.xrun = FAILED(hr) ? 1 : 0;
+    emit(p);
+    return hr;
+}
+
+HRESULT STDMETHODCALLTYPE HookRenReleaseBuffer(IAudioRenderClient* self, UINT32 frames,
+                                               DWORD flags) {
+    const HRESULT hr = g_renRel ? g_renRel(self, frames, flags) : E_UNEXPECTED;
+    CallPod p{};
+    p.streamId = sid(self);
+    p.pump = 1;
+    copyStr(p.iface, sizeof(p.iface), "IAudioRenderClient");
+    copyStr(p.method, sizeof(p.method), "ReleaseBuffer");
+    sprintf_s(p.args, "frames=%u flags=0x%lX", frames, static_cast<unsigned long>(flags));
+    p.hresult = static_cast<int32_t>(hr);
+    p.xrun = FAILED(hr) ? 1 : 0;
+    emit(p);
+    return hr;
+}
+
 void patchService(void* obj, REFIID iid) {
     if (!obj) return;
-    if (iid == __uuidof(ISimpleAudioVolume)) {
+    if (iid == __uuidof(IAudioCaptureClient)) {
+        patchSlot(obj, 3, reinterpret_cast<void*>(&HookCapGetBuffer),
+                  reinterpret_cast<void**>(&g_capGet));
+        patchSlot(obj, 4, reinterpret_cast<void*>(&HookCapReleaseBuffer),
+                  reinterpret_cast<void**>(&g_capRel));
+    } else if (iid == __uuidof(IAudioRenderClient)) {
+        patchSlot(obj, 3, reinterpret_cast<void*>(&HookRenGetBuffer),
+                  reinterpret_cast<void**>(&g_renGet));
+        patchSlot(obj, 4, reinterpret_cast<void*>(&HookRenReleaseBuffer),
+                  reinterpret_cast<void**>(&g_renRel));
+    } else if (iid == __uuidof(ISimpleAudioVolume)) {
         patchSlot(obj, 3, reinterpret_cast<void*>(&HookVolGet), reinterpret_cast<void**>(&g_volGet));
         patchSlot(obj, 4, reinterpret_cast<void*>(&HookVolSet), reinterpret_cast<void**>(&g_volSet));
         patchSlot(obj, 5, reinterpret_cast<void*>(&HookMuteGet), reinterpret_cast<void**>(&g_muteGet));
