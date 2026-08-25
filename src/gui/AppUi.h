@@ -11,6 +11,7 @@
 #include "DeviceEnumerator.h"
 #include "DumpUi.h"
 #include "EndpointGraphReader.h"
+#include "EtwInitialize.h"
 #include "LiveSessionEnumerator.h"
 #include "MonitorEngine.h"
 #include "PipelineGraph.h"
@@ -54,6 +55,7 @@ private:
     void refreshApplicationLoopbackSessions();
     void refreshPipelineSessions();
     void rebuildPipelineGraph();
+    void applyPipelineJoin();
     void runPipelineProbe();
     void drawMonitorPage();
     void drawPipelinePage();
@@ -142,6 +144,10 @@ private:
     std::vector<wa::PipelineNode> pipelineNodes_;
     std::vector<wa::ProbeSlice> pipelineProbes_;
     bool pipelineProbing_ = false;
+    wa::EtwInitializeWatch pipelineEtw_;
+    bool pipelineEtwStarted_ = false;
+    wa::EndpointSnapshot pipelineEndpoint_;
+    wa::EtwInitializeHint pipelineEtwHint_{};
 
     wa::StreamParams capParams_{};    // Advanced 弹窗编辑;Start 时传入(运行中只读)
     wa::StreamParams renParams_{};

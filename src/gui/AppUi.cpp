@@ -133,6 +133,7 @@ void AppUi::stopAll() {
     monitor_.stop();
     loopbackTracks_.destroyAll();
     appLoopbackTracks_.destroyAll();
+    pipelineEtw_.stop();
 }
 
 void AppUi::refreshApplicationLoopbackSessions() {
@@ -196,7 +197,20 @@ void AppUi::rebuildPipelineGraph() {
     wa::Result r = endpointGraphReader_.snapshot(flow, utow(session.deviceId.c_str()), snap);
     if (!r)
         logLines_.push_back("pipeline endpoint snapshot failed: " + r.message);
-    pipelineNodes_ = wa::assemblePipeline(session, snap, {}, pipelineProbes_);
+    pipelineEndpoint_ = std::move(snap);
+    applyPipelineJoin();
+}
+
+void AppUi::applyPipelineJoin() {
+    pipelineNodes_.clear();
+    if (pipelineSelected_ < 0 || pipelineSelected_ >= (int)pipelineSessions_.size())
+        return;
+    const wa::LiveSessionView& session = pipelineSessions_[(size_t)pipelineSelected_];
+    wa::EtwInitializeHint etw;
+    if (pipelineEtw_.status() == wa::EtwWatchStatus::Listening)
+        etw = wa::matchEtwInitialize(session, pipelineEtw_.snapshot(), wa::etwNowMs());
+    pipelineEtwHint_ = etw;
+    pipelineNodes_ = wa::assemblePipeline(session, pipelineEndpoint_, etw, pipelineProbes_);
 }
 
 void AppUi::runPipelineProbe() {
@@ -736,6 +750,12 @@ void AppUi::drawApplicationLoopbackPage() {
 }
 
 namespace {
+bool etwHintEqual(const wa::EtwInitializeHint& a, const wa::EtwInitializeHint& b) {
+    return a.present == b.present && a.category == b.category && a.raw == b.raw &&
+           a.matchFormat == b.matchFormat && a.exclusive == b.exclusive &&
+           a.hresult == b.hresult;
+}
+
 ImVec4 kindColor(wa::ObservationKind kind) {
     switch (kind) {
         case wa::ObservationKind::Observed: return ImVec4(0.45f, 0.90f, 0.55f, 1.f);
@@ -749,8 +769,21 @@ ImVec4 kindColor(wa::ObservationKind kind) {
 }  // namespace
 
 void AppUi::drawPipelinePage() {
+    if (!pipelineEtwStarted_) {
+        pipelineEtwStarted_ = true;
+        wa::Result etw = pipelineEtw_.start();
+        if (!etw)
+            logLines_.push_back("pipeline ETW unavailable: " + etw.message);
+    }
     if (!pipelineSessionsLoaded_)
         refreshPipelineSessions();
+    if (pipelineSelected_ >= 0 && pipelineEtw_.status() == wa::EtwWatchStatus::Listening) {
+        const wa::LiveSessionView& session = pipelineSessions_[(size_t)pipelineSelected_];
+        const wa::EtwInitializeHint hint =
+            wa::matchEtwInitialize(session, pipelineEtw_.snapshot(), wa::etwNowMs());
+        if (!etwHintEqual(hint, pipelineEtwHint_))
+            applyPipelineJoin();
+    }
 
     constexpr float kLogHeight = 200.0f;
     const float availY = ImGui::GetContentRegionAvail().y;
@@ -770,6 +803,14 @@ void AppUi::drawPipelinePage() {
     ImGui::SameLine();
     if (ImGui::Checkbox(wa::ui_text::kPipelineShowSelf, &pipelineShowSelf_))
         refreshPipelineSessions();
+    const wa::EtwWatchStatus etwStatus = pipelineEtw_.status();
+    if (etwStatus == wa::EtwWatchStatus::Unavailable) {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.90f, 0.55f, 0.55f, 1.f));
+        ImGui::TextUnformatted(wa::ui_text::kPipelineEtwUnavailable);
+        ImGui::PopStyleColor();
+    } else if (etwStatus == wa::EtwWatchStatus::Listening) {
+        ImGui::TextUnformatted(wa::ui_text::kPipelineEtwListening);
+    }
 
     if (pipelineSessions_.empty()) {
         ImGui::TextWrapped("%s", wa::ui_text::kPipelineEmpty);
