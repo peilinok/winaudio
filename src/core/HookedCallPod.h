@@ -7,6 +7,7 @@ namespace hook_ipc {
 
 constexpr uint32_t kMagic = 0x5741484Bu;
 constexpr uint32_t kCap = 2048;
+constexpr uint32_t kPumpCap = 64;
 
 struct CallPod {
     uint32_t streamId;
@@ -16,6 +17,7 @@ struct CallPod {
     char args[192];
     int32_t hresult;
     uint8_t pump;
+    uint8_t xrun;
     uint8_t hasCategory;
     uint8_t hasRaw;
     uint8_t hasMatchFormat;
@@ -33,7 +35,11 @@ struct Ring {
     uint32_t writeIndex;
     uint32_t cap;
     uint32_t dropped;
+    uint32_t pumpEnabled;
+    uint32_t pumpWriteIndex;
+    uint32_t pumpXruns;
     CallPod slots[kCap];
+    CallPod pumpSlots[kPumpCap];
 };
 
 inline void mapName(uint32_t pid, wchar_t* out, size_t n) {

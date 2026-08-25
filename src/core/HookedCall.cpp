@@ -1,5 +1,6 @@
 #include "HookedCall.h"
 #include <algorithm>
+#include <cstddef>
 #include <cstring>
 
 namespace wa {
@@ -18,17 +19,32 @@ std::string sanitizeHookedArgs(std::string args) {
     return args;
 }
 
-std::vector<HookedCall> shapeCallLog(const std::vector<HookedCall>& in, bool pumpEnabled) {
-    std::vector<HookedCall> out;
-    out.reserve(in.size());
+CallLogView shapeCallLog(const std::vector<HookedCall>& in, bool pumpEnabled, size_t pumpCap) {
+    CallLogView view;
+    std::vector<HookedCall> pump;
+    view.entries.reserve(in.size());
+    pump.reserve(pumpEnabled ? std::min(in.size(), pumpCap + 8) : 0);
     for (HookedCall c : in) {
-        const bool pump = c.pump || isPumpMethod(c.method);
-        c.pump = pump;
-        if (pump && !pumpEnabled) continue;
+        const bool isPump = c.pump || isPumpMethod(c.method);
+        c.pump = isPump;
         c.args = sanitizeHookedArgs(std::move(c.args));
-        out.push_back(std::move(c));
+        if (isPump) {
+            if (pumpEnabled) {
+                if (c.xrun) ++view.pumpXruns;
+                pump.push_back(std::move(c));
+            }
+            continue;
+        }
+        view.entries.push_back(std::move(c));
     }
-    return out;
+    if (pumpCap > 0 && pump.size() > pumpCap) {
+        pump.erase(pump.begin(),
+                   pump.begin() + static_cast<std::ptrdiff_t>(pump.size() - pumpCap));
+    }
+    view.entries.insert(view.entries.end(), pump.begin(), pump.end());
+    std::stable_sort(view.entries.begin(), view.entries.end(),
+                     [](const HookedCall& a, const HookedCall& b) { return a.timeMs < b.timeMs; });
+    return view;
 }
 
 EtwInitializeHint extractHookedInitialize(const std::vector<HookedCall>& calls) {
