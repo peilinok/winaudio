@@ -25,6 +25,9 @@ add_executable(WinAudioTests
     test_log.cpp
     test_loopback.cpp
     test_audio_session_enumerator.cpp
+    test_pipeline_graph.cpp
+    test_live_session_list.cpp
+
     test_cli_options.cpp
     test_dump_ui.cpp
     test_create_recipe.cpp

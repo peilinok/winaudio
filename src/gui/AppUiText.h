@@ -53,4 +53,14 @@ inline constexpr const char* kLoopbackEmptyHint = "Create a Track to capture sys
 inline constexpr const char* kApplicationLoopbackEmptyHint =
     "Create a Track to capture application audio.";
 
+inline constexpr const char* kPipelineTab = "Pipeline";
+inline constexpr const char* kPipelineRefresh = "Refresh";
+inline constexpr const char* kPipelineSessions = "Live sessions";
+inline constexpr const char* kPipelineShowSelf = "Show this process";
+inline constexpr const char* kPipelineEmpty =
+    "No Live sessions. Start capture or playback in another app, then Refresh.";
+inline constexpr const char* kPipelineSelectHint =
+    "Select a Live session to see its processing graph.";
+inline constexpr const char* kPipelineGraph = "Processing graph";
+
 } // namespace wa::ui_text

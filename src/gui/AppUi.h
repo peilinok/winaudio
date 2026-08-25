@@ -10,7 +10,10 @@
 #include "CreateRecipe.h"
 #include "DeviceEnumerator.h"
 #include "DumpUi.h"
+#include "EndpointGraphReader.h"
+#include "LiveSessionEnumerator.h"
 #include "MonitorEngine.h"
+#include "PipelineGraph.h"
 #include "Spectrogram.h"
 #include "TrackScopeReader.h"
 
@@ -48,7 +51,10 @@ private:
 
     void refreshMonitorDevices();
     void refreshApplicationLoopbackSessions();
+    void refreshPipelineSessions();
+    void rebuildPipelineGraph();
     void drawMonitorPage();
+    void drawPipelinePage();
     void drawLoopbackPage();
     void drawApplicationLoopbackPage();
     void drawLoopbackLeftPanel();
@@ -96,6 +102,8 @@ private:
     wa::CaptureTrackList appLoopbackTracks_;
     wa::DeviceEnumerator enumerator_;
     wa::AudioSessionEnumerator sessionEnumerator_;
+    wa::LiveSessionEnumerator liveSessionEnumerator_;
+    wa::EndpointGraphReader endpointGraphReader_;
     wa::MonitorStatus    ms_;   // polled once per frame in draw(); shared by helper methods
 
     int  backendIdx_      = 0;
@@ -124,6 +132,12 @@ private:
     int                         appLoopbackSessionIdx_ = -1;
     char                        appLoopbackPid_[32] = "";
     wa::create_recipe::CreateRecipe appLoopbackRecipe_{};
+
+    bool pipelineSessionsLoaded_ = false;
+    bool pipelineShowSelf_ = false;
+    int  pipelineSelected_ = -1;
+    std::vector<wa::LiveSessionView> pipelineSessions_;
+    std::vector<wa::PipelineNode> pipelineNodes_;
 
     wa::StreamParams capParams_{};    // Advanced 弹窗编辑;Start 时传入(运行中只读)
     wa::StreamParams renParams_{};

@@ -17,6 +17,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <string>
 
 static std::string wtou(const std::wstring& w) {
@@ -148,6 +149,52 @@ void AppUi::refreshApplicationLoopbackSessions() {
                                             appLoopbackSessionsLoaded_,
                                             appLoopbackSessionIdx_,
                                             std::move(rows));
+}
+
+void AppUi::refreshPipelineSessions() {
+    wa::LiveSessionView prev;
+    if (pipelineSelected_ >= 0 && pipelineSelected_ < (int)pipelineSessions_.size())
+        prev = pipelineSessions_[(size_t)pipelineSelected_];
+
+    std::vector<wa::LiveSessionView> rows;
+    wa::Result r = liveSessionEnumerator_.enumerate(rows);
+    pipelineSessionsLoaded_ = true;
+    if (!r) {
+        pipelineSessions_.clear();
+        pipelineSelected_ = -1;
+        pipelineNodes_.clear();
+        logLines_.push_back("pipeline refresh failed: " + r.message);
+        return;
+    }
+
+    const uint32_t hidePid = pipelineShowSelf_ ? 0u : static_cast<uint32_t>(GetCurrentProcessId());
+    wa::shapeLiveSessionList(rows, hidePid);
+    pipelineSessions_ = std::move(rows);
+
+    pipelineSelected_ = -1;
+    for (int i = 0; i < (int)pipelineSessions_.size(); ++i) {
+        const auto& s = pipelineSessions_[(size_t)i];
+        if (s.processId == prev.processId && s.deviceId == prev.deviceId && s.flow == prev.flow) {
+            pipelineSelected_ = i;
+            break;
+        }
+    }
+    rebuildPipelineGraph();
+}
+
+void AppUi::rebuildPipelineGraph() {
+    pipelineNodes_.clear();
+    if (pipelineSelected_ < 0 || pipelineSelected_ >= (int)pipelineSessions_.size())
+        return;
+
+    const wa::LiveSessionView& session = pipelineSessions_[(size_t)pipelineSelected_];
+    wa::EndpointSnapshot snap;
+    const wa::DataFlow flow =
+        session.flow == wa::PipelineFlow::Capture ? wa::DataFlow::Capture : wa::DataFlow::Render;
+    wa::Result r = endpointGraphReader_.snapshot(flow, utow(session.deviceId.c_str()), snap);
+    if (!r)
+        logLines_.push_back("pipeline endpoint snapshot failed: " + r.message);
+    pipelineNodes_ = wa::assemblePipeline(session, snap, {}, {});
 }
 
 void AppUi::pushLog(int /*level*/, const std::string& line) {
@@ -527,6 +574,10 @@ void AppUi::draw() {
             drawApplicationLoopbackPage();
             ImGui::EndTabItem();
         }
+        if (ImGui::BeginTabItem(wa::ui_text::kPipelineTab)) {
+            drawPipelinePage();
+            ImGui::EndTabItem();
+        }
         ImGui::EndTabBar();
     }
 
@@ -644,6 +695,106 @@ void AppUi::drawApplicationLoopbackPage() {
     ImGui::BeginChild("appLoopbackLogRegion", ImVec2(0, kLogHeight), true);
     ImGui::SeparatorText("Log");
     drawLogPanel("appLoopbackLog", false);
+    ImGui::EndChild();
+}
+
+namespace {
+ImVec4 kindColor(wa::ObservationKind kind) {
+    switch (kind) {
+        case wa::ObservationKind::Observed: return ImVec4(0.45f, 0.90f, 0.55f, 1.f);
+        case wa::ObservationKind::Probed:   return ImVec4(0.95f, 0.85f, 0.35f, 1.f);
+        case wa::ObservationKind::Inferred: return ImVec4(0.50f, 0.75f, 0.95f, 1.f);
+        case wa::ObservationKind::Skipped:  return ImVec4(0.62f, 0.62f, 0.62f, 1.f);
+        case wa::ObservationKind::Unknown:  return ImVec4(0.90f, 0.55f, 0.55f, 1.f);
+    }
+    return ImVec4(1.f, 1.f, 1.f, 1.f);
+}
+}  // namespace
+
+void AppUi::drawPipelinePage() {
+    if (!pipelineSessionsLoaded_)
+        refreshPipelineSessions();
+
+    constexpr float kLogHeight = 200.0f;
+    const float availY = ImGui::GetContentRegionAvail().y;
+    const float topHeight = std::max(120.0f, availY - kLogHeight - ImGui::GetStyle().ItemSpacing.y);
+
+    ImGui::BeginChild("pipelineTop", ImVec2(0, topHeight), false);
+    ImGui::BeginChild("pipelineLeft", ImVec2(420, 0), true);
+    ImGui::SeparatorText(wa::ui_text::kPipelineSessions);
+    if (ImGui::Button(wa::ui_text::kPipelineRefresh))
+        refreshPipelineSessions();
+    ImGui::SameLine();
+    if (ImGui::Checkbox(wa::ui_text::kPipelineShowSelf, &pipelineShowSelf_))
+        refreshPipelineSessions();
+
+    if (pipelineSessions_.empty()) {
+        ImGui::TextWrapped("%s", wa::ui_text::kPipelineEmpty);
+    } else if (ImGui::BeginTable("pipelineSessions", 7,
+                                 ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
+                                     ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp)) {
+        ImGui::TableSetupColumn("Flow", ImGuiTableColumnFlags_WidthFixed, 70.f);
+        ImGui::TableSetupColumn("Process");
+        ImGui::TableSetupColumn("PID", ImGuiTableColumnFlags_WidthFixed, 60.f);
+        ImGui::TableSetupColumn("Device");
+        ImGui::TableSetupColumn("Vol", ImGuiTableColumnFlags_WidthFixed, 40.f);
+        ImGui::TableSetupColumn("Mute", ImGuiTableColumnFlags_WidthFixed, 40.f);
+        ImGui::TableSetupColumn("State", ImGuiTableColumnFlags_WidthFixed, 70.f);
+        ImGui::TableHeadersRow();
+        for (int i = 0; i < (int)pipelineSessions_.size(); ++i) {
+            const auto& s = pipelineSessions_[(size_t)i];
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            const bool selected = (i == pipelineSelected_);
+            char label[64];
+            std::snprintf(label, sizeof(label), "%s##ps%d",
+                          s.flow == wa::PipelineFlow::Capture ? "capture" : "render", i);
+            if (ImGui::Selectable(label, selected, ImGuiSelectableFlags_SpanAllColumns)) {
+                pipelineSelected_ = i;
+                rebuildPipelineGraph();
+            }
+            ImGui::TableSetColumnIndex(1);
+            ImGui::TextUnformatted(s.processName.c_str());
+            ImGui::TableSetColumnIndex(2);
+            ImGui::Text("%u", s.processId);
+            ImGui::TableSetColumnIndex(3);
+            ImGui::TextUnformatted(s.deviceName.c_str());
+            ImGui::TableSetColumnIndex(4);
+            ImGui::Text("%.2f", static_cast<double>(s.sessionVolume));
+            ImGui::TableSetColumnIndex(5);
+            ImGui::TextUnformatted(s.sessionMute ? "yes" : "no");
+            ImGui::TableSetColumnIndex(6);
+            ImGui::TextUnformatted(s.state.c_str());
+        }
+        ImGui::EndTable();
+    }
+    ImGui::EndChild();
+
+    ImGui::SameLine();
+    ImGui::BeginChild("pipelineGraph", ImVec2(0, 0), true);
+    ImGui::SeparatorText(wa::ui_text::kPipelineGraph);
+    if (pipelineSelected_ < 0) {
+        ImGui::TextWrapped("%s", wa::ui_text::kPipelineSelectHint);
+    } else {
+        for (const auto& n : pipelineNodes_) {
+            ImGui::PushStyleColor(ImGuiCol_Text, kindColor(n.kind));
+            ImGui::Text("%s [%s]", n.title.c_str(), wa::observationKindName(n.kind));
+            ImGui::PopStyleColor();
+            for (const auto& p : n.params) {
+                ImGui::PushStyleColor(ImGuiCol_Text, kindColor(p.kind));
+                ImGui::BulletText("%s: %s [%s]", p.key.c_str(), p.value.c_str(),
+                                  wa::observationKindName(p.kind));
+                ImGui::PopStyleColor();
+            }
+            ImGui::Spacing();
+        }
+    }
+    ImGui::EndChild();
+    ImGui::EndChild();
+
+    ImGui::BeginChild("pipelineLogRegion", ImVec2(0, kLogHeight), true);
+    ImGui::SeparatorText("Log");
+    drawLogPanel("pipelineLog", false);
     ImGui::EndChild();
 }
 
