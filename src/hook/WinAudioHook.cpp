@@ -18,6 +18,9 @@ using wa::hook_ipc::Ring;
 using wa::hook_ipc::kCap;
 using wa::hook_ipc::kPumpCap;
 using wa::hook_ipc::kMagic;
+using wa::hook_ipc::kInstallPending;
+using wa::hook_ipc::kInstallOk;
+using wa::hook_ipc::kInstallFailed;
 
 namespace {
 
@@ -28,8 +31,11 @@ volatile LONG g_quiet = 0;
 using ActivateFn = HRESULT(STDMETHODCALLTYPE*)(IMMDevice*, REFIID, DWORD, PROPVARIANT*, void**);
 using GetDeviceFn = HRESULT(STDMETHODCALLTYPE*)(IMMDeviceEnumerator*, LPCWSTR, IMMDevice**);
 using GetDefaultFn = HRESULT(STDMETHODCALLTYPE*)(IMMDeviceEnumerator*, EDataFlow, ERole, IMMDevice**);
+using EnumFn = HRESULT(STDMETHODCALLTYPE*)(IMMDeviceEnumerator*, EDataFlow, DWORD, IMMDeviceCollection**);
 using InitializeFn = HRESULT(STDMETHODCALLTYPE*)(IAudioClient*, AUDCLNT_SHAREMODE, DWORD,
                                                  REFERENCE_TIME, REFERENCE_TIME, const WAVEFORMATEX*,
+                                                 LPCGUID);
+using InitSharedFn = HRESULT(STDMETHODCALLTYPE*)(IAudioClient3*, DWORD, UINT32, const WAVEFORMATEX*,
                                                  LPCGUID);
 using SimpleHrFn = HRESULT(STDMETHODCALLTYPE*)(IAudioClient*);
 using SetEventFn = HRESULT(STDMETHODCALLTYPE*)(IAudioClient*, HANDLE);
@@ -50,7 +56,9 @@ using RenRelBufFn = HRESULT(STDMETHODCALLTYPE*)(IAudioRenderClient*, UINT32, DWO
 ActivateFn g_activate = nullptr;
 GetDeviceFn g_getDevice = nullptr;
 GetDefaultFn g_getDefault = nullptr;
+EnumFn g_enum = nullptr;
 InitializeFn g_initialize = nullptr;
+InitSharedFn g_initShared = nullptr;
 SimpleHrFn g_start = nullptr;
 SimpleHrFn g_stop = nullptr;
 SimpleHrFn g_reset = nullptr;
@@ -157,18 +165,7 @@ void formatWave(const WAVEFORMATEX* fmt, char* out, size_t n) {
 }
 
 bool patchSlot(void* obj, int slot, void* hook, void** orig) {
-    if (!obj || !hook || !orig) return false;
-    void** vt = *reinterpret_cast<void***>(obj);
-    void** cell = vt + slot;
-    if (*orig == nullptr) *orig = *cell;
-    if (*cell == hook) return true;
-    DWORD old = 0;
-    if (!VirtualProtect(cell, sizeof(void*), PAGE_EXECUTE_READWRITE, &old)) return false;
-    *cell = hook;
-    DWORD tmp = 0;
-    VirtualProtect(cell, sizeof(void*), old, &tmp);
-    FlushInstructionCache(GetCurrentProcess(), cell, sizeof(void*));
-    return true;
+    return wa::hook_ipc::patchVtableSlot(obj, slot, hook, orig);
 }
 
 HRESULT STDMETHODCALLTYPE HookInitialize(IAudioClient* self, AUDCLNT_SHAREMODE share, DWORD flags,
@@ -333,15 +330,17 @@ HRESULT STDMETHODCALLTYPE HookRenReleaseBuffer(IAudioRenderClient* self, UINT32 
 
 void patchService(void* obj, REFIID iid) {
     if (!obj) return;
+    using wa::hook_ipc::kSlotBufferGetBuffer;
+    using wa::hook_ipc::kSlotBufferReleaseBuffer;
     if (iid == __uuidof(IAudioCaptureClient)) {
-        patchSlot(obj, 3, reinterpret_cast<void*>(&HookCapGetBuffer),
+        patchSlot(obj, kSlotBufferGetBuffer, reinterpret_cast<void*>(&HookCapGetBuffer),
                   reinterpret_cast<void**>(&g_capGet));
-        patchSlot(obj, 4, reinterpret_cast<void*>(&HookCapReleaseBuffer),
+        patchSlot(obj, kSlotBufferReleaseBuffer, reinterpret_cast<void*>(&HookCapReleaseBuffer),
                   reinterpret_cast<void**>(&g_capRel));
     } else if (iid == __uuidof(IAudioRenderClient)) {
-        patchSlot(obj, 3, reinterpret_cast<void*>(&HookRenGetBuffer),
+        patchSlot(obj, kSlotBufferGetBuffer, reinterpret_cast<void*>(&HookRenGetBuffer),
                   reinterpret_cast<void**>(&g_renGet));
-        patchSlot(obj, 4, reinterpret_cast<void*>(&HookRenReleaseBuffer),
+        patchSlot(obj, kSlotBufferReleaseBuffer, reinterpret_cast<void*>(&HookRenReleaseBuffer),
                   reinterpret_cast<void**>(&g_renRel));
     } else if (iid == __uuidof(ISimpleAudioVolume)) {
         patchSlot(obj, 3, reinterpret_cast<void*>(&HookVolGet), reinterpret_cast<void**>(&g_volGet));
@@ -387,23 +386,65 @@ HRESULT STDMETHODCALLTYPE HookSetClientProperties(IAudioClient2* self,
     return hr;
 }
 
+HRESULT STDMETHODCALLTYPE HookInitShared(IAudioClient3* self, DWORD flags, UINT32 period,
+                                         const WAVEFORMATEX* fmt, LPCGUID session) {
+    const HRESULT hr =
+        g_initShared ? g_initShared(self, flags, period, fmt, session) : E_UNEXPECTED;
+    CallPod p{};
+    p.streamId = sid(self);
+    copyStr(p.iface, sizeof(p.iface), "IAudioClient3");
+    copyStr(p.method, sizeof(p.method), "InitializeSharedAudioStream");
+    char wave[64] = {};
+    formatWave(fmt, wave, sizeof(wave));
+    sprintf_s(p.args, "flags=0x%lX period=%u fmt=%s", static_cast<unsigned long>(flags), period,
+              wave);
+    p.hresult = static_cast<int32_t>(hr);
+    p.hasExclusive = 1;
+    p.exclusive = 0;
+    p.hasFormat = 1;
+    copyStr(p.format, sizeof(p.format), wave);
+    emit(p);
+    (void)session;
+    return hr;
+}
+
 void patchClient(void* obj) {
     if (!obj) return;
-    patchSlot(obj, 3, reinterpret_cast<void*>(&HookInitialize), reinterpret_cast<void**>(&g_initialize));
-    patchSlot(obj, 10, reinterpret_cast<void*>(&HookStart), reinterpret_cast<void**>(&g_start));
-    patchSlot(obj, 11, reinterpret_cast<void*>(&HookStop), reinterpret_cast<void**>(&g_stop));
-    patchSlot(obj, 12, reinterpret_cast<void*>(&HookReset), reinterpret_cast<void**>(&g_reset));
-    patchSlot(obj, 13, reinterpret_cast<void*>(&HookSetEventHandle),
+    using wa::hook_ipc::kSlotClientInitialize;
+    using wa::hook_ipc::kSlotClientStart;
+    using wa::hook_ipc::kSlotClientStop;
+    using wa::hook_ipc::kSlotClientReset;
+    using wa::hook_ipc::kSlotClientSetEventHandle;
+    using wa::hook_ipc::kSlotClientGetService;
+    using wa::hook_ipc::kSlotClientSetProperties;
+    using wa::hook_ipc::kSlotClientInitializeShared;
+    patchSlot(obj, kSlotClientInitialize, reinterpret_cast<void*>(&HookInitialize),
+              reinterpret_cast<void**>(&g_initialize));
+    patchSlot(obj, kSlotClientStart, reinterpret_cast<void*>(&HookStart),
+              reinterpret_cast<void**>(&g_start));
+    patchSlot(obj, kSlotClientStop, reinterpret_cast<void*>(&HookStop),
+              reinterpret_cast<void**>(&g_stop));
+    patchSlot(obj, kSlotClientReset, reinterpret_cast<void*>(&HookReset),
+              reinterpret_cast<void**>(&g_reset));
+    patchSlot(obj, kSlotClientSetEventHandle, reinterpret_cast<void*>(&HookSetEventHandle),
               reinterpret_cast<void**>(&g_setEvent));
-    patchSlot(obj, 14, reinterpret_cast<void*>(&HookGetService),
+    patchSlot(obj, kSlotClientGetService, reinterpret_cast<void*>(&HookGetService),
               reinterpret_cast<void**>(&g_getService));
     IAudioClient2* c2 = nullptr;
     if (SUCCEEDED(static_cast<IUnknown*>(obj)->QueryInterface(__uuidof(IAudioClient2),
                                                               reinterpret_cast<void**>(&c2))) &&
         c2) {
-        patchSlot(c2, 16, reinterpret_cast<void*>(&HookSetClientProperties),
+        patchSlot(c2, kSlotClientSetProperties, reinterpret_cast<void*>(&HookSetClientProperties),
                   reinterpret_cast<void**>(&g_setProps));
         c2->Release();
+    }
+    IAudioClient3* c3 = nullptr;
+    if (SUCCEEDED(static_cast<IUnknown*>(obj)->QueryInterface(__uuidof(IAudioClient3),
+                                                              reinterpret_cast<void**>(&c3))) &&
+        c3) {
+        patchSlot(c3, kSlotClientInitializeShared, reinterpret_cast<void*>(&HookInitShared),
+                  reinterpret_cast<void**>(&g_initShared));
+        c3->Release();
     }
 }
 
@@ -425,7 +466,26 @@ HRESULT STDMETHODCALLTYPE HookActivate(IMMDevice* self, REFIID iid, DWORD ctx, P
 
 void patchDevice(IMMDevice* dev) {
     if (!dev) return;
-    patchSlot(dev, 3, reinterpret_cast<void*>(&HookActivate), reinterpret_cast<void**>(&g_activate));
+    patchSlot(dev, wa::hook_ipc::kSlotDeviceActivate, reinterpret_cast<void*>(&HookActivate),
+              reinterpret_cast<void**>(&g_activate));
+}
+
+HRESULT STDMETHODCALLTYPE HookEnum(IMMDeviceEnumerator* self, EDataFlow flow, DWORD mask,
+                                   IMMDeviceCollection** col) {
+    const HRESULT hr = g_enum ? g_enum(self, flow, mask, col) : E_UNEXPECTED;
+    if (SUCCEEDED(hr) && col && *col) {
+        UINT n = 0;
+        if (SUCCEEDED((*col)->GetCount(&n))) {
+            for (UINT i = 0; i < n; ++i) {
+                IMMDevice* d = nullptr;
+                if (SUCCEEDED((*col)->Item(i, &d)) && d) {
+                    patchDevice(d);
+                    d->Release();
+                }
+            }
+        }
+    }
+    return hr;
 }
 
 HRESULT STDMETHODCALLTYPE HookGetDevice(IMMDeviceEnumerator* self, LPCWSTR id, IMMDevice** device) {
@@ -441,67 +501,97 @@ HRESULT STDMETHODCALLTYPE HookGetDefault(IMMDeviceEnumerator* self, EDataFlow fl
     return hr;
 }
 
-void tryActivate(IMMDevice* dev, REFIID iid) {
+// Activate without Initialize so we patch the shared IAudioClient vtable
+// without opening a dummy stream in the target.
+void tryActivate(IMMDevice* dev) {
     if (!dev) return;
     patchDevice(dev);
-    void* client = nullptr;
-    HRESULT hr = dev->Activate(iid, CLSCTX_ALL, nullptr, &client);
-    if (SUCCEEDED(hr) && client) {
-        patchClient(client);
-        static_cast<IUnknown*>(client)->Release();
+    void* raw = nullptr;
+    if (SUCCEEDED(dev->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &raw)) && raw) {
+        patchClient(raw);
+        static_cast<IUnknown*>(raw)->Release();
     }
-    (void)hr;
 }
 
-void install() {
+void patchAllDevices(IMMDeviceEnumerator* enumer, EDataFlow flow) {
+    if (!enumer) return;
+    IMMDeviceCollection* col = nullptr;
+    if (FAILED(enumer->EnumAudioEndpoints(flow, DEVICE_STATE_ACTIVE, &col)) || !col) return;
+    UINT n = 0;
+    if (SUCCEEDED(col->GetCount(&n))) {
+        for (UINT i = 0; i < n; ++i) {
+            IMMDevice* d = nullptr;
+            if (SUCCEEDED(col->Item(i, &d)) && d) {
+                patchDevice(d);
+                d->Release();
+            }
+        }
+    }
+    col->Release();
+}
+
+bool install() {
     InterlockedExchange(&g_quiet, 1);
     HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
     const bool needUninit = (hr == S_OK);
-    if (FAILED(hr) && hr != RPC_E_CHANGED_MODE) return;
+    if (FAILED(hr) && hr != RPC_E_CHANGED_MODE) {
+        InterlockedExchange(&g_quiet, 0);
+        return false;
+    }
 
+    bool ok = false;
     IMMDeviceEnumerator* enumer = nullptr;
     hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
                           __uuidof(IMMDeviceEnumerator), reinterpret_cast<void**>(&enumer));
     if (SUCCEEDED(hr) && enumer) {
-        patchSlot(enumer, 4, reinterpret_cast<void*>(&HookGetDefault),
-                  reinterpret_cast<void**>(&g_getDefault));
-        patchSlot(enumer, 5, reinterpret_cast<void*>(&HookGetDevice),
-                  reinterpret_cast<void**>(&g_getDevice));
-        IMMDevice* cap = nullptr;
-        IMMDevice* ren = nullptr;
-        enumer->GetDefaultAudioEndpoint(eCapture, eConsole, &cap);
-        enumer->GetDefaultAudioEndpoint(eRender, eConsole, &ren);
-        if (cap) {
-            tryActivate(cap, __uuidof(IAudioClient));
-            tryActivate(cap, __uuidof(IAudioClient2));
-            cap->Release();
+        const bool patchedEnum =
+            patchSlot(enumer, wa::hook_ipc::kSlotEnumeratorEnumEndpoints,
+                      reinterpret_cast<void*>(&HookEnum), reinterpret_cast<void**>(&g_enum)) &&
+            patchSlot(enumer, wa::hook_ipc::kSlotEnumeratorGetDefault,
+                      reinterpret_cast<void*>(&HookGetDefault),
+                      reinterpret_cast<void**>(&g_getDefault)) &&
+            patchSlot(enumer, wa::hook_ipc::kSlotEnumeratorGetDevice,
+                      reinterpret_cast<void*>(&HookGetDevice),
+                      reinterpret_cast<void**>(&g_getDevice));
+        patchAllDevices(enumer, eCapture);
+        patchAllDevices(enumer, eRender);
+
+        const bool capture = !g_ring || g_ring->flow == 0;
+        IMMDevice* chosen = nullptr;
+        if (g_ring && g_ring->deviceId[0])
+            enumer->GetDevice(g_ring->deviceId, &chosen);
+        if (!chosen) {
+            enumer->GetDefaultAudioEndpoint(capture ? eCapture : eRender, eConsole, &chosen);
         }
-        if (ren) {
-            tryActivate(ren, __uuidof(IAudioClient));
-            tryActivate(ren, __uuidof(IAudioClient2));
-            ren->Release();
+        if (chosen) {
+            tryActivate(chosen);
+            chosen->Release();
         }
         enumer->Release();
+        ok = patchedEnum;
     }
     if (needUninit) CoUninitialize();
     InterlockedExchange(&g_quiet, 0);
+    return ok;
 }
 
 DWORD WINAPI HookThread(LPVOID) {
-    wchar_t name[64] = {};
-    wa::hook_ipc::mapName(GetCurrentProcessId(), name, 64);
-    g_map = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0,
-                               sizeof(Ring), name);
+    g_map = wa::hook_ipc::createHookMapping(GetCurrentProcessId());
     if (!g_map) return 1;
     g_ring = static_cast<Ring*>(MapViewOfFile(g_map, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(Ring)));
-    if (!g_ring) return 1;
+    if (!g_ring) {
+        CloseHandle(g_map);
+        g_map = nullptr;
+        return 1;
+    }
     if (g_ring->magic != kMagic) {
         ZeroMemory(g_ring, sizeof(Ring));
         g_ring->magic = kMagic;
         g_ring->cap = kCap;
         g_ring->writeIndex = 0;
+        g_ring->installed = kInstallPending;
     }
-    install();
+    g_ring->installed = install() ? kInstallOk : kInstallFailed;
     return 0;
 }
 

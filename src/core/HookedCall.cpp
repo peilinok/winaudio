@@ -51,13 +51,16 @@ EtwInitializeHint extractHookedInitialize(const std::vector<HookedCall>& calls) 
     EtwInitializeHint h;
     for (const auto& c : calls) {
         if (c.pump || isPumpMethod(c.method)) continue;
-        if (c.method != "Initialize" && c.method != "SetClientProperties") continue;
+        if (c.method != "Initialize" && c.method != "SetClientProperties" &&
+            c.method != "InitializeSharedAudioStream")
+            continue;
         h.present = true;
         if (c.category) h.category = c.category;
         if (c.raw) h.raw = c.raw;
         if (c.matchFormat) h.matchFormat = c.matchFormat;
         if (c.exclusive) h.exclusive = c.exclusive;
-        if (c.method == "Initialize") h.hresult = c.hresult;
+        if (c.method == "Initialize" || c.method == "InitializeSharedAudioStream")
+            h.hresult = c.hresult;
         if (c.format) h.format = c.format;
     }
     return h;
