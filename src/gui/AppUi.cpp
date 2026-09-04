@@ -254,9 +254,10 @@ void AppUi::runPipelineProbe() {
 void AppUi::runPipelineAttach() {
     if (pipelineSelected_ < 0 || pipelineSelected_ >= (int)pipelineSessions_.size())
         return;
-    const uint32_t pid = pipelineSessions_[(size_t)pipelineSelected_].processId;
+    const auto& session = pipelineSessions_[(size_t)pipelineSelected_];
+    const uint32_t pid = session.processId;
     pipelineCalls_.clear();
-    wa::Result r = pipelineAttach_.start(pid);
+    wa::Result r = pipelineAttach_.start(pid, session.deviceId, session.flow);
     if (!r) {
         pipelineAttachBanner_ = r.message;
         logLines_.push_back("pipeline attach failed: " + r.message);
@@ -818,7 +819,10 @@ void AppUi::drawPipelinePage() {
     const float topHeight = std::max(120.0f, availY - kLogHeight - ImGui::GetStyle().ItemSpacing.y);
 
     ImGui::BeginChild("pipelineTop", ImVec2(0, topHeight), false);
-    ImGui::BeginChild("pipelineLeft", ImVec2(420, 0), true);
+    const float availX = ImGui::GetContentRegionAvail().x;
+    float leftW = std::clamp(availX * 0.40f, 520.f, 720.f);
+    if (availX < 980.f) leftW = std::max(420.f, availX * 0.42f);
+    ImGui::BeginChild("pipelineLeft", ImVec2(leftW, 0), true);
     ImGui::SeparatorText(wa::ui_text::kPipelineSessions);
     if (ImGui::Button(wa::ui_text::kPipelineRefresh))
         refreshPipelineSessions();
@@ -861,23 +865,28 @@ void AppUi::drawPipelinePage() {
         ImGui::TextWrapped("%s", wa::ui_text::kPipelineEmpty);
     } else if (ImGui::BeginTable("pipelineSessions", 7,
                                  ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
-                                     ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp)) {
+                                     ImGuiTableFlags_ScrollY | ImGuiTableFlags_ScrollX |
+                                     ImGuiTableFlags_Resizable | ImGuiTableFlags_SizingFixedFit,
+                                 ImVec2(0, ImGui::GetContentRegionAvail().y))) {
         ImGui::TableSetupColumn("Flow", ImGuiTableColumnFlags_WidthFixed, 70.f);
-        ImGui::TableSetupColumn("Process");
-        ImGui::TableSetupColumn("PID", ImGuiTableColumnFlags_WidthFixed, 60.f);
-        ImGui::TableSetupColumn("Device");
-        ImGui::TableSetupColumn("Vol", ImGuiTableColumnFlags_WidthFixed, 40.f);
-        ImGui::TableSetupColumn("Mute", ImGuiTableColumnFlags_WidthFixed, 40.f);
-        ImGui::TableSetupColumn("State", ImGuiTableColumnFlags_WidthFixed, 70.f);
+        ImGui::TableSetupColumn("Process", ImGuiTableColumnFlags_WidthFixed, 180.f);
+        ImGui::TableSetupColumn("PID", ImGuiTableColumnFlags_WidthFixed, 64.f);
+        ImGui::TableSetupColumn("Device", ImGuiTableColumnFlags_WidthFixed, 240.f);
+        ImGui::TableSetupColumn("Vol", ImGuiTableColumnFlags_WidthFixed, 48.f);
+        ImGui::TableSetupColumn("Mute", ImGuiTableColumnFlags_WidthFixed, 48.f);
+        ImGui::TableSetupColumn("State", ImGuiTableColumnFlags_WidthFixed, 72.f);
         ImGui::TableHeadersRow();
         for (int i = 0; i < (int)pipelineSessions_.size(); ++i) {
             const auto& s = pipelineSessions_[(size_t)i];
+            const std::string tip = wa::ui_text::formatLiveSessionTooltip(s);
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
             const bool selected = (i == pipelineSelected_);
             char label[64];
             std::snprintf(label, sizeof(label), "%s##ps%d",
-                          s.flow == wa::PipelineFlow::Capture ? "capture" : "render", i);
+                          s.flow == wa::PipelineFlow::Capture ? wa::ui_text::kPipelineFlowCapture
+                                                             : wa::ui_text::kPipelineFlowRender,
+                          i);
             if (ImGui::Selectable(label, selected, ImGuiSelectableFlags_SpanAllColumns)) {
                 if (pipelineSelected_ != i) {
                     pipelineProbes_.clear();
@@ -890,18 +899,26 @@ void AppUi::drawPipelinePage() {
                 pipelineSelected_ = i;
                 rebuildPipelineGraph();
             }
+            ImGui::SetItemTooltip("%s", tip.c_str());
             ImGui::TableSetColumnIndex(1);
             ImGui::TextUnformatted(s.processName.c_str());
+            ImGui::SetItemTooltip("%s", tip.c_str());
             ImGui::TableSetColumnIndex(2);
             ImGui::Text("%u", s.processId);
+            ImGui::SetItemTooltip("%s", tip.c_str());
             ImGui::TableSetColumnIndex(3);
             ImGui::TextUnformatted(s.deviceName.c_str());
+            ImGui::SetItemTooltip("%s", tip.c_str());
             ImGui::TableSetColumnIndex(4);
             ImGui::Text("%.2f", static_cast<double>(s.sessionVolume));
+            ImGui::SetItemTooltip("%s", tip.c_str());
             ImGui::TableSetColumnIndex(5);
-            ImGui::TextUnformatted(s.sessionMute ? "yes" : "no");
+            ImGui::TextUnformatted(s.sessionMute ? wa::ui_text::kPipelineMuteYes
+                                                 : wa::ui_text::kPipelineMuteNo);
+            ImGui::SetItemTooltip("%s", tip.c_str());
             ImGui::TableSetColumnIndex(6);
             ImGui::TextUnformatted(s.state.c_str());
+            ImGui::SetItemTooltip("%s", tip.c_str());
         }
         ImGui::EndTable();
     }
@@ -942,7 +959,8 @@ void AppUi::drawPipelinePage() {
     const auto callView = wa::shapeCallLog(callSrc, pipelinePump_);
     const auto& callLog = callView.entries;
     if (callLog.empty()) {
-        ImGui::TextWrapped("%s", wa::ui_text::kPipelineCallLogEmpty);
+        ImGui::TextWrapped("%s", wa::ui_text::pipelineCallLogEmptyText(pipelineAttach_.attached(),
+                                                                      pipelinePump_));
     } else if (ImGui::BeginTable("pipelineCalls", 5,
                                  ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
                                      ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp)) {

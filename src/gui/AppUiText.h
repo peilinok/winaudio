@@ -1,4 +1,7 @@
 #pragma once
+#include "PipelineGraph.h"
+#include <cstdio>
+#include <string>
 
 namespace wa::ui_text {
 
@@ -70,6 +73,41 @@ inline constexpr const char* kPipelineCallLog = "Call log";
 inline constexpr const char* kPipelineAttached = "Attached";
 inline constexpr const char* kPipelineCallLogEmpty =
     "No control-path calls yet. Attach to intercept Core Audio COM.";
+inline constexpr const char* kPipelineCallLogWaiting =
+    "Attached. Call log waits for the next control-path call (Initialize, Start, Stop, "
+    "GetService). Enable Record pump metadata to see GetBuffer/ReleaseBuffer.";
+inline constexpr const char* kPipelineCallLogWaitingPump =
+    "Attached with pump metadata on. Waiting for GetBuffer/ReleaseBuffer. If this stays "
+    "empty, the process may not be using Core Audio COM on this device.";
+inline constexpr const char* kPipelineFlowCapture = "capture";
+inline constexpr const char* kPipelineFlowRender = "render";
+inline constexpr const char* kPipelineMuteYes = "yes";
+inline constexpr const char* kPipelineMuteNo = "no";
+
+inline std::string formatLiveSessionTooltip(const LiveSessionView& row) {
+    char vol[16];
+    std::snprintf(vol, sizeof(vol), "%.2f", static_cast<double>(row.sessionVolume));
+    std::string out;
+    out.reserve(128 + row.processName.size() + row.deviceName.size() + row.state.size());
+    out += (row.flow == PipelineFlow::Capture) ? kPipelineFlowCapture : kPipelineFlowRender;
+    out += "\nprocess: ";
+    out += row.processName;
+    out += "\npid: ";
+    out += std::to_string(row.processId);
+    out += "\ndevice: ";
+    out += row.deviceName;
+    out += "\nvolume: ";
+    out += vol;
+    out += "\nmute: ";
+    out += row.sessionMute ? kPipelineMuteYes : kPipelineMuteNo;
+    out += "\nstate: ";
+    out += row.state;
+    return out;
+}
+inline const char* pipelineCallLogEmptyText(bool attached, bool pumpEnabled) {
+    if (!attached) return kPipelineCallLogEmpty;
+    return pumpEnabled ? kPipelineCallLogWaitingPump : kPipelineCallLogWaiting;
+}
 inline constexpr const char* kPipelineCrossBitness = "Attach failed: cross-bitness";
 inline constexpr const char* kPipelineNoDebug = "Attach failed: missing debug rights";
 inline constexpr const char* kPipelineCallColIface = "Iface";

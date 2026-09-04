@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <string>
 #include "AppUiText.h"
 #include "EtwInitialize.h"
 #include "OnDemandAttach.h"
@@ -57,6 +58,22 @@ TEST(LiveSessionList, KeepsSamePidOnDifferentDevices) {
     ASSERT_EQ(rows.size(), 2u);
 }
 
+TEST(LiveSessionList, TooltipKeepsProcessAndDeviceWhenCellsClip) {
+    LiveSessionView s = row(25060, "chrome.exe", "Headset Microphone (Realtek(R) Audio)",
+                            PipelineFlow::Capture);
+    s.sessionVolume = 0.75f;
+    s.sessionMute = true;
+    s.state = "Active";
+    const std::string tip = wa::ui_text::formatLiveSessionTooltip(s);
+    EXPECT_NE(tip.find("chrome.exe"), std::string::npos);
+    EXPECT_NE(tip.find("25060"), std::string::npos);
+    EXPECT_NE(tip.find("Headset Microphone (Realtek(R) Audio)"), std::string::npos);
+    EXPECT_NE(tip.find(wa::ui_text::kPipelineFlowCapture), std::string::npos);
+    EXPECT_NE(tip.find("0.75"), std::string::npos);
+    EXPECT_NE(tip.find(wa::ui_text::kPipelineMuteYes), std::string::npos);
+    EXPECT_NE(tip.find("Active"), std::string::npos);
+}
+
 TEST(LiveSessionList, SortsByNameThenPidThenFlowThenDevice) {
     std::vector<LiveSessionView> rows = {
         row(20, "zoom.exe", "mic", PipelineFlow::Capture),
@@ -95,6 +112,20 @@ TEST(PipelineUiText, ExposesPipelineTabControls) {
     EXPECT_STREQ(wa::ui_text::kPipelineAttached, "Attached");
     EXPECT_STREQ(wa::ui_text::kPipelineCallLogEmpty,
                  "No control-path calls yet. Attach to intercept Core Audio COM.");
+    EXPECT_STREQ(wa::ui_text::pipelineCallLogEmptyText(false, false),
+                 wa::ui_text::kPipelineCallLogEmpty);
+    EXPECT_STREQ(wa::ui_text::pipelineCallLogEmptyText(false, true),
+                 wa::ui_text::kPipelineCallLogEmpty);
+    EXPECT_STREQ(wa::ui_text::pipelineCallLogEmptyText(true, false),
+                 wa::ui_text::kPipelineCallLogWaiting);
+    EXPECT_STREQ(wa::ui_text::pipelineCallLogEmptyText(true, true),
+                 wa::ui_text::kPipelineCallLogWaitingPump);
+    EXPECT_NE(std::string(wa::ui_text::kPipelineCallLogWaiting).find("Initialize"),
+              std::string::npos);
+    EXPECT_NE(std::string(wa::ui_text::kPipelineCallLogWaiting).find("Record pump metadata"),
+              std::string::npos);
+    EXPECT_NE(std::string(wa::ui_text::kPipelineCallLogWaitingPump).find("Core Audio COM"),
+              std::string::npos);
     EXPECT_STREQ(wa::attachBlockText(wa::AttachBlock::CrossBitness),
                  wa::ui_text::kPipelineCrossBitness);
     EXPECT_STREQ(wa::attachBlockText(wa::AttachBlock::NoDebugRights),

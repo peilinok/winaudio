@@ -79,6 +79,22 @@ TEST(CallLog, NeverLeavesPcmInArgs) {
     EXPECT_NE(log.entries[0].args.find("share=shared"), std::string::npos);
 }
 
+TEST(CallLog, InitializeSharedAudioStreamOverridesEtwFormat) {
+    HookedCall c;
+    c.iface = "IAudioClient3";
+    c.method = "InitializeSharedAudioStream";
+    c.args = "flags=0x0 period=480 fmt=48000/32f/2";
+    c.hresult = 0;
+    c.exclusive = false;
+    c.format = std::string("48000/32f/2");
+    const auto hint = extractHookedInitialize({c});
+    EXPECT_TRUE(hint.present);
+    ASSERT_TRUE(hint.format.has_value());
+    EXPECT_EQ(*hint.format, "48000/32f/2");
+    ASSERT_TRUE(hint.hresult.has_value());
+    EXPECT_EQ(*hint.hresult, 0);
+}
+
 TEST(HookedJoin, InitializeOverridesEtwCategoryAndRaw) {
     EtwInitializeHint etw;
     etw.present = true;

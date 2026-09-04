@@ -43,6 +43,15 @@ bool sameBitness(HANDLE proc) {
     return selfWow == targetWow;
 }
 
+std::wstring utf8ToWide(const std::string& s) {
+    if (s.empty()) return {};
+    int n = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), static_cast<int>(s.size()), nullptr, 0);
+    if (n <= 0) return {};
+    std::wstring w(static_cast<size_t>(n), 0);
+    MultiByteToWideChar(CP_UTF8, 0, s.c_str(), static_cast<int>(s.size()), w.data(), n);
+    return w;
+}
+
 std::wstring hookDllPath() {
     wchar_t path[MAX_PATH] = {};
     GetModuleFileNameW(nullptr, path, MAX_PATH);
@@ -55,6 +64,46 @@ std::wstring hookDllPath() {
         wcscat_s(path, L"WinAudioHook.dll");
     }
     return path;
+}
+
+std::wstring stageHookDll() {
+    const std::wstring src = hookDllPath();
+    const auto slash = src.find_last_of(L"\\/");
+    if (slash == std::wstring::npos) return src;
+    std::wstring dst = src.substr(0, slash + 1) + stagedHookFileName();
+    if (!CopyFileW(src.c_str(), dst.c_str(), FALSE)) {
+        const DWORD err = GetLastError();
+        WA_LOG(wa::log::Level::Warn, "Attach", "CopyFile(stage hook)", wa::narrowAscii(dst),
+               wa::log::hrName(HRESULT_FROM_WIN32(err)));
+        if (GetFileAttributesW(dst.c_str()) == INVALID_FILE_ATTRIBUTES) return src;
+    }
+    return dst;
+}
+
+void enableDebugPrivilege() {
+    HANDLE tok = nullptr;
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &tok)) {
+        WA_LOG(wa::log::Level::Debug, "Attach", "OpenProcessToken", "",
+               wa::log::hrName(HRESULT_FROM_WIN32(GetLastError())));
+        return;
+    }
+    LUID luid{};
+    if (!LookupPrivilegeValueW(nullptr, SE_DEBUG_NAME, &luid)) {
+        WA_LOG(wa::log::Level::Debug, "Attach", "LookupPrivilegeValueW(SeDebugPrivilege)", "",
+               wa::log::hrName(HRESULT_FROM_WIN32(GetLastError())));
+        CloseHandle(tok);
+        return;
+    }
+    TOKEN_PRIVILEGES tp{};
+    tp.PrivilegeCount = 1;
+    tp.Privileges[0].Luid = luid;
+    tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+    AdjustTokenPrivileges(tok, FALSE, &tp, 0, nullptr, nullptr);
+    const DWORD err = GetLastError();
+    WA_LOG(err == ERROR_SUCCESS ? wa::log::Level::Debug : wa::log::Level::Warn, "Attach",
+           "AdjustTokenPrivileges(SeDebugPrivilege)", "",
+           wa::log::hrName(HRESULT_FROM_WIN32(err)));
+    CloseHandle(tok);
 }
 
 HookedCall fromPod(const hook_ipc::CallPod& p) {
@@ -117,14 +166,20 @@ Result injectDll(HANDLE proc, const std::wstring& dll) {
         return win32Result(thrErr, "Attach: CreateRemoteThread");
     }
     const DWORD wait = WaitForSingleObject(thread, 10000);
+    DWORD exitCode = 0;
+    GetExitCodeThread(thread, &exitCode);
     WA_LOG(wait == WAIT_OBJECT_0 ? wa::log::Level::Debug : wa::log::Level::Warn, "Attach",
-           "WaitForSingleObject(inject)", "",
+           "WaitForSingleObject(inject)", "exit=" + std::to_string(exitCode),
            wait == WAIT_OBJECT_0 ? "S_OK" : wa::log::hrName(HRESULT_FROM_WIN32(wait)));
     CloseHandle(thread);
     VirtualFreeEx(proc, remote, 0, MEM_RELEASE);
-    if (wait != WAIT_OBJECT_0)
-        return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_TIMEOUT)),
-                            "Attach: inject timed out");
+    if (!remoteLoadLibrarySucceeded(wait, exitCode)) {
+        if (wait != WAIT_OBJECT_0)
+            return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_TIMEOUT)),
+                                "Attach: inject timed out");
+        return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_MOD_NOT_FOUND)),
+                            "Attach: LoadLibraryW failed in target");
+    }
     return Result::Ok();
 }
 
@@ -140,6 +195,20 @@ const char* attachBlockText(AttachBlock block) {
         case AttachBlock::NoDebugRights: return "Attach failed: missing debug rights";
     }
     return "Attach failed";
+}
+
+bool remoteLoadLibrarySucceeded(uint32_t waitResult, uint32_t exitCode) {
+    return waitResult == WAIT_OBJECT_0 && exitCode != 0;
+}
+
+const char* attachInstallFailMessage(uint32_t installed) {
+    return installed == hook_ipc::kInstallFailed
+               ? "Attach: hook install failed in target"
+               : "Attach: hook install did not finish; restart the target app and retry";
+}
+
+std::wstring stagedHookFileName() {
+    return L"WinAudioHook-" + std::to_wstring(hook_ipc::kRingLayout) + L".dll";
 }
 
 AttachBlock evaluateAttach(uint32_t pid, uint32_t ourPid, bool sameBitnessFlag, bool hasDebugRights,
@@ -190,9 +259,10 @@ AttachBlock OnDemandAttach::lastBlock() const {
     return impl_ ? impl_->block : AttachBlock::PidZero;
 }
 
-Result OnDemandAttach::start(uint32_t pid) {
+Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, PipelineFlow flow) {
     stop();
     impl_->block = AttachBlock::PidZero;
+    enableDebugPrivilege();
     const uint32_t ourPid = GetCurrentProcessId();
 
     HANDLE query = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
@@ -225,38 +295,71 @@ Result OnDemandAttach::start(uint32_t pid) {
         return Result::Fail(static_cast<long>(E_ACCESSDENIED), attachBlockText(impl_->block));
     }
 
-    const std::wstring dll = hookDllPath();
-    Result inj = injectDll(inject, dll);
-    CloseHandle(inject);
-    if (!inj) {
-        WA_LOG(wa::log::Level::Info, "Attach", "inject", inj.message, "fail");
-        return inj;
-    }
-
     wchar_t mapNm[64] = {};
     hook_ipc::mapName(pid, mapNm, 64);
-    HANDLE map = nullptr;
-    DWORD mapErr = ERROR_SUCCESS;
-    for (int i = 0; i < 40 && !map; ++i) {
-        map = OpenFileMappingW(FILE_MAP_ALL_ACCESS, FALSE, mapNm);
-        mapErr = map ? ERROR_SUCCESS : GetLastError();
-        if (!map) Sleep(50);
+    SetLastError(ERROR_SUCCESS);
+    bool sdApplied = false;
+    HANDLE map = hook_ipc::createHookMapping(pid, &sdApplied);
+    const DWORD mapErr = GetLastError();
+    if (!sdApplied) {
+        WA_LOG(wa::log::Level::Warn, "Attach", "ConvertStringSecurityDescriptor",
+               wa::narrowAscii(mapNm), "ignored");
     }
-    WA_LOG(wa::log::Level::Debug, "Attach", "OpenFileMapping", wa::narrowAscii(mapNm),
-           wa::log::hrName(HRESULT_FROM_WIN32(mapErr)));
+    WA_LOG(wa::log::Level::Debug, "Attach", "CreateFileMapping", wa::narrowAscii(mapNm),
+           map ? (mapErr == ERROR_ALREADY_EXISTS ? "already-exists" : "S_OK")
+               : wa::log::hrName(HRESULT_FROM_WIN32(mapErr)));
     if (!map) {
-        return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(mapErr)),
-                            "Attach: hook mapping not ready");
+        CloseHandle(inject);
+        return win32Result(mapErr, "Attach: CreateFileMapping");
     }
     auto* ring = static_cast<hook_ipc::Ring*>(
         MapViewOfFile(map, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(hook_ipc::Ring)));
     WA_LOG(wa::log::Level::Debug, "Attach", "MapViewOfFile", wa::narrowAscii(mapNm),
            ring ? "S_OK" : wa::log::hrName(HRESULT_FROM_WIN32(GetLastError())));
-    if (!ring || ring->magic != hook_ipc::kMagic) {
-        if (ring) UnmapViewOfFile(ring);
+    if (!ring) {
+        const DWORD err = GetLastError();
         CloseHandle(map);
-        return Result::Fail(static_cast<long>(E_FAIL), "Attach: hook mapping invalid");
+        CloseHandle(inject);
+        return win32Result(err, "Attach: MapViewOfFile");
     }
+
+    const bool reuse = mapErr == ERROR_ALREADY_EXISTS && ring->magic == hook_ipc::kMagic &&
+                       ring->installed == hook_ipc::kInstallOk;
+    if (!reuse) {
+        ZeroMemory(ring, sizeof(*ring));
+        ring->magic = hook_ipc::kMagic;
+        ring->cap = hook_ipc::kCap;
+        ring->installed = hook_ipc::kInstallPending;
+        const std::wstring wid = utf8ToWide(deviceIdUtf8);
+        if (!wid.empty())
+            wcsncpy_s(ring->deviceId, wid.c_str(), _TRUNCATE);
+        ring->flow = flow == PipelineFlow::Render ? 1u : 0u;
+    }
+
+    const std::wstring dll = stageHookDll();
+    Result inj = injectDll(inject, dll);
+    CloseHandle(inject);
+    if (!inj) {
+        WA_LOG(wa::log::Level::Info, "Attach", "inject", inj.message, "fail");
+        UnmapViewOfFile(ring);
+        CloseHandle(map);
+        return inj;
+    }
+
+    if (!reuse) {
+        for (int i = 0; i < 80 && ring->installed == hook_ipc::kInstallPending; ++i)
+            Sleep(50);
+        const uint32_t installed = ring->installed;
+        WA_LOG(installed == hook_ipc::kInstallOk ? wa::log::Level::Debug : wa::log::Level::Info,
+               "Attach", "hook installed", "pid=" + std::to_string(pid),
+               installed == hook_ipc::kInstallOk ? "S_OK" : attachInstallFailMessage(installed));
+        if (installed != hook_ipc::kInstallOk) {
+            UnmapViewOfFile(ring);
+            CloseHandle(map);
+            return Result::Fail(static_cast<long>(E_FAIL), attachInstallFailMessage(installed));
+        }
+    }
+
     impl_->map = map;
     impl_->ring = ring;
     impl_->pid = pid;

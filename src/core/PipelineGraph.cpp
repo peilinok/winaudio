@@ -1,7 +1,6 @@
 #include "PipelineGraph.h"
 #include "HookedCall.h"
 #include <algorithm>
-#include <cstring>
 
 namespace wa {
 namespace {
