@@ -287,7 +287,14 @@ void Engine::captureLoop(std::wstring wavPath) {
         size_t got = ring_->read(buf.data(), buf.size());
         if (got == 0) { Sleep(5); }
         else {
-            writer.write(buf.data(), got);
+            const Result writeResult = writer.write(buf.data(), got);
+            if (!writeResult) {
+                std::lock_guard<std::mutex> lk(mtx_);
+                status_.state = EngineState::Error;
+                status_.message = writeResult.message;
+                running_.store(false);
+                break;
+            }
             float l, r; computeLevels(buf.data(), got, fmt, l, r);
             std::lock_guard<std::mutex> lk(mtx_);
             status_.levelL = l; status_.levelR = r;
@@ -297,7 +304,12 @@ void Engine::captureLoop(std::wstring wavPath) {
             status_.elapsedMs = static_cast<uint32_t>(GetTickCount64() - startTick_);
         }
     }
-    writer.close();
+    const Result closeResult = writer.close();
+    if (!closeResult) {
+        std::lock_guard<std::mutex> lk(mtx_);
+        status_.state = EngineState::Error;
+        status_.message = closeResult.message;
+    }
 }
 
 void Engine::playbackLoop(std::wstring wavPath) {

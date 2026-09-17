@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <string>
+#include <vector>
 #include "AudioFormat.h"
 #include "Result.h"
 
@@ -12,11 +13,17 @@ public:
     ~WavWriter();
     Result open(const std::wstring& path, const AudioFormat& fmt);
     void   setStdioBuffer(size_t bytes);          // setvbuf; no-op if not open
-    size_t write(const void* data, size_t bytes); // returns bytes written
+    Result write(const void* data, size_t bytes);
     Result close();                               // patches sizes
 private:
     FILE*  file_ = nullptr;
-    uint32_t dataBytes_ = 0;
+    uint64_t dataBytes_ = 0;
+    int64_t riffSizeOffset_ = 0;
+    int64_t dataSizeOffset_ = 0;
+    int64_t factSampleOffset_ = 0;
+    int64_t dataStartOffset_ = 0;
+    std::vector<uint8_t> pending_;
+    Result error_{};
     AudioFormat fmt_{};
 };
 

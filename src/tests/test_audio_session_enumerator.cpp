@@ -71,6 +71,11 @@ TEST(AppLoopbackUiText, ExposesRequiredControls) {
     EXPECT_STREQ(wa::ui_text::kApplicationLoopbackSessions, "Sessions");
     EXPECT_STREQ(wa::ui_text::kApplicationLoopbackEmptyHint,
                  "Create a Track to capture application audio.");
+    EXPECT_STREQ(wa::ui_text::kFormatReference, "Format reference");
+    EXPECT_STREQ(wa::ui_text::kFormatReferenceNone, "None");
+    EXPECT_STREQ(wa::ui_text::kFormatReferenceDefaultRender, "Default render device");
+    EXPECT_STREQ(wa::ui_text::kAutomatic, "Automatic");
+    EXPECT_STREQ(wa::ui_text::kCapabilities, "Capabilities...");
 }
 
 TEST(AdvancedOptionsUiText, ExposesExplicitClientPropertiesControls) {

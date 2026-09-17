@@ -79,9 +79,11 @@ private:
     void drawFormatRegion();
     void recomputeDefaultFormat();
     void recomputeLoopbackFormat();
+    void recomputeApplicationLoopbackFormat();
     void drawFormatRecipe(wa::create_recipe::FormatState& st,
-                          const std::vector<wa::AudioFormat>& candidates,
+                          const std::vector<wa::FormatSupport>& candidates,
                           const wa::AudioFormat& defaultDisplay,
+                          bool hasDefaultDisplay, const char* defaultLabel,
                           const char* comboId, wa::StreamParams& params);
     void drawCaptureOptions(wa::StreamParams& params);
     void ensureRunningVisuals(const wa::MonitorStatus& status, VisualState& viz,
@@ -137,6 +139,7 @@ private:
     std::vector<wa::AudioSessionProcess> appLoopbackSessions_;
     int                         appLoopbackSessionIdx_ = -1;
     char                        appLoopbackPid_[32] = "";
+    int                         appLoopbackReferenceIdx_ = 0;
     wa::create_recipe::CreateRecipe appLoopbackRecipe_{};
 
     bool pipelineSessionsLoaded_ = false;
@@ -166,6 +169,8 @@ private:
     int                    fmtBackendShown_ = -1;
     int                    capDevShown_     = -1;
     wa::DeviceCapabilities capsCache_{};
+    wa::DeviceCapabilities capsModal_{};
+    std::string            capsModalContext_;
 
     wa::dump_ui::FolderPicker dumpPicker_;
     DumpPickKind              dumpPickKind_ = DumpPickKind::None;
