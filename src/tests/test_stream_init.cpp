@@ -125,6 +125,26 @@ TEST(StreamInitShared, RequestedDefaultAddsAutoConvertAndSrc) {
     EXPECT_EQ(fake.lastFormat, want);
 }
 
+TEST(StreamInitShared, RequestedMultichannelReturnsNormalizedExtensibleMetadata) {
+    FakeAudioClientInit fake;
+    AudioFormat want{44100, 8, 32, true};
+    StreamInitRequest req;
+    req.requested = &want;
+    StreamInitOutcome out;
+
+    Result r = streamInitShared(fake, req, out);
+
+    ASSERT_TRUE(static_cast<bool>(r)) << r.message;
+    EXPECT_EQ(out.actualFormat.sampleRate, 44100u);
+    EXPECT_EQ(out.actualFormat.channels, 8);
+    EXPECT_EQ(out.actualFormat.bitsPerSample, 32);
+    EXPECT_TRUE(out.actualFormat.isFloat);
+    EXPECT_EQ(out.actualFormat.validBitsPerSample, 32);
+    EXPECT_EQ(out.actualFormat.channelMask, 0x63Fu);
+    EXPECT_EQ(fake.lastFormat.validBitsPerSample, 32);
+    EXPECT_EQ(fake.lastFormat.channelMask, 0x63Fu);
+}
+
 TEST(StreamInitShared, CallerLoopbackExtraAppearsInFlags) {
     FakeAudioClientInit fake;
     StreamInitRequest req;
@@ -213,6 +233,24 @@ TEST(StreamInitExclusive, RequestedSupportedUsesEventCallbackAndEqualPeriod) {
     EXPECT_EQ(out.frameBytes, want.blockAlign());
     EXPECT_EQ(fake.lastFormat, want);
     EXPECT_EQ(fake.initializeCount, 1);
+}
+
+TEST(StreamInitExclusive, RequestedMultichannelReturnsNormalizedExtensibleMetadata) {
+    FakeAudioClientInit fake;
+    AudioFormat want{48000, 8, 32, true};
+    fake.supportedFormats.push_back(want);
+    StreamInitRequest req;
+    req.requested = &want;
+    req.direction = StreamInitDirection::Render;
+    StreamInitOutcome out;
+
+    Result r = streamInitExclusive(fake, req, out);
+
+    ASSERT_TRUE(static_cast<bool>(r)) << r.message;
+    EXPECT_EQ(out.actualFormat.validBitsPerSample, 32);
+    EXPECT_EQ(out.actualFormat.channelMask, 0x63Fu);
+    EXPECT_EQ(fake.lastFormat.validBitsPerSample, 32);
+    EXPECT_EQ(fake.lastFormat.channelMask, 0x63Fu);
 }
 
 TEST(StreamInitExclusive, RenderWithoutRequestedFails) {

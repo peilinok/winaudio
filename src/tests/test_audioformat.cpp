@@ -67,3 +67,25 @@ TEST(AudioFormat, ChannelMaskForCommonLayouts) {
     auto w3 = toWaveFormatExtensible(af3);
     EXPECT_EQ(w3.dwChannelMask, 0u); // unusual count -> unspecified
 }
+
+TEST(AudioFormat, PreservesExtensibleValidBitsAndChannelMask) {
+    WAVEFORMATEXTENSIBLE w{};
+    w.Format.wFormatTag = WAVE_FORMAT_EXTENSIBLE;
+    w.Format.nChannels = 8;
+    w.Format.nSamplesPerSec = 44100;
+    w.Format.wBitsPerSample = 32;
+    w.Format.nBlockAlign = 32;
+    w.Format.nAvgBytesPerSec = 1411200;
+    w.Format.cbSize = sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX);
+    w.Samples.wValidBitsPerSample = 24;
+    w.dwChannelMask = 0x63F;
+    w.SubFormat = KSDATAFORMAT_SUBTYPE_PCM;
+
+    const AudioFormat f = fromWaveFormat(reinterpret_cast<const WAVEFORMATEX*>(&w));
+    EXPECT_EQ(f.validBitsPerSample, 24);
+    EXPECT_EQ(f.channelMask, 0x63Fu);
+
+    const WAVEFORMATEXTENSIBLE roundTrip = toWaveFormatExtensible(f);
+    EXPECT_EQ(roundTrip.Samples.wValidBitsPerSample, 24);
+    EXPECT_EQ(roundTrip.dwChannelMask, 0x63Fu);
+}

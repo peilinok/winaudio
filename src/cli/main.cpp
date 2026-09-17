@@ -235,7 +235,10 @@ int wmain(int argc, wchar_t** argv) {
         for (const auto& s : caps.matrix) {
             char fmt[32];
             std::snprintf(fmt, sizeof fmt, "%u/%u/%u%s", s.fmt.sampleRate, s.fmt.bitsPerSample, s.fmt.channels, s.fmt.isFloat?"f":"");
-            std::printf("%-16s %-8s %-9s\n", fmt, s.sharedOk?"yes":"-", s.exclusiveOk?"yes":"-");
+            const char* shared = s.shared == wa::SupportLevel::Exact ? "exact"
+                               : s.shared == wa::SupportLevel::ClosestMatch ? "closest" : "-";
+            const char* exclusive = s.exclusive == wa::SupportLevel::Exact ? "exact" : "-";
+            std::printf("%-16s %-8s %-9s\n", fmt, shared, exclusive);
         }
         return 0;
     }

@@ -60,12 +60,79 @@ TEST(CreateRecipe, SharedCandidatesKeepsOnlySharedOk) {
     wa::create_recipe::CreateRecipe recipe;
     wa::FormatSupport a{};
     a.fmt = wa::AudioFormat{48000, 2, 16, false};
-    a.sharedOk = true;
+    a.shared = wa::SupportLevel::Exact;
     wa::FormatSupport b{};
     b.fmt = wa::AudioFormat{96000, 2, 24, false};
-    b.exclusiveOk = true;
+    b.exclusive = wa::SupportLevel::Exact;
     recipe.caps.matrix = {a, b};
     const auto ok = wa::create_recipe::sharedCandidates(recipe.caps);
     ASSERT_EQ(ok.size(), 1u);
     EXPECT_EQ(ok[0], a.fmt);
+}
+
+TEST(CreateRecipe, SharedFormatChoicesPrioritizeSourcesAndLimitRecommendationsToMixRate) {
+    wa::DeviceCapabilities caps;
+    caps.hasMix = true;
+    caps.mixFormat = wa::AudioFormat{48000, 8, 32, true};
+
+    wa::FormatSupport mix{};
+    mix.fmt = caps.mixFormat;
+    mix.origins = wa::formatOriginBit(wa::FormatOrigin::Mix);
+    mix.shared = wa::SupportLevel::Exact;
+    wa::FormatSupport device{};
+    device.fmt = wa::AudioFormat{44100, 8, 16, false};
+    device.origins = wa::formatOriginBit(wa::FormatOrigin::Device);
+    device.shared = wa::SupportLevel::ClosestMatch;
+    wa::FormatSupport recommended{};
+    recommended.fmt = wa::AudioFormat{48000, 8, 16, false};
+    recommended.origins = wa::formatOriginBit(wa::FormatOrigin::Standard);
+    recommended.shared = wa::SupportLevel::ClosestMatch;
+    wa::FormatSupport otherRate = recommended;
+    otherRate.fmt.sampleRate = 96000;
+    wa::FormatSupport unsupportedSource = device;
+    unsupportedSource.fmt.bitsPerSample = 24;
+    unsupportedSource.origins = wa::formatOriginBit(wa::FormatOrigin::Oem);
+    unsupportedSource.shared = wa::SupportLevel::Unsupported;
+    caps.matrix = {mix, device, recommended, otherRate, unsupportedSource};
+
+    const auto choices = wa::create_recipe::sharedFormatChoices(caps);
+
+    ASSERT_EQ(choices.size(), 3u);
+    EXPECT_EQ(choices[0].fmt, mix.fmt);
+    EXPECT_EQ(choices[1].fmt, device.fmt);
+    EXPECT_EQ(choices[2].fmt, recommended.fmt);
+    EXPECT_TRUE(wa::hasFormatOrigin(choices[0].origins, wa::FormatOrigin::Mix));
+    EXPECT_EQ(choices[1].shared, wa::SupportLevel::ClosestMatch);
+}
+
+TEST(CreateRecipe, ChangedFormatDeviceResetsToAutomaticButRefreshKeepsSelection) {
+    wa::create_recipe::CreateRecipe recipe;
+    wa::create_recipe::selectCandidate(
+        recipe.format, wa::AudioFormat{96000, 2, 24, false}, 2);
+    wa::DeviceCapabilities firstCaps;
+    firstCaps.hasMix = true;
+    firstCaps.mixFormat = wa::AudioFormat{48000, 8, 32, true};
+
+    EXPECT_TRUE(wa::create_recipe::updateFormatDevice(
+        recipe, 1, L"g431", firstCaps, firstCaps.mixFormat));
+    EXPECT_FALSE(recipe.format.haveRequested);
+    EXPECT_EQ(recipe.format.choiceIdx, 0);
+    EXPECT_EQ(recipe.format.selected, firstCaps.mixFormat);
+
+    wa::create_recipe::selectCandidate(
+        recipe.format, wa::AudioFormat{48000, 8, 16, false}, 1);
+    wa::DeviceCapabilities refreshedCaps = firstCaps;
+    recipe.deviceShown = -1; // capabilities cache invalidated by a device-list refresh
+    EXPECT_FALSE(wa::create_recipe::updateFormatDevice(
+        recipe, 1, L"g431", refreshedCaps, firstCaps.mixFormat));
+    EXPECT_TRUE(recipe.format.haveRequested);
+    EXPECT_EQ(recipe.format.selected, (wa::AudioFormat{48000, 8, 16, false}));
+
+    recipe.deviceShown = 0; // Application Loopback: None
+    recipe.deviceId.clear();
+    wa::create_recipe::selectCandidate(
+        recipe.format, wa::AudioFormat{48000, 8, 16, false}, 1);
+    EXPECT_TRUE(wa::create_recipe::updateFormatDevice(
+        recipe, 1, L"", refreshedCaps, wa::AudioFormat{}));
+    EXPECT_FALSE(recipe.format.haveRequested); // Default render reference is a real change
 }

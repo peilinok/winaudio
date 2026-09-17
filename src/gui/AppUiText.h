@@ -10,6 +10,11 @@ inline constexpr const char* kApplicationLoopbackRefresh = "Refresh";
 inline constexpr const char* kApplicationLoopbackPidLabel = "PID";
 inline constexpr const char* kApplicationLoopbackExclude = "Exclude";
 inline constexpr const char* kApplicationLoopbackSessions = "Sessions";
+inline constexpr const char* kFormatReference = "Format reference";
+inline constexpr const char* kFormatReferenceNone = "None";
+inline constexpr const char* kFormatReferenceDefaultRender = "Default render device";
+inline constexpr const char* kAutomatic = "Automatic";
+inline constexpr const char* kCapabilities = "Capabilities...";
 
 inline constexpr const char* kAdvancedOptionsHelp =
     "Client properties are sent only when enabled for that side. When enabled, "

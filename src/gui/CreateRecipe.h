@@ -53,10 +53,46 @@ inline bool applyCustom(FormatState& st, const char* text, std::string* error) {
     return true;
 }
 
+inline bool updateFormatDevice(CreateRecipe& recipe, int deviceShown,
+                               const std::wstring& deviceId,
+                               const DeviceCapabilities& caps,
+                               const AudioFormat& defaultDisplay) {
+    const bool changed = recipe.deviceId != deviceId ||
+        (recipe.deviceShown >= 0 && recipe.deviceId.empty() && deviceId.empty() &&
+         recipe.deviceShown != deviceShown);
+    recipe.caps = caps;
+    recipe.deviceShown = deviceShown;
+    recipe.deviceId = deviceId;
+    if (changed) selectDefault(recipe.format, defaultDisplay);
+    return changed;
+}
+
+inline bool hasDeviceFormatOrigin(const FormatSupport& support) {
+    return hasFormatOrigin(support.origins, FormatOrigin::Mix) ||
+           hasFormatOrigin(support.origins, FormatOrigin::Device) ||
+           hasFormatOrigin(support.origins, FormatOrigin::Oem);
+}
+
+inline std::vector<FormatSupport> sharedFormatChoices(const DeviceCapabilities& caps) {
+    std::vector<FormatSupport> out;
+    for (const auto& fs : caps.matrix) {
+        if (isSupported(fs.shared) && hasDeviceFormatOrigin(fs))
+            out.push_back(fs);
+    }
+    if (!caps.hasMix) return out;
+    for (const auto& fs : caps.matrix) {
+        if (isSupported(fs.shared) && !hasDeviceFormatOrigin(fs) &&
+            hasFormatOrigin(fs.origins, FormatOrigin::Standard) &&
+            fs.fmt.sampleRate == caps.mixFormat.sampleRate)
+            out.push_back(fs);
+    }
+    return out;
+}
+
 inline std::vector<AudioFormat> sharedCandidates(const DeviceCapabilities& caps) {
     std::vector<AudioFormat> out;
     for (const auto& fs : caps.matrix) {
-        if (fs.sharedOk) out.push_back(fs.fmt);
+        if (isSupported(fs.shared)) out.push_back(fs.fmt);
     }
     return out;
 }

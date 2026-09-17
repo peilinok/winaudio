@@ -101,9 +101,9 @@ Result streamInitShared(AudioClientInit& client, const StreamInitRequest& req,
     const DWORD flags = sharedInitFlags(req);
 
     if (req.requested) {
-        out.actualFormat = *req.requested;
-        out.frameBytes = out.actualFormat.blockAlign();
         WAVEFORMATEXTENSIBLE wfx = toWaveFormatExtensible(*req.requested);
+        out.actualFormat = fromWaveFormat(reinterpret_cast<WAVEFORMATEX*>(&wfx));
+        out.frameBytes = out.actualFormat.blockAlign();
         HRESULT hr = client.initialize(AUDCLNT_SHAREMODE_SHARED, flags, dur, 0,
                                        reinterpret_cast<WAVEFORMATEX*>(&wfx));
         WA_LOG(wa::log::Level::Debug, "StreamInit", "Initialize(shared,requested)",
@@ -168,7 +168,9 @@ Result streamInitExclusive(AudioClientInit& client, const StreamInitRequest& req
                             "WasapiStream: no supported exclusive format");
     }
 
-    out.actualFormat = candidates[static_cast<size_t>(idx)];
+    WAVEFORMATEXTENSIBLE selectedWfx =
+        toWaveFormatExtensible(candidates[static_cast<size_t>(idx)]);
+    out.actualFormat = fromWaveFormat(reinterpret_cast<WAVEFORMATEX*>(&selectedWfx));
     out.frameBytes = out.actualFormat.blockAlign();
 
     REFERENCE_TIME defPer = 0, minPer = 0;

@@ -10,6 +10,7 @@
 #include "MonitorScopeReader.h"
 #include "imgui.h"
 #include "implot.h"
+#include "AudioFormatStr.h"
 #include "FormatSpec.h"
 #include "Log.h"
 #include <algorithm>
@@ -88,6 +89,56 @@ inline float dbWarp(float x) {
     const float p = 1.0f - db / kWaveDbFloor;   // 0 dB -> 1, floor -> 0
     return (x < 0.f) ? -p : p;
 }
+
+std::string formatLabel(const wa::AudioFormat& fmt) {
+    std::string text = wa::formatAudio(fmt);
+    if (fmt.validBits() != fmt.bitsPerSample)
+        text += " (" + std::to_string(fmt.validBits()) + " valid)";
+    return text;
+}
+
+std::string formatOriginsLabel(wa::FormatOrigins origins) {
+    std::string text;
+    auto append = [&](const char* name) {
+        if (!text.empty()) text += ", ";
+        text += name;
+    };
+    if (wa::hasFormatOrigin(origins, wa::FormatOrigin::Mix)) append("Mix");
+    if (wa::hasFormatOrigin(origins, wa::FormatOrigin::Device)) append("Device");
+    if (wa::hasFormatOrigin(origins, wa::FormatOrigin::Oem)) append("OEM");
+    if (wa::hasFormatOrigin(origins, wa::FormatOrigin::Standard)) append("Standard");
+    return text.empty() ? "-" : text;
+}
+
+std::string channelLayoutLabel(const wa::AudioFormat& fmt) {
+    const uint32_t mask = fmt.channelMask ? fmt.channelMask
+                                          : wa::defaultChannelMask(fmt.channels);
+    const char* name = nullptr;
+    if (mask == wa::defaultChannelMask(fmt.channels)) {
+        switch (fmt.channels) {
+        case 1: name = "Mono"; break;
+        case 2: name = "Stereo"; break;
+        case 4: name = "Quad"; break;
+        case 6: name = "5.1"; break;
+        case 8: name = "7.1"; break;
+        default: break;
+        }
+    }
+    char suffix[32]{};
+    if (mask != 0)
+        std::snprintf(suffix, sizeof(suffix), "mask 0x%X", static_cast<unsigned>(mask));
+    else
+        std::snprintf(suffix, sizeof(suffix), "%u channels", static_cast<unsigned>(fmt.channels));
+    return name ? std::string(name) + " / " + suffix : suffix;
+}
+
+const char* supportLabel(wa::SupportLevel support) {
+    switch (support) {
+    case wa::SupportLevel::Exact: return "Exact";
+    case wa::SupportLevel::ClosestMatch: return "Closest";
+    default: return "-";
+    }
+}
 } // namespace
 
 // Draw a 4-way "move" icon (crosshair + outward arrowheads) centered at c, sized to a box of side s.
@@ -109,6 +160,11 @@ void AppUi::refreshMonitorDevices() {
                                      ? renderDevices_[(size_t)renderDevIdx_].id : L"";
     const wa::DeviceId prevLoopback = (loopbackDevIdx_ >= 0 && loopbackDevIdx_ < (int)renderDevices_.size())
                                       ? renderDevices_[(size_t)loopbackDevIdx_].id : L"";
+    const wa::DeviceId prevAppReference =
+        (appLoopbackReferenceIdx_ >= 2 &&
+         appLoopbackReferenceIdx_ - 2 < (int)renderDevices_.size())
+            ? renderDevices_[static_cast<size_t>(appLoopbackReferenceIdx_ - 2)].id
+            : L"";
     capDevices_.clear();
     renderDevices_.clear();
     enumerator_.enumerate(wa::DataFlow::Capture, capDevices_);
@@ -125,7 +181,17 @@ void AppUi::refreshMonitorDevices() {
     capDevIdx_    = pick(capDevices_, prevCap);
     renderDevIdx_ = pick(renderDevices_, prevRen);
     loopbackDevIdx_ = pick(renderDevices_, prevLoopback);
+    if (appLoopbackReferenceIdx_ >= 2) {
+        appLoopbackReferenceIdx_ = 0;
+        for (int i = 0; i < (int)renderDevices_.size(); ++i) {
+            if (renderDevices_[static_cast<size_t>(i)].id == prevAppReference) {
+                appLoopbackReferenceIdx_ = i + 2;
+                break;
+            }
+        }
+    }
     loopbackRecipe_.deviceShown = -1;
+    appLoopbackRecipe_.deviceShown = -1;
     monitorDevicesLoaded_ = true;
 }
 
@@ -286,7 +352,7 @@ void AppUi::recomputeDefaultFormat() {
                                               : wa::BackendKind::WasapiShared;
     auto exclPred = [&](const wa::AudioFormat& fmt) -> bool {
         for (const auto& fs : capsCache_.matrix)
-            if (fs.fmt == fmt) return fs.exclusiveOk;
+            if (fs.fmt == fmt) return wa::isSupported(fs.exclusive);
         return false;
     };
     const wa::AudioFormat* devFmt = capsCache_.hasDevice ? &capsCache_.deviceFormat : nullptr;
@@ -316,7 +382,7 @@ void AppUi::drawFormatRegion() {
     const bool isExclusive = (backendIdx_ == 1);
     std::vector<wa::AudioFormat> okFmts;
     for (const auto& fs : capsCache_.matrix)
-        if (isExclusive ? fs.exclusiveOk : fs.sharedOk)
+        if (wa::isSupported(isExclusive ? fs.exclusive : fs.shared))
             okFmts.push_back(fs.fmt);
     const int nOk = (int)okFmts.size();
 
@@ -398,58 +464,82 @@ static void drawCaptureStreamParams(wa::StreamParams& p) {
 
 void AppUi::recomputeLoopbackFormat() {
     wa::ComInitGuard com;
-    loopbackRecipe_.caps = wa::DeviceCapabilities{};
+    wa::DeviceCapabilities caps;
     wa::DeviceId id = (!renderDevices_.empty() && loopbackDevIdx_ >= 0
                        && loopbackDevIdx_ < (int)renderDevices_.size())
                           ? renderDevices_[(size_t)loopbackDevIdx_].id
                           : L"";
-    enumerator_.queryCapabilities(wa::DataFlow::Render, id, loopbackRecipe_.caps);
-    if (id != loopbackRecipe_.deviceId) {
-        wa::create_recipe::selectDefault(loopbackRecipe_.format, loopbackRecipe_.caps.mixFormat);
-        loopbackRecipe_.deviceId = id;
+    wa::Result result = enumerator_.queryCapabilities(wa::DataFlow::Render, id, caps);
+    if (!result) {
+        logLines_.push_back("system loopback capabilities error: " + result.message);
+        caps = wa::DeviceCapabilities{};
     }
-    loopbackRecipe_.deviceShown = loopbackDevIdx_;
+    wa::create_recipe::updateFormatDevice(loopbackRecipe_, loopbackDevIdx_, id, caps,
+                                          caps.mixFormat);
+}
+
+void AppUi::recomputeApplicationLoopbackFormat() {
+    wa::DeviceCapabilities caps;
+    wa::DeviceId id;
+    if (appLoopbackReferenceIdx_ == 0) {
+        wa::create_recipe::updateFormatDevice(appLoopbackRecipe_, 0, id, caps,
+                                              wa::AudioFormat{});
+        return;
+    }
+    if (appLoopbackReferenceIdx_ >= 2) {
+        const int deviceIdx = appLoopbackReferenceIdx_ - 2;
+        if (deviceIdx < 0 || deviceIdx >= (int)renderDevices_.size()) {
+            appLoopbackReferenceIdx_ = 0;
+            wa::create_recipe::updateFormatDevice(appLoopbackRecipe_, 0, id, caps,
+                                                  wa::AudioFormat{});
+            return;
+        }
+        id = renderDevices_[static_cast<size_t>(deviceIdx)].id;
+    }
+
+    wa::ComInitGuard com;
+    wa::Result result = enumerator_.queryCapabilities(wa::DataFlow::Render, id, caps);
+    if (!result) {
+        logLines_.push_back("application loopback format reference error: " + result.message);
+        caps = wa::DeviceCapabilities{};
+    }
+    wa::create_recipe::updateFormatDevice(appLoopbackRecipe_, appLoopbackReferenceIdx_, id,
+                                          caps, wa::AudioFormat{});
 }
 
 void AppUi::drawFormatRecipe(wa::create_recipe::FormatState& st,
-                             const std::vector<wa::AudioFormat>& candidates,
+                             const std::vector<wa::FormatSupport>& candidates,
                              const wa::AudioFormat& defaultDisplay,
+                             bool hasDefaultDisplay, const char* defaultLabel,
                              const char* comboId, wa::StreamParams& params) {
     ImGui::PushID(comboId);
     const int nOk = (int)candidates.size();
     if (st.choiceIdx < -1 || st.choiceIdx > nOk) st.choiceIdx = 0;
 
-    auto fmtStr = [](const wa::AudioFormat& fmt) -> std::string {
-        std::string s = std::to_string(fmt.sampleRate) + "/" +
-                        std::to_string(fmt.bitsPerSample) + "/" +
-                        std::to_string(fmt.channels);
-        if (fmt.isFloat) s += "f";
-        return s;
-    };
     if (st.haveRequested) {
-        ImGui::Text("Format: %u/%u/%u%s",
-                    st.selected.sampleRate, (unsigned)st.selected.bitsPerSample,
-                    (unsigned)st.selected.channels, st.selected.isFloat ? "f" : "");
-    } else if (st.selected.sampleRate) {
-        ImGui::Text("Format: %u/%u/%u%s (default)",
-                    st.selected.sampleRate, (unsigned)st.selected.bitsPerSample,
-                    (unsigned)st.selected.channels, st.selected.isFloat ? "f" : "");
+        ImGui::Text("Format: %s", formatLabel(st.selected).c_str());
+    } else if (hasDefaultDisplay) {
+        ImGui::Text("Format: %s (%s)", formatLabel(defaultDisplay).c_str(), defaultLabel);
     } else {
-        ImGui::Text("Format: %s", wa::ui_text::kSystemDefault);
+        ImGui::Text("Format: %s", defaultLabel);
     }
 
-    const std::string preview = (st.choiceIdx == 0) ? std::string(wa::ui_text::kSystemDefault)
-                              : (st.choiceIdx >= 1) ? fmtStr(candidates[(size_t)(st.choiceIdx - 1)])
-                              : fmtStr(st.selected);
+    const std::string preview = (st.choiceIdx == 0) ? std::string(defaultLabel)
+                              : (st.choiceIdx >= 1)
+                                    ? formatLabel(candidates[(size_t)(st.choiceIdx - 1)].fmt)
+                                    : formatLabel(st.selected);
     ImGui::SetNextItemWidth(-80.0f);
     if (ImGui::BeginCombo("##fmtCombo", preview.c_str())) {
-        const std::string defLabel = std::string(wa::ui_text::kSystemDefault) + "##0";
+        const std::string defLabel = std::string(defaultLabel) + "##0";
         if (ImGui::Selectable(defLabel.c_str(), st.choiceIdx == 0))
             wa::create_recipe::selectDefault(st, defaultDisplay);
         for (int i = 0; i < nOk; ++i) {
-            const std::string label = fmtStr(candidates[(size_t)i]) + "##" + std::to_string(i + 1);
+            const auto& choice = candidates[static_cast<size_t>(i)];
+            const std::string label = formatLabel(choice.fmt) + "  [" +
+                formatOriginsLabel(choice.origins) + "; " + supportLabel(choice.shared) +
+                "]##" + std::to_string(i + 1);
             if (ImGui::Selectable(label.c_str(), st.choiceIdx == i + 1))
-                wa::create_recipe::selectCandidate(st, candidates[(size_t)i], i + 1);
+                wa::create_recipe::selectCandidate(st, choice.fmt, i + 1);
         }
         ImGui::EndCombo();
     }
@@ -1094,9 +1184,16 @@ void AppUi::drawLoopbackLeftPanel() {
 
     if (loopbackRecipe_.deviceShown != loopbackDevIdx_)
         recomputeLoopbackFormat();
+    if (ImGui::Button(wa::ui_text::kCapabilities)) {
+        capsModal_ = loopbackRecipe_.caps;
+        capsModalContext_ = "System Loopback render device";
+        ImGui::OpenPopup("Device capabilities");
+    }
     drawFormatRecipe(loopbackRecipe_.format,
-                     wa::create_recipe::sharedCandidates(loopbackRecipe_.caps),
-                     loopbackRecipe_.caps.mixFormat, "sysLbFmt", loopbackRecipe_.params);
+                     wa::create_recipe::sharedFormatChoices(loopbackRecipe_.caps),
+                     loopbackRecipe_.caps.mixFormat, loopbackRecipe_.caps.hasMix,
+                     wa::ui_text::kSystemDefault, "sysLbFmt", loopbackRecipe_.params);
+    drawCapsModal();
     ImGui::Checkbox(wa::ui_text::kLoopbackSilentRender, &loopbackSilentRender_);
 
     ImGui::SeparatorText("Control");
@@ -1141,6 +1238,8 @@ void AppUi::drawLoopbackLeftPanel() {
 }
 
 void AppUi::drawApplicationLoopbackLeftPanel() {
+    if (!monitorDevicesLoaded_)
+        refreshMonitorDevices();
     if (!appLoopbackSessionsLoaded_)
         refreshApplicationLoopbackSessions();
 
@@ -1173,8 +1272,50 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
     ImGui::InputText("##appLoopbackPid", appLoopbackPid_, sizeof(appLoopbackPid_));
     ImGui::SameLine();
     ImGui::Checkbox(wa::ui_text::kApplicationLoopbackExclude, &appLoopbackExclude_);
-    drawFormatRecipe(appLoopbackRecipe_.format, {}, wa::AudioFormat{}, "appLbFmt",
+
+    ImGui::TextUnformatted(wa::ui_text::kFormatReference);
+    ImGui::SameLine();
+    if (ImGui::Button("Refresh devices##appLoopbackReference"))
+        refreshMonitorDevices();
+    std::string referencePreview = wa::ui_text::kFormatReferenceNone;
+    if (appLoopbackReferenceIdx_ == 1) {
+        referencePreview = wa::ui_text::kFormatReferenceDefaultRender;
+    } else if (appLoopbackReferenceIdx_ >= 2 &&
+               appLoopbackReferenceIdx_ - 2 < (int)renderDevices_.size()) {
+        const auto& device = renderDevices_[static_cast<size_t>(appLoopbackReferenceIdx_ - 2)];
+        referencePreview = (device.isDefault ? "* " : "") + wtou(device.name);
+    }
+    ImGui::SetNextItemWidth(-1);
+    if (ImGui::BeginCombo("##appLoopbackFormatReference", referencePreview.c_str())) {
+        if (ImGui::Selectable(wa::ui_text::kFormatReferenceNone,
+                              appLoopbackReferenceIdx_ == 0))
+            appLoopbackReferenceIdx_ = 0;
+        if (ImGui::Selectable(wa::ui_text::kFormatReferenceDefaultRender,
+                              appLoopbackReferenceIdx_ == 1))
+            appLoopbackReferenceIdx_ = 1;
+        for (int i = 0; i < (int)renderDevices_.size(); ++i) {
+            const auto& device = renderDevices_[static_cast<size_t>(i)];
+            const std::string label = (device.isDefault ? "* " : "  ") + wtou(device.name) +
+                                      "##appref" + std::to_string(i);
+            if (ImGui::Selectable(label.c_str(), appLoopbackReferenceIdx_ == i + 2))
+                appLoopbackReferenceIdx_ = i + 2;
+        }
+        ImGui::EndCombo();
+    }
+    if (appLoopbackRecipe_.deviceShown != appLoopbackReferenceIdx_)
+        recomputeApplicationLoopbackFormat();
+    ImGui::BeginDisabled(appLoopbackReferenceIdx_ == 0);
+    if (ImGui::Button(wa::ui_text::kCapabilities)) {
+        capsModal_ = appLoopbackRecipe_.caps;
+        capsModalContext_ = "Application Loopback format reference";
+        ImGui::OpenPopup("Device capabilities");
+    }
+    ImGui::EndDisabled();
+    drawFormatRecipe(appLoopbackRecipe_.format,
+                     wa::create_recipe::sharedFormatChoices(appLoopbackRecipe_.caps),
+                     wa::AudioFormat{}, false, wa::ui_text::kAutomatic, "appLbFmt",
                      appLoopbackRecipe_.params);
+    drawCapsModal();
 
     ImGui::SeparatorText("Control");
     const ImVec2 ctrlBtn(120.0f, ImGui::GetFrameHeight() * 1.3f);
@@ -1237,12 +1378,14 @@ void AppUi::drawLeftPanel() {
     if (ImGui::Button("Refresh devices")) refreshMonitorDevices();
     ImGui::SameLine();
     if (ImGui::Button(wa::ui_text::kOptions)) ImGui::OpenPopup("Audio parameters (advanced)");
-    if (ImGui::Button("Capture caps\xe2\x80\xa6")) {   // U+2026 HORIZONTAL ELLIPSIS
+    if (ImGui::Button("Capture capabilities...")) {
         wa::ComInitGuard com;
         wa::DeviceId capId = (capDevIdx_ >= 0 && capDevIdx_ < (int)capDevices_.size())
                              ? capDevices_[(size_t)capDevIdx_].id : L"";
         enumerator_.queryCapabilities(wa::DataFlow::Capture, capId, capsCache_);
-        ImGui::OpenPopup("Capture capabilities");
+        capsModal_ = capsCache_;
+        capsModalContext_ = "Monitor capture device";
+        ImGui::OpenPopup("Device capabilities");
     }
 
     auto deviceCombo = [&](const char* caption, const char* comboId,
@@ -1855,22 +1998,12 @@ void AppUi::drawChartPanel(int id, wa::ScopeReader& captureReader, wa::ScopeRead
 }
 
 void AppUi::drawCapsModal() {
-    if (!ImGui::BeginPopupModal("Capture capabilities", nullptr,
+    if (!ImGui::BeginPopupModal("Device capabilities", nullptr,
                                 ImGuiWindowFlags_AlwaysAutoResize)) return;
 
-    // Helper: format an AudioFormat as "sr/bits/ch[f]" or em-dash if not present.
-    // U+2014 EM DASH is in General Punctuation (0x2000-0x206F) included by
-    // GetGlyphRangesChineseSimplifiedCommon(), so it renders with the loaded font.
-    auto fmtStr = [](const wa::AudioFormat& f, bool has) -> std::string {
-        if (!has) return "\xe2\x80\x94";   // U+2014 EM DASH
-        std::string s = std::to_string(f.sampleRate) + "/" +
-                        std::to_string(f.bitsPerSample) + "/" +
-                        std::to_string(f.channels);
-        if (f.isFloat) s += "f";
-        return s;
-    };
+    if (!capsModalContext_.empty())
+        ImGui::TextUnformatted(capsModalContext_.c_str());
 
-    // --- Top: three format sources side by side (Mix / Device / OEM) ---
     if (ImGui::BeginTable("sources", 3, ImGuiTableFlags_BordersOuter)) {
         ImGui::TableSetupColumn("Mix");
         ImGui::TableSetupColumn("Device");
@@ -1878,38 +2011,51 @@ void AppUi::drawCapsModal() {
         ImGui::TableHeadersRow();
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
-        ImGui::TextUnformatted(fmtStr(capsCache_.mixFormat,    capsCache_.hasMix).c_str());
+        if (capsModal_.hasMix) {
+            ImGui::TextUnformatted(formatLabel(capsModal_.mixFormat).c_str());
+            ImGui::TextDisabled("%s", channelLayoutLabel(capsModal_.mixFormat).c_str());
+        } else {
+            ImGui::TextUnformatted("-");
+        }
         ImGui::TableSetColumnIndex(1);
-        ImGui::TextUnformatted(fmtStr(capsCache_.deviceFormat, capsCache_.hasDevice).c_str());
+        if (capsModal_.hasDevice) {
+            ImGui::TextUnformatted(formatLabel(capsModal_.deviceFormat).c_str());
+            ImGui::TextDisabled("%s", channelLayoutLabel(capsModal_.deviceFormat).c_str());
+        } else {
+            ImGui::TextUnformatted("-");
+        }
         ImGui::TableSetColumnIndex(2);
-        ImGui::TextUnformatted(fmtStr(capsCache_.oemFormat,    capsCache_.hasOem).c_str());
+        if (capsModal_.hasOem) {
+            ImGui::TextUnformatted(formatLabel(capsModal_.oemFormat).c_str());
+            ImGui::TextDisabled("%s", channelLayoutLabel(capsModal_.oemFormat).c_str());
+        } else {
+            ImGui::TextUnformatted("-");
+        }
         ImGui::EndTable();
     }
     ImGui::Spacing();
 
-    // --- One-dimensional matrix: one row per format, fixed-height scrollable child ---
-    // Note: U+2713 CHECK MARK / U+2717 BALLOT X are in Dingbats (0x2700-0x27BF), outside the
-    // default Chinese glyph range; they render as replacement boxes if the glyph atlas does not
-    // include that block.  The table structure remains clear regardless.
-    ImGui::BeginChild("##capsScroll", ImVec2(400.0f, 300.0f), false);
-    if (ImGui::BeginTable("caps", 3,
+    ImGui::BeginChild("##capsScroll", ImVec2(760.0f, 360.0f), false);
+    if (ImGui::BeginTable("caps", 5,
                           ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg)) {
         ImGui::TableSetupColumn("Format");
+        ImGui::TableSetupColumn("Layout");
+        ImGui::TableSetupColumn("Sources");
         ImGui::TableSetupColumn("Shared");
         ImGui::TableSetupColumn("Exclusive");
         ImGui::TableHeadersRow();
-        for (const auto& fs : capsCache_.matrix) {
+        for (const auto& fs : capsModal_.matrix) {
             ImGui::TableNextRow();
-            std::string fmt = std::to_string(fs.fmt.sampleRate) + "/" +
-                              std::to_string(fs.fmt.bitsPerSample) + "/" +
-                              std::to_string(fs.fmt.channels);
-            if (fs.fmt.isFloat) fmt += "f";
             ImGui::TableSetColumnIndex(0);
-            ImGui::TextUnformatted(fmt.c_str());
+            ImGui::TextUnformatted(formatLabel(fs.fmt).c_str());
             ImGui::TableSetColumnIndex(1);
-            ImGui::TextUnformatted(fs.sharedOk    ? "yes" : "-");
+            ImGui::TextUnformatted(channelLayoutLabel(fs.fmt).c_str());
             ImGui::TableSetColumnIndex(2);
-            ImGui::TextUnformatted(fs.exclusiveOk ? "yes" : "-");
+            ImGui::TextUnformatted(formatOriginsLabel(fs.origins).c_str());
+            ImGui::TableSetColumnIndex(3);
+            ImGui::TextUnformatted(supportLabel(fs.shared));
+            ImGui::TableSetColumnIndex(4);
+            ImGui::TextUnformatted(supportLabel(fs.exclusive));
         }
         ImGui::EndTable();
     }

@@ -224,16 +224,27 @@ void WavSink::writerLoop() {
             if (drain) break;
             continue;
         }
-        if (writer.write(chunk.data(), got) != got) {
+        const Result writeResult = writer.write(chunk.data(), got);
+        if (!writeResult) {
             WA_LOG(wa::log::Level::Err, "WavSink", "write", wa::narrowAscii(path_),
-                   "short write");
+                   writeResult.message);
+            {
+                std::lock_guard<std::mutex> lk(mtx_);
+                message_ = writeResult.message;
+            }
             writeError_.store(true, std::memory_order_release);
             failed = true;
             break;
         }
         if (overflow && (!ring_ || ring_->availableRead() == 0)) break;
     }
-    writer.close();
+    const Result closeResult = writer.close();
+    if (!closeResult) {
+        std::lock_guard<std::mutex> lk(mtx_);
+        message_ = closeResult.message;
+        writeError_.store(true, std::memory_order_release);
+        failed = true;
+    }
     if (failed || overflow_.load(std::memory_order_relaxed)) {
         const bool ovf = overflow_.load(std::memory_order_relaxed);
         {

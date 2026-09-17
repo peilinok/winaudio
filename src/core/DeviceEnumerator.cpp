@@ -283,22 +283,6 @@ Result DeviceEnumerator::queryCapabilities(DataFlow flow, const DeviceId& id, De
         WA_LOG(wa::log::Level::Err, "DeviceEnum", "IMMDevice::Activate", "iid=IAudioClient", ::wa::log::hrName(hr));
         return HrToResult(hr, "Activate");
     }
-    auto probe = [&](const AudioFormat& f, AUDCLNT_SHAREMODE sm) -> HRESULT {
-        WAVEFORMATEXTENSIBLE wfx = toWaveFormatExtensible(f);
-        WAVEFORMATEX* closest = nullptr;
-        HRESULT h = client->IsFormatSupported(sm, reinterpret_cast<WAVEFORMATEX*>(&wfx),
-                        (sm == AUDCLNT_SHAREMODE_EXCLUSIVE) ? nullptr : &closest);
-        WA_LOG(wa::log::Level::Debug, "DeviceEnum", "IAudioClient::IsFormatSupported",
-               wa::formatAudio(f) + (sm == AUDCLNT_SHAREMODE_EXCLUSIVE ? " excl" : " shared"),
-               ::wa::log::hrName(h));
-        if (closest) CoTaskMemFree(closest);
-        return h;
-    };
-    // Shared 的 S_FALSE(可转换但非精确) 也算"可用"；Exclusive 仅严格 S_OK。
-    out.matrix = buildCapabilityMatrix(allFormatCandidates(),
-        [&](const AudioFormat& f){ HRESULT h = probe(f, AUDCLNT_SHAREMODE_SHARED); return h == S_OK || h == S_FALSE; },
-        [&](const AudioFormat& f){ return probe(f, AUDCLNT_SHAREMODE_EXCLUSIVE) == S_OK; });
-    // 三来源
     WAVEFORMATEX* mix = nullptr;
     HRESULT gmHr = client->GetMixFormat(&mix);
     WA_LOG(wa::log::Level::Debug, "DeviceEnum", "IAudioClient::GetMixFormat", "", ::wa::log::hrName(gmHr));
@@ -312,6 +296,30 @@ Result DeviceEnumerator::queryCapabilities(DataFlow flow, const DeviceId& id, De
         out.hasDevice = readFormatKey(props.Get(), PKEY_AudioEngine_DeviceFormat, out.deviceFormat);
         out.hasOem    = readFormatKey(props.Get(), PKEY_AudioEngine_OEMFormat,    out.oemFormat);
     }
+    auto probe = [&](const AudioFormat& f, AUDCLNT_SHAREMODE sm) -> HRESULT {
+        WAVEFORMATEXTENSIBLE wfx = toWaveFormatExtensible(f);
+        WAVEFORMATEX* closest = nullptr;
+        HRESULT h = client->IsFormatSupported(sm, reinterpret_cast<WAVEFORMATEX*>(&wfx),
+                        (sm == AUDCLNT_SHAREMODE_EXCLUSIVE) ? nullptr : &closest);
+        WA_LOG(wa::log::Level::Debug, "DeviceEnum", "IAudioClient::IsFormatSupported",
+               wa::formatAudio(f) + (sm == AUDCLNT_SHAREMODE_EXCLUSIVE ? " excl" : " shared"),
+               ::wa::log::hrName(h));
+        if (closest) CoTaskMemFree(closest);
+        return h;
+    };
+    // Shared 的 S_FALSE(可转换但非精确) 也算"可用"；Exclusive 仅严格 S_OK。
+    out.matrix = buildCapabilityMatrix(capabilityCandidates(out),
+        [&](const AudioFormat& f) {
+            const HRESULT h = probe(f, AUDCLNT_SHAREMODE_SHARED);
+            return h == S_OK ? SupportLevel::Exact
+                 : h == S_FALSE ? SupportLevel::ClosestMatch
+                                : SupportLevel::Unsupported;
+        },
+        [&](const AudioFormat& f) {
+            return probe(f, AUDCLNT_SHAREMODE_EXCLUSIVE) == S_OK
+                ? SupportLevel::Exact : SupportLevel::Unsupported;
+        });
+    // 三来源
     return Result::Ok();
 }
 
