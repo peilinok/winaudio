@@ -10,6 +10,7 @@
 #include "CreateRecipe.h"
 #include "DeviceEnumerator.h"
 #include "DumpUi.h"
+#include "OsSoundUi.h"
 #include "EndpointGraphReader.h"
 #include "EtwInitialize.h"
 #include "LiveSessionEnumerator.h"
@@ -73,6 +74,8 @@ private:
     void drawStackedCaptureTrackHosts(wa::CaptureTrackList& list,
                                       std::vector<std::pair<wa::TrackId, VisualState>>& viz,
                                       const char* emptyHint);
+    void drawOsSoundButtons(wa::os_sound_ui::Page page);
+    void openOsSound(wa::os_sound_ui::Page page, wa::os_sound_ui::Button button);
     void drawLeftPanel();
     void drawAdvancedModal();
     void drawCapsModal();
