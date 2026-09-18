@@ -91,6 +91,13 @@ TEST(AdvancedOptionsUiText, ExposesExplicitClientPropertiesControls) {
               std::string::npos);
 }
 
+TEST(OsSoundUiText, ExposesMmsysAndMsSettingsLabels) {
+    EXPECT_STREQ(wa::ui_text::kMmsysCpl, "mmsys.cpl");
+    EXPECT_STREQ(wa::ui_text::kMsSettings, "ms-settings");
+    EXPECT_STREQ(wa::ui_text::kMmsysCplFailed, "mmsys.cpl: ShellExecute failed");
+    EXPECT_STREQ(wa::ui_text::kMsSettingsFailed, "ms-settings: ShellExecute failed");
+}
+
 TEST(ChartsFreezeUiText, ExposesPauseResumeAndPausedLabels) {
     EXPECT_STREQ(wa::ui_text::kChartsPause, "Pause charts");
     EXPECT_STREQ(wa::ui_text::kChartsResume, "Resume charts");
