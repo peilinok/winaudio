@@ -1172,6 +1172,8 @@ void AppUi::drawLoopbackLeftPanel() {
 
     ImGui::SeparatorText("Source");
     if (ImGui::Button("Refresh devices")) refreshMonitorDevices();
+    ImGui::SameLine();
+    drawOsSoundButtons(wa::os_sound_ui::Page::Loopback);
     std::string preview = "(no render devices)";
     if (!renderDevices_.empty() && loopbackDevIdx_ >= 0 && loopbackDevIdx_ < (int)renderDevices_.size())
         preview = (renderDevices_[(size_t)loopbackDevIdx_].isDefault ? "* " : "") +
@@ -1283,6 +1285,8 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
     ImGui::SameLine();
     if (ImGui::Button("Refresh devices##appLoopbackReference"))
         refreshMonitorDevices();
+    ImGui::SameLine();
+    drawOsSoundButtons(wa::os_sound_ui::Page::ApplicationLoopback);
     std::string referencePreview = wa::ui_text::kFormatReferenceNone;
     if (appLoopbackReferenceIdx_ == 1) {
         referencePreview = wa::ui_text::kFormatReferenceDefaultRender;
@@ -1377,11 +1381,13 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
 }
 
 void AppUi::drawOsSoundButtons(wa::os_sound_ui::Page page) {
+    ImGui::PushID(static_cast<int>(page));
     const auto mmsys = wa::os_sound_ui::recipe(page, wa::os_sound_ui::Button::Mmsys);
     const auto settings = wa::os_sound_ui::recipe(page, wa::os_sound_ui::Button::MsSettings);
     if (ImGui::Button(mmsys.label)) openOsSound(page, wa::os_sound_ui::Button::Mmsys);
     ImGui::SameLine();
     if (ImGui::Button(settings.label)) openOsSound(page, wa::os_sound_ui::Button::MsSettings);
+    ImGui::PopID();
 }
 
 void AppUi::openOsSound(wa::os_sound_ui::Page page, wa::os_sound_ui::Button button) {
