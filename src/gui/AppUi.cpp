@@ -7,12 +7,18 @@
 #include "ChartsTimeZoomPolicy.h"
 #include "ComUtil.h"
 #include "DumpUi.h"
+#include "OsSoundUi.h"
 #include "MonitorScopeReader.h"
 #include "imgui.h"
 #include "implot.h"
 #include "AudioFormatStr.h"
 #include "FormatSpec.h"
 #include "Log.h"
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <shellapi.h>
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
@@ -1370,6 +1376,29 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
     }
 }
 
+void AppUi::drawOsSoundButtons(wa::os_sound_ui::Page page) {
+    const auto mmsys = wa::os_sound_ui::recipe(page, wa::os_sound_ui::Button::Mmsys);
+    const auto settings = wa::os_sound_ui::recipe(page, wa::os_sound_ui::Button::MsSettings);
+    if (ImGui::Button(mmsys.label)) openOsSound(page, wa::os_sound_ui::Button::Mmsys);
+    ImGui::SameLine();
+    if (ImGui::Button(settings.label)) openOsSound(page, wa::os_sound_ui::Button::MsSettings);
+}
+
+void AppUi::openOsSound(wa::os_sound_ui::Page page, wa::os_sound_ui::Button button) {
+    const auto r = wa::os_sound_ui::recipe(page, button);
+    const wchar_t* params = (r.params && r.params[0] != L'\0') ? r.params : nullptr;
+    const INT_PTR code = reinterpret_cast<INT_PTR>(
+        ShellExecuteW(nullptr, L"open", r.file, params, nullptr, SW_SHOWNORMAL));
+    const std::string args = "file=" + wtou(r.file ? r.file : L"") +
+                             " params=" + wtou(params ? params : L"");
+    WA_LOG(wa::log::Level::Debug, "OsSoundUi", "ShellExecuteW", args,
+           std::to_string(static_cast<long long>(code)));
+    if (wa::os_sound_ui::shellExecuteFailed(code)) {
+        WA_LOG(wa::log::Level::Warn, "OsSoundUi", "ShellExecuteW", args, r.failureLog);
+        logLines_.push_back(r.failureLog);
+    }
+}
+
 void AppUi::drawLeftPanel() {
     if (!monitorDevicesLoaded_) refreshMonitorDevices();
 
@@ -1377,7 +1406,9 @@ void AppUi::drawLeftPanel() {
     ImGui::SeparatorText("Devices");
     if (ImGui::Button("Refresh devices")) refreshMonitorDevices();
     ImGui::SameLine();
+    drawOsSoundButtons(wa::os_sound_ui::Page::Monitor);
     if (ImGui::Button(wa::ui_text::kOptions)) ImGui::OpenPopup("Audio parameters (advanced)");
+    ImGui::SameLine();
     if (ImGui::Button("Capture capabilities...")) {
         wa::ComInitGuard com;
         wa::DeviceId capId = (capDevIdx_ >= 0 && capDevIdx_ < (int)capDevices_.size())
