@@ -104,6 +104,7 @@ int main(int, char**)
         ui.pushLog(static_cast<int>(lvl), line);
     });
     wa::log::setLevel(wa::log::Level::Info);
+    ui.loadLogRegionPrefs();
 
     // Main loop
     bool done = false;

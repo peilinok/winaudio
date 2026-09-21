@@ -8,6 +8,7 @@
 #include "ComUtil.h"
 #include "DumpUi.h"
 #include "OsSoundUi.h"
+#include "LogRegionPrefs.h"
 #include "MonitorScopeReader.h"
 #include "imgui.h"
 #include "implot.h"
@@ -343,6 +344,9 @@ void AppUi::runPipelineAttach() {
 }
 
 void AppUi::pushLog(int /*level*/, const std::string& line) {
+    // Layout-pref Warns stay in the file sink; they must not appear in the log region.
+    if (line.find("LogRegionPrefs::") != std::string::npos)
+        return;
     std::lock_guard<std::mutex> lk(logMutex_);
     pendingLog_.push_back(line);
 }
@@ -1609,6 +1613,42 @@ void AppUi::drawLogRegion(const char* regionId, const char* listId) {
     ImGui::EndChild();
 }
 
+static std::wstring exeDirectory() {
+    wchar_t buf[MAX_PATH];
+    DWORD n = GetModuleFileNameW(nullptr, buf, MAX_PATH);
+    if (n == 0 || n >= MAX_PATH) return {};
+    std::wstring w(buf, n);
+    const size_t slash = w.find_last_of(L"\\/");
+    if (slash != std::wstring::npos) w.resize(slash);
+    return w;
+}
+
+void AppUi::ensureLogPrefsPath() {
+    if (!logPrefsPath_.empty()) return;
+    const std::wstring dir = exeDirectory();
+    logPrefsPath_ = dir.empty()
+        ? utow(wa::log_region_prefs::kFileName)
+        : dir + L"\\" + utow(wa::log_region_prefs::kFileName);
+}
+
+void AppUi::loadLogRegionPrefs() {
+    ensureLogPrefsPath();
+    const auto r = wa::log_region_prefs::load(logPrefsPath_);
+    logCollapsed_ = r.collapsed;
+    if (r.kind == wa::log_region_prefs::LoadKind::Invalid) {
+        WA_LOG(wa::log::Level::Warn, "LogRegionPrefs", "load",
+               wtou(logPrefsPath_), "invalid");
+    }
+}
+
+void AppUi::persistLogRegionPrefs() {
+    ensureLogPrefsPath();
+    if (!wa::log_region_prefs::save(logPrefsPath_, logCollapsed_)) {
+        WA_LOG(wa::log::Level::Warn, "LogRegionPrefs", "save",
+               wtou(logPrefsPath_), "failed");
+    }
+}
+
 void AppUi::drawLogPanel(const char* listId) {
     const bool collapsed = logCollapsed_;
     const ImGuiStyle& st = ImGui::GetStyle();
@@ -1642,6 +1682,7 @@ void AppUi::drawLogPanel(const char* listId) {
         logCollapsed_ = !collapsed;
         if (!logCollapsed_)
             logPinToBottomOnExpand_ = true;
+        persistLogRegionPrefs();
     }
     ImGui::PopID();
 

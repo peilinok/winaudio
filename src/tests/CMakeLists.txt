@@ -35,6 +35,7 @@ add_executable(WinAudioTests
     test_cli_options.cpp
     test_dump_ui.cpp
     test_os_sound_ui.cpp
+    test_log_region_prefs.cpp
     test_create_recipe.cpp
     ${CMAKE_SOURCE_DIR}/src/gui/Spectrogram.cpp   # compiled into tests, as in the current setup
     ${CMAKE_SOURCE_DIR}/src/gui/ChartDataPipeline.cpp
