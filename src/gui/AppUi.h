@@ -103,7 +103,9 @@ private:
                         bool renderSide);
     void drawSpectrogramPanel(VisualState& viz, const char* plotId, wa::Spectrogram* spec, double histSec, float height, int slot);
     void drawWaveformPanel(VisualState& viz, const char* plotId, const float* wave, int n, uint32_t sr, bool haveData, float height, int slot);
-    void drawLogPanel(const char* childId, bool showLevelFilter);
+    float logRegionHeight() const;
+    void drawLogRegion(const char* regionId, const char* listId);
+    void drawLogPanel(const char* listId);
     const char* chartTitle(int id);
     void resetVisuals(VisualState& viz);
     void resetRenderVisuals(VisualState& viz);
@@ -125,6 +127,8 @@ private:
     std::mutex               logMutex_;    // guards pendingLog_ (pump thread → draw drains it)
     std::vector<std::string> pendingLog_;
     int                      logLevelIdx_ = 2;   // 0=Trace..4=Err; default Info
+    bool                     logCollapsed_ = false;           // session-only; not written to disk
+    bool                     logPinToBottomOnExpand_ = false; // one-shot after clicking +
 
     // Monitor device selection
     bool                        monitorDevicesLoaded_ = false;

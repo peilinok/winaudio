@@ -754,9 +754,9 @@ void AppUi::draw() {
 }
 
 void AppUi::drawMonitorPage() {
-    constexpr float kLogHeight = 200.0f;
+    const float logH = logRegionHeight();
     const float availY = ImGui::GetContentRegionAvail().y;
-    const float topHeight = std::max(120.0f, availY - kLogHeight - ImGui::GetStyle().ItemSpacing.y);
+    const float topHeight = std::max(120.0f, availY - logH - ImGui::GetStyle().ItemSpacing.y);
 
     ImGui::BeginChild("monitorTop", ImVec2(0, topHeight), false);
     ImGui::BeginChild("left", ImVec2(360, 0), true);
@@ -771,10 +771,7 @@ void AppUi::drawMonitorPage() {
     ImGui::EndChild();
     ImGui::EndChild();
 
-    ImGui::BeginChild("monitorLogRegion", ImVec2(0, kLogHeight), true);
-    ImGui::SeparatorText("Log");
-    drawLogPanel("log", true);
-    ImGui::EndChild();
+    drawLogRegion("monitorLogRegion", "log");
 }
 
 void AppUi::drawStackedCaptureTrackHosts(wa::CaptureTrackList& list,
@@ -821,9 +818,9 @@ void AppUi::drawStackedCaptureTrackHosts(wa::CaptureTrackList& list,
 }
 
 void AppUi::drawLoopbackPage() {
-    constexpr float kLogHeight = 200.0f;
+    const float logH = logRegionHeight();
     const float availY = ImGui::GetContentRegionAvail().y;
-    const float topHeight = std::max(120.0f, availY - kLogHeight - ImGui::GetStyle().ItemSpacing.y);
+    const float topHeight = std::max(120.0f, availY - logH - ImGui::GetStyle().ItemSpacing.y);
 
     ImGui::BeginChild("loopbackTop", ImVec2(0, topHeight), false);
     ImGui::BeginChild("loopbackLeft", ImVec2(320, 0), true);
@@ -837,16 +834,13 @@ void AppUi::drawLoopbackPage() {
     ImGui::EndChild();
     ImGui::EndChild();
 
-    ImGui::BeginChild("loopbackLogRegion", ImVec2(0, kLogHeight), true);
-    ImGui::SeparatorText("Log");
-    drawLogPanel("loopbackLog", false);
-    ImGui::EndChild();
+    drawLogRegion("loopbackLogRegion", "loopbackLog");
 }
 
 void AppUi::drawApplicationLoopbackPage() {
-    constexpr float kLogHeight = 200.0f;
+    const float logH = logRegionHeight();
     const float availY = ImGui::GetContentRegionAvail().y;
-    const float topHeight = std::max(120.0f, availY - kLogHeight - ImGui::GetStyle().ItemSpacing.y);
+    const float topHeight = std::max(120.0f, availY - logH - ImGui::GetStyle().ItemSpacing.y);
 
     ImGui::BeginChild("appLoopbackTop", ImVec2(0, topHeight), false);
     ImGui::BeginChild("appLoopbackLeft", ImVec2(340, 0), true);
@@ -861,10 +855,7 @@ void AppUi::drawApplicationLoopbackPage() {
     ImGui::EndChild();
     ImGui::EndChild();
 
-    ImGui::BeginChild("appLoopbackLogRegion", ImVec2(0, kLogHeight), true);
-    ImGui::SeparatorText("Log");
-    drawLogPanel("appLoopbackLog", false);
-    ImGui::EndChild();
+    drawLogRegion("appLoopbackLogRegion", "appLoopbackLog");
 }
 
 namespace {
@@ -910,9 +901,9 @@ void AppUi::drawPipelinePage() {
         }
     }
 
-    constexpr float kLogHeight = 200.0f;
+    const float logH = logRegionHeight();
     const float availY = ImGui::GetContentRegionAvail().y;
-    const float topHeight = std::max(120.0f, availY - kLogHeight - ImGui::GetStyle().ItemSpacing.y);
+    const float topHeight = std::max(120.0f, availY - logH - ImGui::GetStyle().ItemSpacing.y);
 
     ImGui::BeginChild("pipelineTop", ImVec2(0, topHeight), false);
     const float availX = ImGui::GetContentRegionAvail().x;
@@ -1085,10 +1076,7 @@ void AppUi::drawPipelinePage() {
     ImGui::EndChild();
     ImGui::EndChild();
 
-    ImGui::BeginChild("pipelineLogRegion", ImVec2(0, kLogHeight), true);
-    ImGui::SeparatorText("Log");
-    drawLogPanel("pipelineLog", false);
-    ImGui::EndChild();
+    drawLogRegion("pipelineLogRegion", "pipelineLog");
 }
 
 void AppUi::beginDumpPick(DumpPickKind kind, wa::TrackId trackId) {
@@ -1564,25 +1552,109 @@ void AppUi::drawLeftPanel() {
 
 }
 
-void AppUi::drawLogPanel(const char* childId, bool showLevelFilter) {
-    if (showLevelFilter) {
-        static const char* kLevels[] = {"Trace", "Debug", "Info", "Warn", "Err"};
-        ImGui::SetNextItemWidth(90.0f);
-        if (ImGui::Combo("##loglevel", &logLevelIdx_, kLevels, IM_ARRAYSIZE(kLevels)))
-            wa::log::setLevel(static_cast<wa::log::Level>(logLevelIdx_));
-        ImGui::SameLine();
-        if (ImGui::Button("Clear##mainLog")) logLines_.clear();
-    } else {
-        if (ImGui::Button("Clear##loopbackLog")) logLines_.clear();
+namespace {
+constexpr float kExpandedLogHeight = 200.0f;
+
+const char* nextUtf8(const char* s) {
+    const unsigned char c = static_cast<unsigned char>(*s);
+    int n = 1;
+    if ((c & 0xE0) == 0xC0) n = 2;
+    else if ((c & 0xF0) == 0xE0) n = 3;
+    else if ((c & 0xF8) == 0xF0) n = 4;
+    for (int i = 1; i < n; ++i) {
+        if (s[i] == '\0') return s + i;
+    }
+    return s + n;
+}
+
+void drawClippedLogLine(const char* text, float maxWidth, bool disabled) {
+    ImGui::AlignTextToFramePadding();
+    if (disabled)
+        ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+
+    if (ImGui::CalcTextSize(text).x <= maxWidth) {
+        ImGui::TextUnformatted(text);
+        if (disabled) ImGui::PopStyleColor();
+        return;
     }
 
-    ImGui::BeginChild(childId, ImVec2(0, 0), true);
+    const float ellipsisW = ImGui::CalcTextSize("...").x;
+    const float budget = maxWidth - ellipsisW;
+    const char* ok = text;
+    if (budget > 0.0f) {
+        const char* end = text;
+        while (*end) {
+            const char* next = nextUtf8(end);
+            if (ImGui::CalcTextSize(text, next).x > budget) break;
+            ok = next;
+            end = next;
+        }
+    }
+    ImGui::TextUnformatted(text, ok);
+    ImGui::SameLine(0.0f, 0.0f);
+    ImGui::TextUnformatted("...");
+    if (disabled) ImGui::PopStyleColor();
+}
+}  // namespace
+
+float AppUi::logRegionHeight() const {
+    if (!logCollapsed_) return kExpandedLogHeight;
+    const ImGuiStyle& st = ImGui::GetStyle();
+    return ImGui::GetFrameHeight() + st.WindowPadding.y * 2.0f + st.ChildBorderSize * 2.0f;
+}
+
+void AppUi::drawLogRegion(const char* regionId, const char* listId) {
+    ImGui::BeginChild(regionId, ImVec2(0, logRegionHeight()), true);
+    drawLogPanel(listId);
+    ImGui::EndChild();
+}
+
+void AppUi::drawLogPanel(const char* listId) {
+    const bool collapsed = logCollapsed_;
+    const ImGuiStyle& st = ImGui::GetStyle();
+    const float btnSz = ImGui::GetFrameHeight();
+    const float rowMinX = ImGui::GetCursorPosX();
+    const float rowMaxX = rowMinX + ImGui::GetContentRegionAvail().x;
+    const float btnX = rowMaxX - btnSz;
+
+    static const char* kLevels[] = {"Trace", "Debug", "Info", "Warn", "Err"};
+    ImGui::SetNextItemWidth(90.0f);
+    if (ImGui::Combo("##loglevel", &logLevelIdx_, kLevels, IM_ARRAYSIZE(kLevels)))
+        wa::log::setLevel(static_cast<wa::log::Level>(logLevelIdx_));
+    ImGui::SameLine();
+    if (ImGui::Button("Clear##logRegion")) logLines_.clear();
+
+    if (collapsed) {
+        ImGui::SameLine();
+        const float midW = btnX - st.ItemSpacing.x - ImGui::GetCursorPosX();
+        if (midW > 8.0f) {
+            const bool empty = logLines_.empty();
+            const char* preview = empty ? wa::ui_text::kLogEmpty : logLines_.back().c_str();
+            drawClippedLogLine(preview, midW, empty);
+        }
+    }
+
+    ImGui::SameLine();
+    ImGui::SetCursorPosX(btnX);
+    ImGui::PushID("logToggle");
+    const char* glyph = collapsed ? wa::ui_text::kLogExpand : wa::ui_text::kLogCollapse;
+    if (ImGui::Button(glyph, ImVec2(btnSz, btnSz))) {
+        logCollapsed_ = !collapsed;
+        if (!logCollapsed_)
+            logPinToBottomOnExpand_ = true;
+    }
+    ImGui::PopID();
+
+    if (collapsed) return;
+
+    ImGui::BeginChild(listId, ImVec2(0, 0), true);
     const bool wasPinned = ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 1.0f;
     ImGui::PushTextWrapPos(0.0f);
     for (const auto& l : logLines_) ImGui::TextUnformatted(l.c_str());
     ImGui::PopTextWrapPos();
-    if (wasPinned)
+    if (logPinToBottomOnExpand_ || wasPinned)
         ImGui::SetScrollHereY(1.0f);
+    logPinToBottomOnExpand_ = false;
     ImGui::EndChild();
 }
 

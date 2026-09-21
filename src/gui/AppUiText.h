@@ -64,6 +64,9 @@ inline constexpr const char* kDumpRender = "Dump render";
 inline constexpr const char* kLoopbackEmptyHint = "Create a Track to capture system audio.";
 inline constexpr const char* kApplicationLoopbackEmptyHint =
     "Create a Track to capture application audio.";
+inline constexpr const char* kLogEmpty = "(empty)";
+inline constexpr const char* kLogExpand = "+";
+inline constexpr const char* kLogCollapse = "-";
 
 inline constexpr const char* kPipelineTab = "Pipeline";
 inline constexpr const char* kPipelineRefresh = "Refresh";
