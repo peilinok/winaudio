@@ -26,6 +26,7 @@ public:
     void draw();          // called each frame; polls engines and redraws the active page
     void stopAll();       // stop engines on shutdown (idempotent)
     void pushLog(int level, const std::string& line);  // thread-safe; called from the logging pump thread
+    void loadLogRegionPrefs();
 private:
     struct VisualState {
         std::vector<float> capWave, renderWave;
@@ -106,6 +107,8 @@ private:
     float logRegionHeight() const;
     void drawLogRegion(const char* regionId, const char* listId);
     void drawLogPanel(const char* listId);
+    void persistLogRegionPrefs();
+    void ensureLogPrefsPath();
     const char* chartTitle(int id);
     void resetVisuals(VisualState& viz);
     void resetRenderVisuals(VisualState& viz);
@@ -127,8 +130,9 @@ private:
     std::mutex               logMutex_;    // guards pendingLog_ (pump thread → draw drains it)
     std::vector<std::string> pendingLog_;
     int                      logLevelIdx_ = 2;   // 0=Trace..4=Err; default Info
-    bool                     logCollapsed_ = false;           // session-only; not written to disk
+    bool                     logCollapsed_ = false;
     bool                     logPinToBottomOnExpand_ = false; // one-shot after clicking +
+    std::wstring             logPrefsPath_;
 
     // Monitor device selection
     bool                        monitorDevicesLoaded_ = false;
