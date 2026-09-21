@@ -98,6 +98,12 @@ TEST(OsSoundUiText, ExposesMmsysAndMsSettingsLabels) {
     EXPECT_STREQ(wa::ui_text::kMsSettingsFailed, "ms-settings: ShellExecute failed");
 }
 
+TEST(LogRegionUiText, ExposesCollapseChromeLabels) {
+    EXPECT_STREQ(wa::ui_text::kLogEmpty, "(empty)");
+    EXPECT_STREQ(wa::ui_text::kLogExpand, "+");
+    EXPECT_STREQ(wa::ui_text::kLogCollapse, "-");
+}
+
 TEST(ChartsFreezeUiText, ExposesPauseResumeAndPausedLabels) {
     EXPECT_STREQ(wa::ui_text::kChartsPause, "Pause charts");
     EXPECT_STREQ(wa::ui_text::kChartsResume, "Resume charts");
