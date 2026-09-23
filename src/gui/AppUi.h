@@ -120,7 +120,8 @@ private:
     wa::MonitorEngine    monitor_;
     wa::CaptureTrackList loopbackTracks_;
     wa::CaptureTrackList appLoopbackTracks_;
-    wa::RenderTrackList renderTracks_;
+    wa::PhraseCatalog renderPhrases_;
+    wa::RenderTrackList renderTracks_{{}, &renderPhrases_};
     wa::DeviceEnumerator enumerator_;
     wa::AudioSessionEnumerator sessionEnumerator_;
     wa::LiveSessionEnumerator liveSessionEnumerator_;
@@ -201,4 +202,5 @@ private:
     VisualState monitorViz_;
     std::vector<std::pair<wa::TrackId, VisualState>> loopbackViz_;
     std::vector<std::pair<wa::TrackId, VisualState>> appLoopbackViz_;
+    std::vector<std::pair<wa::TrackId, VisualState>> renderViz_;
 };
