@@ -74,6 +74,14 @@ _Avoid_: record track, input track, Capture side (when meaning the Track itself)
 A Track that plays to one render endpoint.
 _Avoid_: playback track, output track, silent render (helper keepalive is not a Track)
 
+**Channel ident**:
+A short spoken clip that names one channel and is played only on that channel of a Render Track.
+_Avoid_: test tone, beep, user WAV, mix
+
+**Channel pause**:
+The per-channel transport state on a Render Track. Paused means that channel outputs silence. Continue loops its Channel ident. Play-once does not change this state: from pause it plays the ident once and returns to silence; from continue it restarts the ident and then keeps looping, without overlapping a second copy.
+_Avoid_: Chart freeze, Destroy, volume at 0
+
 **Capture side**:
 The input leg of a Monitor — exactly one Capture Track — or a Capture Track on a loopback page.
 _Avoid_: Record side, mic only
