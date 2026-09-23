@@ -20,8 +20,9 @@ namespace {
 
 class FakeRender : public IAudioBackend {
 public:
-    explicit FakeRender(int* failOpens, int* failStarts, std::atomic<bool>* stopped)
-        : failOpens_(failOpens), failStarts_(failStarts), stopped_(stopped) {}
+    explicit FakeRender(int* failOpens, int* failStarts, std::atomic<bool>* stopped,
+                        RenderFill* fill = nullptr)
+        : failOpens_(failOpens), failStarts_(failStarts), stopped_(stopped), fill_(fill) {}
 
     Result open(const DeviceId& id, const AudioFormat& fmt, RingBuffer* ring,
                 const StreamParams& params) override {
@@ -55,16 +56,10 @@ public:
         return s;
     }
 
-    size_t availableFrames() const {
-        if (!ring_ || channels_ == 0) return 0;
-        return ring_->availableRead() / (static_cast<size_t>(channels_) * sizeof(int16_t));
-    }
-
-    std::vector<int16_t> consume(size_t frames) {
-        if (!ring_ || channels_ == 0) return {};
+    std::vector<int16_t> pull(size_t frames) {
+        if (!fill_ || !fill_->fn || channels_ == 0 || frames > 0xffffffffu) return {};
         std::vector<int16_t> out(frames * channels_, 0x7fff);
-        const size_t bytes = out.size() * sizeof(int16_t);
-        if (ring_->read(out.data(), bytes) != bytes) return {};
+        fill_->fn(fill_->ctx, out.data(), static_cast<uint32_t>(frames));
         return out;
     }
 
@@ -80,6 +75,7 @@ private:
     int* failOpens_ = nullptr;
     int* failStarts_ = nullptr;
     std::atomic<bool>* stopped_ = nullptr;
+    RenderFill* fill_ = nullptr;
 };
 
 struct Rig {
@@ -89,10 +85,10 @@ struct Rig {
     std::vector<std::unique_ptr<std::atomic<bool>>> stopped;
 
     RenderTrackList::BackendFactory factory() {
-        return [this](const DeviceId&, const AudioFormat&) {
+        return [this](const DeviceId&, const AudioFormat&, RenderFill* fill) {
             stopped.push_back(std::make_unique<std::atomic<bool>>(false));
             auto backend = std::make_unique<FakeRender>(&failOpens, &failStarts,
-                                                        stopped.back().get());
+                                                        stopped.back().get(), fill);
             renders.push_back(backend.get());
             return backend;
         };
@@ -165,8 +161,7 @@ TEST(RenderTrackList, CreateStartsSharedSilentTrack) {
     EXPECT_FALSE(rig.renders[0]->openedFormat_.isFloat);
     EXPECT_EQ(rig.renders[0]->openedFormat_.channelMask, 0x3u);
 
-    ASSERT_TRUE(waitFor([&] { return rig.renders[0]->availableFrames() >= 16; }));
-    const std::vector<int16_t> frames = rig.renders[0]->consume(16);
+    const std::vector<int16_t> frames = rig.renders[0]->pull(16);
     ASSERT_EQ(frames.size(), 32u);
     for (int16_t sample : frames) EXPECT_EQ(sample, 0);
 
@@ -443,7 +438,8 @@ TEST(RenderTrackList, DestroyAllDoesNotRemoveCaptureTracks) {
 TEST(RenderTrackList, ThrowingFactoryStaysListedAndKeepsSibling) {
     int calls = 0;
     std::vector<std::unique_ptr<std::atomic<bool>>> stopped;
-    RenderTrackList list([&](const DeviceId&, const AudioFormat&) -> std::unique_ptr<IAudioBackend> {
+    RenderTrackList list([&](const DeviceId&, const AudioFormat&,
+                             RenderFill*) -> std::unique_ptr<IAudioBackend> {
         if (++calls >= 2) throw std::runtime_error("factory blew up");
         stopped.push_back(std::make_unique<std::atomic<bool>>(false));
         return std::make_unique<FakeRender>(nullptr, nullptr, stopped.back().get());
@@ -472,6 +468,241 @@ TEST(RenderTrackList, ThrowingFactoryStaysListedAndKeepsSibling) {
     list.destroyAll();
 }
 
+TrackId startLayout(RenderTrackList& list, uint16_t channels, uint32_t mask) {
+    RenderTrackCreate spec;
+    spec.mode = RenderLayoutMode::Layout;
+    spec.deviceId = L"spk";
+    spec.source = pcm(48000, 16, channels, mask);
+    TrackId id = 0;
+    EXPECT_TRUE(list.create(spec, &id));
+    return id;
+}
+
+int16_t at(const std::vector<int16_t>& frames, uint16_t channels, size_t frame, uint16_t channel) {
+    return frames[frame * channels + channel];
+}
+
+TEST(ChannelPhrase, UnmaskedSlotsAreChannelNThroughEightOnly) {
+    EXPECT_EQ(phraseForSlot(0, 0), ChannelPhrase::Channel1);
+    EXPECT_EQ(phraseForSlot(0, 7), ChannelPhrase::Channel8);
+    EXPECT_EQ(phraseForSlot(0, 8), ChannelPhrase::None);
+}
+
+TEST(ChannelPhrase, SlotFollowsTheLowestSetMaskBit) {
+    const uint32_t stereo = SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT;
+    EXPECT_EQ(phraseForSlot(stereo, 0), ChannelPhrase::FrontLeft);
+    EXPECT_EQ(phraseForSlot(stereo, 1), ChannelPhrase::FrontRight);
+    const uint32_t nine = defaultChannelMask(8) | SPEAKER_TOP_FRONT_LEFT;
+    EXPECT_EQ(phraseForSlot(nine, 8), ChannelPhrase::TopFrontLeft);
+}
+
+TEST(RenderTrackList, ContinueLoopsPhraseOnThatChannelOnly) {
+    PhraseCatalog catalog;
+    catalog.set(ChannelPhrase::FrontLeft, {1000, 2000, 3000});
+    catalog.set(ChannelPhrase::FrontRight, {4000, 5000, 6000});
+    Rig rig;
+    RenderTrackList list(rig.factory(), &catalog);
+    const TrackId id = startLayout(list, 2, SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT);
+    ASSERT_TRUE(list.continueChannel(id, 0));
+
+    const auto status = list.poll();
+    ASSERT_EQ(status.size(), 1u);
+    EXPECT_EQ(status[0].state, StreamState::Running);
+    EXPECT_EQ(status[0].channelPaused[0], 0u);
+    EXPECT_EQ(status[0].channelPaused[1], 1u);
+
+    const std::vector<int16_t> frames = rig.renders[0]->pull(6);
+    ASSERT_EQ(frames.size(), 12u);
+    const int16_t left[] = {1000, 2000, 3000, 1000, 2000, 3000};
+    for (int i = 0; i < 6; ++i) {
+        EXPECT_EQ(at(frames, 2, static_cast<size_t>(i), 0), left[i]) << i;
+        EXPECT_EQ(at(frames, 2, static_cast<size_t>(i), 1), 0) << i;
+    }
+    list.destroyAll();
+}
+
+TEST(RenderTrackList, PauseReturnsSilenceAndKeepsTheTrack) {
+    PhraseCatalog catalog;
+    catalog.set(ChannelPhrase::FrontLeft, {1000, 2000, 3000});
+    Rig rig;
+    RenderTrackList list(rig.factory(), &catalog);
+    const TrackId id = startLayout(list, 1, SPEAKER_FRONT_LEFT);
+    ASSERT_TRUE(list.continueChannel(id, 0));
+    const std::vector<int16_t> first = rig.renders[0]->pull(1);
+    ASSERT_EQ(first.size(), 1u);
+    EXPECT_EQ(first[0], 1000);
+
+    ASSERT_TRUE(list.pauseChannel(id, 0));
+    const std::vector<int16_t> silenced = rig.renders[0]->pull(2);
+    EXPECT_EQ(silenced[0], 0);
+    EXPECT_EQ(silenced[1], 0);
+    const auto status = list.poll();
+    ASSERT_EQ(status.size(), 1u);
+    EXPECT_EQ(status[0].id, id);
+    EXPECT_EQ(status[0].state, StreamState::Running);
+    EXPECT_EQ(status[0].channelPaused[0], 1u);
+
+    ASSERT_TRUE(list.continueChannel(id, 0));
+    const std::vector<int16_t> resumed = rig.renders[0]->pull(1);
+    EXPECT_EQ(resumed[0], 2000);
+    list.destroyAll();
+}
+
+TEST(RenderTrackList, PlayOnceFromPauseStaysPaused) {
+    PhraseCatalog catalog;
+    catalog.set(ChannelPhrase::FrontLeft, {1000, 2000, 3000});
+    Rig rig;
+    RenderTrackList list(rig.factory(), &catalog);
+    const TrackId id = startLayout(list, 1, SPEAKER_FRONT_LEFT);
+    ASSERT_TRUE(list.playOnce(id, 0));
+    EXPECT_EQ(list.poll()[0].channelPaused[0], 1u);
+
+    const std::vector<int16_t> once = rig.renders[0]->pull(3);
+    EXPECT_EQ(once[0], 1000);
+    EXPECT_EQ(once[1], 2000);
+    EXPECT_EQ(once[2], 3000);
+    const std::vector<int16_t> after = rig.renders[0]->pull(2);
+    EXPECT_EQ(after[0], 0);
+    EXPECT_EQ(after[1], 0);
+    EXPECT_EQ(list.poll()[0].channelPaused[0], 1u);
+    EXPECT_EQ(list.poll()[0].state, StreamState::Running);
+    list.destroyAll();
+}
+
+TEST(RenderTrackList, PlayOnceFromContinueRestartsWithoutASecondCopy) {
+    PhraseCatalog catalog;
+    catalog.set(ChannelPhrase::FrontLeft, {1000, 2000, 3000});
+    Rig rig;
+    RenderTrackList list(rig.factory(), &catalog);
+    const TrackId id = startLayout(list, 1, SPEAKER_FRONT_LEFT);
+    ASSERT_TRUE(list.continueChannel(id, 0));
+    EXPECT_EQ(rig.renders[0]->pull(1)[0], 1000);
+
+    ASSERT_TRUE(list.playOnce(id, 0));
+    EXPECT_EQ(list.poll()[0].channelPaused[0], 0u);
+    const std::vector<int16_t> restarted = rig.renders[0]->pull(4);
+    EXPECT_EQ(restarted[0], 1000);
+    EXPECT_EQ(restarted[1], 2000);
+    EXPECT_EQ(restarted[2], 3000);
+    EXPECT_EQ(restarted[3], 1000);
+    list.destroyAll();
+}
+
+TEST(RenderTrackList, VolumeScalesSamplesAndZeroStaysContinuing) {
+    PhraseCatalog catalog;
+    catalog.set(ChannelPhrase::FrontLeft, {1000, 2000, 3000, 4000});
+    Rig rig;
+    RenderTrackList list(rig.factory(), &catalog);
+    const TrackId id = startLayout(list, 1, SPEAKER_FRONT_LEFT);
+    ASSERT_TRUE(list.continueChannel(id, 0));
+    ASSERT_TRUE(list.setVolume(id, 0, 50));
+    EXPECT_EQ(rig.renders[0]->pull(1)[0], 500);
+
+    ASSERT_TRUE(list.setVolume(id, 0, 0));
+    EXPECT_EQ(rig.renders[0]->pull(1)[0], 0);
+    EXPECT_EQ(list.poll()[0].channelPaused[0], 0u);
+    EXPECT_EQ(list.poll()[0].channels[0].volumePercent, 0u);
+
+    ASSERT_TRUE(list.setVolume(id, 0, 100));
+    EXPECT_EQ(rig.renders[0]->pull(1)[0], 3000);
+    ASSERT_TRUE(list.playOnce(id, 0));
+    EXPECT_EQ(rig.renders[0]->pull(1)[0], 1000);
+    list.destroyAll();
+}
+
+TEST(RenderTrackList, VolumeSurvivesPause) {
+    PhraseCatalog catalog;
+    catalog.set(ChannelPhrase::FrontLeft, {1000});
+    Rig rig;
+    RenderTrackList list(rig.factory(), &catalog);
+    const TrackId id = startLayout(list, 1, SPEAKER_FRONT_LEFT);
+    ASSERT_TRUE(list.setVolume(id, 0, 40));
+    ASSERT_TRUE(list.pauseChannel(id, 0));
+    EXPECT_EQ(list.poll()[0].channels[0].volumePercent, 40u);
+    EXPECT_EQ(list.poll()[0].channelPaused[0], 1u);
+    ASSERT_TRUE(list.continueChannel(id, 0));
+    EXPECT_EQ(rig.renders[0]->pull(1)[0], 400);
+    list.destroyAll();
+}
+
+TEST(RenderTrackList, UnmaskedChannelsPlayChannelNFromOne) {
+    PhraseCatalog catalog;
+    catalog.set(ChannelPhrase::Channel1, {11, 12});
+    catalog.set(ChannelPhrase::Channel2, {21, 22});
+    Rig rig;
+    RenderTrackList list(rig.factory(), &catalog);
+    const TrackId id = startLayout(list, 2, 0);
+    ASSERT_TRUE(list.continueChannel(id, 0));
+    ASSERT_TRUE(list.continueChannel(id, 1));
+    const std::vector<int16_t> frames = rig.renders[0]->pull(2);
+    EXPECT_EQ(at(frames, 2, 0, 0), 11);
+    EXPECT_EQ(at(frames, 2, 0, 1), 21);
+    EXPECT_EQ(at(frames, 2, 1, 0), 12);
+    EXPECT_EQ(at(frames, 2, 1, 1), 22);
+    EXPECT_EQ(list.poll()[0].channels[0].phrase, ChannelPhrase::Channel1);
+    EXPECT_EQ(list.poll()[0].channels[1].phrase, ChannelPhrase::Channel2);
+    list.destroyAll();
+}
+
+TEST(RenderTrackList, UnmaskedNinthChannelHasNoPhraseAndStaysSilent) {
+    PhraseCatalog catalog;
+    catalog.set(ChannelPhrase::Channel1, {11, 12});
+    Rig rig;
+    RenderTrackList list(rig.factory(), &catalog);
+    const TrackId id = startLayout(list, 9, 0);
+    ASSERT_TRUE(list.continueChannel(id, 8));
+    ASSERT_TRUE(list.playOnce(id, 8));
+    ASSERT_TRUE(list.setVolume(id, 8, 100));
+    const std::vector<int16_t> frames = rig.renders[0]->pull(2);
+    EXPECT_EQ(at(frames, 9, 0, 8), 0);
+    EXPECT_EQ(at(frames, 9, 1, 8), 0);
+    const auto status = list.poll();
+    EXPECT_EQ(status[0].channels[8].phrase, ChannelPhrase::None);
+    EXPECT_EQ(status[0].channels[8].hasPhrase, 0u);
+    EXPECT_EQ(status[0].channels[0].hasPhrase, 1u);
+    EXPECT_EQ(status[0].chartChannels, 8u);
+    EXPECT_EQ(list.tapChannels(id), 8u);
+    float ignored = 0.f;
+    EXPECT_FALSE(list.snapshotChannelEndingAt(id, 8, list.written(id), 1, &ignored));
+    list.destroyAll();
+}
+
+TEST(RenderTrackList, PositionedChannelPastEightKeepsItsRolePhrase) {
+    PhraseCatalog catalog;
+    catalog.set(ChannelPhrase::TopFrontLeft, {9, 8, 7});
+    Rig rig;
+    RenderTrackList list(rig.factory(), &catalog);
+    const uint32_t mask = defaultChannelMask(8) | SPEAKER_TOP_FRONT_LEFT;
+    const TrackId id = startLayout(list, 9, mask);
+    ASSERT_TRUE(list.continueChannel(id, 8));
+    const std::vector<int16_t> frames = rig.renders[0]->pull(3);
+    EXPECT_EQ(at(frames, 9, 0, 8), 9);
+    EXPECT_EQ(at(frames, 9, 1, 8), 8);
+    EXPECT_EQ(at(frames, 9, 2, 8), 7);
+    EXPECT_EQ(at(frames, 9, 0, 0), 0);
+    EXPECT_EQ(list.poll()[0].channels[8].phrase, ChannelPhrase::TopFrontLeft);
+    EXPECT_EQ(list.poll()[0].channels[8].hasPhrase, 1u);
+    list.destroyAll();
+}
+
+TEST(RenderTrackList, ScopeTapMatchesPlayedSamplesIncludingVolume) {
+    PhraseCatalog catalog;
+    catalog.set(ChannelPhrase::FrontLeft, {1000, -2000});
+    Rig rig;
+    RenderTrackList list(rig.factory(), &catalog);
+    const TrackId id = startLayout(list, 1, SPEAKER_FRONT_LEFT);
+    ASSERT_TRUE(list.setVolume(id, 0, 50));
+    ASSERT_TRUE(list.continueChannel(id, 0));
+    ASSERT_EQ(rig.renders[0]->pull(2).size(), 2u);
+    const uint64_t end = list.written(id);
+    ASSERT_GE(end, 2u);
+    float out[2] = {1.f, 1.f};
+    ASSERT_TRUE(list.snapshotChannelEndingAt(id, 0, end, 2, out));
+    EXPECT_FLOAT_EQ(out[0], 500.f / 32768.f);
+    EXPECT_FLOAT_EQ(out[1], -1000.f / 32768.f);
+    list.destroyAll();
+}
+
 TEST(RenderStrings, RenderPageWords) {
     EXPECT_STREQ(ui_text::kRenderTab, "Render");
     EXPECT_STREQ(ui_text::kRenderEmptyHint, "Create a Track to play to a render endpoint.");
@@ -479,5 +710,14 @@ TEST(RenderStrings, RenderPageWords) {
     EXPECT_STREQ(ui_text::kRenderLayout, "Layout");
     EXPECT_STREQ(ui_text::kRenderCustomIgnored, "Sample rate and bit depth are ignored.");
     EXPECT_STREQ(ui_text::kRenderChannelsPaused, "All channels paused");
+    EXPECT_STREQ(ui_text::kRenderPause, "Pause");
+    EXPECT_STREQ(ui_text::kRenderContinue, "Continue");
+    EXPECT_STREQ(ui_text::kRenderPlayOnce, "Play once");
+    EXPECT_STREQ(ui_text::kRenderNoPhrase, "No phrase");
+    EXPECT_STREQ(ui_text::kRenderVolume, "Volume");
+    EXPECT_STREQ(ui_text::channelPhraseText(ChannelPhrase::Channel1), "channel 1");
+    EXPECT_STREQ(ui_text::channelPhraseText(ChannelPhrase::Channel8), "channel 8");
+    EXPECT_STREQ(ui_text::channelPhraseText(ChannelPhrase::None), "No phrase");
+    EXPECT_STREQ(ui_text::channelPhraseText(ChannelPhrase::TopFrontLeft), "Top front left");
 }
 
