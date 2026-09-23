@@ -1,4 +1,5 @@
 #pragma once
+#include "PhraseCatalog.h"
 #include "PipelineGraph.h"
 #include <cstdio>
 #include <string>
@@ -68,6 +69,46 @@ inline constexpr const char* kRenderEndpoint = "Render endpoint";
 inline constexpr const char* kRenderLayout = "Layout";
 inline constexpr const char* kRenderCustomIgnored = "Sample rate and bit depth are ignored.";
 inline constexpr const char* kRenderChannelsPaused = "All channels paused";
+inline constexpr const char* kRenderPause = "Pause";
+inline constexpr const char* kRenderContinue = "Continue";
+inline constexpr const char* kRenderPlayOnce = "Play once";
+inline constexpr const char* kRenderNoPhrase = "No phrase";
+inline constexpr const char* kRenderVolume = "Volume";
+
+inline const char* channelPhraseText(ChannelPhrase phrase) {
+    switch (phrase) {
+    case ChannelPhrase::FrontLeft: return "Front left";
+    case ChannelPhrase::FrontRight: return "Front right";
+    case ChannelPhrase::FrontCenter: return "Front center";
+    case ChannelPhrase::LowFrequency: return "Low frequency";
+    case ChannelPhrase::BackLeft: return "Back left";
+    case ChannelPhrase::BackRight: return "Back right";
+    case ChannelPhrase::BackCenter: return "Back center";
+    case ChannelPhrase::SideLeft: return "Side left";
+    case ChannelPhrase::SideRight: return "Side right";
+    case ChannelPhrase::FrontLeftOfCenter: return "Front left of center";
+    case ChannelPhrase::FrontRightOfCenter: return "Front right of center";
+    case ChannelPhrase::TopCenter: return "Top center";
+    case ChannelPhrase::TopFrontLeft: return "Top front left";
+    case ChannelPhrase::TopFrontCenter: return "Top front center";
+    case ChannelPhrase::TopFrontRight: return "Top front right";
+    case ChannelPhrase::TopBackLeft: return "Top back left";
+    case ChannelPhrase::TopBackCenter: return "Top back center";
+    case ChannelPhrase::TopBackRight: return "Top back right";
+    case ChannelPhrase::Channel1: return "channel 1";
+    case ChannelPhrase::Channel2: return "channel 2";
+    case ChannelPhrase::Channel3: return "channel 3";
+    case ChannelPhrase::Channel4: return "channel 4";
+    case ChannelPhrase::Channel5: return "channel 5";
+    case ChannelPhrase::Channel6: return "channel 6";
+    case ChannelPhrase::Channel7: return "channel 7";
+    case ChannelPhrase::Channel8: return "channel 8";
+    case ChannelPhrase::None:
+    case ChannelPhrase::Count:
+        break;
+    }
+    return kRenderNoPhrase;
+}
 inline constexpr const char* kApplicationLoopbackEmptyHint =
     "Create a Track to capture application audio.";
 inline constexpr const char* kLogEmpty = "(empty)";

@@ -16,6 +16,7 @@ add_library(WinAudioCore STATIC
     MonitorEngine.cpp
     CaptureTrackList.cpp
     RenderTrackList.cpp
+    PhraseCatalog.cpp
     Capabilities.cpp
     Log.cpp
     PipelineGraph.cpp

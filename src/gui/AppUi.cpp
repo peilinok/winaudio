@@ -13,6 +13,7 @@
 #include "imgui.h"
 #include "implot.h"
 #include "AudioFormatStr.h"
+#include "RenderTrackScopeReader.h"
 #include "FormatSpec.h"
 #include "Log.h"
 #ifndef NOMINMAX
@@ -1183,6 +1184,14 @@ void AppUi::drawRenderPage() {
 
     ImGui::BeginChild("renderTracks", ImVec2(0, 0), true);
     const auto tracks = renderTracks_.poll();
+    for (size_t i = 0; i < renderViz_.size();) {
+        bool live = false;
+        for (const auto& t : tracks) {
+            if (t.id == renderViz_[i].first) { live = true; break; }
+        }
+        if (!live) renderViz_.erase(renderViz_.begin() + static_cast<std::ptrdiff_t>(i));
+        else ++i;
+    }
     if (tracks.empty()) {
         ImGui::TextUnformatted(wa::ui_text::kRenderEmptyHint);
     } else {
@@ -1206,6 +1215,49 @@ void AppUi::drawRenderPage() {
                 ImGui::TextDisabled("%s", wa::ui_text::kRenderChannelsPaused);
             if (t.state == wa::StreamState::Error && !t.message.empty())
                 ImGui::TextDisabled("%s", t.message.c_str());
+            if (t.state == wa::StreamState::Running) {
+                for (uint16_t channel = 0; channel < t.channels.size(); ++channel) {
+                    ImGui::PushID(channel);
+                    const wa::ChannelPhrase phrase = t.channels[channel].phrase;
+                    const char* name = phrase == wa::ChannelPhrase::None
+                                           ? wa::ui_text::kRenderNoPhrase
+                                           : wa::ui_text::channelPhraseText(phrase);
+                    ImGui::AlignTextToFramePadding();
+                    ImGui::TextUnformatted(name);
+                    ImGui::SameLine();
+                    if (t.channels[channel].paused) {
+                        if (ImGui::SmallButton(wa::ui_text::kRenderContinue))
+                            renderTracks_.continueChannel(t.id, channel);
+                    } else if (ImGui::SmallButton(wa::ui_text::kRenderPause)) {
+                        renderTracks_.pauseChannel(t.id, channel);
+                    }
+                    ImGui::SameLine();
+                    if (ImGui::SmallButton(wa::ui_text::kRenderPlayOnce))
+                        renderTracks_.playOnce(t.id, channel);
+                    ImGui::SameLine();
+                    int volume = t.channels[channel].volumePercent;
+                    ImGui::SetNextItemWidth(140.0f);
+                    if (ImGui::SliderInt(wa::ui_text::kRenderVolume, &volume, 0, 100))
+                        renderTracks_.setVolume(t.id, channel, volume);
+                    ImGui::PopID();
+                }
+                VisualState* vs = nullptr;
+                for (auto& entry : renderViz_) {
+                    if (entry.first == t.id) { vs = &entry.second; break; }
+                }
+                if (!vs) {
+                    renderViz_.push_back({t.id, VisualState{}});
+                    vs = &renderViz_.back().second;
+                }
+                wa::MonitorStatus chartStatus{};
+                chartStatus.overall = t.state;
+                chartStatus.capState = t.state;
+                chartStatus.sampleRate = shown.sampleRate;
+                chartStatus.captureChannels = t.chartChannels;
+                wa::RenderTrackScopeReader reader(renderTracks_, t.id);
+                drawChartHost(nullptr, chartStatus, *vs, wa::chart_host::Mode::CaptureOnly,
+                              nullptr, nullptr, &reader);
+            }
             if (ImGui::Button(wa::ui_text::kLoopbackDestroy)) {
                 renderTracks_.destroy(t.id);
                 logLines_.push_back("render track destroyed id=" + std::to_string(t.id));
