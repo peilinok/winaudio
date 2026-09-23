@@ -9,6 +9,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include "AppUiText.h"
 #include "CaptureTrackList.h"
 #include "RenderTrackList.h"
 #include "RingBuffer.h"
@@ -469,5 +470,14 @@ TEST(RenderTrackList, ThrowingFactoryStaysListedAndKeepsSibling) {
     EXPECT_TRUE(sawRun);
     EXPECT_TRUE(sawErr);
     list.destroyAll();
+}
+
+TEST(RenderStrings, RenderPageWords) {
+    EXPECT_STREQ(ui_text::kRenderTab, "Render");
+    EXPECT_STREQ(ui_text::kRenderEmptyHint, "Create a Track to play to a render endpoint.");
+    EXPECT_STREQ(ui_text::kRenderEndpoint, "Render endpoint");
+    EXPECT_STREQ(ui_text::kRenderLayout, "Layout");
+    EXPECT_STREQ(ui_text::kRenderCustomIgnored, "Sample rate and bit depth are ignored.");
+    EXPECT_STREQ(ui_text::kRenderChannelsPaused, "All channels paused");
 }
 

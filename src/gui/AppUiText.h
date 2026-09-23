@@ -62,6 +62,12 @@ inline constexpr const char* kDumpStop = "Stop dump";
 inline constexpr const char* kDumpCapture = "Dump capture";
 inline constexpr const char* kDumpRender = "Dump render";
 inline constexpr const char* kLoopbackEmptyHint = "Create a Track to capture system audio.";
+inline constexpr const char* kRenderTab = "Render";
+inline constexpr const char* kRenderEmptyHint = "Create a Track to play to a render endpoint.";
+inline constexpr const char* kRenderEndpoint = "Render endpoint";
+inline constexpr const char* kRenderLayout = "Layout";
+inline constexpr const char* kRenderCustomIgnored = "Sample rate and bit depth are ignored.";
+inline constexpr const char* kRenderChannelsPaused = "All channels paused";
 inline constexpr const char* kApplicationLoopbackEmptyHint =
     "Create a Track to capture application audio.";
 inline constexpr const char* kLogEmpty = "(empty)";

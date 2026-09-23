@@ -6,6 +6,7 @@
 #include <vector>
 #include "AudioSessionEnumerator.h"
 #include "CaptureTrackList.h"
+#include "RenderTrackList.h"
 #include "ChartHost.h"
 #include "CreateRecipe.h"
 #include "DeviceEnumerator.h"
@@ -65,8 +66,11 @@ private:
     void drawPipelinePage();
     void drawLoopbackPage();
     void drawApplicationLoopbackPage();
+    void drawRenderPage();
     void drawLoopbackLeftPanel();
     void drawApplicationLoopbackLeftPanel();
+    void drawRenderLeftPanel();
+    void recomputeRenderFormat();
     enum class DumpPickKind { None, Loopback, AppLoopback, MonitorCap, MonitorRen };
     void drawDumpControls(wa::CaptureTrackList& list, const wa::CaptureTrackStatus& t,
                           DumpPickKind kind, const char* destroyedLog);
@@ -116,6 +120,7 @@ private:
     wa::MonitorEngine    monitor_;
     wa::CaptureTrackList loopbackTracks_;
     wa::CaptureTrackList appLoopbackTracks_;
+    wa::RenderTrackList renderTracks_;
     wa::DeviceEnumerator enumerator_;
     wa::AudioSessionEnumerator sessionEnumerator_;
     wa::LiveSessionEnumerator liveSessionEnumerator_;
@@ -141,6 +146,7 @@ private:
     int                         capDevIdx_    = 0;
     int                         renderDevIdx_ = 0;
     int                         loopbackDevIdx_ = 0;
+    int                         renderPageDevIdx_ = 0;
     int                         delayMs_      = 100;
     bool                        monitorStarted_ = false;
     bool                        loopbackSilentRender_ = true;
@@ -152,6 +158,11 @@ private:
     char                        appLoopbackPid_[32] = "";
     int                         appLoopbackReferenceIdx_ = 0;
     wa::create_recipe::CreateRecipe appLoopbackRecipe_{};
+    wa::create_recipe::CreateRecipe renderRecipe_{};
+    int                         renderLayoutIdx_ = 0; // 0 = system default, -1 = custom
+    char                        renderCustom_[32] = "48000/16/2";
+    bool                        renderHaveCustom_ = false;
+    wa::RenderCustomLayout      renderCustomLayout_{};
 
     bool pipelineSessionsLoaded_ = false;
     bool pipelineShowSelf_ = false;
