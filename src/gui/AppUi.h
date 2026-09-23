@@ -28,6 +28,7 @@ public:
     void stopAll();       // stop engines on shutdown (idempotent)
     void pushLog(int level, const std::string& line);  // thread-safe; called from the logging pump thread
     void loadLogRegionPrefs();
+    void loadProductionPhrases();
 private:
     struct VisualState {
         std::vector<float> capWave, renderWave;

@@ -1,0 +1,10 @@
+The eight WAV files Front_Left, Front_Right, Front_Center, Rear_Left, Rear_Right,
+Rear_Center, Side_Left, and Side_Right are the English speaker-test samples from
+alsa-utils (speaker-test/samples). They remain under GPL-2.0. The license text is
+COPYING in this directory. Shipping them beside WinAudio does not relicense
+WinAudio, and it does not relicense these clips.
+
+Rear_Center is the rear-center phrase only. It is not the LFE phrase.
+
+LFE, front-of-center, top-position, and "channel N" recordings in this directory
+are project-owned. They are not ALSA samples and are not covered by COPYING.

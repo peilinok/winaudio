@@ -16,6 +16,7 @@ add_executable(WinAudioTests
     test_monitorengine.cpp
     test_capture_track_list.cpp
     test_render_track_list.cpp
+    test_production_catalog.cpp
     test_spectrogram.cpp
     test_capture_channel_view.cpp
     test_charts_freeze.cpp
@@ -47,6 +48,8 @@ target_include_directories(WinAudioTests PRIVATE
     ${CMAKE_SOURCE_DIR}/src/cli
     ${CMAKE_SOURCE_DIR}/src/gui                   # for Spectrogram.h
 )
+string(REPLACE "\\" "/" WA_CHANNEL_IDENT_DIR "${CMAKE_SOURCE_DIR}/assets/channel-idents")
+target_compile_definitions(WinAudioTests PRIVATE "WA_CHANNEL_IDENT_DIR=\"${WA_CHANNEL_IDENT_DIR}\"")
 target_link_libraries(WinAudioTests PRIVATE WinAudioCore gtest_main shell32)
 wa_set_project_warnings(WinAudioTests)
 
