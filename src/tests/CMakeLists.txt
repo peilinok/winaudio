@@ -15,6 +15,7 @@ add_executable(WinAudioTests
     test_analysis.cpp
     test_monitorengine.cpp
     test_capture_track_list.cpp
+    test_render_track_list.cpp
     test_spectrogram.cpp
     test_capture_channel_view.cpp
     test_charts_freeze.cpp
