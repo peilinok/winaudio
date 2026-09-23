@@ -97,35 +97,34 @@ TEST(ProductionCatalog, WrongFormatIsReportedByNameAndAValidLfeLoads) {
     std::filesystem::remove_all(dir);
 }
 
-TEST(ProductionCatalog, ShippedAlsaClipsLoadAndProjectGapsStayNamed) {
+TEST(ProductionCatalog, ShippedPhraseCatalogLoads) {
     const std::filesystem::path shipped(WA_CHANNEL_IDENT_DIR);
     const std::wstring dir = shipped.wstring();
     const std::vector<std::string> missing = missingProductionPhrases(dir);
-    EXPECT_FALSE(containsName(missing, "Front left"));
-    EXPECT_FALSE(containsName(missing, "Front right"));
-    EXPECT_FALSE(containsName(missing, "Front center"));
-    EXPECT_FALSE(containsName(missing, "Back left"));
-    EXPECT_FALSE(containsName(missing, "Back right"));
-    EXPECT_FALSE(containsName(missing, "Back center"));
-    EXPECT_FALSE(containsName(missing, "Side left"));
-    EXPECT_FALSE(containsName(missing, "Side right"));
-    EXPECT_TRUE(containsName(missing, "LFE"));
-    EXPECT_TRUE(containsName(missing, "channel 1"));
-    EXPECT_TRUE(containsName(missing, "channel 8"));
-    EXPECT_TRUE(containsName(missing, "Top Front Left"));
+    EXPECT_TRUE(missing.empty());
 
     PhraseCatalog catalog;
     std::vector<std::string> reported;
-    EXPECT_FALSE(loadProductionCatalog(catalog, dir, &reported));
+    EXPECT_TRUE(loadProductionCatalog(catalog, dir, &reported));
+    EXPECT_TRUE(reported.empty());
     const std::vector<int16_t>* front = catalog.find(ChannelPhrase::FrontLeft);
     const std::vector<int16_t>* rear = catalog.find(ChannelPhrase::BackCenter);
+    const std::vector<int16_t>* lfe = catalog.find(ChannelPhrase::LowFrequency);
+    const std::vector<int16_t>* channel1 = catalog.find(ChannelPhrase::Channel1);
+    const std::vector<int16_t>* topFrontLeft = catalog.find(ChannelPhrase::TopFrontLeft);
     ASSERT_NE(front, nullptr);
     ASSERT_NE(rear, nullptr);
+    ASSERT_NE(lfe, nullptr);
+    ASSERT_NE(channel1, nullptr);
+    ASSERT_NE(topFrontLeft, nullptr);
     EXPECT_GT(front->size(), 1000u);
     EXPECT_GT(rear->size(), 1000u);
+    EXPECT_GT(lfe->size(), 1000u);
+    EXPECT_GT(channel1->size(), 1000u);
+    EXPECT_GT(topFrontLeft->size(), 1000u);
     EXPECT_NE(*front, *rear);
-    EXPECT_EQ(catalog.find(ChannelPhrase::LowFrequency), nullptr);
-    EXPECT_TRUE(std::filesystem::is_regular_file(std::filesystem::path(dir) / "COPYING"));
+    EXPECT_NE(*lfe, *rear);
+    EXPECT_TRUE(std::filesystem::is_regular_file(shipped / "COPYING"));
 }
 
 TEST(RenderTrackList, InjectedCatalogStillSuppliesTheBehaviorTests) {
