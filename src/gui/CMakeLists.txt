@@ -12,4 +12,9 @@ target_compile_definitions(WinAudioGui PRIVATE NOMINMAX _CRT_SECURE_NO_WARNINGS)
 set_target_properties(WinAudioGui PROPERTIES WIN32_EXECUTABLE TRUE)
 target_link_options(WinAudioGui PRIVATE /ENTRY:mainCRTStartup)
 add_dependencies(WinAudioGui WinAudioHook)
+add_custom_command(TARGET WinAudioGui POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/assets/channel-idents"
+        "$<TARGET_FILE_DIR:WinAudioGui>/channel-idents"
+    VERBATIM)
 wa_set_project_warnings(WinAudioGui)

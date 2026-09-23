@@ -105,6 +105,7 @@ int main(int, char**)
     });
     wa::log::setLevel(wa::log::Level::Info);
     ui.loadLogRegionPrefs();
+    ui.loadProductionPhrases();
 
     // Main loop
     bool done = false;

@@ -22,6 +22,7 @@
 #include <windows.h>
 #include <shellapi.h>
 #include <algorithm>
+#include <filesystem>
 #include <cfloat>
 #include <cmath>
 #include <cstddef>
@@ -1868,6 +1869,21 @@ void AppUi::loadLogRegionPrefs() {
     if (r.kind == wa::log_region_prefs::LoadKind::Invalid) {
         WA_LOG(wa::log::Level::Warn, "LogRegionPrefs", "load",
                wtou(logPrefsPath_), "invalid");
+    }
+}
+
+void AppUi::loadProductionPhrases() {
+    wchar_t exe[MAX_PATH]{};
+    const DWORD n = GetModuleFileNameW(nullptr, exe, MAX_PATH);
+    std::wstring dir = L"channel-idents";
+    if (n > 0 && n < MAX_PATH) {
+        dir = (std::filesystem::path(exe).parent_path() / L"channel-idents").wstring();
+    }
+    std::vector<std::string> missing;
+    const wa::Result loaded = wa::loadProductionCatalog(renderPhrases_, dir, &missing);
+    if (!loaded) {
+        for (const std::string& name : missing)
+            logLines_.push_back("channel ident missing: " + name);
     }
 }
 
