@@ -8,6 +8,7 @@
 // - Introduction, links and more at the top of imgui.cpp
 
 #include "AppUi.h"
+#include "FrameTiming.h"
 #include "Log.h"
 #include "imgui.h"
 #include "implot.h"
@@ -49,7 +50,7 @@ int main(int, char**)
     }
 
     // Show the window
-    ::ShowWindow(hwnd, SW_SHOWDEFAULT);
+    ::ShowWindow(hwnd, wa::frame_timing::enabled() ? SW_SHOWMAXIMIZED : SW_SHOWDEFAULT);
     ::UpdateWindow(hwnd);
 
     // Setup Dear ImGui context
@@ -127,6 +128,8 @@ int main(int, char**)
         // Handle window being minimized or screen locked
         if (g_SwapChainOccluded && g_pSwapChain->Present(0, DXGI_PRESENT_TEST) == DXGI_STATUS_OCCLUDED)
         {
+            if (wa::frame_timing::noteSkippedFrame())
+                break;
             ::Sleep(10);
             continue;
         }
@@ -142,6 +145,7 @@ int main(int, char**)
         }
 
         // Start the Dear ImGui frame
+        wa::frame_timing::beginFrame();
         ImGui_ImplDX11_NewFrame();
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
@@ -150,16 +154,25 @@ int main(int, char**)
         ui.draw();
 
         // Rendering
-        ImGui::Render();
+        {
+            wa::frame_timing::Section timed(wa::frame_timing::frame().imguiRenderMs);
+            ImGui::Render();
+        }
         const float clear_color_with_alpha[4] = { clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w };
         g_pd3dDeviceContext->OMSetRenderTargets(1, &g_mainRenderTargetView, nullptr);
         g_pd3dDeviceContext->ClearRenderTargetView(g_mainRenderTargetView, clear_color_with_alpha);
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 
         // Present
-        HRESULT hr = g_pSwapChain->Present(1, 0);   // Present with vsync
+        HRESULT hr = S_OK;
+        {
+            wa::frame_timing::Section timed(wa::frame_timing::frame().presentMs);
+            hr = g_pSwapChain->Present(1, 0);   // Present with vsync
+        }
         //HRESULT hr = g_pSwapChain->Present(0, 0); // Present without vsync
         g_SwapChainOccluded = (hr == DXGI_STATUS_OCCLUDED);
+        if (wa::frame_timing::endFrame())
+            done = true;
     }
 
     // WinAudio: stop both engines so worker threads are joined before teardown

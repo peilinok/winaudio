@@ -16,6 +16,8 @@
 #include "RenderTrackScopeReader.h"
 #include "FormatSpec.h"
 #include "Log.h"
+#include "FrameTiming.h"
+#include "AudioFormat.h"
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -686,6 +688,7 @@ void AppUi::ensureRunningVisuals(const wa::MonitorStatus& status, VisualState& v
 void AppUi::draw() {
     // Drain lines buffered by the logging pump thread into the panel history (bounded).
     {
+        wa::frame_timing::Section timed(wa::frame_timing::frame().logDrainMs);
         std::lock_guard<std::mutex> lk(logMutex_);
         for (auto& l : pendingLog_) logLines_.push_back(std::move(l));
         pendingLog_.clear();
@@ -698,7 +701,10 @@ void AppUi::draw() {
     applyDumpPick();
 
     // Poll once; detect renderState Running->non-Running to clear stale playback chart data.
-    ms_ = monitor_.poll();
+    {
+        wa::frame_timing::Section timed(wa::frame_timing::frame().monitorPollMs);
+        ms_ = monitor_.poll();
+    }
     const int curRenderState = (int)ms_.renderState;
     if (prevRenderState_ == (int)wa::StreamState::Running &&
         curRenderState  != (int)wa::StreamState::Running) {
@@ -733,7 +739,10 @@ void AppUi::draw() {
             drawApplicationLoopbackPage();
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem(wa::ui_text::kRenderTab)) {
+        ImGuiTabItemFlags renderTabFlags = 0;
+        if (wa::frame_timing::enabled())
+            renderTabFlags |= ImGuiTabItemFlags_SetSelected;
+        if (ImGui::BeginTabItem(wa::ui_text::kRenderTab, nullptr, renderTabFlags)) {
             drawRenderPage();
             ImGui::EndTabItem();
         }
@@ -1171,6 +1180,49 @@ void AppUi::recomputeRenderFormat() {
     }
 }
 
+static void ensureFrameTimingScene(bool devicesLoaded,
+                                   const std::vector<wa::DeviceInfo>& devices, int devIdx,
+                                   wa::RenderTrackList& tracksList) {
+    if (!wa::frame_timing::enabled()) return;
+    static int phase = 0;
+    if (phase >= 2) return;
+    if (!devicesLoaded) return;
+    const auto existing = tracksList.poll();
+    if (existing.empty()) {
+        if (phase > 0) return;
+        wa::RenderTrackCreate spec;
+        spec.mode = wa::RenderLayoutMode::Layout;
+        spec.source.channels = 8;
+        spec.source.channelMask = wa::defaultChannelMask(8);
+        spec.deviceId = deviceIdAt(devices, devIdx);
+        wa::TrackId id = 0;
+        const wa::Result created = tracksList.create(spec, &id);
+        phase = 1;
+        if (!created) wa::frame_timing::fail("render create: " + created.message);
+        return;
+    }
+    const auto& track = existing[0];
+    if (track.state == wa::StreamState::Error) {
+        wa::frame_timing::fail(track.message.empty() ? "render track error" : track.message);
+        phase = 2;
+        return;
+    }
+    if (track.state != wa::StreamState::Running) return;
+    if (track.chartChannels < 8) {
+        wa::frame_timing::fail("chart channels " + std::to_string(track.chartChannels));
+        phase = 2;
+        return;
+    }
+    bool playing = false;
+    for (uint8_t paused : track.channelPaused)
+        if (paused == 0) playing = true;
+    if (!playing) {
+        for (uint16_t ch = 0; ch < static_cast<uint16_t>(track.channels.size()); ++ch)
+            tracksList.continueChannel(track.id, ch);
+    }
+    phase = 2;
+}
+
 void AppUi::drawRenderPage() {
     const float logH = logRegionHeight();
     const float availY = ImGui::GetContentRegionAvail().y;
@@ -1184,7 +1236,11 @@ void AppUi::drawRenderPage() {
     ImGui::SameLine();
 
     ImGui::BeginChild("renderTracks", ImVec2(0, 0), true);
-    const auto tracks = renderTracks_.poll();
+    ensureFrameTimingScene(monitorDevicesLoaded_, renderDevices_, renderPageDevIdx_, renderTracks_);
+    const auto tracks = [&] {
+        wa::frame_timing::Section timed(wa::frame_timing::frame().renderPollMs);
+        return renderTracks_.poll();
+    }();
     for (size_t i = 0; i < renderViz_.size();) {
         bool live = false;
         for (const auto& t : tracks) {
@@ -1267,10 +1323,24 @@ void AppUi::drawRenderPage() {
             ImGui::PopID();
         }
     }
+    if (wa::frame_timing::enabled()) {
+        const float origin = wa::frame_timing::specOrigin();
+        if (origin >= 0.f) ImGui::SetScrollY(origin);
+    }
     ImGui::EndChild();
     ImGui::EndChild();
 
     drawLogRegion("renderLogRegion", "renderLog");
+
+    int playing = 0;
+    int charts = tracks.empty() ? 0 : static_cast<int>(tracks[0].chartChannels);
+    if (!tracks.empty() && tracks[0].state == wa::StreamState::Running) {
+        for (uint8_t paused : tracks[0].channelPaused)
+            if (paused == 0) ++playing;
+    }
+    const int heatmap = wa::frame_timing::frame().heatmapCalls;
+    const bool playing8 = tracks.size() == 1 && charts >= 8 && playing > 0 && heatmap >= 1;
+    wa::frame_timing::noteScene(playing8, heatmap, playing, charts);
 }
 
 void AppUi::drawRenderLeftPanel() {
@@ -1937,7 +2007,10 @@ void AppUi::drawLogPanel(const char* listId) {
     ImGui::BeginChild(listId, ImVec2(0, 0), true);
     const bool wasPinned = ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 1.0f;
     ImGui::PushTextWrapPos(0.0f);
-    for (const auto& l : logLines_) ImGui::TextUnformatted(l.c_str());
+    {
+        wa::frame_timing::Section timed(wa::frame_timing::frame().logWidgetsMs);
+        for (const auto& l : logLines_) ImGui::TextUnformatted(l.c_str());
+    }
     ImGui::PopTextWrapPos();
     if (logPinToBottomOnExpand_ || wasPinned)
         ImGui::SetScrollHereY(1.0f);
@@ -2184,9 +2257,14 @@ void AppUi::drawSpectrogramPanel(VisualState& viz, const char* plotId, wa::Spect
         ImPlot::SetupAxisLimits(ImAxis_Y1, lo0, hiL,
                                 viz.resetYAxes ? ImGuiCond_Always : ImGuiCond_Once);
         if (nTick > 0) ImPlot::SetupAxisTicks(ImAxis_Y1, tickV, nTick, tickL);
-        if (spec)
-            ImPlot::PlotHeatmap("##hm", spec->data(), spec->rows(), spec->cols(), -96.0, 0.0, nullptr,
-                ImPlotPoint(0, loL), ImPlotPoint(histSec, hiL));
+        if (spec) {
+            {
+                wa::frame_timing::Section timed(wa::frame_timing::frame().heatmapMs);
+                ImPlot::PlotHeatmap("##hm", spec->data(), spec->rows(), spec->cols(), -96.0, 0.0,
+                                    nullptr, ImPlotPoint(0, loL), ImPlotPoint(histSec, hiL));
+            }
+            if (wa::frame_timing::enabled()) ++wa::frame_timing::frame().heatmapCalls;
+        }
         drawYUnitLabel("Hz", true);
         viz.plotHovPrev[slot] = ImPlot::IsPlotHovered();
         ImPlot::EndPlot();
@@ -2200,6 +2278,7 @@ void AppUi::drawSpectrogramPanel(VisualState& viz, const char* plotId, wa::Spect
 // view stays readable while remaining column-aligned with the spectrogram.
 void AppUi::drawWaveformPanel(VisualState& viz, const char* plotId, const float* wave, int n,
                               uint32_t sr, bool haveData, float height, int slot) {
+    wa::frame_timing::Section timed(wa::frame_timing::frame().waveformMs);
     if (!ImPlot::BeginPlot(plotId, ImVec2(-1, height))) return;
     // Y locked while the plot area was hovered last frame -> in-plot wheel/drag act on X only;
     // zoom amplitude via the Y ruler. X tick labels hidden: the spectrogram below shows the time.
@@ -2306,7 +2385,10 @@ void AppUi::drawComboPanel(wa::ScopeReader& reader, const wa::MonitorStatus& sta
         buffers.mag = &viz.magCap;
         buffers.nextEnd = &viz.nextCapEnd;
         buffers.specSr = viz.specSr;
-        const wa::ChartRefreshResult refreshed = wa::refreshCharts(refreshParams, buffers);
+        const wa::ChartRefreshResult refreshed = [&] {
+            wa::frame_timing::Section timed(wa::frame_timing::frame().refreshChartsMs);
+            return wa::refreshCharts(refreshParams, buffers);
+        }();
 
         for (uint32_t ch = 0; ch < shownChannels; ++ch) {
             std::vector<float>& wave = viz.capChannelWaves[(size_t)ch];
@@ -2319,6 +2401,8 @@ void AppUi::drawComboPanel(wa::ScopeReader& reader, const wa::MonitorStatus& sta
 
         const uint32_t hz = (sr > 0) ? sr : 48000u;
         const double histSec = (double)(kSpecCols * kFftHop) / (double)hz;
+        if (wa::frame_timing::enabled() && shownChannels >= 8)
+            wa::frame_timing::noteSpecOrigin(ImGui::GetCursorPosY());
         for (uint32_t ch = 0; ch < shownChannels; ++ch) {
             const std::string title = "Capture Ch " + std::to_string(ch + 1u) + " spectrogram";
             ImGui::TextUnformatted(title.c_str());
@@ -2343,7 +2427,10 @@ void AppUi::drawComboPanel(wa::ScopeReader& reader, const wa::MonitorStatus& sta
     buffers.spectrogram = renderSide ? viz.renderSpec.get() : viz.capSpec.get();
     buffers.nextEnd = renderSide ? &viz.nextRenderEnd : &viz.nextCapEnd;
     buffers.specSr = viz.specSr;
-    const wa::ChartRefreshResult refreshed = wa::refreshCharts(refreshParams, buffers);
+    const wa::ChartRefreshResult refreshed = [&] {
+        wa::frame_timing::Section timed(wa::frame_timing::frame().refreshChartsMs);
+        return wa::refreshCharts(refreshParams, buffers);
+    }();
     bool ok = refreshed.haveWave;
     if (!ok && viz.chartsFrozen && viz.waveSr > 0 && viz.waveN > 0 &&
         (!renderSide || !viz.renderWave.empty()))
