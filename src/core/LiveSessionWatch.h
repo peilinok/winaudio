@@ -11,6 +11,10 @@ namespace wa {
 // Disconnect and Expired only set a sticky dirty flag and PostMessage the main
 // window. Ducking and device arrival are not subscribed. consumeDirty collapses
 // many marks into one true result on the GUI thread.
+
+// Posted to the main hwnd as a wake. The GUI applies the flag once per frame.
+unsigned liveSessionDirtyMessage();
+
 class LiveSessionWatch {
 public:
     LiveSessionWatch();
