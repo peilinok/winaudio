@@ -52,6 +52,27 @@ void shapeLiveSessionList(std::vector<LiveSessionView>& rows, uint32_t hidePid);
 int restoreLiveSessionSelection(const std::vector<LiveSessionView>& rows,
                                 const LiveSessionView& selected);
 
+// Volume and/or mute and/or state for one Live session row. Identity uses the
+// same rule as restoreLiveSessionSelection. Channel volume, display name, and
+// icon are not fields of this patch.
+struct LiveSessionCellPatch {
+    std::string sessionInstanceId;
+    uint32_t processId = 0;
+    std::string deviceId;
+    PipelineFlow flow = PipelineFlow::Capture;
+    bool hasVolume = false;
+    float volume = 0.f;
+    bool hasMute = false;
+    bool mute = false;
+    bool hasState = false;
+    std::string state;
+};
+
+// Writes the set fields onto the one matching row. Returns that index, or -1
+// when nothing is set or no row matches. Other rows are left unchanged.
+int applyLiveSessionCellPatch(std::vector<LiveSessionView>& rows,
+                              const LiveSessionCellPatch& patch);
+
 struct ApoSlot {
     std::string role;  // "SFX" | "MFX" | "EFX"
     std::string clsid;

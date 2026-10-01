@@ -2,6 +2,7 @@
 #include <atomic>
 #include <cstring>
 #include <malloc.h>
+#include <new>
 #include <string>
 #include <system_error>
 #include <thread>
@@ -15,11 +16,13 @@
 namespace wa {
 
 constexpr UINT kLiveSessionDirtyMessage = WM_APP + 0x4157;
+constexpr UINT kLiveSessionCellMessage = WM_APP + 0x4158;
 // Callbacks borrow a node. They do not allocate. 128 covers a burst of creates
 // before the worker recycles; past that the worker enumerates once.
 constexpr int kCreateNodePool = 128;
 
 unsigned liveSessionDirtyMessage() { return kLiveSessionDirtyMessage; }
+unsigned liveSessionCellMessage() { return kLiveSessionCellMessage; }
 
 namespace {
 
@@ -29,15 +32,42 @@ class SessionEvents;
 struct PendingSession {
     SLIST_ENTRY entry;
     IAudioSessionControl* control;
+    const std::string* deviceId;
+    PipelineFlow flow;
 };
 
+// Heap node. The callback copies identity captured at registration; the GUI
+// drains oldest-first. SLIST is LIFO, so drain reverses a popped batch.
+struct CellNode {
+    SLIST_ENTRY entry;
+    LiveSessionCellPatch patch;
+};
+
+struct SessionIdentity {
+    std::string instanceId;
+    std::string deviceId;
+    uint32_t processId = 0;
+    PipelineFlow flow = PipelineFlow::Capture;
+};
+
+std::string utf8FromWide(const wchar_t* w) {
+    if (!w || !*w) return {};
+    const int n = WideCharToMultiByte(CP_UTF8, 0, w, -1, nullptr, 0, nullptr, nullptr);
+    if (n <= 1) return {};
+    std::string s(static_cast<size_t>(n - 1), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, w, -1, s.data(), n, nullptr, nullptr);
+    return s;
+}
+
 struct WatchState {
-    // Both SLIST_HEADERs require 16-byte alignment and stay the first members.
+    // SLIST_HEADER requires 16-byte alignment and stays the first members.
     SLIST_HEADER pending{};
     SLIST_HEADER freeNodes{};
+    SLIST_HEADER cells{};
     std::atomic<bool> stopping{false};
     std::atomic<bool> dirty{false};
     std::atomic<bool> posted{false};
+    std::atomic<bool> cellPosted{false};
     std::atomic<int> droppedCreates{0};
     HWND hwnd = nullptr;
     HANDLE wake = nullptr;
@@ -45,6 +75,7 @@ struct WatchState {
     WatchState() {
         InitializeSListHead(&pending);
         InitializeSListHead(&freeNodes);
+        InitializeSListHead(&cells);
     }
 
     void postDirty() noexcept {
@@ -56,14 +87,33 @@ struct WatchState {
         }
     }
 
+    // Volume, mute, and Active/Inactive. Does not set the dirty flag.
+    // One wake is enough until the GUI drains; the patches themselves queue up.
+    bool postCell(LiveSessionCellPatch patch) {
+        if (stopping.load(std::memory_order_acquire)) return false;
+        void* mem = _aligned_malloc(sizeof(CellNode), MEMORY_ALLOCATION_ALIGNMENT);
+        if (!mem) return false;
+        auto* node = new (mem) CellNode();
+        node->patch = std::move(patch);
+        InterlockedPushEntrySList(&cells, &node->entry);
+        bool expected = false;
+        if (cellPosted.compare_exchange_strong(expected, true, std::memory_order_acq_rel)) {
+            if (hwnd) PostMessage(hwnd, kLiveSessionCellMessage, 0, 0);
+        }
+        return true;
+    }
+
     // Lock-free. The caller already AddRef'd control. False means the caller
-    // still owns that reference (pool empty or stopping).
-    bool enqueue(IAudioSessionControl* control) {
+    // still owns that reference (pool empty or stopping). deviceId must outlive
+    // the queued node (the per-endpoint create sink's own string).
+    bool enqueue(IAudioSessionControl* control, const std::string* deviceId, PipelineFlow flow) {
         if (!control || stopping.load(std::memory_order_acquire)) return false;
         SLIST_ENTRY* entry = InterlockedPopEntrySList(&freeNodes);
         if (!entry) return false;
         auto* node = reinterpret_cast<PendingSession*>(entry);
         node->control = control;
+        node->deviceId = deviceId;
+        node->flow = flow;
         InterlockedPushEntrySList(&pending, &node->entry);
         if (wake) SetEvent(wake);
         return true;
@@ -77,7 +127,7 @@ struct WatchState {
 
 class SessionEvents final : public IAudioSessionEvents {
 public:
-    explicit SessionEvents(WatchState* state) : state_(state) {}
+    SessionEvents(WatchState* state, SessionIdentity id) : state_(state), id_(std::move(id)) {}
 
     STDMETHODIMP QueryInterface(REFIID riid, void** ppv) override {
         if (!ppv) return E_POINTER;
@@ -98,11 +148,38 @@ public:
 
     STDMETHODIMP OnDisplayNameChanged(LPCWSTR, LPCGUID) override { return S_OK; }
     STDMETHODIMP OnIconPathChanged(LPCWSTR, LPCGUID) override { return S_OK; }
-    STDMETHODIMP OnSimpleVolumeChanged(float, BOOL, LPCGUID) override { return S_OK; }
+    STDMETHODIMP OnSimpleVolumeChanged(float newVolume, BOOL mute, LPCGUID) override {
+        if (!state_) return S_OK;
+        LiveSessionCellPatch patch = identityPatch();
+        patch.hasVolume = true;
+        patch.volume = newVolume;
+        patch.hasMute = true;
+        patch.mute = mute != FALSE;
+        const bool queued = state_->postCell(std::move(patch));
+        WA_LOG(wa::log::Level::Debug, "LiveSessionWatch", "OnSimpleVolumeChanged",
+               "vol=" + std::to_string(newVolume) + " mute=" + (mute ? "true" : "false"),
+               queued ? "queued" : "dropped");
+        return S_OK;
+    }
     STDMETHODIMP OnChannelVolumeChanged(DWORD, float[], DWORD, LPCGUID) override { return S_OK; }
     STDMETHODIMP OnGroupingParamChanged(LPCGUID, LPCGUID) override { return S_OK; }
     STDMETHODIMP OnStateChanged(AudioSessionState newState) override {
-        if (newState == AudioSessionStateExpired && state_) state_->postDirty();
+        if (!state_) return S_OK;
+        if (newState == AudioSessionStateExpired) {
+            state_->postDirty();
+            WA_LOG(wa::log::Level::Debug, "LiveSessionWatch", "OnStateChanged",
+                   "Expired", "dirty");
+            return S_OK;
+        }
+        if (newState != AudioSessionStateActive && newState != AudioSessionStateInactive)
+            return S_OK;
+        const char* name = newState == AudioSessionStateActive ? "Active" : "Inactive";
+        LiveSessionCellPatch patch = identityPatch();
+        patch.hasState = true;
+        patch.state = name;
+        const bool queued = state_->postCell(std::move(patch));
+        WA_LOG(wa::log::Level::Debug, "LiveSessionWatch", "OnStateChanged",
+               name, queued ? "queued" : "dropped");
         return S_OK;
     }
     STDMETHODIMP OnSessionDisconnected(AudioSessionDisconnectReason) override {
@@ -111,13 +188,24 @@ public:
     }
 
 private:
+    LiveSessionCellPatch identityPatch() const {
+        LiveSessionCellPatch patch;
+        patch.sessionInstanceId = id_.instanceId;
+        patch.processId = id_.processId;
+        patch.deviceId = id_.deviceId;
+        patch.flow = id_.flow;
+        return patch;
+    }
+
     WatchState* state_ = nullptr;
+    SessionIdentity id_;
     LONG refs_ = 1;
 };
 
 class CreateSink final : public IAudioSessionNotification {
 public:
-    explicit CreateSink(WatchState* state) : state_(state) {}
+    CreateSink(WatchState* state, std::string deviceId, PipelineFlow flow)
+        : state_(state), deviceId_(std::move(deviceId)), flow_(flow) {}
 
     STDMETHODIMP QueryInterface(REFIID riid, void** ppv) override {
         if (!ppv) return E_POINTER;
@@ -140,7 +228,7 @@ public:
         if (!created || !state_) return S_OK;
         // Keep the control alive for the worker. Do not query it here.
         created->AddRef();
-        if (!state_->enqueue(created)) {
+        if (!state_->enqueue(created, &deviceId_, flow_)) {
             created->Release();
             state_->noteDroppedCreate();
         }
@@ -150,7 +238,21 @@ public:
 
 private:
     WatchState* state_ = nullptr;
+    std::string deviceId_;
+    PipelineFlow flow_ = PipelineFlow::Capture;
     LONG refs_ = 1;
+};
+
+struct EndpointSub {
+    ComPtr<IAudioSessionManager2> manager;
+    ComPtr<CreateSink> createSink;
+    std::string deviceId;
+    PipelineFlow flow = PipelineFlow::Capture;
+};
+
+struct WatchedSession {
+    ComPtr<IAudioSessionControl> control;
+    ComPtr<SessionEvents> events;
 };
 
 }  // namespace
@@ -164,10 +266,8 @@ struct LiveSessionWatch::Impl {
     long errorCode = E_FAIL;
     std::string error;
 
-    ComPtr<SessionEvents> events;
-    ComPtr<CreateSink> createSink;
-    std::vector<ComPtr<IAudioSessionManager2>> managers;
-    std::vector<IAudioSessionControl*> watched;
+    std::vector<EndpointSub> endpoints;
+    std::vector<WatchedSession> watched;
     std::vector<std::string> watchedIds;
 
     ~Impl() { shutdown(); }
@@ -185,6 +285,7 @@ struct LiveSessionWatch::Impl {
             started = nullptr;
         }
         freeNodePool();
+        freeCellNodes();
         running = false;
     }
 
@@ -216,6 +317,16 @@ struct LiveSessionWatch::Impl {
         releaseList(&state.freeNodes);
     }
 
+    void freeCellNodes() {
+        for (;;) {
+            SLIST_ENTRY* entry = InterlockedPopEntrySList(&state.cells);
+            if (!entry) break;
+            auto* node = reinterpret_cast<CellNode*>(entry);
+            node->~CellNode();
+            _aligned_free(node);
+        }
+    }
+
     void threadMain() {
         wa::log::setThreadName("sessW");
         const HRESULT comHr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
@@ -234,8 +345,6 @@ struct LiveSessionWatch::Impl {
             return;
         }
 
-        events.Attach(new SessionEvents(&state));
-        createSink.Attach(new CreateSink(&state));
         const Result subscribed = subscribeExisting();
         if (!subscribed) {
             errorCode = subscribed.code;
@@ -279,19 +388,20 @@ struct LiveSessionWatch::Impl {
         if (FAILED(hr))
             return HrToResult(hr, "LiveSessionWatch: CoCreateInstance(MMDeviceEnumerator)");
 
-        int endpoints = 0;
+        int endpointCount = 0;
         int sessions = 0;
-        Result r = subscribeFlow(devices.Get(), eCapture, endpoints, sessions);
+        Result r = subscribeFlow(devices.Get(), eCapture, endpointCount, sessions);
         if (!r) return r;
-        r = subscribeFlow(devices.Get(), eRender, endpoints, sessions);
+        r = subscribeFlow(devices.Get(), eRender, endpointCount, sessions);
         if (!r) return r;
         WA_LOG(wa::log::Level::Info, "LiveSessionWatch", "start",
-               "endpoints=" + std::to_string(endpoints) + " sessions=" + std::to_string(sessions),
+               "endpoints=" + std::to_string(endpointCount) + " sessions=" + std::to_string(sessions),
                "ok");
         return Result::Ok();
     }
 
-    Result subscribeFlow(IMMDeviceEnumerator* devices, EDataFlow flow, int& endpoints, int& sessions) {
+    Result subscribeFlow(IMMDeviceEnumerator* devices, EDataFlow flow, int& endpointCount,
+                         int& sessions) {
         ComPtr<IMMDeviceCollection> coll;
         HRESULT hr = devices->EnumAudioEndpoints(flow, DEVICE_STATE_ACTIVE, coll.GetAddressOf());
         WA_LOG(wa::log::Level::Debug, "LiveSessionWatch", "EnumAudioEndpoints",
@@ -305,6 +415,8 @@ struct LiveSessionWatch::Impl {
                "n=" + std::to_string(n), wa::log::hrName(hr));
         if (FAILED(hr)) return HrToResult(hr, "LiveSessionWatch: GetCount");
 
+        const PipelineFlow pipeFlow =
+            flow == eCapture ? PipelineFlow::Capture : PipelineFlow::Render;
         for (UINT i = 0; i < n; ++i) {
             ComPtr<IMMDevice> dev;
             hr = coll->Item(i, dev.GetAddressOf());
@@ -316,15 +428,15 @@ struct LiveSessionWatch::Impl {
                            "i=" + std::to_string(i), wa::log::hrName(hr));
                 continue;
             }
-            if (subscribeDevice(dev.Get(), sessions)) ++endpoints;
+            if (subscribeDevice(dev.Get(), sessions, pipeFlow)) ++endpointCount;
         }
         return Result::Ok();
     }
 
-    bool subscribeDevice(IMMDevice* dev, int& sessions) {
+    bool subscribeDevice(IMMDevice* dev, int& sessions, PipelineFlow pipeFlow) {
         LPWSTR id = nullptr;
         HRESULT hr = dev->GetId(&id);
-        const std::string idText = (SUCCEEDED(hr) && id) ? narrowAscii(std::wstring(id)) : std::string();
+        const std::string idText = (SUCCEEDED(hr) && id) ? utf8FromWide(id) : std::string();
         if (id) CoTaskMemFree(id);
         WA_LOG(wa::log::Level::Debug, "LiveSessionWatch", "GetId", idText, wa::log::hrName(hr));
         if (FAILED(hr)) {
@@ -342,7 +454,12 @@ struct LiveSessionWatch::Impl {
             return false;
         }
 
-        hr = manager->RegisterSessionNotification(createSink.Get());
+        EndpointSub ep;
+        ep.deviceId = idText;
+        ep.flow = pipeFlow;
+        ep.manager = manager;
+        ep.createSink.Attach(new CreateSink(&state, ep.deviceId, ep.flow));
+        hr = ep.manager->RegisterSessionNotification(ep.createSink.Get());
         WA_LOG(wa::log::Level::Debug, "LiveSessionWatch", "RegisterSessionNotification",
                idText, wa::log::hrName(hr));
         if (FAILED(hr)) {
@@ -350,20 +467,22 @@ struct LiveSessionWatch::Impl {
                    idText, wa::log::hrName(hr));
             return false;
         }
-        managers.push_back(manager);
-        sessions += registerSessions(manager.Get(), idText);
+        endpoints.push_back(std::move(ep));
+        EndpointSub& stored = endpoints.back();
+        sessions += registerSessions(stored.manager.Get(), stored.deviceId, stored.flow);
         return true;
     }
 
-    int registerSessions(IAudioSessionManager2* manager, const std::string& label) {
+    int registerSessions(IAudioSessionManager2* manager, const std::string& deviceId,
+                         PipelineFlow flow) {
         if (!manager) return 0;
         ComPtr<IAudioSessionEnumerator> sessionEnum;
         HRESULT hr = manager->GetSessionEnumerator(sessionEnum.GetAddressOf());
         WA_LOG(wa::log::Level::Debug, "LiveSessionWatch", "GetSessionEnumerator",
-               label, wa::log::hrName(hr));
+               deviceId, wa::log::hrName(hr));
         if (FAILED(hr) || !sessionEnum) {
             WA_LOG(wa::log::Level::Warn, "LiveSessionWatch", "GetSessionEnumerator",
-                   label, wa::log::hrName(hr));
+                   deviceId, wa::log::hrName(hr));
             return 0;
         }
         int count = 0;
@@ -389,18 +508,22 @@ struct LiveSessionWatch::Impl {
                 }
                 continue;
             }
-            if (registerDropSink(control.Get())) ++added;
+            if (registerDropSink(control.Get(), deviceId, flow)) ++added;
         }
         return added;
     }
 
     void catchUpDroppedSessions() {
-        for (auto& manager : managers) {
-            if (manager) registerSessions(manager.Get(), "");
+        for (auto& ep : endpoints) {
+            if (ep.manager) registerSessions(ep.manager.Get(), ep.deviceId, ep.flow);
         }
     }
 
-    std::string sessionInstanceId(IAudioSessionControl* control) {
+    SessionIdentity readIdentity(IAudioSessionControl* control, const std::string& deviceId,
+                                 PipelineFlow flow) {
+        SessionIdentity id;
+        id.deviceId = deviceId;
+        id.flow = flow;
         ComPtr<IAudioSessionControl2> control2;
         HRESULT hr = control->QueryInterface(__uuidof(IAudioSessionControl2),
                                              reinterpret_cast<void**>(control2.GetAddressOf()));
@@ -411,27 +534,40 @@ struct LiveSessionWatch::Impl {
                 WA_LOG(wa::log::Level::Warn, "LiveSessionWatch",
                        "QueryInterface(IAudioSessionControl2)", "", wa::log::hrName(hr));
             }
-            return {};
+            return id;
         }
-        LPWSTR id = nullptr;
-        hr = control2->GetSessionInstanceIdentifier(&id);
-        const std::string text = (SUCCEEDED(hr) && id) ? narrowAscii(std::wstring(id)) : std::string();
-        if (id) CoTaskMemFree(id);
+
+        DWORD pid = 0;
+        hr = control2->GetProcessId(&pid);
+        WA_LOG(wa::log::Level::Debug, "LiveSessionWatch", "GetProcessId",
+               "pid=" + std::to_string(pid), wa::log::hrName(hr));
+        if (FAILED(hr)) {
+            WA_LOG(wa::log::Level::Warn, "LiveSessionWatch", "GetProcessId",
+                   "pid=" + std::to_string(pid), wa::log::hrName(hr));
+        } else {
+            id.processId = static_cast<uint32_t>(pid);
+        }
+
+        LPWSTR instanceWide = nullptr;
+        hr = control2->GetSessionInstanceIdentifier(&instanceWide);
+        id.instanceId = (SUCCEEDED(hr) && instanceWide) ? utf8FromWide(instanceWide) : std::string();
+        if (instanceWide) CoTaskMemFree(instanceWide);
         WA_LOG(wa::log::Level::Debug, "LiveSessionWatch", "GetSessionInstanceIdentifier",
-               text.empty() ? "empty" : text, wa::log::hrName(hr));
+               id.instanceId.empty() ? "empty" : id.instanceId, wa::log::hrName(hr));
         if (FAILED(hr)) {
             WA_LOG(wa::log::Level::Warn, "LiveSessionWatch", "GetSessionInstanceIdentifier",
                    "empty", wa::log::hrName(hr));
         }
-        return text;
+        return id;
     }
 
-    bool registerDropSink(IAudioSessionControl* control) {
-        if (!control || !events) return false;
-        const std::string instanceId = sessionInstanceId(control);
-        if (!instanceId.empty()) {
+    bool registerDropSink(IAudioSessionControl* control, const std::string& deviceId,
+                          PipelineFlow flow) {
+        if (!control) return false;
+        const SessionIdentity id = readIdentity(control, deviceId, flow);
+        if (!id.instanceId.empty()) {
             for (const auto& seen : watchedIds) {
-                if (seen == instanceId) return true;
+                if (seen == id.instanceId) return true;
             }
         }
         AudioSessionState st = AudioSessionStateInactive;
@@ -442,17 +578,21 @@ struct LiveSessionWatch::Impl {
         }
         if (SUCCEEDED(stateHr) && st == AudioSessionStateExpired) return false;
 
-        const HRESULT hr = control->RegisterAudioSessionNotification(events.Get());
+        ComPtr<SessionEvents> sink;
+        sink.Attach(new SessionEvents(&state, id));
+        const HRESULT hr = control->RegisterAudioSessionNotification(sink.Get());
         WA_LOG(wa::log::Level::Debug, "LiveSessionWatch", "RegisterAudioSessionNotification",
-               instanceId, wa::log::hrName(hr));
+               id.instanceId, wa::log::hrName(hr));
         if (FAILED(hr)) {
             WA_LOG(wa::log::Level::Warn, "LiveSessionWatch", "RegisterAudioSessionNotification",
-                   instanceId, wa::log::hrName(hr));
+                   id.instanceId, wa::log::hrName(hr));
             return false;
         }
         control->AddRef();
-        watched.push_back(control);
-        if (!instanceId.empty()) watchedIds.push_back(instanceId);
+        ComPtr<IAudioSessionControl> held;
+        held.Attach(control);
+        watched.push_back(WatchedSession{std::move(held), std::move(sink)});
+        if (!id.instanceId.empty()) watchedIds.push_back(id.instanceId);
         return true;
     }
 
@@ -462,21 +602,24 @@ struct LiveSessionWatch::Impl {
             if (!entry) break;
             auto* node = reinterpret_cast<PendingSession*>(entry);
             IAudioSessionControl* control = node->control;
+            const std::string* deviceId = node->deviceId;
+            const PipelineFlow flow = node->flow;
             node->control = nullptr;
+            node->deviceId = nullptr;
             InterlockedPushEntrySList(&state.freeNodes, &node->entry);
             if (!control) continue;
             // The queue owns one ref. A new registration AddRefs into watched;
             // an id already seen, an expired row, or releaseOnly does not.
             if (!releaseOnly)
-                registerDropSink(control);
+                registerDropSink(control, deviceId ? *deviceId : std::string(), flow);
             control->Release();
         }
     }
 
     void releaseSubscriptions() {
-        for (auto& manager : managers) {
-            if (!manager || !createSink) continue;
-            const HRESULT hr = manager->UnregisterSessionNotification(createSink.Get());
+        for (auto& ep : endpoints) {
+            if (!ep.manager || !ep.createSink) continue;
+            const HRESULT hr = ep.manager->UnregisterSessionNotification(ep.createSink.Get());
             WA_LOG(wa::log::Level::Debug, "LiveSessionWatch", "UnregisterSessionNotification",
                    "", wa::log::hrName(hr));
             if (FAILED(hr)) {
@@ -486,9 +629,9 @@ struct LiveSessionWatch::Impl {
         }
         // OnSessionCreated has returned by the time Unregister returns.
         drainNewSessions(true);
-        for (IAudioSessionControl* control : watched) {
-            if (control && events) {
-                const HRESULT hr = control->UnregisterAudioSessionNotification(events.Get());
+        for (auto& w : watched) {
+            if (w.control && w.events) {
+                const HRESULT hr = w.control->UnregisterAudioSessionNotification(w.events.Get());
                 WA_LOG(wa::log::Level::Debug, "LiveSessionWatch",
                        "UnregisterAudioSessionNotification", "", wa::log::hrName(hr));
                 if (FAILED(hr)) {
@@ -496,13 +639,10 @@ struct LiveSessionWatch::Impl {
                            "UnregisterAudioSessionNotification", "", wa::log::hrName(hr));
                 }
             }
-            if (control) control->Release();
         }
         watched.clear();
         watchedIds.clear();
-        managers.clear();
-        events.Reset();
-        createSink.Reset();
+        endpoints.clear();
         WA_LOG(wa::log::Level::Info, "LiveSessionWatch", "stop", "", "ok");
     }
 };
@@ -520,6 +660,7 @@ Result LiveSessionWatch::start(void* hwnd) {
     impl_->state.stopping.store(false, std::memory_order_release);
     impl_->state.dirty.store(false, std::memory_order_release);
     impl_->state.posted.store(false, std::memory_order_release);
+    impl_->state.cellPosted.store(false, std::memory_order_release);
     impl_->failed = false;
     impl_->errorCode = E_FAIL;
     impl_->error.clear();
@@ -566,6 +707,25 @@ bool LiveSessionWatch::consumeDirty() noexcept {
     if (!impl_) return false;
     impl_->state.posted.store(false, std::memory_order_release);
     return impl_->state.dirty.exchange(false, std::memory_order_acq_rel);
+}
+
+std::vector<LiveSessionCellPatch> LiveSessionWatch::drainCellPatches() {
+    std::vector<LiveSessionCellPatch> out;
+    if (!impl_) return out;
+    impl_->state.cellPosted.store(false, std::memory_order_release);
+    std::vector<CellNode*> nodes;
+    for (;;) {
+        SLIST_ENTRY* entry = InterlockedPopEntrySList(&impl_->state.cells);
+        if (!entry) break;
+        nodes.push_back(reinterpret_cast<CellNode*>(entry));
+    }
+    out.reserve(nodes.size());
+    for (auto it = nodes.rbegin(); it != nodes.rend(); ++it) {
+        out.push_back(std::move((*it)->patch));
+        (*it)->~CellNode();
+        _aligned_free(*it);
+    }
+    return out;
 }
 
 }  // namespace wa
