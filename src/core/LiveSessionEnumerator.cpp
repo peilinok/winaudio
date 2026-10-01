@@ -167,6 +167,11 @@ Result appendDeviceSessions(const DeviceInfo& info, std::vector<LiveSessionView>
         AudioSessionState st = AudioSessionStateExpired;
         hr = control->GetState(&st);
         WA_LOG(wa::log::Level::Debug, "LiveSession", "GetState", "", wa::log::hrName(hr));
+        if (SUCCEEDED(hr) && st == AudioSessionStateExpired) {
+            WA_LOG(wa::log::Level::Debug, "LiveSession", "GetState",
+                   "i=" + std::to_string(i) + " skip-expired", wa::log::hrName(hr));
+            continue;
+        }
 
         LiveSessionView row;
         row.processId = static_cast<uint32_t>(pid);

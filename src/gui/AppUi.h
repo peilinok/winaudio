@@ -15,6 +15,7 @@
 #include "EndpointGraphReader.h"
 #include "EtwInitialize.h"
 #include "LiveSessionEnumerator.h"
+#include "LiveSessionWatch.h"
 #include "MonitorEngine.h"
 #include "OnDemandAttach.h"
 #include "PipelineGraph.h"
@@ -26,6 +27,7 @@ class AppUi {
 public:
     void draw();          // called each frame; polls engines and redraws the active page
     void stopAll();       // stop engines on shutdown (idempotent)
+    void setMainWindow(void* hwnd);
     void pushLog(int level, const std::string& line);  // thread-safe; called from the logging pump thread
     void loadLogRegionPrefs();
     void loadProductionPhrases();
@@ -126,6 +128,9 @@ private:
     wa::DeviceEnumerator enumerator_;
     wa::AudioSessionEnumerator sessionEnumerator_;
     wa::LiveSessionEnumerator liveSessionEnumerator_;
+    wa::LiveSessionWatch pipelineWatch_;
+    bool pipelineWatchAttempted_ = false;
+    void* pipelineHwnd_ = nullptr;
     wa::EndpointGraphReader endpointGraphReader_;
     wa::MonitorStatus    ms_;   // polled once per frame in draw(); shared by helper methods
 
