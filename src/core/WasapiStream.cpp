@@ -56,6 +56,21 @@ bool shouldWriteLoopbackIdleSilence(unsigned waitResult, long packetStatus,
            !sawPacket && !wroteFrames;
 }
 
+uint32_t fillRenderPacket(uint8_t* dst, uint32_t frames, uint32_t frameBytes, bool pcm16,
+                          void (*sampleFill)(void* ctx, int16_t* interleaved, uint32_t frames),
+                          void* sampleFillCtx, RingBuffer* ring) {
+    if (pcm16 && sampleFill && frames > 0) {
+        sampleFill(sampleFillCtx, reinterpret_cast<int16_t*>(dst), frames);
+        return 0;
+    }
+    const size_t want = static_cast<size_t>(frames) * frameBytes;
+    const size_t got = (ring && want > 0) ? ring->read(dst, want) : 0;
+    if (got < want) std::memset(dst + got, 0, want - got);
+    if (frameBytes == 0) return frames;
+    const size_t missing = want - got;
+    return static_cast<uint32_t>((missing + frameBytes - 1) / frameBytes);
+}
+
 WasapiStream::WasapiStream(WasapiMode mode, const AudioFormat* requested)
     : mode_(mode), hasRequested_(requested != nullptr) {
     if (requested) requestedFormat_ = *requested;
@@ -389,6 +404,11 @@ WasapiRenderStream::WasapiRenderStream(WasapiMode mode, const AudioFormat* reque
 
 WasapiRenderStream::~WasapiRenderStream() { close(); }
 
+void WasapiRenderStream::setSampleFill(SampleFill fn, void* ctx) {
+    sampleFill_ = fn;
+    sampleFillCtx_ = ctx;
+}
+
 Result WasapiRenderStream::createService() {
     HRESULT hr = client_->GetService(__uuidof(IAudioRenderClient),
             reinterpret_cast<void**>(render_.GetAddressOf()));
@@ -413,7 +433,9 @@ void WasapiRenderStream::runLoop() {
     wa::log::setThreadName("renW");
     WA_LOG(wa::log::Level::Info, "WasapiStream", "runLoop", "render loop started", "");
     const bool exclusive = isExclusive();
-    std::vector<uint8_t> scratch;
+    const bool pcm16 = sampleFill_ != nullptr && frameBytes_ != 0 && !actualFormat_.isFloat &&
+                       actualFormat_.bitsPerSample == 16 &&
+                       frameBytes_ == static_cast<uint32_t>(actualFormat_.channels) * 2u;
     while (running_.load()) {
         DWORD waitRc = WaitForSingleObject(static_cast<HANDLE>(hEvent_), 200);
         UINT32 frames;
@@ -435,11 +457,7 @@ void WasapiRenderStream::runLoop() {
         HRESULT hrGB = render_->GetBuffer(frames, &buf);
         wa::log::emitTrace("WasapiStream", "GetBuffer", frames, 0, (long)hrGB);
         if (FAILED(hrGB)) break;
-        const size_t want = static_cast<size_t>(frames) * frameBytes_;
-        scratch.resize(want);
-        size_t got = ring_->read(scratch.data(), want);
-        std::memcpy(buf, scratch.data(), got);
-        if (got < want) std::memset(buf + got, 0, want - got); // underrun -> silence
+        fillRenderPacket(buf, frames, frameBytes_, pcm16, sampleFill_, sampleFillCtx_, ring_);
         HRESULT hrRB = render_->ReleaseBuffer(frames, 0);
         wa::log::emitTrace("WasapiStream", "ReleaseBuffer", frames, 0, (long)hrRB);
     }

@@ -25,6 +25,13 @@ uint32_t captureSilentPacketFrames(uint32_t frames, unsigned flags);
 bool shouldWriteLoopbackIdleSilence(unsigned waitResult, long packetStatus,
                                     bool sawPacket, bool wroteFrames);
 
+// One device render packet. pcm16 plus sampleFill writes every frame and
+// returns 0. Otherwise the ring is copied and a shortfall is zero-filled;
+// the return value is how many frames that silence covered.
+uint32_t fillRenderPacket(uint8_t* dst, uint32_t frames, uint32_t frameBytes, bool pcm16,
+                          void (*sampleFill)(void* ctx, int16_t* interleaved, uint32_t frames),
+                          void* sampleFillCtx, RingBuffer* ring);
+
 class WasapiStream : public IAudioBackend {
 public:
     WasapiStream(WasapiMode mode, const AudioFormat* requested);
@@ -110,8 +117,13 @@ protected:
 
 class WasapiRenderStream : public WasapiStream {
 public:
+    using SampleFill = void (*)(void* ctx, int16_t* interleaved, uint32_t frames);
+
     WasapiRenderStream(WasapiMode mode, const AudioFormat* requested);
     ~WasapiRenderStream() override;
+    // Call before start(). 16-bit PCM packets are generated into the device
+    // buffer; the ring is not read. Other formats keep the ring path.
+    void setSampleFill(SampleFill fn, void* ctx);
 protected:
     EDataFlow dataFlow() const override { return eRender; }
     Result createService() override;
@@ -120,6 +132,8 @@ protected:
     void   resetService() override { render_.Reset(); }
 private:
     ComPtr<IAudioRenderClient> render_;
+    SampleFill sampleFill_ = nullptr;
+    void* sampleFillCtx_ = nullptr;
 };
 
 class WasapiSilentRenderStream : public WasapiStream {

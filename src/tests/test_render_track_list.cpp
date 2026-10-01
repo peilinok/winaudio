@@ -13,6 +13,7 @@
 #include "CaptureTrackList.h"
 #include "RenderTrackList.h"
 #include "RingBuffer.h"
+#include "WasapiStream.h"
 
 using namespace wa;
 
@@ -701,6 +702,70 @@ TEST(RenderTrackList, ScopeTapMatchesPlayedSamplesIncludingVolume) {
     EXPECT_FLOAT_EQ(out[0], 500.f / 32768.f);
     EXPECT_FLOAT_EQ(out[1], -1000.f / 32768.f);
     list.destroyAll();
+}
+
+void fillStereoRamp(void*, int16_t* dst, uint32_t frames) {
+    for (uint32_t i = 0; i < frames * 2; ++i)
+        dst[i] = static_cast<int16_t>(1000 + i);
+}
+
+TEST(RenderPacket, SampleFillWritesEveryFrameAndSkipsTheRing) {
+    RingBuffer ring(64);
+    std::vector<uint8_t> dst(16, 0xFF);
+    const uint32_t starved = fillRenderPacket(dst.data(), 4, 4, true, &fillStereoRamp, nullptr, &ring);
+    EXPECT_EQ(starved, 0u);
+    EXPECT_EQ(ring.underruns(), 0u);
+    EXPECT_EQ(ring.availableRead(), 0u);
+    const auto* samples = reinterpret_cast<const int16_t*>(dst.data());
+    for (int i = 0; i < 8; ++i) EXPECT_EQ(samples[i], static_cast<int16_t>(1000 + i)) << i;
+}
+
+TEST(RenderPacket, ShortRingReadIsZeroFilled) {
+    RingBuffer ring(64);
+    const uint8_t bytes[] = {1, 2, 3, 4, 5, 6, 7, 8};
+    ASSERT_EQ(ring.write(bytes, sizeof(bytes)), sizeof(bytes));
+    std::vector<uint8_t> dst(16, 0xFF);
+    const uint32_t starved =
+        fillRenderPacket(dst.data(), 4, 4, false, &fillStereoRamp, nullptr, &ring);
+    EXPECT_EQ(starved, 2u);
+    EXPECT_EQ(ring.underruns(), 1u);
+    for (int i = 0; i < 8; ++i) EXPECT_EQ(dst[static_cast<size_t>(i)], bytes[i]) << i;
+    for (int i = 8; i < 16; ++i) EXPECT_EQ(dst[static_cast<size_t>(i)], 0u) << i;
+}
+
+// The render thread used to read a ring kept only 10 ms deep and refilled
+// after Sleep(5). That sleep is ~15 ms on the default timer, so the device
+// zero-filled the gap. No endpoint -> skip (CI has no audio hardware).
+TEST(RenderTrackList, DevicePlaybackDoesNotStarve) {
+    const uint32_t mask = defaultChannelMask(8);
+    PhraseCatalog catalog;
+    const std::vector<int16_t> tone(4800, 4000);
+    for (uint16_t channel = 0; channel < 8; ++channel)
+        catalog.set(phraseForSlot(mask, channel), tone);
+
+    RenderTrackList list({}, &catalog);
+    RenderTrackCreate spec;
+    spec.mode = RenderLayoutMode::Layout;
+    spec.source = pcm(48000, 16, 8, mask);
+    TrackId id = 0;
+    const Result created = list.create(spec, &id);
+    if (!created) GTEST_SKIP() << created.message;
+
+    for (uint16_t channel = 0; channel < 8; ++channel)
+        ASSERT_TRUE(list.continueChannel(id, channel)) << channel;
+    std::this_thread::sleep_for(std::chrono::milliseconds(400));
+    const uint64_t mid = list.written(id);
+    std::this_thread::sleep_for(std::chrono::milliseconds(400));
+    const uint64_t produced = list.written(id);
+    const uint64_t gaps = list.underruns(id);
+    const uint32_t bufferFrames = list.bufferFrames(id);
+    const auto status = list.poll();
+    list.destroyAll();
+    ASSERT_EQ(status.size(), 1u);
+    EXPECT_EQ(status[0].state, StreamState::Running);
+    EXPECT_EQ(gaps, 0u) << "bufferFrames=" << bufferFrames << " produced=" << produced;
+    EXPECT_GT(produced, mid);
+    EXPECT_GT(produced - mid, 4000u) << "bufferFrames=" << bufferFrames;
 }
 
 TEST(RenderStrings, RenderPageWords) {

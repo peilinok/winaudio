@@ -8,21 +8,17 @@
 #include "RingBuffer.h"
 #include "ScopeBuffer.h"
 #include "WasapiStream.h"
-#include <windows.h>
 #include <algorithm>
 #include <atomic>
 #include <cstdio>
-#include <cstring>
-#include <thread>
 
 namespace wa {
 
 namespace {
 constexpr size_t kRingBytes = 1u << 20;
+// Bound for the scope scratch. A device packet may be larger; renderFrames
+// splits it so the scratch never grows on the render thread.
 constexpr uint32_t kQuantumFrames = 480;
-// One quantum queued, not the whole ring, so pause / volume / play-once
-// reach the device within 10 ms at 48 kHz.
-constexpr uint32_t kMaxQueuedFrames = kQuantumFrames;
 constexpr uint16_t kChartChannelCap = 8;
 
 AudioFormat clientFormat(uint16_t channels, uint32_t channelMask) {
@@ -103,14 +99,11 @@ struct RenderTrackList::Member {
     std::unique_ptr<IAudioBackend> backend;
     std::unique_ptr<RingBuffer> ring;
     std::unique_ptr<ScopeBuffer> tap;
-    std::vector<int16_t> scratch;
     std::vector<float> scopeScratch;
-    std::thread pump;
-    std::atomic<bool> running{false};
     RenderFill fill{};
     RenderTrackStatus status{};
 
-    ~Member() { stopPumpAndBackends(); }
+    ~Member() { stopBackend(); }
 
     void noteCommands(Voice& voice);
     int16_t nextSample(Voice& voice);
@@ -118,9 +111,7 @@ struct RenderTrackList::Member {
     void renderFrames(int16_t* dst, uint32_t frames);
     static void fillThunk(void* ctx, int16_t* dst, uint32_t frames);
 
-    void stopPumpAndBackends() {
-        running.store(false, std::memory_order_relaxed);
-        if (pump.joinable()) pump.join();
+    void stopBackend() {
         if (backend) {
             backend->stop();
             backend->close();
@@ -277,7 +268,6 @@ Result RenderTrackList::create(const RenderTrackCreate& spec, TrackId* outId) {
     }
 
     try {
-        member->scratch.assign(static_cast<size_t>(kQuantumFrames) * client.channels, 0);
         member->scopeScratch.assign(static_cast<size_t>(kQuantumFrames) * member->tapChannels, 0.f);
         member->ring = std::make_unique<RingBuffer>(kRingBytes);
         const size_t scopeFrames = std::max<size_t>(static_cast<size_t>(kRenderClientRate) * 2u,
@@ -285,10 +275,17 @@ Result RenderTrackList::create(const RenderTrackCreate& spec, TrackId* outId) {
         member->tap = std::make_unique<ScopeBuffer>(scopeFrames, member->tapChannels);
         member->fill.fn = &Member::fillThunk;
         member->fill.ctx = member.get();
-        if (factory_)
+        if (factory_) {
             member->backend = factory_(spec.deviceId, client, &member->fill);
-        else
-            member->backend = std::make_unique<WasapiRenderStream>(WasapiMode::Shared, &client);
+        } else {
+            // Generate into the device buffer on the render thread. A side
+            // pump that kept only 10 ms queued, then Sleep(5), underran: that
+            // sleep is ~15 ms on the default timer, and the gap was silence.
+            auto stream = std::make_unique<WasapiRenderStream>(WasapiMode::Shared, &client);
+            stream->setSampleFill(&Member::fillThunk, member.get());
+            member->backend = std::move(stream);
+            WA_LOG(wa::log::Level::Debug, "RenderTrackList", "setSampleFill", "direct", "");
+        }
         if (!member->backend) {
             const std::string message = "RenderTrackList: render factory returned null";
             member->status.state = StreamState::Error;
@@ -319,39 +316,8 @@ Result RenderTrackList::create(const RenderTrackCreate& spec, TrackId* outId) {
 
         member->status.actualFormat = member->backend->stats().actualFormat;
         member->status.state = StreamState::Running;
-        if (!factory_) {
-            Member* raw = member.get();
-            raw->running.store(true, std::memory_order_relaxed);
-            raw->pump = std::thread([raw] {
-                wa::log::setThreadName("renT");
-                const size_t frameBytes = static_cast<size_t>(raw->channels) * sizeof(int16_t);
-                while (raw->running.load(std::memory_order_relaxed)) {
-                    const uint32_t queued = frameBytes == 0
-                                                ? 0u
-                                                : static_cast<uint32_t>(raw->ring->availableRead() /
-                                                                        frameBytes);
-                    const uint32_t space = frameBytes == 0
-                                               ? 0u
-                                               : static_cast<uint32_t>(raw->ring->availableWrite() /
-                                                                       frameBytes);
-                    if (queued >= kMaxQueuedFrames || space == 0) {
-                        Sleep(5);
-                        continue;
-                    }
-                    const uint32_t room = kMaxQueuedFrames - queued;
-                    const uint32_t frames = std::min(kQuantumFrames, std::min(space, room));
-                    raw->renderChunk(raw->scratch.data(), frames);
-                    const size_t bytes = static_cast<size_t>(frames) * frameBytes;
-                    const size_t wrote = raw->ring->write(raw->scratch.data(), bytes);
-                    const unsigned writtenFrames =
-                        frameBytes == 0 ? 0u : static_cast<unsigned>(wrote / frameBytes);
-                    wa::log::emitTrace("RenderTrackList", "write", writtenFrames, 0, 0);
-                    if (wrote < bytes) Sleep(5);
-                }
-            });
-        }
     } catch (const std::exception& e) {
-        member->stopPumpAndBackends();
+        member->stopBackend();
         const char* what = e.what();
         const std::string message = (what && what[0]) ? what : "render create failed";
         member->status.state = StreamState::Error;
@@ -373,7 +339,7 @@ void RenderTrackList::destroy(TrackId id) {
         members_.erase(it);
     }
     WA_LOG(wa::log::Level::Info, "RenderTrackList", "destroy", "id=" + std::to_string(id), "");
-    gone->stopPumpAndBackends();
+    gone->stopBackend();
 }
 
 void RenderTrackList::destroyAll() {
@@ -384,7 +350,7 @@ void RenderTrackList::destroyAll() {
     }
     WA_LOG(wa::log::Level::Info, "RenderTrackList", "destroyAll",
            "n=" + std::to_string(gone.size()), "");
-    for (auto& m : gone) m->stopPumpAndBackends();
+    for (auto& m : gone) m->stopBackend();
 }
 
 std::vector<RenderTrackStatus> RenderTrackList::poll() const {
@@ -465,6 +431,18 @@ uint64_t RenderTrackList::written(TrackId id) const {
     std::lock_guard<std::mutex> lk(mtx_);
     const Member* member = findUnlocked(id);
     return (member && member->tap) ? member->tap->totalWritten() : 0;
+}
+
+uint64_t RenderTrackList::underruns(TrackId id) const {
+    std::lock_guard<std::mutex> lk(mtx_);
+    const Member* member = findUnlocked(id);
+    return (member && member->backend) ? member->backend->stats().underruns : 0;
+}
+
+uint32_t RenderTrackList::bufferFrames(TrackId id) const {
+    std::lock_guard<std::mutex> lk(mtx_);
+    const Member* member = findUnlocked(id);
+    return (member && member->backend) ? member->backend->stats().bufferFrames : 0;
 }
 
 uint16_t RenderTrackList::tapChannels(TrackId id) const {
