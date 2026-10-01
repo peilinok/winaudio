@@ -9,7 +9,8 @@
 
 namespace wa {
 
-// Test backends pull interleaved frames through this. Production does not.
+// Test backends pull interleaved frames through this. Production render calls
+// the same function from the WASAPI thread, straight into the device buffer.
 struct RenderFill {
     void (*fn)(void* ctx, int16_t* interleaved, uint32_t frames) = nullptr;
     void* ctx = nullptr;
@@ -94,6 +95,9 @@ public:
     Result setVolume(TrackId id, uint16_t channel, int percent);
 
     uint64_t written(TrackId id) const;
+    // Frames the render device had to zero-fill because the ring was short.
+    uint64_t underruns(TrackId id) const;
+    uint32_t bufferFrames(TrackId id) const;
     uint16_t tapChannels(TrackId id) const;
     bool snapshotLatest(TrackId id, size_t n, float* out, uint64_t& endIdxOut) const;
     bool snapshotEndingAt(TrackId id, uint64_t endIdx, size_t n, float* out) const;
