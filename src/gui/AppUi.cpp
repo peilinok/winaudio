@@ -260,6 +260,17 @@ void AppUi::rebuildPipelineGraph() {
     applyPipelineJoin();
 }
 
+void AppUi::applyLiveSessionCellPatches() {
+    const std::vector<wa::LiveSessionCellPatch> patches = pipelineWatch_.drainCellPatches();
+    if (patches.empty()) return;
+    bool selected = false;
+    for (const auto& patch : patches) {
+        const int idx = wa::applyLiveSessionCellPatch(pipelineSessions_, patch);
+        if (idx >= 0 && idx == pipelineSelected_) selected = true;
+    }
+    if (selected) applyPipelineJoin();
+}
+
 void AppUi::applyPipelineJoin() {
     pipelineNodes_.clear();
     if (pipelineSelected_ < 0 || pipelineSelected_ >= (int)pipelineSessions_.size())
@@ -695,6 +706,7 @@ void AppUi::draw() {
                         logLines_.begin() + (logLines_.size() - kMaxLogLines));
 
     applyDumpPick();
+    applyLiveSessionCellPatches();
 
     // Poll once; detect renderState Running->non-Running to clear stale playback chart data.
     ms_ = monitor_.poll();
