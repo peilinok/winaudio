@@ -1,4 +1,5 @@
 #include "LiveSessionWatch.h"
+#include <algorithm>
 #include <atomic>
 #include <cstring>
 #include <malloc.h>
@@ -142,6 +143,7 @@ struct WatchState {
     std::atomic<bool> stopping{false};
     std::atomic<bool> dirty{false};
     std::atomic<bool> posted{false};
+    std::atomic<bool> endpointRescan{false};
     std::atomic<int> droppedCreates{0};
     HWND hwnd = nullptr;
     HANDLE wake = nullptr;
@@ -197,6 +199,16 @@ struct WatchState {
     void noteDroppedCreate() noexcept {
         droppedCreates.fetch_add(1, std::memory_order_relaxed);
         if (wake) SetEvent(wake);
+    }
+
+    // Endpoint callbacks only. The worker re-reads ACTIVE capture and render.
+    // Default-device change must not call this.
+    void requestEndpointRescan(const char* method) {
+        if (stopping.load(std::memory_order_acquire)) return;
+        endpointRescan.store(true, std::memory_order_release);
+        if (wake) SetEvent(wake);
+        WA_LOG(wa::log::Level::Debug, "LiveSessionWatch", method ? method : "endpoint", "",
+               "rescan");
     }
 };
 
@@ -325,6 +337,52 @@ private:
     LONG refs_ = 1;
 };
 
+class EndpointNotify final : public IMMNotificationClient {
+public:
+    explicit EndpointNotify(WatchState* state) : state_(state) {}
+
+    STDMETHODIMP QueryInterface(REFIID riid, void** ppv) override {
+        if (!ppv) return E_POINTER;
+        if (riid == __uuidof(IUnknown) || riid == __uuidof(IMMNotificationClient)) {
+            *ppv = static_cast<IMMNotificationClient*>(this);
+            AddRef();
+            return S_OK;
+        }
+        *ppv = nullptr;
+        return E_NOINTERFACE;
+    }
+    STDMETHODIMP_(ULONG) AddRef() override { return InterlockedIncrement(&refs_); }
+    STDMETHODIMP_(ULONG) Release() override {
+        const ULONG n = InterlockedDecrement(&refs_);
+        if (n == 0) delete this;
+        return n;
+    }
+
+    STDMETHODIMP OnDeviceStateChanged(LPCWSTR, DWORD) override {
+        if (state_) state_->requestEndpointRescan("OnDeviceStateChanged");
+        return S_OK;
+    }
+    STDMETHODIMP OnDeviceAdded(LPCWSTR) override {
+        if (state_) state_->requestEndpointRescan("OnDeviceAdded");
+        return S_OK;
+    }
+    STDMETHODIMP OnDeviceRemoved(LPCWSTR) override {
+        if (state_) state_->requestEndpointRescan("OnDeviceRemoved");
+        return S_OK;
+    }
+    STDMETHODIMP OnDefaultDeviceChanged(EDataFlow flow, ERole, LPCWSTR) override {
+        const char* name = flow == eCapture ? "capture" : flow == eRender ? "render" : "all";
+        WA_LOG(wa::log::Level::Debug, "LiveSessionWatch", "OnDefaultDeviceChanged", name,
+               "ignored");
+        return S_OK;
+    }
+    STDMETHODIMP OnPropertyValueChanged(LPCWSTR, const PROPERTYKEY) override { return S_OK; }
+
+private:
+    WatchState* state_ = nullptr;
+    LONG refs_ = 1;
+};
+
 struct EndpointSub {
     ComPtr<IAudioSessionManager2> manager;
     ComPtr<CreateSink> createSink;
@@ -335,6 +393,8 @@ struct EndpointSub {
 struct WatchedSession {
     ComPtr<IAudioSessionControl> control;
     ComPtr<SessionEvents> events;
+    std::string deviceId;
+    std::string instanceId;
 };
 
 }  // namespace
@@ -350,7 +410,10 @@ struct LiveSessionWatch::Impl {
 
     std::vector<EndpointSub> endpoints;
     std::vector<WatchedSession> watched;
+    std::vector<WatchedSession> retired;
     std::vector<std::string> watchedIds;
+    ComPtr<IMMDeviceEnumerator> enumerator;
+    ComPtr<EndpointNotify> endpointNotify;
 
     ~Impl() { shutdown(); }
 
@@ -444,13 +507,7 @@ struct LiveSessionWatch::Impl {
         for (;;) {
             WaitForSingleObject(state.wake, INFINITE);
             if (state.stopping.load(std::memory_order_acquire)) break;
-            drainNewSessions(false);
-            const int dropped = state.droppedCreates.exchange(0, std::memory_order_acq_rel);
-            if (dropped > 0) {
-                WA_LOG(wa::log::Level::Warn, "LiveSessionWatch", "OnSessionCreated",
-                       "dropped=" + std::to_string(dropped), "pool empty");
-                catchUpDroppedSessions();
-            }
+            drainWork();
         }
         releaseSubscriptions();
         if (ownCom) {
@@ -460,20 +517,29 @@ struct LiveSessionWatch::Impl {
     }
 
     Result subscribeExisting() {
-        ComPtr<IMMDeviceEnumerator> devices;
         HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
                                       __uuidof(IMMDeviceEnumerator),
-                                      reinterpret_cast<void**>(devices.GetAddressOf()));
+                                      reinterpret_cast<void**>(enumerator.GetAddressOf()));
         WA_LOG(wa::log::Level::Debug, "LiveSessionWatch", "CoCreateInstance(MMDeviceEnumerator)",
                "", wa::log::hrName(hr));
         if (FAILED(hr))
             return HrToResult(hr, "LiveSessionWatch: CoCreateInstance(MMDeviceEnumerator)");
 
+        endpointNotify.Attach(new EndpointNotify(&state));
+        hr = enumerator->RegisterEndpointNotificationCallback(endpointNotify.Get());
+        WA_LOG(wa::log::Level::Debug, "LiveSessionWatch", "RegisterEndpointNotificationCallback",
+               "", wa::log::hrName(hr));
+        if (FAILED(hr)) {
+            WA_LOG(wa::log::Level::Warn, "LiveSessionWatch",
+                   "RegisterEndpointNotificationCallback", "", wa::log::hrName(hr));
+            endpointNotify.Reset();
+        }
+
         int endpointCount = 0;
         int sessions = 0;
-        Result r = subscribeFlow(devices.Get(), eCapture, endpointCount, sessions);
+        Result r = subscribeFlow(enumerator.Get(), eCapture, endpointCount, sessions);
         if (!r) return r;
-        r = subscribeFlow(devices.Get(), eRender, endpointCount, sessions);
+        r = subscribeFlow(enumerator.Get(), eRender, endpointCount, sessions);
         if (!r) return r;
         WA_LOG(wa::log::Level::Info, "LiveSessionWatch", "start",
                "endpoints=" + std::to_string(endpointCount) + " sessions=" + std::to_string(sessions),
@@ -677,7 +743,8 @@ struct LiveSessionWatch::Impl {
         control->AddRef();
         ComPtr<IAudioSessionControl> held;
         held.Attach(control);
-        watched.push_back(WatchedSession{std::move(held), std::move(sink)});
+        watched.push_back(
+            WatchedSession{std::move(held), std::move(sink), deviceId, id.instanceId});
         if (!id.instanceId.empty()) watchedIds.push_back(id.instanceId);
         return true;
     }
@@ -703,6 +770,18 @@ struct LiveSessionWatch::Impl {
     }
 
     void releaseSubscriptions() {
+        if (enumerator && endpointNotify) {
+            const HRESULT hr =
+                enumerator->UnregisterEndpointNotificationCallback(endpointNotify.Get());
+            WA_LOG(wa::log::Level::Debug, "LiveSessionWatch",
+                   "UnregisterEndpointNotificationCallback", "", wa::log::hrName(hr));
+            if (FAILED(hr)) {
+                WA_LOG(wa::log::Level::Warn, "LiveSessionWatch",
+                       "UnregisterEndpointNotificationCallback", "", wa::log::hrName(hr));
+            }
+        }
+        endpointNotify.Reset();
+        enumerator.Reset();
         for (auto& ep : endpoints) {
             if (!ep.manager || !ep.createSink) continue;
             const HRESULT hr = ep.manager->UnregisterSessionNotification(ep.createSink.Get());
@@ -729,9 +808,191 @@ struct LiveSessionWatch::Impl {
         // Callbacks have returned. Drop list links before the sinks free their slots.
         abandonCells();
         watched.clear();
+        retired.clear();
         watchedIds.clear();
         endpoints.clear();
         WA_LOG(wa::log::Level::Info, "LiveSessionWatch", "stop", "", "ok");
+    }
+
+    void drainWork() {
+        for (;;) {
+            drainNewSessions(false);
+            const int dropped = state.droppedCreates.exchange(0, std::memory_order_acq_rel);
+            if (dropped > 0) {
+                WA_LOG(wa::log::Level::Warn, "LiveSessionWatch", "OnSessionCreated",
+                       "dropped=" + std::to_string(dropped), "pool empty");
+                catchUpDroppedSessions();
+            }
+            if (!state.endpointRescan.exchange(false, std::memory_order_acq_rel)) break;
+            reconcileActiveEndpoints();
+        }
+    }
+
+    struct ActiveEndpoint {
+        std::wstring wideId;
+        std::string id;
+        PipelineFlow flow = PipelineFlow::Capture;
+    };
+
+    bool collectActive(EDataFlow flow, std::vector<ActiveEndpoint>& out) {
+        if (!enumerator) return false;
+        ComPtr<IMMDeviceCollection> coll;
+        const HRESULT hr =
+            enumerator->EnumAudioEndpoints(flow, DEVICE_STATE_ACTIVE, coll.GetAddressOf());
+        const char* flowName = flow == eCapture ? "capture" : "render";
+        WA_LOG(wa::log::Level::Debug, "LiveSessionWatch", "EnumAudioEndpoints", flowName,
+               wa::log::hrName(hr));
+        if (FAILED(hr) || !coll) {
+            WA_LOG(wa::log::Level::Warn, "LiveSessionWatch", "EnumAudioEndpoints", flowName,
+                   wa::log::hrName(hr));
+            return false;
+        }
+        UINT n = 0;
+        const HRESULT countHr = coll->GetCount(&n);
+        WA_LOG(wa::log::Level::Debug, "LiveSessionWatch", "GetCount",
+               "n=" + std::to_string(n), wa::log::hrName(countHr));
+        if (FAILED(countHr)) {
+            WA_LOG(wa::log::Level::Warn, "LiveSessionWatch", "GetCount",
+                   "n=" + std::to_string(n), wa::log::hrName(countHr));
+            return false;
+        }
+        const PipelineFlow pipeFlow =
+            flow == eCapture ? PipelineFlow::Capture : PipelineFlow::Render;
+        for (UINT i = 0; i < n; ++i) {
+            ComPtr<IMMDevice> dev;
+            const HRESULT itemHr = coll->Item(i, dev.GetAddressOf());
+            WA_LOG(wa::log::Level::Debug, "LiveSessionWatch", "Item",
+                   "i=" + std::to_string(i), wa::log::hrName(itemHr));
+            // A hole in the collection is not "this endpoint left." Abort the
+            // diff so a failed Item cannot unregister a device that is still active.
+            if (FAILED(itemHr) || !dev) {
+                WA_LOG(wa::log::Level::Warn, "LiveSessionWatch", "Item",
+                       "i=" + std::to_string(i), wa::log::hrName(itemHr));
+                return false;
+            }
+            LPWSTR wide = nullptr;
+            const HRESULT idHr = dev->GetId(&wide);
+            const std::string idText = (SUCCEEDED(idHr) && wide) ? utf8FromWide(wide) : std::string();
+            WA_LOG(wa::log::Level::Debug, "LiveSessionWatch", "GetId", idText, wa::log::hrName(idHr));
+            if (FAILED(idHr) || !wide || idText.empty()) {
+                WA_LOG(wa::log::Level::Warn, "LiveSessionWatch", "GetId", idText,
+                       wa::log::hrName(idHr));
+                if (wide) CoTaskMemFree(wide);
+                return false;
+            }
+            ActiveEndpoint active;
+            active.wideId = wide;
+            active.id = idText;
+            active.flow = pipeFlow;
+            CoTaskMemFree(wide);
+            out.push_back(std::move(active));
+        }
+        return true;
+    }
+
+    bool endpointStillActive(const EndpointSub& ep, const std::vector<ActiveEndpoint>& active) const {
+        for (const auto& candidate : active) {
+            if (candidate.id == ep.deviceId && candidate.flow == ep.flow) return true;
+        }
+        return false;
+    }
+
+    void retireSessionsFor(const std::string& deviceId) {
+        std::vector<WatchedSession> keep;
+        keep.reserve(watched.size());
+        for (auto& session : watched) {
+            if (session.deviceId != deviceId) {
+                keep.push_back(std::move(session));
+                continue;
+            }
+            if (session.control && session.events) {
+                const HRESULT hr =
+                    session.control->UnregisterAudioSessionNotification(session.events.Get());
+                WA_LOG(wa::log::Level::Debug, "LiveSessionWatch",
+                       "UnregisterAudioSessionNotification", session.deviceId, wa::log::hrName(hr));
+                if (FAILED(hr)) {
+                    WA_LOG(wa::log::Level::Warn, "LiveSessionWatch",
+                           "UnregisterAudioSessionNotification", session.deviceId,
+                           wa::log::hrName(hr));
+                }
+            }
+            if (!session.instanceId.empty()) {
+                watchedIds.erase(std::remove(watchedIds.begin(), watchedIds.end(), session.instanceId),
+                                 watchedIds.end());
+            }
+            retired.push_back(std::move(session));
+        }
+        watched.swap(keep);
+    }
+
+    void unsubscribeEndpoint(EndpointSub& ep) {
+        if (ep.manager && ep.createSink) {
+            const HRESULT hr = ep.manager->UnregisterSessionNotification(ep.createSink.Get());
+            WA_LOG(wa::log::Level::Debug, "LiveSessionWatch", "UnregisterSessionNotification",
+                   ep.deviceId, wa::log::hrName(hr));
+            if (FAILED(hr)) {
+                WA_LOG(wa::log::Level::Warn, "LiveSessionWatch", "UnregisterSessionNotification",
+                       ep.deviceId, wa::log::hrName(hr));
+            }
+        }
+        // Creates queued against this sink have finished. Register them, then
+        // retire every session on the device so their slots stay alive.
+        drainNewSessions(false);
+        retireSessionsFor(ep.deviceId);
+    }
+
+    void reconcileActiveEndpoints() {
+        if (!enumerator) return;
+        std::vector<ActiveEndpoint> active;
+        if (!collectActive(eCapture, active) || !collectActive(eRender, active)) {
+            WA_LOG(wa::log::Level::Warn, "LiveSessionWatch", "reconcile", "enum failed", "kept");
+            return;
+        }
+
+        int removed = 0;
+        for (size_t i = endpoints.size(); i-- > 0;) {
+            if (endpointStillActive(endpoints[i], active)) continue;
+            const std::string id = endpoints[i].deviceId;
+            const char* flowName =
+                endpoints[i].flow == PipelineFlow::Capture ? "capture" : "render";
+            WA_LOG(wa::log::Level::Info, "LiveSessionWatch", "endpoint removed", id, flowName);
+            unsubscribeEndpoint(endpoints[i]);
+            endpoints.erase(endpoints.begin() + static_cast<std::ptrdiff_t>(i));
+            ++removed;
+        }
+
+        int added = 0;
+        for (const auto& candidate : active) {
+            bool found = false;
+            for (const auto& ep : endpoints) {
+                if (ep.deviceId == candidate.id && ep.flow == candidate.flow) {
+                    found = true;
+                    break;
+                }
+            }
+            if (found) continue;
+            ComPtr<IMMDevice> dev;
+            const HRESULT hr = enumerator->GetDevice(candidate.wideId.c_str(), dev.GetAddressOf());
+            WA_LOG(wa::log::Level::Debug, "LiveSessionWatch", "GetDevice", candidate.id,
+                   wa::log::hrName(hr));
+            if (FAILED(hr) || !dev) {
+                WA_LOG(wa::log::Level::Warn, "LiveSessionWatch", "GetDevice", candidate.id,
+                       wa::log::hrName(hr));
+                continue;
+            }
+            int sessions = 0;
+            if (!subscribeDevice(dev.Get(), sessions, candidate.flow)) continue;
+            const char* flowName =
+                candidate.flow == PipelineFlow::Capture ? "capture" : "render";
+            WA_LOG(wa::log::Level::Info, "LiveSessionWatch", "endpoint added", candidate.id,
+                   flowName);
+            ++added;
+        }
+
+        if (removed == 0 && added == 0) return;
+        state.postDirty();
+        WA_LOG(wa::log::Level::Info, "LiveSessionWatch", "reconcile",
+               "added=" + std::to_string(added) + " removed=" + std::to_string(removed), "dirty");
     }
 };
 
