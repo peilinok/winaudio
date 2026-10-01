@@ -3,6 +3,7 @@
 #include <cstring>
 #include <malloc.h>
 #include <string>
+#include <system_error>
 #include <thread>
 #include <vector>
 #include <audiopolicy.h>
@@ -14,6 +15,9 @@
 namespace wa {
 
 constexpr UINT kLiveSessionDirtyMessage = WM_APP + 0x4157;
+// Callbacks borrow a node. They do not allocate. 128 covers a burst of creates
+// before the worker recycles; past that the worker enumerates once.
+constexpr int kCreateNodePool = 128;
 
 unsigned liveSessionDirtyMessage() { return kLiveSessionDirtyMessage; }
 
@@ -28,13 +32,20 @@ struct PendingSession {
 };
 
 struct WatchState {
-    // SLIST_HEADER requires 16-byte alignment and stays the first member.
+    // Both SLIST_HEADERs require 16-byte alignment and stay the first members.
     SLIST_HEADER pending{};
+    SLIST_HEADER freeNodes{};
     std::atomic<bool> stopping{false};
     std::atomic<bool> dirty{false};
     std::atomic<bool> posted{false};
+    std::atomic<int> droppedCreates{0};
     HWND hwnd = nullptr;
     HANDLE wake = nullptr;
+
+    WatchState() {
+        InitializeSListHead(&pending);
+        InitializeSListHead(&freeNodes);
+    }
 
     void postDirty() noexcept {
         if (stopping.load(std::memory_order_acquire)) return;
@@ -46,17 +57,21 @@ struct WatchState {
     }
 
     // Lock-free. The caller already AddRef'd control. False means the caller
-    // still owns that reference.
+    // still owns that reference (pool empty or stopping).
     bool enqueue(IAudioSessionControl* control) {
         if (!control || stopping.load(std::memory_order_acquire)) return false;
-        void* mem = _aligned_malloc(sizeof(PendingSession), MEMORY_ALLOCATION_ALIGNMENT);
-        if (!mem) return false;
-        auto* node = static_cast<PendingSession*>(mem);
-        std::memset(node, 0, sizeof(*node));
+        SLIST_ENTRY* entry = InterlockedPopEntrySList(&freeNodes);
+        if (!entry) return false;
+        auto* node = reinterpret_cast<PendingSession*>(entry);
         node->control = control;
         InterlockedPushEntrySList(&pending, &node->entry);
         if (wake) SetEvent(wake);
         return true;
+    }
+
+    void noteDroppedCreate() noexcept {
+        droppedCreates.fetch_add(1, std::memory_order_relaxed);
+        if (wake) SetEvent(wake);
     }
 };
 
@@ -127,7 +142,7 @@ public:
         created->AddRef();
         if (!state_->enqueue(created)) {
             created->Release();
-            return S_OK;
+            state_->noteDroppedCreate();
         }
         state_->postDirty();
         return S_OK;
@@ -169,7 +184,36 @@ struct LiveSessionWatch::Impl {
             CloseHandle(started);
             started = nullptr;
         }
+        freeNodePool();
         running = false;
+    }
+
+    bool preallocateNodes() {
+        for (int i = 0; i < kCreateNodePool; ++i) {
+            void* mem = _aligned_malloc(sizeof(PendingSession), MEMORY_ALLOCATION_ALIGNMENT);
+            if (!mem) return false;
+            std::memset(mem, 0, sizeof(PendingSession));
+            InterlockedPushEntrySList(&state.freeNodes,
+                                      static_cast<SLIST_ENTRY*>(mem));
+        }
+        return true;
+    }
+
+    void freeNodePool() {
+        auto releaseList = [](SLIST_HEADER* header) {
+            for (;;) {
+                SLIST_ENTRY* entry = InterlockedPopEntrySList(header);
+                if (!entry) break;
+                auto* node = reinterpret_cast<PendingSession*>(entry);
+                if (node->control) {
+                    node->control->Release();
+                    node->control = nullptr;
+                }
+                _aligned_free(node);
+            }
+        };
+        releaseList(&state.pending);
+        releaseList(&state.freeNodes);
     }
 
     void threadMain() {
@@ -211,6 +255,12 @@ struct LiveSessionWatch::Impl {
             WaitForSingleObject(state.wake, INFINITE);
             if (state.stopping.load(std::memory_order_acquire)) break;
             drainNewSessions(false);
+            const int dropped = state.droppedCreates.exchange(0, std::memory_order_acq_rel);
+            if (dropped > 0) {
+                WA_LOG(wa::log::Level::Warn, "LiveSessionWatch", "OnSessionCreated",
+                       "dropped=" + std::to_string(dropped), "pool empty");
+                catchUpDroppedSessions();
+            }
         }
         releaseSubscriptions();
         if (ownCom) {
@@ -301,15 +351,20 @@ struct LiveSessionWatch::Impl {
             return false;
         }
         managers.push_back(manager);
+        sessions += registerSessions(manager.Get(), idText);
+        return true;
+    }
 
+    int registerSessions(IAudioSessionManager2* manager, const std::string& label) {
+        if (!manager) return 0;
         ComPtr<IAudioSessionEnumerator> sessionEnum;
-        hr = manager->GetSessionEnumerator(sessionEnum.GetAddressOf());
+        HRESULT hr = manager->GetSessionEnumerator(sessionEnum.GetAddressOf());
         WA_LOG(wa::log::Level::Debug, "LiveSessionWatch", "GetSessionEnumerator",
-               idText, wa::log::hrName(hr));
+               label, wa::log::hrName(hr));
         if (FAILED(hr) || !sessionEnum) {
             WA_LOG(wa::log::Level::Warn, "LiveSessionWatch", "GetSessionEnumerator",
-                   idText, wa::log::hrName(hr));
-            return true;
+                   label, wa::log::hrName(hr));
+            return 0;
         }
         int count = 0;
         hr = sessionEnum->GetCount(&count);
@@ -318,9 +373,10 @@ struct LiveSessionWatch::Impl {
         if (FAILED(hr)) {
             WA_LOG(wa::log::Level::Warn, "LiveSessionWatch", "GetSessionCount",
                    "n=" + std::to_string(count), wa::log::hrName(hr));
-            return true;
+            return 0;
         }
 
+        int added = 0;
         for (int i = 0; i < count; ++i) {
             ComPtr<IAudioSessionControl> control;
             hr = sessionEnum->GetSession(i, control.GetAddressOf());
@@ -333,9 +389,15 @@ struct LiveSessionWatch::Impl {
                 }
                 continue;
             }
-            if (registerDropSink(control.Get())) ++sessions;
+            if (registerDropSink(control.Get())) ++added;
         }
-        return true;
+        return added;
+    }
+
+    void catchUpDroppedSessions() {
+        for (auto& manager : managers) {
+            if (manager) registerSessions(manager.Get(), "");
+        }
     }
 
     std::string sessionInstanceId(IAudioSessionControl* control) {
@@ -400,7 +462,8 @@ struct LiveSessionWatch::Impl {
             if (!entry) break;
             auto* node = reinterpret_cast<PendingSession*>(entry);
             IAudioSessionControl* control = node->control;
-            _aligned_free(node);
+            node->control = nullptr;
+            InterlockedPushEntrySList(&state.freeNodes, &node->entry);
             if (!control) continue;
             // The queue owns one ref. A new registration AddRefs into watched;
             // an id already seen, an expired row, or releaseOnly does not.
@@ -460,7 +523,11 @@ Result LiveSessionWatch::start(void* hwnd) {
     impl_->failed = false;
     impl_->errorCode = E_FAIL;
     impl_->error.clear();
-    InitializeSListHead(&impl_->state.pending);
+    impl_->state.droppedCreates.store(0, std::memory_order_relaxed);
+    if (!impl_->preallocateNodes()) {
+        impl_->shutdown();
+        return Result::Fail(E_OUTOFMEMORY, "LiveSessionWatch: node pool");
+    }
     impl_->state.wake = CreateEventW(nullptr, FALSE, FALSE, nullptr);
     impl_->started = CreateEventW(nullptr, TRUE, FALSE, nullptr);
     if (!impl_->state.wake || !impl_->started) {
@@ -470,7 +537,13 @@ Result LiveSessionWatch::start(void* hwnd) {
                             "LiveSessionWatch: CreateEvent");
     }
 
-    impl_->worker = std::thread([self = impl_.get()] { self->threadMain(); });
+    try {
+        impl_->worker = std::thread([self = impl_.get()] { self->threadMain(); });
+    } catch (const std::system_error& e) {
+        impl_->shutdown();
+        return Result::Fail(static_cast<long>(e.code().value()),
+                            "LiveSessionWatch: thread");
+    }
     WaitForSingleObject(impl_->started, INFINITE);
     if (impl_->failed) {
         const std::string message = impl_->error.empty() ? "LiveSessionWatch: start failed"
