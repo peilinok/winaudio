@@ -202,12 +202,13 @@ struct WatchState {
     }
 
     // Endpoint callbacks only. The worker re-reads ACTIVE capture and render.
-    // Default-device change must not call this.
-    void requestEndpointRescan(const char* method) {
+    // Default-device change must not call this. detail is the device id, plus
+    // state when the callback has one.
+    void requestEndpointRescan(const char* method, const std::string& detail) {
         if (stopping.load(std::memory_order_acquire)) return;
         endpointRescan.store(true, std::memory_order_release);
         if (wake) SetEvent(wake);
-        WA_LOG(wa::log::Level::Debug, "LiveSessionWatch", method ? method : "endpoint", "",
+        WA_LOG(wa::log::Level::Debug, "LiveSessionWatch", method ? method : "endpoint", detail,
                "rescan");
     }
 };
@@ -358,16 +359,21 @@ public:
         return n;
     }
 
-    STDMETHODIMP OnDeviceStateChanged(LPCWSTR, DWORD) override {
-        if (state_) state_->requestEndpointRescan("OnDeviceStateChanged");
+    STDMETHODIMP OnDeviceStateChanged(LPCWSTR id, DWORD newState) override {
+        if (!state_) return S_OK;
+        char stateText[32];
+        _snprintf_s(stateText, sizeof(stateText), _TRUNCATE, "state=0x%lX ",
+                    static_cast<unsigned long>(newState));
+        state_->requestEndpointRescan("OnDeviceStateChanged",
+                                      std::string(stateText) + utf8FromWide(id));
         return S_OK;
     }
-    STDMETHODIMP OnDeviceAdded(LPCWSTR) override {
-        if (state_) state_->requestEndpointRescan("OnDeviceAdded");
+    STDMETHODIMP OnDeviceAdded(LPCWSTR id) override {
+        if (state_) state_->requestEndpointRescan("OnDeviceAdded", utf8FromWide(id));
         return S_OK;
     }
-    STDMETHODIMP OnDeviceRemoved(LPCWSTR) override {
-        if (state_) state_->requestEndpointRescan("OnDeviceRemoved");
+    STDMETHODIMP OnDeviceRemoved(LPCWSTR id) override {
+        if (state_) state_->requestEndpointRescan("OnDeviceRemoved", utf8FromWide(id));
         return S_OK;
     }
     STDMETHODIMP OnDefaultDeviceChanged(EDataFlow flow, ERole, LPCWSTR) override {
@@ -410,6 +416,8 @@ struct LiveSessionWatch::Impl {
 
     std::vector<EndpointSub> endpoints;
     std::vector<WatchedSession> watched;
+    // Unregistered with the device, but kept until stop. The GUI may still be
+    // copying a cell slot; queued==false also means that copy is in progress.
     std::vector<WatchedSession> retired;
     std::vector<std::string> watchedIds;
     ComPtr<IMMDeviceEnumerator> enumerator;
@@ -815,6 +823,7 @@ struct LiveSessionWatch::Impl {
     }
 
     void drainWork() {
+        int rescanFailures = 0;
         for (;;) {
             drainNewSessions(false);
             const int dropped = state.droppedCreates.exchange(0, std::memory_order_acq_rel);
@@ -824,7 +833,23 @@ struct LiveSessionWatch::Impl {
                 catchUpDroppedSessions();
             }
             if (!state.endpointRescan.exchange(false, std::memory_order_acq_rel)) break;
-            reconcileActiveEndpoints();
+            if (reconcileActiveEndpoints()) {
+                rescanFailures = 0;
+                continue;
+            }
+            // The clear above already dropped this wave. Put it back so a
+            // transient enum or Activate failure is not lost until some later,
+            // unrelated notification.
+            state.endpointRescan.store(true, std::memory_order_release);
+            state.postDirty();
+            if (state.stopping.load(std::memory_order_acquire)) return;
+            if (++rescanFailures >= 3) {
+                WA_LOG(wa::log::Level::Warn, "LiveSessionWatch", "reconcile",
+                       "failures=" + std::to_string(rescanFailures), "retry later");
+                break;
+            }
+            WaitForSingleObject(state.wake, 200);
+            if (state.stopping.load(std::memory_order_acquire)) return;
         }
     }
 
@@ -941,12 +966,15 @@ struct LiveSessionWatch::Impl {
         retireSessionsFor(ep.deviceId);
     }
 
-    void reconcileActiveEndpoints() {
-        if (!enumerator) return;
+    // True when every current ACTIVE endpoint is subscribed. False asks the
+    // caller to retry. An enum failure changes nothing. A failed Activate
+    // may already have applied the endpoints that succeeded.
+    bool reconcileActiveEndpoints() {
+        if (!enumerator) return false;
         std::vector<ActiveEndpoint> active;
         if (!collectActive(eCapture, active) || !collectActive(eRender, active)) {
             WA_LOG(wa::log::Level::Warn, "LiveSessionWatch", "reconcile", "enum failed", "kept");
-            return;
+            return false;
         }
 
         int removed = 0;
@@ -962,6 +990,7 @@ struct LiveSessionWatch::Impl {
         }
 
         int added = 0;
+        bool subscribeFailed = false;
         for (const auto& candidate : active) {
             bool found = false;
             for (const auto& ep : endpoints) {
@@ -978,10 +1007,14 @@ struct LiveSessionWatch::Impl {
             if (FAILED(hr) || !dev) {
                 WA_LOG(wa::log::Level::Warn, "LiveSessionWatch", "GetDevice", candidate.id,
                        wa::log::hrName(hr));
+                subscribeFailed = true;
                 continue;
             }
             int sessions = 0;
-            if (!subscribeDevice(dev.Get(), sessions, candidate.flow)) continue;
+            if (!subscribeDevice(dev.Get(), sessions, candidate.flow)) {
+                subscribeFailed = true;
+                continue;
+            }
             const char* flowName =
                 candidate.flow == PipelineFlow::Capture ? "capture" : "render";
             WA_LOG(wa::log::Level::Info, "LiveSessionWatch", "endpoint added", candidate.id,
@@ -989,10 +1022,13 @@ struct LiveSessionWatch::Impl {
             ++added;
         }
 
-        if (removed == 0 && added == 0) return;
-        state.postDirty();
-        WA_LOG(wa::log::Level::Info, "LiveSessionWatch", "reconcile",
-               "added=" + std::to_string(added) + " removed=" + std::to_string(removed), "dirty");
+        if (removed != 0 || added != 0) {
+            state.postDirty();
+            WA_LOG(wa::log::Level::Info, "LiveSessionWatch", "reconcile",
+                   "added=" + std::to_string(added) + " removed=" + std::to_string(removed),
+                   "dirty");
+        }
+        return !subscribeFailed;
     }
 };
 
@@ -1009,6 +1045,7 @@ Result LiveSessionWatch::start(void* hwnd) {
     impl_->state.stopping.store(false, std::memory_order_release);
     impl_->state.dirty.store(false, std::memory_order_release);
     impl_->state.posted.store(false, std::memory_order_release);
+    impl_->state.endpointRescan.store(false, std::memory_order_release);
     impl_->failed = false;
     impl_->errorCode = E_FAIL;
     impl_->error.clear();
