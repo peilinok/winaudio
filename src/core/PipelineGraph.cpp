@@ -290,4 +290,21 @@ int restoreLiveSessionSelection(const std::vector<LiveSessionView>& rows,
     return -1;
 }
 
+int applyLiveSessionCellPatch(std::vector<LiveSessionView>& rows,
+                              const LiveSessionCellPatch& patch) {
+    if (!patch.hasVolume && !patch.hasMute && !patch.hasState) return -1;
+    LiveSessionView key;
+    key.sessionInstanceId = patch.sessionInstanceId;
+    key.processId = patch.processId;
+    key.deviceId = patch.deviceId;
+    key.flow = patch.flow;
+    const int idx = restoreLiveSessionSelection(rows, key);
+    if (idx < 0) return -1;
+    LiveSessionView& row = rows[static_cast<size_t>(idx)];
+    if (patch.hasVolume) row.sessionVolume = patch.volume;
+    if (patch.hasMute) row.sessionMute = patch.mute;
+    if (patch.hasState) row.state = patch.state;
+    return idx;
+}
+
 }  // namespace wa

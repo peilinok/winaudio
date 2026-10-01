@@ -63,6 +63,7 @@ private:
     void refreshPipelineSessions();
     void rebuildPipelineGraph();
     void applyPipelineJoin();
+    void applyLiveSessionCellPatches();
     void runPipelineProbe();
     void runPipelineAttach();
     void drawMonitorPage();

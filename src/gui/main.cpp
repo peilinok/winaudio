@@ -249,7 +249,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
         return true;
 
-    if (msg == wa::liveSessionDirtyMessage())
+    if (msg == wa::liveSessionDirtyMessage() || msg == wa::liveSessionCellMessage())
         return 0;
 
     switch (msg)

@@ -178,6 +178,94 @@ TEST(LiveSessionList, TooltipKeepsProcessAndDeviceWhenCellsClip) {
     EXPECT_NE(tip.find("Active"), std::string::npos);
 }
 
+TEST(LiveSessionList, CellPatchUpdatesOnlyTheMatchingRow) {
+    std::vector<LiveSessionView> rows = {
+        row(10, "chrome.exe", "speakers", PipelineFlow::Render, "sid-a"),
+        row(10, "chrome.exe", "speakers", PipelineFlow::Render, "sid-b"),
+    };
+    rows[1].sessionMute = true;
+    rows[1].state = "Inactive";
+
+    LiveSessionCellPatch patch;
+    patch.sessionInstanceId = "sid-b";
+    patch.processId = 99;
+    patch.deviceId = "other-device";
+    patch.flow = PipelineFlow::Capture;
+    patch.hasVolume = true;
+    patch.volume = 0.25f;
+    patch.hasMute = true;
+    patch.mute = false;
+    patch.hasState = true;
+    patch.state = "Active";
+
+    EXPECT_EQ(applyLiveSessionCellPatch(rows, patch), 1);
+    EXPECT_FLOAT_EQ(rows[0].sessionVolume, 1.f);
+    EXPECT_FALSE(rows[0].sessionMute);
+    EXPECT_EQ(rows[0].state, "Active");
+    EXPECT_EQ(rows[0].processName, "chrome.exe");
+    EXPECT_FLOAT_EQ(rows[1].sessionVolume, 0.25f);
+    EXPECT_FALSE(rows[1].sessionMute);
+    EXPECT_EQ(rows[1].state, "Active");
+    EXPECT_EQ(rows[1].sessionInstanceId, "sid-b");
+    EXPECT_EQ(rows[1].processName, "chrome.exe");
+}
+
+TEST(LiveSessionList, CellPatchDropsUnknownInstanceWithoutFallback) {
+    std::vector<LiveSessionView> rows = {
+        row(10, "chrome.exe", "speakers", PipelineFlow::Render, "sid-a"),
+    };
+    LiveSessionCellPatch patch;
+    patch.sessionInstanceId = "sid-missing";
+    patch.processId = 10;
+    patch.deviceId = "speakers";
+    patch.flow = PipelineFlow::Render;
+    patch.hasVolume = true;
+    patch.volume = 0.1f;
+
+    EXPECT_EQ(applyLiveSessionCellPatch(rows, patch), -1);
+    EXPECT_FLOAT_EQ(rows[0].sessionVolume, 1.f);
+    EXPECT_FALSE(rows[0].sessionMute);
+    EXPECT_EQ(rows[0].state, "Active");
+}
+
+TEST(LiveSessionList, CellPatchFallsBackToPidDeviceFlow) {
+    std::vector<LiveSessionView> rows = {
+        row(10, "chrome.exe", "mic", PipelineFlow::Capture, "sid-mic"),
+        row(10, "chrome.exe", "speakers", PipelineFlow::Render, "sid-spk"),
+    };
+    LiveSessionCellPatch patch;
+    patch.processId = 10;
+    patch.deviceId = "speakers";
+    patch.flow = PipelineFlow::Render;
+    patch.hasMute = true;
+    patch.mute = true;
+
+    EXPECT_EQ(applyLiveSessionCellPatch(rows, patch), 1);
+    EXPECT_FALSE(rows[0].sessionMute);
+    EXPECT_FLOAT_EQ(rows[0].sessionVolume, 1.f);
+    EXPECT_TRUE(rows[1].sessionMute);
+    EXPECT_FLOAT_EQ(rows[1].sessionVolume, 1.f);
+    EXPECT_EQ(rows[1].state, "Active");
+}
+
+TEST(LiveSessionList, CellPatchVolumeLeavesMuteAndState) {
+    std::vector<LiveSessionView> rows = {
+        row(10, "chrome.exe", "speakers", PipelineFlow::Render, "sid-a"),
+    };
+    rows[0].sessionMute = true;
+    rows[0].state = "Inactive";
+    LiveSessionCellPatch patch;
+    patch.sessionInstanceId = "sid-a";
+    patch.hasVolume = true;
+    patch.volume = 0.5f;
+
+    EXPECT_EQ(applyLiveSessionCellPatch(rows, patch), 0);
+    EXPECT_FLOAT_EQ(rows[0].sessionVolume, 0.5f);
+    EXPECT_TRUE(rows[0].sessionMute);
+    EXPECT_EQ(rows[0].state, "Inactive");
+    EXPECT_EQ(rows[0].processName, "chrome.exe");
+}
+
 TEST(LiveSessionList, SortsByNameThenPidThenFlowThenDevice) {
     std::vector<LiveSessionView> rows = {
         row(20, "zoom.exe", "mic", PipelineFlow::Capture),
