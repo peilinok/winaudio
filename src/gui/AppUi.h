@@ -129,7 +129,7 @@ private:
     wa::AudioSessionEnumerator sessionEnumerator_;
     wa::LiveSessionEnumerator liveSessionEnumerator_;
     wa::LiveSessionWatch pipelineWatch_;
-    bool pipelineWatchStarted_ = false;
+    bool pipelineWatchAttempted_ = false;
     void* pipelineHwnd_ = nullptr;
     wa::EndpointGraphReader endpointGraphReader_;
     wa::MonitorStatus    ms_;   // polled once per frame in draw(); shared by helper methods

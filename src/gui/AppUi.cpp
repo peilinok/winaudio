@@ -739,6 +739,8 @@ void AppUi::draw() {
         if (ImGui::BeginTabItem(wa::ui_text::kPipelineTab)) {
             drawPipelinePage();
             ImGui::EndTabItem();
+        } else if (!pipelineWatch_.running()) {
+            pipelineWatchAttempted_ = false;
         }
         ImGui::EndTabBar();
     }
@@ -877,8 +879,8 @@ void AppUi::drawPipelinePage() {
         if (!etw)
             logLines_.push_back("pipeline ETW unavailable: " + etw.message);
     }
-    if (!pipelineWatchStarted_) {
-        pipelineWatchStarted_ = true;
+    if (!pipelineWatchAttempted_) {
+        pipelineWatchAttempted_ = true;
         if (pipelineHwnd_) {
             wa::Result watch = pipelineWatch_.start(pipelineHwnd_);
             if (!watch)
