@@ -21,6 +21,7 @@ add_library(WinAudioCore STATIC
     Log.cpp
     PipelineGraph.cpp
     LiveSessionEnumerator.cpp
+    LiveSessionWatch.cpp
     EndpointGraphReader.cpp
     SharedProbe.cpp
     EtwInitialize.cpp

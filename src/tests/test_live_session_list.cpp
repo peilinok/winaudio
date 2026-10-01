@@ -113,6 +113,55 @@ TEST(LiveSessionList, RestoreFallsBackWhenInstanceIdEmpty) {
     EXPECT_EQ(rows[(size_t)idx].flow, PipelineFlow::Render);
 }
 
+TEST(LiveSessionList, SnapshotAppearKeepsSelectedRow) {
+    std::vector<LiveSessionView> rows = {
+        row(10, "chrome.exe", "speakers", PipelineFlow::Render, "sid-a"),
+    };
+    shapeLiveSessionList(rows, 42);
+    ASSERT_EQ(rows.size(), 1u);
+    const LiveSessionView selected = rows[0];
+
+    rows.push_back(row(42, "WinAudioGui.exe", "speakers", PipelineFlow::Render, "sid-self"));
+    rows.push_back(row(11, "zoom.exe", "mic", PipelineFlow::Capture, "sid-z"));
+    shapeLiveSessionList(rows, 42);
+    ASSERT_EQ(rows.size(), 2u);
+    const int idx = restoreLiveSessionSelection(rows, selected);
+    ASSERT_GE(idx, 0);
+    EXPECT_EQ(rows[(size_t)idx].sessionInstanceId, "sid-a");
+    EXPECT_EQ(rows[(size_t)(1 - idx)].sessionInstanceId, "sid-z");
+}
+
+TEST(LiveSessionList, SnapshotDisappearDropsSelectedRow) {
+    std::vector<LiveSessionView> rows = {
+        row(10, "chrome.exe", "speakers", PipelineFlow::Render, "sid-a"),
+        row(11, "zoom.exe", "mic", PipelineFlow::Capture, "sid-z"),
+    };
+    shapeLiveSessionList(rows, 0);
+    const LiveSessionView selected = row(10, "chrome.exe", "speakers", PipelineFlow::Render, "sid-a");
+
+    rows = {row(11, "zoom.exe", "mic", PipelineFlow::Capture, "sid-z")};
+    shapeLiveSessionList(rows, 0);
+    ASSERT_EQ(rows.size(), 1u);
+    EXPECT_EQ(rows[0].sessionInstanceId, "sid-z");
+    EXPECT_EQ(restoreLiveSessionSelection(rows, selected), -1);
+}
+
+TEST(LiveSessionList, SnapshotDropsOneOfTwoSamePidSessions) {
+    std::vector<LiveSessionView> rows = {
+        row(10, "chrome.exe", "speakers", PipelineFlow::Render, "sid-a"),
+        row(10, "chrome.exe", "speakers", PipelineFlow::Render, "sid-b"),
+    };
+    shapeLiveSessionList(rows, 0);
+    ASSERT_EQ(rows.size(), 2u);
+    const LiveSessionView selected = row(10, "chrome.exe", "speakers", PipelineFlow::Render, "sid-b");
+
+    rows = {row(10, "chrome.exe", "speakers", PipelineFlow::Render, "sid-a")};
+    shapeLiveSessionList(rows, 0);
+    ASSERT_EQ(rows.size(), 1u);
+    EXPECT_EQ(rows[0].sessionInstanceId, "sid-a");
+    EXPECT_EQ(restoreLiveSessionSelection(rows, selected), -1);
+}
+
 TEST(LiveSessionList, TooltipKeepsProcessAndDeviceWhenCellsClip) {
     LiveSessionView s = row(25060, "chrome.exe", "Headset Microphone (Realtek(R) Audio)",
                             PipelineFlow::Capture);
