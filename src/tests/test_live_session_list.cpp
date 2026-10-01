@@ -146,6 +146,67 @@ TEST(LiveSessionList, SnapshotDisappearDropsSelectedRow) {
     EXPECT_EQ(restoreLiveSessionSelection(rows, selected), -1);
 }
 
+TEST(LiveSessionList, DeviceSnapshotAddsRowsAndKeepsSelection) {
+    std::vector<LiveSessionView> rows = {
+        row(42, "WinAudioGui.exe", "speakers", PipelineFlow::Render, "sid-self"),
+        row(11, "zoom.exe", "speakers", PipelineFlow::Render, "sid-z"),
+        row(10, "chrome.exe", "speakers", PipelineFlow::Render, "sid-c"),
+    };
+    shapeLiveSessionList(rows, 42);
+    const LiveSessionView selected =
+        row(10, "chrome.exe", "speakers", PipelineFlow::Render, "sid-c");
+    ASSERT_GE(restoreLiveSessionSelection(rows, selected), 0);
+
+    rows = {
+        row(42, "WinAudioGui.exe", "speakers", PipelineFlow::Render, "sid-self"),
+        row(11, "zoom.exe", "speakers", PipelineFlow::Render, "sid-z"),
+        row(10, "chrome.exe", "speakers", PipelineFlow::Render, "sid-c"),
+        row(12, "discord.exe", "headset", PipelineFlow::Render, "sid-d"),
+        row(10, "chrome.exe", "headset", PipelineFlow::Capture, "sid-hc"),
+    };
+    shapeLiveSessionList(rows, 42);
+    ASSERT_EQ(rows.size(), 4u);
+    EXPECT_EQ(rows[0].sessionInstanceId, "sid-hc");
+    EXPECT_EQ(rows[0].deviceId, "headset");
+    EXPECT_EQ(rows[0].flow, PipelineFlow::Capture);
+    EXPECT_EQ(rows[1].sessionInstanceId, "sid-c");
+    EXPECT_EQ(rows[1].deviceId, "speakers");
+    EXPECT_EQ(rows[2].sessionInstanceId, "sid-d");
+    EXPECT_EQ(rows[2].deviceId, "headset");
+    EXPECT_EQ(rows[3].sessionInstanceId, "sid-z");
+    EXPECT_EQ(restoreLiveSessionSelection(rows, selected), 1);
+}
+
+TEST(LiveSessionList, DeviceSnapshotDropsDeviceRowsAndRestoresOther) {
+    std::vector<LiveSessionView> rows = {
+        row(42, "WinAudioGui.exe", "speakers", PipelineFlow::Render, "sid-self"),
+        row(10, "chrome.exe", "speakers", PipelineFlow::Render, "sid-c"),
+        row(10, "chrome.exe", "headset", PipelineFlow::Capture, "sid-hc"),
+        row(12, "discord.exe", "headset", PipelineFlow::Render, "sid-d"),
+        row(11, "zoom.exe", "speakers", PipelineFlow::Render, "sid-z"),
+    };
+    shapeLiveSessionList(rows, 42);
+    const LiveSessionView onHeadset =
+        row(10, "chrome.exe", "headset", PipelineFlow::Capture, "sid-hc");
+    const LiveSessionView onSpeakers =
+        row(10, "chrome.exe", "speakers", PipelineFlow::Render, "sid-c");
+    ASSERT_GE(restoreLiveSessionSelection(rows, onHeadset), 0);
+
+    rows = {
+        row(42, "WinAudioGui.exe", "speakers", PipelineFlow::Render, "sid-self"),
+        row(11, "zoom.exe", "speakers", PipelineFlow::Render, "sid-z"),
+        row(10, "chrome.exe", "speakers", PipelineFlow::Render, "sid-c"),
+    };
+    shapeLiveSessionList(rows, 42);
+    ASSERT_EQ(rows.size(), 2u);
+    EXPECT_EQ(rows[0].sessionInstanceId, "sid-c");
+    EXPECT_EQ(rows[0].deviceId, "speakers");
+    EXPECT_EQ(rows[1].sessionInstanceId, "sid-z");
+    EXPECT_EQ(rows[1].deviceId, "speakers");
+    EXPECT_EQ(restoreLiveSessionSelection(rows, onHeadset), -1);
+    EXPECT_EQ(restoreLiveSessionSelection(rows, onSpeakers), 0);
+}
+
 TEST(LiveSessionList, SnapshotDropsOneOfTwoSamePidSessions) {
     std::vector<LiveSessionView> rows = {
         row(10, "chrome.exe", "speakers", PipelineFlow::Render, "sid-a"),
