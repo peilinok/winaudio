@@ -213,8 +213,10 @@ void AppUi::refreshApplicationLoopbackSessions() {
 }
 
 void AppUi::refreshPipelineSessions() {
+    const bool hadSelection =
+        pipelineSelected_ >= 0 && pipelineSelected_ < (int)pipelineSessions_.size();
     wa::LiveSessionView prev;
-    if (pipelineSelected_ >= 0 && pipelineSelected_ < (int)pipelineSessions_.size())
+    if (hadSelection)
         prev = pipelineSessions_[(size_t)pipelineSelected_];
 
     std::vector<wa::LiveSessionView> rows;
@@ -232,14 +234,8 @@ void AppUi::refreshPipelineSessions() {
     wa::shapeLiveSessionList(rows, hidePid);
     pipelineSessions_ = std::move(rows);
 
-    pipelineSelected_ = -1;
-    for (int i = 0; i < (int)pipelineSessions_.size(); ++i) {
-        const auto& s = pipelineSessions_[(size_t)i];
-        if (s.processId == prev.processId && s.deviceId == prev.deviceId && s.flow == prev.flow) {
-            pipelineSelected_ = i;
-            break;
-        }
-    }
+    pipelineSelected_ = hadSelection ? wa::restoreLiveSessionSelection(pipelineSessions_, prev)
+                                     : -1;
     if (pipelineSelected_ < 0)
         pipelineProbes_.clear();
     rebuildPipelineGraph();

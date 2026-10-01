@@ -272,4 +272,22 @@ void shapeLiveSessionList(std::vector<LiveSessionView>& rows, uint32_t hidePid) 
     });
 }
 
+int restoreLiveSessionSelection(const std::vector<LiveSessionView>& rows,
+                                const LiveSessionView& selected) {
+    if (!selected.sessionInstanceId.empty()) {
+        for (int i = 0; i < static_cast<int>(rows.size()); ++i) {
+            if (rows[static_cast<size_t>(i)].sessionInstanceId == selected.sessionInstanceId)
+                return i;
+        }
+        return -1;
+    }
+    for (int i = 0; i < static_cast<int>(rows.size()); ++i) {
+        const LiveSessionView& row = rows[static_cast<size_t>(i)];
+        if (row.processId == selected.processId && row.deviceId == selected.deviceId &&
+            row.flow == selected.flow)
+            return i;
+    }
+    return -1;
+}
+
 }  // namespace wa

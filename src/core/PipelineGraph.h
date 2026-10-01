@@ -35,14 +35,22 @@ struct LiveSessionView {
     std::string deviceId;
     std::string deviceName;
     PipelineFlow flow = PipelineFlow::Capture;
+    // Empty when the enumerator cannot read IAudioSessionControl2's instance id.
+    std::string sessionInstanceId;
     float sessionVolume = 1.f;
     bool sessionMute = false;
     std::string state;
 };
 
-// Drop pid 0; drop hidePid when non-zero; keep one row per session instance (do not
-// collapse the same PID on two devices). Sort by name, pid, flow, device.
+// Drop pid 0; drop hidePid when non-zero. Do not collapse two rows that share a
+// PID, including two sessions on one device and flow. Sort by name, pid, flow, device.
 void shapeLiveSessionList(std::vector<LiveSessionView>& rows, uint32_t hidePid);
+
+// Index of the same Live session after a list rebuild, or -1.
+// A non-empty session instance id matches only that id. An empty id matches
+// process id + device id + flow (the first such row).
+int restoreLiveSessionSelection(const std::vector<LiveSessionView>& rows,
+                                const LiveSessionView& selected);
 
 struct ApoSlot {
     std::string role;  // "SFX" | "MFX" | "EFX"

@@ -152,6 +152,18 @@ Result appendDeviceSessions(const DeviceInfo& info, std::vector<LiveSessionView>
         WA_LOG(wa::log::Level::Debug, "LiveSession", "GetProcessId", "", wa::log::hrName(hr));
         if (FAILED(hr) || pid == 0) continue;
 
+        LPWSTR instanceWide = nullptr;
+        hr = control2->GetSessionInstanceIdentifier(&instanceWide);
+        const std::string instanceId =
+            (SUCCEEDED(hr) && instanceWide) ? wideToUtf8(instanceWide) : std::string();
+        WA_LOG(wa::log::Level::Debug, "LiveSession", "GetSessionInstanceIdentifier",
+               instanceId.empty() ? "empty" : instanceId, wa::log::hrName(hr));
+        if (FAILED(hr)) {
+            WA_LOG(wa::log::Level::Warn, "LiveSession", "GetSessionInstanceIdentifier",
+                   "i=" + std::to_string(i), wa::log::hrName(hr));
+        }
+        if (instanceWide) CoTaskMemFree(instanceWide);
+
         AudioSessionState st = AudioSessionStateExpired;
         hr = control->GetState(&st);
         WA_LOG(wa::log::Level::Debug, "LiveSession", "GetState", "", wa::log::hrName(hr));
@@ -162,6 +174,7 @@ Result appendDeviceSessions(const DeviceInfo& info, std::vector<LiveSessionView>
         row.deviceId = deviceId;
         row.deviceName = deviceName;
         row.flow = flow;
+        row.sessionInstanceId = instanceId;
         row.state = sessionStateName(st);
         fillVolumeMute(control.Get(), row);
         out.push_back(std::move(row));

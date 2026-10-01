@@ -9,13 +9,15 @@ using namespace wa;
 
 namespace {
 
-LiveSessionView row(uint32_t pid, const char* name, const char* device, PipelineFlow flow) {
+LiveSessionView row(uint32_t pid, const char* name, const char* device, PipelineFlow flow,
+                   const char* instanceId = "") {
     LiveSessionView s;
     s.processId = pid;
     s.processName = name;
     s.deviceId = device;
     s.deviceName = device;
     s.flow = flow;
+    s.sessionInstanceId = instanceId;
     s.sessionVolume = 1.f;
     s.state = "Active";
     return s;
@@ -43,6 +45,18 @@ TEST(LiveSessionList, HidesSelfPid) {
     EXPECT_EQ(rows[0].processId, 10u);
 }
 
+TEST(LiveSessionList, HideSelfIgnoresInstanceId) {
+    std::vector<LiveSessionView> rows = {
+        row(42, "WinAudioGui.exe", "speakers", PipelineFlow::Render, "self"),
+        row(10, "chrome.exe", "speakers", PipelineFlow::Render, "other"),
+    };
+    shapeLiveSessionList(rows, 42);
+    ASSERT_EQ(rows.size(), 1u);
+    EXPECT_EQ(rows[0].sessionInstanceId, "other");
+    LiveSessionView self = row(42, "WinAudioGui.exe", "speakers", PipelineFlow::Render, "self");
+    EXPECT_EQ(restoreLiveSessionSelection(rows, self), -1);
+}
+
 TEST(LiveSessionList, HidePidZeroKeepsOthers) {
     std::vector<LiveSessionView> rows = {row(10, "chrome.exe", "mic", PipelineFlow::Capture)};
     shapeLiveSessionList(rows, 0);
@@ -56,6 +70,47 @@ TEST(LiveSessionList, KeepsSamePidOnDifferentDevices) {
     };
     shapeLiveSessionList(rows, 0);
     ASSERT_EQ(rows.size(), 2u);
+}
+
+TEST(LiveSessionList, KeepsTwoRowsWhenInstanceIdsDiffer) {
+    std::vector<LiveSessionView> rows = {
+        row(10, "chrome.exe", "speakers", PipelineFlow::Render, "sid-a"),
+        row(10, "chrome.exe", "speakers", PipelineFlow::Render, "sid-b"),
+    };
+    shapeLiveSessionList(rows, 42);
+    ASSERT_EQ(rows.size(), 2u);
+
+    LiveSessionView selected = row(10, "chrome.exe", "speakers", PipelineFlow::Render, "sid-b");
+    const int idx = restoreLiveSessionSelection(rows, selected);
+    ASSERT_GE(idx, 0);
+    EXPECT_EQ(rows[(size_t)idx].sessionInstanceId, "sid-b");
+    EXPECT_EQ(rows[(size_t)idx].processId, 10u);
+}
+
+TEST(LiveSessionList, RestoreMissesWhenInstanceIdIsGone) {
+    std::vector<LiveSessionView> rows = {
+        row(10, "chrome.exe", "speakers", PipelineFlow::Render, "sid-a"),
+    };
+    shapeLiveSessionList(rows, 0);
+    LiveSessionView selected = row(10, "chrome.exe", "speakers", PipelineFlow::Render, "sid-gone");
+    EXPECT_EQ(restoreLiveSessionSelection(rows, selected), -1);
+}
+
+TEST(LiveSessionList, RestoreFallsBackWhenInstanceIdEmpty) {
+    std::vector<LiveSessionView> rows = {
+        row(10, "chrome.exe", "mic", PipelineFlow::Capture, "sid-a"),
+        row(10, "chrome.exe", "speakers", PipelineFlow::Render, "sid-speakers"),
+        row(11, "zoom.exe", "speakers", PipelineFlow::Render, "sid-zoom"),
+    };
+    shapeLiveSessionList(rows, 0);
+    LiveSessionView selected = row(10, "chrome.exe", "speakers", PipelineFlow::Render);
+    EXPECT_TRUE(selected.sessionInstanceId.empty());
+    const int idx = restoreLiveSessionSelection(rows, selected);
+    ASSERT_GE(idx, 0);
+    EXPECT_EQ(rows[(size_t)idx].sessionInstanceId, "sid-speakers");
+    EXPECT_EQ(rows[(size_t)idx].processId, 10u);
+    EXPECT_EQ(rows[(size_t)idx].deviceId, "speakers");
+    EXPECT_EQ(rows[(size_t)idx].flow, PipelineFlow::Render);
 }
 
 TEST(LiveSessionList, TooltipKeepsProcessAndDeviceWhenCellsClip) {
