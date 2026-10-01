@@ -262,13 +262,8 @@ void AppUi::rebuildPipelineGraph() {
 
 void AppUi::applyLiveSessionCellPatches() {
     const std::vector<wa::LiveSessionCellPatch> patches = pipelineWatch_.drainCellPatches();
-    if (patches.empty()) return;
-    bool selected = false;
-    for (const auto& patch : patches) {
-        const int idx = wa::applyLiveSessionCellPatch(pipelineSessions_, patch);
-        if (idx >= 0 && idx == pipelineSelected_) selected = true;
-    }
-    if (selected) applyPipelineJoin();
+    for (const auto& patch : patches)
+        wa::applyLiveSessionCellPatch(pipelineSessions_, patch);
 }
 
 void AppUi::applyPipelineJoin() {

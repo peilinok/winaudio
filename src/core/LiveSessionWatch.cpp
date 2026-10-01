@@ -36,12 +36,87 @@ struct PendingSession {
     PipelineFlow flow;
 };
 
-// Heap node. The callback copies identity captured at registration; the GUI
-// drains oldest-first. SLIST is LIFO, so drain reverses a popped batch.
-struct CellNode {
-    SLIST_ENTRY entry;
-    LiveSessionCellPatch patch;
+// One slot per session, allocated when the sink is registered. The callback
+// only stores the latest volume/mute/state into an atomic and pushes this
+// already-allocated node. Identity chars are filled before any callback.
+struct alignas(MEMORY_ALLOCATION_ALIGNMENT) CellSlot {
+    SLIST_ENTRY entry{};
+    std::atomic<bool> queued{false};
+    std::atomic<uint64_t> bits{0};
+    char instanceId[512]{};
+    char deviceId[512]{};
+    uint32_t processId = 0;
+    uint8_t flow = 0;
 };
+
+constexpr uint64_t kCellVolMask = 0xffffffffull;
+constexpr uint64_t kCellHasVolume = 1ull << 32;
+constexpr uint64_t kCellMuteBit = 1ull << 33;
+constexpr uint64_t kCellHasMute = 1ull << 34;
+constexpr uint64_t kCellHasState = 1ull << 35;
+constexpr uint64_t kCellStateShift = 36;
+constexpr uint64_t kCellStateMask = 3ull << 36;
+constexpr uint64_t kCellGenShift = 40;
+
+void copyFixed(char* dst, size_t cap, const std::string& src) {
+    const size_t n = src.size() < cap - 1 ? src.size() : cap - 1;
+    if (n) std::memcpy(dst, src.data(), n);
+    dst[n] = '\0';
+}
+
+void storeCellVolume(CellSlot* slot, float volume, bool mute) noexcept {
+    uint32_t volBits = 0;
+    std::memcpy(&volBits, &volume, sizeof(volBits));
+    uint64_t cur = slot->bits.load(std::memory_order_relaxed);
+    for (;;) {
+        const uint64_t gen = (cur >> kCellGenShift) + 1;
+        uint64_t next = static_cast<uint64_t>(volBits) | kCellHasVolume | kCellHasMute;
+        if (mute) next |= kCellMuteBit;
+        next |= cur & (kCellHasState | kCellStateMask);
+        next |= gen << kCellGenShift;
+        if (slot->bits.compare_exchange_weak(cur, next, std::memory_order_acq_rel,
+                                             std::memory_order_relaxed))
+            return;
+    }
+}
+
+void storeCellState(CellSlot* slot, uint64_t code) noexcept {
+    uint64_t cur = slot->bits.load(std::memory_order_relaxed);
+    for (;;) {
+        const uint64_t gen = (cur >> kCellGenShift) + 1;
+        uint64_t next = cur & (kCellVolMask | kCellHasVolume | kCellMuteBit | kCellHasMute);
+        next |= kCellHasState | (code << kCellStateShift);
+        next |= gen << kCellGenShift;
+        if (slot->bits.compare_exchange_weak(cur, next, std::memory_order_acq_rel,
+                                             std::memory_order_relaxed))
+            return;
+    }
+}
+
+LiveSessionCellPatch patchFromSlot(const CellSlot* slot, uint64_t bits) {
+    LiveSessionCellPatch patch;
+    patch.sessionInstanceId = slot->instanceId;
+    patch.deviceId = slot->deviceId;
+    patch.processId = slot->processId;
+    patch.flow = slot->flow == static_cast<uint8_t>(PipelineFlow::Render)
+                     ? PipelineFlow::Render
+                     : PipelineFlow::Capture;
+    if (bits & kCellHasVolume) {
+        patch.hasVolume = true;
+        uint32_t volBits = static_cast<uint32_t>(bits & kCellVolMask);
+        std::memcpy(&patch.volume, &volBits, sizeof(volBits));
+    }
+    if (bits & kCellHasMute) {
+        patch.hasMute = true;
+        patch.mute = (bits & kCellMuteBit) != 0;
+    }
+    if (bits & kCellHasState) {
+        patch.hasState = true;
+        const uint64_t code = (bits & kCellStateMask) >> kCellStateShift;
+        patch.state = code == 2 ? "Active" : "Inactive";
+    }
+    return patch;
+}
 
 struct SessionIdentity {
     std::string instanceId;
@@ -67,7 +142,6 @@ struct WatchState {
     std::atomic<bool> stopping{false};
     std::atomic<bool> dirty{false};
     std::atomic<bool> posted{false};
-    std::atomic<bool> cellPosted{false};
     std::atomic<int> droppedCreates{0};
     HWND hwnd = nullptr;
     HANDLE wake = nullptr;
@@ -87,20 +161,21 @@ struct WatchState {
         }
     }
 
-    // Volume, mute, and Active/Inactive. Does not set the dirty flag.
-    // One wake is enough until the GUI drains; the patches themselves queue up.
-    bool postCell(LiveSessionCellPatch patch) {
-        if (stopping.load(std::memory_order_acquire)) return false;
-        void* mem = _aligned_malloc(sizeof(CellNode), MEMORY_ALLOCATION_ALIGNMENT);
-        if (!mem) return false;
-        auto* node = new (mem) CellNode();
-        node->patch = std::move(patch);
-        InterlockedPushEntrySList(&cells, &node->entry);
+    // Latest volume/mute/state for one session. Does not set the dirty flag and
+    // does not allocate. A slot already queued keeps the new bits for the drain
+    // that pops it. LPARAM is that slot.
+    void publishCell(CellSlot* slot) {
+        if (!slot || stopping.load(std::memory_order_acquire)) return;
         bool expected = false;
-        if (cellPosted.compare_exchange_strong(expected, true, std::memory_order_acq_rel)) {
-            if (hwnd) PostMessage(hwnd, kLiveSessionCellMessage, 0, 0);
+        if (!slot->queued.compare_exchange_strong(expected, true, std::memory_order_acq_rel))
+            return;
+        InterlockedPushEntrySList(&cells, &slot->entry);
+        if (!hwnd) return;
+        if (!PostMessage(hwnd, kLiveSessionCellMessage, 0, reinterpret_cast<LPARAM>(slot))) {
+            const DWORD err = GetLastError();
+            WA_LOG(wa::log::Level::Warn, "LiveSessionWatch", "PostMessage",
+                   "cell", wa::log::hrName(static_cast<long>(HRESULT_FROM_WIN32(err))));
         }
-        return true;
     }
 
     // Lock-free. The caller already AddRef'd control. False means the caller
@@ -127,7 +202,29 @@ struct WatchState {
 
 class SessionEvents final : public IAudioSessionEvents {
 public:
-    SessionEvents(WatchState* state, SessionIdentity id) : state_(state), id_(std::move(id)) {}
+    SessionEvents(WatchState* state, const SessionIdentity& id) : state_(state) {
+        void* mem = _aligned_malloc(sizeof(CellSlot), MEMORY_ALLOCATION_ALIGNMENT);
+        if (!mem) return;
+        slot_ = new (mem) CellSlot();
+        copyFixed(slot_->instanceId, sizeof(slot_->instanceId), id.instanceId);
+        copyFixed(slot_->deviceId, sizeof(slot_->deviceId), id.deviceId);
+        slot_->processId = id.processId;
+        slot_->flow = static_cast<uint8_t>(id.flow);
+        if (id.instanceId.size() >= sizeof(slot_->instanceId) ||
+            id.deviceId.size() >= sizeof(slot_->deviceId)) {
+            WA_LOG(wa::log::Level::Warn, "LiveSessionWatch", "cell identity",
+                   id.instanceId, "truncated");
+        }
+    }
+
+    ~SessionEvents() {
+        if (!slot_) return;
+        slot_->~CellSlot();
+        _aligned_free(slot_);
+        slot_ = nullptr;
+    }
+
+    bool ready() const { return slot_ != nullptr; }
 
     STDMETHODIMP QueryInterface(REFIID riid, void** ppv) override {
         if (!ppv) return E_POINTER;
@@ -149,16 +246,12 @@ public:
     STDMETHODIMP OnDisplayNameChanged(LPCWSTR, LPCGUID) override { return S_OK; }
     STDMETHODIMP OnIconPathChanged(LPCWSTR, LPCGUID) override { return S_OK; }
     STDMETHODIMP OnSimpleVolumeChanged(float newVolume, BOOL mute, LPCGUID) override {
-        if (!state_) return S_OK;
-        LiveSessionCellPatch patch = identityPatch();
-        patch.hasVolume = true;
-        patch.volume = newVolume;
-        patch.hasMute = true;
-        patch.mute = mute != FALSE;
-        const bool queued = state_->postCell(std::move(patch));
+        if (!state_ || !slot_) return S_OK;
+        storeCellVolume(slot_, newVolume, mute != FALSE);
+        state_->publishCell(slot_);
         WA_LOG(wa::log::Level::Debug, "LiveSessionWatch", "OnSimpleVolumeChanged",
                "vol=" + std::to_string(newVolume) + " mute=" + (mute ? "true" : "false"),
-               queued ? "queued" : "dropped");
+               "queued");
         return S_OK;
     }
     STDMETHODIMP OnChannelVolumeChanged(DWORD, float[], DWORD, LPCGUID) override { return S_OK; }
@@ -174,12 +267,10 @@ public:
         if (newState != AudioSessionStateActive && newState != AudioSessionStateInactive)
             return S_OK;
         const char* name = newState == AudioSessionStateActive ? "Active" : "Inactive";
-        LiveSessionCellPatch patch = identityPatch();
-        patch.hasState = true;
-        patch.state = name;
-        const bool queued = state_->postCell(std::move(patch));
-        WA_LOG(wa::log::Level::Debug, "LiveSessionWatch", "OnStateChanged",
-               name, queued ? "queued" : "dropped");
+        if (!slot_) return S_OK;
+        storeCellState(slot_, newState == AudioSessionStateActive ? 2 : 1);
+        state_->publishCell(slot_);
+        WA_LOG(wa::log::Level::Debug, "LiveSessionWatch", "OnStateChanged", name, "queued");
         return S_OK;
     }
     STDMETHODIMP OnSessionDisconnected(AudioSessionDisconnectReason) override {
@@ -188,17 +279,8 @@ public:
     }
 
 private:
-    LiveSessionCellPatch identityPatch() const {
-        LiveSessionCellPatch patch;
-        patch.sessionInstanceId = id_.instanceId;
-        patch.processId = id_.processId;
-        patch.deviceId = id_.deviceId;
-        patch.flow = id_.flow;
-        return patch;
-    }
-
     WatchState* state_ = nullptr;
-    SessionIdentity id_;
+    CellSlot* slot_ = nullptr;
     LONG refs_ = 1;
 };
 
@@ -285,7 +367,6 @@ struct LiveSessionWatch::Impl {
             started = nullptr;
         }
         freeNodePool();
-        freeCellNodes();
         running = false;
     }
 
@@ -317,13 +398,13 @@ struct LiveSessionWatch::Impl {
         releaseList(&state.freeNodes);
     }
 
-    void freeCellNodes() {
+    // Pop queued slots without freeing them. Slots belong to the session sinks.
+    void abandonCells() {
         for (;;) {
             SLIST_ENTRY* entry = InterlockedPopEntrySList(&state.cells);
             if (!entry) break;
-            auto* node = reinterpret_cast<CellNode*>(entry);
-            node->~CellNode();
-            _aligned_free(node);
+            auto* slot = reinterpret_cast<CellSlot*>(entry);
+            slot->queued.store(false, std::memory_order_release);
         }
     }
 
@@ -580,6 +661,11 @@ struct LiveSessionWatch::Impl {
 
         ComPtr<SessionEvents> sink;
         sink.Attach(new SessionEvents(&state, id));
+        if (!sink->ready()) {
+            WA_LOG(wa::log::Level::Warn, "LiveSessionWatch", "cell slot",
+                   id.instanceId, "E_OUTOFMEMORY");
+            return false;
+        }
         const HRESULT hr = control->RegisterAudioSessionNotification(sink.Get());
         WA_LOG(wa::log::Level::Debug, "LiveSessionWatch", "RegisterAudioSessionNotification",
                id.instanceId, wa::log::hrName(hr));
@@ -640,6 +726,8 @@ struct LiveSessionWatch::Impl {
                 }
             }
         }
+        // Callbacks have returned. Drop list links before the sinks free their slots.
+        abandonCells();
         watched.clear();
         watchedIds.clear();
         endpoints.clear();
@@ -660,7 +748,6 @@ Result LiveSessionWatch::start(void* hwnd) {
     impl_->state.stopping.store(false, std::memory_order_release);
     impl_->state.dirty.store(false, std::memory_order_release);
     impl_->state.posted.store(false, std::memory_order_release);
-    impl_->state.cellPosted.store(false, std::memory_order_release);
     impl_->failed = false;
     impl_->errorCode = E_FAIL;
     impl_->error.clear();
@@ -712,18 +799,16 @@ bool LiveSessionWatch::consumeDirty() noexcept {
 std::vector<LiveSessionCellPatch> LiveSessionWatch::drainCellPatches() {
     std::vector<LiveSessionCellPatch> out;
     if (!impl_) return out;
-    impl_->state.cellPosted.store(false, std::memory_order_release);
-    std::vector<CellNode*> nodes;
     for (;;) {
         SLIST_ENTRY* entry = InterlockedPopEntrySList(&impl_->state.cells);
         if (!entry) break;
-        nodes.push_back(reinterpret_cast<CellNode*>(entry));
-    }
-    out.reserve(nodes.size());
-    for (auto it = nodes.rbegin(); it != nodes.rend(); ++it) {
-        out.push_back(std::move((*it)->patch));
-        (*it)->~CellNode();
-        _aligned_free(*it);
+        auto* slot = reinterpret_cast<CellSlot*>(entry);
+        // Clear before reading so a callback that stores newer bits afterwards
+        // queues the slot again instead of leaving those bits stranded.
+        slot->queued.store(false, std::memory_order_release);
+        const uint64_t bits = slot->bits.load(std::memory_order_acquire);
+        if ((bits & (kCellHasVolume | kCellHasMute | kCellHasState)) == 0) continue;
+        out.push_back(patchFromSlot(slot, bits));
     }
     return out;
 }
