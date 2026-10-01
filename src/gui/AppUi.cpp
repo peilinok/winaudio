@@ -187,7 +187,10 @@ void AppUi::refreshMonitorDevices() {
     monitorDevicesLoaded_ = true;
 }
 
+void AppUi::setMainWindow(void* hwnd) { pipelineHwnd_ = hwnd; }
+
 void AppUi::stopAll() {
+    pipelineWatch_.stop();
     monitor_.stop();
     loopbackTracks_.destroyAll();
     appLoopbackTracks_.destroyAll();
@@ -874,7 +877,15 @@ void AppUi::drawPipelinePage() {
         if (!etw)
             logLines_.push_back("pipeline ETW unavailable: " + etw.message);
     }
-    if (!pipelineSessionsLoaded_)
+    if (!pipelineWatchStarted_) {
+        pipelineWatchStarted_ = true;
+        if (pipelineHwnd_) {
+            wa::Result watch = pipelineWatch_.start(pipelineHwnd_);
+            if (!watch)
+                logLines_.push_back("pipeline live session watch unavailable: " + watch.message);
+        }
+    }
+    if (!pipelineSessionsLoaded_ || pipelineWatch_.consumeDirty())
         refreshPipelineSessions();
     if (pipelineSelected_ >= 0 && pipelineEtw_.status() == wa::EtwWatchStatus::Listening) {
         const wa::LiveSessionView& session = pipelineSessions_[(size_t)pipelineSelected_];

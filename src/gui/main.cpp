@@ -94,6 +94,7 @@ int main(int, char**)
 
     // WinAudio: UI (owns both engine and monitor engine)
     static AppUi ui;
+    ui.setMainWindow(hwnd);
 
     // WinAudio: logging — file (winaudio.log, exe dir) + GUI panel via callback sink.
     // The callback runs on the logging pump thread; pushLog buffers thread-safely.
@@ -162,7 +163,7 @@ int main(int, char**)
         g_SwapChainOccluded = (hr == DXGI_STATUS_OCCLUDED);
     }
 
-    // WinAudio: stop both engines so worker threads are joined before teardown
+    // Join engines and the Live session watch before the window is destroyed.
     ui.stopAll();
     wa::log::shutdown();   // flush + stop the logging pump before teardown
 
