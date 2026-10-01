@@ -249,8 +249,14 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
         return true;
 
+    if (msg == wa::liveSessionDirtyMessage())
+        return 0;
+
     switch (msg)
     {
+    case WM_CLOSE:
+        ::PostQuitMessage(0);
+        return 0;
     case WM_SIZE:
         if (wParam == SIZE_MINIMIZED)
             return 0;
