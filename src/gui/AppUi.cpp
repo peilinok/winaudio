@@ -237,8 +237,18 @@ void AppUi::refreshPipelineSessions() {
     wa::shapeLiveSessionList(rows, hidePid);
     pipelineSessions_ = std::move(rows);
 
-    pipelineSelected_ = hadSelection ? wa::restoreLiveSessionSelection(pipelineSessions_, prev)
-                                     : -1;
+    if (hadSelection) {
+        const wa::LiveSessionRestore restored = wa::restoreLiveSession(pipelineSessions_, prev);
+        pipelineSelected_ = restored.index;
+        // Restore miss: stop On-demand attach. A later reappearance stays on-demand.
+        if (restored.detach) {
+            pipelineAttach_.stop();
+            pipelineCalls_.clear();
+            pipelineAttachBanner_.clear();
+        }
+    } else {
+        pipelineSelected_ = -1;
+    }
     if (pipelineSelected_ < 0)
         pipelineProbes_.clear();
     rebuildPipelineGraph();
@@ -701,6 +711,8 @@ void AppUi::draw() {
                         logLines_.begin() + (logLines_.size() - kMaxLogLines));
 
     applyDumpPick();
+    // Volume, mute, and Active patches apply on every frame, including while
+    // Pipeline is not the visible tab.
     applyLiveSessionCellPatches();
 
     // Poll once; detect renderState Running->non-Running to clear stale playback chart data.
@@ -894,6 +906,8 @@ void AppUi::drawPipelinePage() {
                 logLines_.push_back("pipeline live session watch unavailable: " + watch.message);
         }
     }
+    // Coalesced enumerate runs only while Pipeline is drawn. Other tabs leave
+    // the sticky dirty bit set and leave the session subscriptions up.
     if (!pipelineSessionsLoaded_ || pipelineWatch_.consumeDirty())
         refreshPipelineSessions();
     if (pipelineSelected_ >= 0 && pipelineEtw_.status() == wa::EtwWatchStatus::Listening) {
