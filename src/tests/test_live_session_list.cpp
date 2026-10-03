@@ -146,6 +146,32 @@ TEST(LiveSessionList, SnapshotDisappearDropsSelectedRow) {
     EXPECT_EQ(restoreLiveSessionSelection(rows, selected), -1);
 }
 
+TEST(LiveSessionList, RestoreMissReportsDetach) {
+    std::vector<LiveSessionView> rows = {
+        row(11, "zoom.exe", "mic", PipelineFlow::Capture, "sid-z"),
+    };
+    shapeLiveSessionList(rows, 0);
+    const LiveSessionView selected =
+        row(10, "chrome.exe", "speakers", PipelineFlow::Render, "sid-a");
+    const LiveSessionRestore restored = restoreLiveSession(rows, selected);
+    EXPECT_EQ(restored.index, -1);
+    EXPECT_TRUE(restored.detach);
+}
+
+TEST(LiveSessionList, RestoreHitDoesNotDetach) {
+    std::vector<LiveSessionView> rows = {
+        row(11, "zoom.exe", "mic", PipelineFlow::Capture, "sid-z"),
+        row(10, "chrome.exe", "speakers", PipelineFlow::Render, "sid-a"),
+    };
+    shapeLiveSessionList(rows, 0);
+    const LiveSessionView selected =
+        row(10, "chrome.exe", "speakers", PipelineFlow::Render, "sid-a");
+    const LiveSessionRestore restored = restoreLiveSession(rows, selected);
+    EXPECT_EQ(restored.index, 0);
+    EXPECT_EQ(rows[0].sessionInstanceId, "sid-a");
+    EXPECT_FALSE(restored.detach);
+}
+
 TEST(LiveSessionList, DeviceSnapshotAddsRowsAndKeepsSelection) {
     std::vector<LiveSessionView> rows = {
         row(42, "WinAudioGui.exe", "speakers", PipelineFlow::Render, "sid-self"),
