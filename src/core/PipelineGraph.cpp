@@ -290,6 +290,14 @@ int restoreLiveSessionSelection(const std::vector<LiveSessionView>& rows,
     return -1;
 }
 
+LiveSessionRestore restoreLiveSession(const std::vector<LiveSessionView>& rows,
+                                      const LiveSessionView& selected) {
+    LiveSessionRestore out;
+    out.index = restoreLiveSessionSelection(rows, selected);
+    out.detach = out.index < 0;
+    return out;
+}
+
 int applyLiveSessionCellPatch(std::vector<LiveSessionView>& rows,
                               const LiveSessionCellPatch& patch) {
     if (!patch.hasVolume && !patch.hasMute && !patch.hasState) return -1;

@@ -52,6 +52,17 @@ void shapeLiveSessionList(std::vector<LiveSessionView>& rows, uint32_t hidePid);
 int restoreLiveSessionSelection(const std::vector<LiveSessionView>& rows,
                                 const LiveSessionView& selected);
 
+// Result of restoring one selected Live session after a list rebuild.
+// detach is true when that session is gone, so On-demand attach must stop.
+// A later reappearance does not restart attach.
+struct LiveSessionRestore {
+    int index = -1;
+    bool detach = false;
+};
+
+LiveSessionRestore restoreLiveSession(const std::vector<LiveSessionView>& rows,
+                                      const LiveSessionView& selected);
+
 // Volume and/or mute and/or state for one Live session row. Identity uses the
 // same rule as restoreLiveSessionSelection. Channel volume, display name, and
 // icon are not fields of this patch.
