@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PROTOTYPE — language switch placement</title>
+<!--
+  Three variants of the language switch on a mock of the existing WinAudio window,
+  switchable via ?variant=. Throwaway. Not src/gui product code.
+  A — Tab-bar combo    B — Left-panel radios    C — Log-toolbar combo
+-->
+<style>
+  :root {
+    --bg: #121416;
+    --child: #1b1e22;
+    --child2: #16181c;
+    --border: #3a3f46;
+    --text: #e8eaed;
+    --muted: #8b93a0;
+    --sep: #79a6c9;
+    --btn: #3a6ea5;
+    --btn-hover: #4a82bd;
+    --btn-active: #2f5c8c;
+    --tab: #2a3340;
+    --tab-on: #3d6ea8;
+    --green: #3ee08a;
+    --spec-a: #2a0a4a;
+    --spec-b: #c43cff;
+    --spec-c: #ff8a3c;
+    --log: #9aa4b2;
+    --danger: #c97878;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #0b0c0e; color: var(--text);
+    font: 13px/1.35 "Segoe UI", "Microsoft YaHei UI", "Noto Sans CJK SC", sans-serif; }
+  button, select { font: inherit; color: inherit; }
+  .os {
+    height: 32px; display: flex; align-items: center; gap: 8px;
+    padding: 0 10px; background: #1f1f1f; border-bottom: 1px solid #000;
+    color: #cfcfcf; font-size: 12px; user-select: none;
+  }
+  .os .dot { width: 10px; height: 10px; border-radius: 50%; background: #3a3a3a; }
+  .app {
+    height: calc(100% - 32px); display: flex; flex-direction: column;
+    background: var(--bg); padding: 6px;
+  }
+  .tabs {
+    display: flex; align-items: stretch; gap: 2px; min-height: 28px;
+    border-bottom: 1px solid var(--border); padding: 0 2px 0 0; flex: 0 0 auto;
+  }
+  .tabs .list { display: flex; gap: 2px; flex: 1; min-width: 0; }
+  .tab {
+    background: var(--tab); border: 1px solid transparent; border-bottom: none;
+    color: var(--muted); padding: 5px 12px; cursor: pointer; border-radius: 4px 4px 0 0;
+  }
+  .tab.on { background: var(--tab-on); color: #fff; }
+  .tab:hover { color: #fff; }
+  .lang-combo {
+    position: relative; align-self: center; margin-left: auto; flex: 0 0 auto;
+  }
+  .combo-btn, .btn, .mini {
+    background: var(--btn); border: 1px solid #2a4e78; border-radius: 3px;
+    padding: 3px 10px; cursor: pointer; color: #fff;
+  }
+  .combo-btn { min-width: 108px; text-align: left; display: flex; justify-content: space-between; gap: 12px; }
+  .combo-btn::after { content: "▾"; opacity: .8; }
+  .combo-btn:hover, .btn:hover, .mini:hover { background: var(--btn-hover); }
+  .combo-menu {
+    position: absolute; right: 0; top: 100%; z-index: 20; min-width: 100%;
+    background: #1e2630; border: 1px solid #4a6a90; margin-top: 2px;
+  }
+  .combo-menu div { padding: 5px 10px; cursor: pointer; }
+  .combo-menu div:hover, .combo-menu div.on { background: var(--tab-on); }
+  .stage { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; padding-top: 6px; }
+  .top { flex: 1; min-height: 0; display: flex; gap: 6px; }
+  .left {
+    width: 360px; flex: 0 0 auto; background: var(--child); border: 1px solid var(--border);
+    padding: 8px 10px; overflow: auto;
+  }
+  .left.w320 { width: 320px; }
+  .left.w340 { width: 340px; }
+  .left.pipeline { width: min(560px, 42%); }
+  .sep { color: var(--sep); font-size: 12px; margin: 8px 0 6px; display: flex; align-items: center; gap: 8px; }
+  .sep::before, .sep::after { content: ""; height: 1px; background: #2c333c; flex: 1; }
+  .sep:first-child { margin-top: 0; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; align-items: center; }
+  label.cap { display: block; margin: 4px 0 2px; }
+  .select, input[type="range"] {
+    width: 100%; background: #243044; border: 1px solid #3a5474; color: #fff;
+    padding: 4px 6px; border-radius: 3px;
+  }
+  .start { padding: 7px 28px; font-weight: 600; }
+  .status { color: var(--muted); font-size: 12px; white-space: pre-wrap; }
+  .bars .bar { height: 16px; margin: 4px 0; border-radius: 2px; color: #111; font-size: 11px; padding: 0 6px; }
+  .bar.cap { background: linear-gradient(90deg, #2aa8a0 70%, #1a2a30 70%); }
+  .bar.ren { background: linear-gradient(90deg, #c9a227 55%, #1a2a30 55%); }
+  .charts { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .host { flex: 1; min-height: 0; background: var(--child2); border: 1px solid var(--border); display: flex; flex-direction: column; }
+  .host-bar { display: flex; gap: 6px; align-items: center; padding: 4px 8px; color: var(--muted); font-size: 12px; }
+  .wave {
+    flex: 1; min-height: 64px;
+    background: #0b1018;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 80' preserveAspectRatio='none'%3E%3Cpath d='M0 40 L10 36 L20 44 L40 20 L60 55 L80 30 L120 50 L160 18 L200 60 L240 28 L280 48 L320 22 L360 58 L400 30 L440 45 L480 25 L520 52 L560 33 L600 47 L640 21 L680 55 L720 38 L760 42 L800 40 L800 80 L0 80 Z' fill='%233ee08a' opacity='.85'/%3E%3C/svg%3E");
+    background-size: 100% 100%;
+  }
+  .spec {
+    flex: 1; min-height: 56px;
+    background: linear-gradient(to top, #1a0828, #4a1570 30%, #c43cff 55%, #ffb14a 78%, #2a0a18 100%);
+    opacity: .85;
+  }
+  .hint { color: var(--muted); padding: 16px; }
+  .log {
+    flex: 0 0 200px; background: var(--child); border: 1px solid var(--border);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  .log.collapsed { flex-basis: 36px; }
+  .log-bar { display: flex; align-items: center; gap: 6px; padding: 4px 8px; min-height: 32px; }
+  .log-bar .grow { flex: 1; color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .log-body { flex: 1; overflow: auto; padding: 4px 8px 8px; color: var(--log); font: 12px/1.4 ui-monospace, Consolas, monospace; }
+  .log-body .dim { color: #667; }
+  .radio { display: flex; gap: 14px; margin: 4px 0 8px; }
+  .radio label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+  .modal-back {
+    position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex;
+    align-items: center; justify-content: center; z-index: 30;
+  }
+  .modal {
+    background: #1c222b; border: 1px solid #4a6a90; padding: 14px 16px; width: 420px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.5);
+  }
+  .modal h3 { margin: 0 0 8px; font-size: 14px; font-weight: 600; }
+  .switcher {
+    position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+    background: #f4f1e8; color: #111; border-radius: 999px; padding: 8px 10px;
+    display: flex; align-items: center; gap: 8px; z-index: 50;
+    box-shadow: 0 8px 24px rgba(0,0,0,.45); font: 13px/1.2 "Segoe UI", sans-serif;
+    max-width: calc(100% - 24px);
+  }
+  .switcher button {
+    background: #111; color: #f4f1e8; border: 0; border-radius: 50%;
+    width: 28px; height: 28px; cursor: pointer; font-size: 16px;
+  }
+  .switcher .meta { min-width: 220px; }
+  .switcher .name { font-weight: 700; }
+  .switcher .state { font-size: 11px; color: #444; white-space: nowrap; }
+  .badge { font-size: 10px; letter-spacing: .04em; color: #666; text-transform: uppercase; }
+</style>
+</head>
+<body>
+<div class="os">
+  <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+  <span>WinAudio</span>
+  <span class="badge" style="margin-left:auto">PROTOTYPE — not src/gui</span>
+</div>
+<div class="app" id="app"></div>
+<div class="switcher" id="switcher"></div>
+<script>
+const VARIANTS = [
+  { key: "A", name: "Tab-bar combo",
+    why: "Language sits in the only window-global chrome besides the log. One control, every page." },
+  { key: "B", name: "Left-panel radios",
+    why: "Language is a left-column setting, copied onto every page. Competes with Devices / Control." },
+  { key: "C", name: "Log-toolbar combo",
+    why: "Language shares the log chrome (Level / Clear / +−). Reachable when the log is collapsed." }
+];
+
+const T = {
+  en: {
+    language: "Language",
+    refresh: "Refresh devices",
+    options: "Options",
+    caps: "Capture capabilities...",
+    capDev: "Capture device",
+    renDev: "Render device",
+    devices: "Devices",
+    control: "Control",
+    backend: "Backend",
+    delay: "Delay (ms)",
+    format: "Format",
+    sysDef: "System default",
+    apply: "Apply",
+    start: "Start",
+    stop: "Stop",
+    playback: "Sync playback",
+    status: "Status",
+    dumpCap: "Dump capture",
+    dumpRen: "Dump render",
+    pause: "Pause charts",
+    zoomOut: "Zoom out",
+    zoomIn: "Zoom in",
+    reset: "Reset view",
+    chartCap: "Capture waveform + spectrogram",
+    chartRen: "Render waveform + spectrogram (delayed)",
+    clear: "Clear",
+    empty: "(empty)",
+    create: "Create Track",
+    destroy: "Destroy",
+    destroyAll: "Destroy all",
+    tracks: "Tracks",
+    emptyLb: "Create a Track to capture system audio.",
+    emptyRen: "Create a Track to play to a render endpoint.",
+    endpoint: "Render endpoint",
+    layout: "Layout",
+    sessions: "Sessions",
+    pid: "PID",
+    exclude: "Exclude",
+    fmtRef: "Format reference",
+    refreshSess: "Refresh",
+    probe: "Probe",
+    attach: "Attach",
+    showSelf: "Show self",
+    pump: "Pump",
+    optionsTitle: "Audio parameters (advanced)",
+    optionsHelp: "Client properties are sent only when enabled for that side. Shared only.",
+    close: "Close",
+  },
+  zh: {
+    language: "语言",
+    refresh: "刷新设备",
+    options: "选项",
+    caps: "Capture 能力...",
+    capDev: "Capture 设备",
+    renDev: "Render 设备",
+    devices: "设备",
+    control: "控制",
+    backend: "Backend",
+    delay: "延迟 (ms)",
+    format: "格式",
+    sysDef: "System default",
+    apply: "应用",
+    start: "开始",
+    stop: "停止",
+    playback: "同步播放 (playback)",
+    status: "状态",
+    dumpCap: "Dump Capture",
+    dumpRen: "Dump Render",
+    pause: "暂停图表",
+    zoomOut: "缩小",
+    zoomIn: "放大",
+    reset: "重置视图",
+    chartCap: "Capture 波形 + 声谱图",
+    chartRen: "Render 波形 + 声谱图 (delayed)",
+    clear: "清除",
+    empty: "(空)",
+    create: "创建 Track",
+    destroy: "销毁",
+    destroyAll: "全部销毁",
+    tracks: "Tracks",
+    emptyLb: "创建一个 Track 以采集系统音频。",
+    emptyRen: "创建一个 Track 以播放到 Render endpoint。",
+    endpoint: "Render endpoint",
+    layout: "Layout",
+    sessions: "Sessions",
+    pid: "PID",
+    exclude: "Exclude",
+    fmtRef: "Format reference",
+    refreshSess: "刷新",
+    probe: "Probe",
+    attach: "Attach",
+    showSelf: "显示自身",
+    pump: "Pump",
+    optionsTitle: "音频参数（高级）",
+    optionsHelp: "仅在该侧启用时发送 Client properties。仅 Shared。",
+    close: "关闭",
+  }
+};
+
+const PAGES = [
+  { id: "monitor", label: "Monitor" },
+  { id: "loopback", label: "Loopback" },
+  { id: "app", label: "Application Loopback" },
+  { id: "render", label: "Render" },
+  { id: "pipeline", label: "Pipeline" },
+];
+
+const state = {
+  variant: "A",
+  language: "en",
+  override: false,
+  page: "monitor",
+  comboOpen: false,
+  optionsOpen: false,
+  logCollapsed: false,
+  running: true,
+};
+
+function t(k) { return T[state.language][k]; }
+function langLabel(code) { return code === "zh" ? "中文" : "English"; }
+
+function setVariant(key) {
+  state.variant = key;
+  state.comboOpen = false;
+  const url = new URL(location.href);
+  url.searchParams.set("variant", key);
+  history.replaceState(null, "", url);
+  render();
+}
+
+function setLang(code) {
+  state.language = code;
+  state.override = true;
+  state.comboOpen = false;
+  render();
+}
+
+function combo(id) {
+  const open = state.comboOpen === id;
+  return `<div class="lang-combo">
+    <button class="combo-btn" data-act="toggle-combo" data-id="${id}">${langLabel(state.language)}</button>
+    ${open ? `<div class="combo-menu">
+      <div class="${state.language==="en"?"on":""}" data-act="lang" data-lang="en">English</div>
+      <div class="${state.language==="zh"?"on":""}" data-act="lang" data-lang="zh">中文</div>
+    </div>` : ""}
+  </div>`;
+}
+
+function radios() {
+  return `<div class="sep">${t("language")}</div>
+    <div class="radio">
+      <label><input type="radio" name="lang" data-act="lang" data-lang="en" ${state.language==="en"?"checked":""}> English</label>
+      <label><input type="radio" name="lang" data-act="lang" data-lang="zh" ${state.language==="zh"?"checked":""}> 中文</label>
+    </div>`;
+}
+
+function devicesBlock() {
+  return `${state.variant==="B"?radios():""}
+    <div class="sep">${t("devices")}</div>
+    <div class="row">
+      <button class="btn">${t("refresh")}</button>
+      <button class="btn">mmsys.cpl</button>
+      <button class="btn">ms-settings</button>
+    </div>
+    <div class="row">
+      <button class="btn" data-act="options">${t("options")}</button>
+      <button class="btn">${t("caps")}</button>
+    </div>
+    <label class="cap">${t("capDev")}</label>
+    <select class="select"><option>麦克风 (Adtech USB2.0 Camera (Audio))</option></select>
+    <label class="cap">${t("renDev")}</label>
+    <select class="select"><option>* 耳机 (Realtek(R) Audio)</option></select>`;
+}
+
+function controlBlock() {
+  return `<div class="sep">${t("control")}</div>
+    <label class="cap">${t("backend")}</label>
+    <select class="select"><option>WASAPI-Shared</option><option>WASAPI-Exclusive</option></select>
+    <label class="cap">${t("delay")} 100</label>
+    <input type="range" min="0" max="500" value="100">
+    <label class="cap">${t("format")}: 48000/32/1f (default)</label>
+    <div class="row">
+      <select class="select" style="width:auto;flex:1"><option>${t("sysDef")}</option><option>48000/16/2</option></select>
+      <button class="btn">${t("apply")}</button>
+    </div>
+    <div class="row">
+      <button class="btn start" data-act="run">${state.running?t("stop"):t("start")}</button>
+      <label><input type="checkbox" checked> ${t("playback")}</label>
+    </div>
+    <div class="row">
+      <button class="btn">${t("dumpCap")}</button>
+      <button class="btn">${t("dumpRen")}</button>
+    </div>
+    <div class="sep">${t("status")}</div>
+    <div class="status">overall=Running cap=Running ren=Running sr=48000\nfiles=200ms drift=499 xrun c/r=0/0\nframes c/r=975840/966240</div>
+    <div class="bars"><div class="bar cap">cap</div><div class="bar ren">ren</div></div>`;
+}
+
+function chartHost(title) {
+  return `<div class="host">
+    <div class="host-bar">
+      <button class="mini">+</button>
+      <span>${title}</span>
+      <span style="margin-left:auto"></span>
+      <button class="mini">${t("pause")}</button>
+      <button class="mini">${t("zoomOut")}</button>
+      <button class="mini">${t("zoomIn")}</button>
+      <button class="mini">${t("reset")}</button>
+    </div>
+    <div class="wave"></div>
+    <div class="spec"></div>
+  </div>`;
+}
+
+function monitor() {
+  return `<div class="left">${devicesBlock()}${controlBlock()}</div>
+    <div class="charts">${chartHost(t("chartCap"))}${chartHost(t("chartRen"))}</div>`;
+}
+
+function loopback() {
+  return `<div class="left w320">
+      ${state.variant==="B"?radios():""}
+      <div class="sep">${t("tracks")}</div>
+      <div class="row">
+        <button class="btn">${t("create")}</button>
+        <button class="btn">${t("destroyAll")}</button>
+      </div>
+      <div class="row">
+        <button class="btn">${t("refresh")}</button>
+        <button class="btn">mmsys.cpl</button>
+        <button class="btn">ms-settings</button>
+      </div>
+      <label class="cap">${t("renDev")}</label>
+      <select class="select"><option>* 耳机 (Realtek(R) Audio)</option></select>
+    </div>
+    <div class="charts"><div class="host"><div class="hint">${t("emptyLb")}</div></div></div>`;
+}
+
+function appPage() {
+  return `<div class="left w340">
+      ${state.variant==="B"?radios():""}
+      <div class="sep">${t("sessions")}</div>
+      <div class="row">
+        <button class="btn">${t("refreshSess")}</button>
+        <label>${t("pid")} <input class="select" style="width:80px" value="1234"></label>
+        <label><input type="checkbox"> ${t("exclude")}</label>
+      </div>
+      <label class="cap">${t("fmtRef")}</label>
+      <select class="select"><option>Default render device</option></select>
+      <div class="row">
+        <button class="btn">${t("refresh")}</button>
+        <button class="btn">mmsys.cpl</button>
+        <button class="btn">ms-settings</button>
+      </div>
+    </div>
+    <div class="charts"><div class="host"><div class="hint">${t("emptyLb")}</div></div></div>`;
+}
+
+function renderPage() {
+  return `<div class="left w320">
+      ${state.variant==="B"?radios():""}
+      <div class="sep">${t("tracks")}</div>
+      <div class="row">
+        <button class="btn">${t("create")}</button>
+        <button class="btn">${t("destroyAll")}</button>
+      </div>
+      <label class="cap">${t("endpoint")}</label>
+      <select class="select"><option>* 耳机 (Realtek(R) Audio)</option></select>
+      <label class="cap">${t("layout")}</label>
+      <select class="select"><option>Stereo</option></select>
+    </div>
+    <div class="charts"><div class="host"><div class="hint">${t("emptyRen")}</div></div></div>`;
+}
+
+function pipeline() {
+  return `<div class="left pipeline">
+      ${state.variant==="B"?radios():""}
+      <div class="sep">${t("sessions")}</div>
+      <div class="row">
+        <button class="btn">${t("refreshSess")}</button>
+        <button class="btn">${t("probe")}</button>
+        <button class="btn">${t("attach")}</button>
+        <label><input type="checkbox"> ${t("showSelf")}</label>
+      </div>
+      <div class="status">WinAudioGui.exe  pid=18800  Capture  WASAPI-Shared</div>
+    </div>
+    <div class="charts"><div class="host"><div class="hint">Call log</div></div></div>`;
+}
+
+function logRegion() {
+  const collapsed = state.logCollapsed;
+  return `<div class="log ${collapsed?"collapsed":""}">
+    <div class="log-bar">
+      <select class="select" style="width:90px">
+        <option>Trace</option><option selected>Info</option><option>Warn</option>
+      </select>
+      <button class="btn">${t("clear")}</button>
+      ${state.variant==="C" ? combo("log") : ""}
+      ${collapsed ? `<span class="grow">11:19:13 [main] MonitorEngine.start  pump ready</span>` : `<span class="grow"></span>`}
+      <button class="mini" data-act="log">${collapsed?"+":"−"}</button>
+    </div>
+    ${collapsed?"":`<div class="log-body">
+      <div>11:19:13.017 [I] [renW] WasapiStream.Start  args: render loop started</div>
+      <div>11:19:13.017 [I] [main] MonitorEngine.render.engaged  fmt=48000/32/1 ret: ok</div>
+      <div class="dim">core / spdlog lines stay English — not GUI copy</div>
+    </div>`}
+  </div>`;
+}
+
+function pageBody() {
+  switch (state.page) {
+    case "loopback": return loopback();
+    case "app": return appPage();
+    case "render": return renderPage();
+    case "pipeline": return pipeline();
+    default: return monitor();
+  }
+}
+
+function renderApp() {
+  const tabs = PAGES.map(p =>
+    `<button class="tab ${state.page===p.id?"on":""}" data-act="page" data-page="${p.id}">${p.label}</button>`
+  ).join("");
+  const modal = state.optionsOpen ? `<div class="modal-back" data-act="close-options">
+    <div class="modal" data-stop="1">
+      <h3>${t("optionsTitle")}</h3>
+      <p class="status">${t("optionsHelp")}</p>
+      <div class="sep">Capture</div>
+      <label class="cap">Buffer (ms)</label>
+      <input class="select" value="0">
+      <div class="row" style="margin-top:12px"><button class="btn" data-act="close-options">${t("close")}</button></div>
+    </div>
+  </div>` : "";
+  document.getElementById("app").innerHTML = `
+    <div class="tabs">
+      <div class="list">${tabs}</div>
+      ${state.variant==="A" ? combo("tab") : ""}
+    </div>
+    <div class="stage">
+      <div class="top">${pageBody()}</div>
+      ${logRegion()}
+    </div>
+    ${modal}`;
+}
+
+function renderSwitcher() {
+  const v = VARIANTS.find(x => x.key === state.variant);
+  const src = state.override ? "override" : "system";
+  document.getElementById("switcher").innerHTML = `
+    <button data-act="prev" title="Previous variant">←</button>
+    <div class="meta">
+      <div class="name">${v.key} — ${v.name}</div>
+      <div class="state">language=${langLabel(state.language)} · source=${src} · page=${state.page} · log=${state.logCollapsed?"collapsed":"expanded"}</div>
+    </div>
+    <button data-act="next" title="Next variant">→</button>`;
+}
+
+function render() { renderApp(); renderSwitcher(); }
+
+function cycle(dir) {
+  const i = VARIANTS.findIndex(v => v.key === state.variant);
+  const n = (i + dir + VARIANTS.length) % VARIANTS.length;
+  setVariant(VARIANTS[n].key);
+}
+
+document.addEventListener("click", (e) => {
+  const actEl = e.target.closest("[data-act]");
+  if (e.target.closest(".modal") && e.target.closest(".modal").dataset.stop && !actEl) return;
+  if (!actEl) {
+    if (state.comboOpen) { state.comboOpen = false; render(); }
+    return;
+  }
+  const act = actEl.dataset.act;
+  if (act === "page") state.page = actEl.dataset.page;
+  else if (act === "toggle-combo") {
+    state.comboOpen = state.comboOpen === actEl.dataset.id ? false : actEl.dataset.id;
+  }
+  else if (act === "lang") setLang(actEl.dataset.lang);
+  else if (act === "options") state.optionsOpen = true;
+  else if (act === "close-options") state.optionsOpen = false;
+  else if (act === "log") state.logCollapsed = !state.logCollapsed;
+  else if (act === "run") state.running = !state.running;
+  else if (act === "prev") return cycle(-1);
+  else if (act === "next") return cycle(1);
+  if (act !== "lang") render();
+});
+
+document.addEventListener("keydown", (e) => {
+  const tag = (e.target.tagName || "").toLowerCase();
+  if (tag === "input" || tag === "textarea" || tag === "select" || e.target.isContentEditable) return;
+  if (e.key === "ArrowLeft") cycle(-1);
+  if (e.key === "ArrowRight") cycle(1);
+});
+
+const initial = new URLSearchParams(location.search).get("variant");
+if (["A","B","C"].includes(initial)) state.variant = initial;
+else setVariant("A");
+render();
+</script>
+</body>
+</html>
