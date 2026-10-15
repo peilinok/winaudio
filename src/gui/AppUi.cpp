@@ -11,6 +11,7 @@
 #include "LogRegionPrefs.h"
 #include "MonitorScopeReader.h"
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "implot.h"
 #include "AudioFormatStr.h"
 #include "RenderTrackScopeReader.h"
@@ -345,8 +346,10 @@ void AppUi::runPipelineAttach() {
 }
 
 void AppUi::pushLog(int /*level*/, const std::string& line) {
-    // Layout-pref Warns stay in the file sink; they must not appear in the log region.
-    if (line.find("LogRegionPrefs::") != std::string::npos)
+    // Preference Warns stay in the file sink. A failed language save must not
+    // add a log-panel line or a dialog; the in-memory choice still stands.
+    if (line.find("LogRegionPrefs::") != std::string::npos ||
+        line.find("GuiLanguage::save") != std::string::npos)
         return;
     std::lock_guard<std::mutex> lk(logMutex_);
     pendingLog_.push_back(line);
@@ -435,7 +438,7 @@ void AppUi::drawFormatRegion() {
     ImGui::SetNextItemWidth(-60.0f);
     ImGui::InputText("##fmtInput", fmtCustom_, sizeof(fmtCustom_));
     ImGui::SameLine();
-    if (ImGui::Button(wa::ui_text::kApply)) {
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kApply))) {
         wa::AudioFormat parsed{};
         if (wa::parseFormatSpec(std::string(fmtCustom_), parsed)) {
             selectedFmt_  = parsed;
@@ -454,17 +457,20 @@ static const char* kAudioCategories[] = {
 
 static void drawCaptureStreamParams(wa::StreamParams& p) {
     bool capProps = p.clientProperties.enabled;
-    if (ImGui::Checkbox(wa::ui_text::kAdvancedSetClientProperties, &capProps))
+    if (ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kAdvancedSetClientProperties), &capProps))
         p.clientProperties.enabled = capProps;
     ImGui::BeginDisabled(!p.clientProperties.enabled);
     int v = (int)p.clientProperties.category;
     if (ImGui::Combo("Category", &v, kAudioCategories, IM_ARRAYSIZE(kAudioCategories)))
         p.clientProperties.category = (wa::AudioCategory)v;
     bool capOff = p.clientProperties.offload;
-    if (ImGui::Checkbox(wa::ui_text::kAdvancedHardwareOffload, &capOff))
+    if (ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kAdvancedHardwareOffload), &capOff))
         p.clientProperties.offload = capOff;
     v = (int)p.clientProperties.option;
-    if (ImGui::Combo("Stream option", &v, wa::ui_text::kAdvancedStreamOptions,
+    const char* streamOptions[wa::ui_text::kAdvancedStreamOptionCount];
+    for (int streamOpt = 0; streamOpt < wa::ui_text::kAdvancedStreamOptionCount; ++streamOpt)
+        streamOptions[streamOpt] = wa::ui_text::get(wa::ui_text::kAdvancedStreamOptions[streamOpt]);
+    if (ImGui::Combo("Stream option", &v, streamOptions,
                      wa::ui_text::kAdvancedStreamOptionCount))
         p.clientProperties.option = (wa::StreamOption)v;
     ImGui::EndDisabled();
@@ -527,21 +533,22 @@ void AppUi::drawFormatRecipe(wa::create_recipe::FormatState& st,
     const int nOk = (int)candidates.size();
     if (st.choiceIdx < -1 || st.choiceIdx > nOk) st.choiceIdx = 0;
 
+    const char* shownDefault = wa::ui_text::get(defaultLabel);
     if (st.haveRequested) {
         ImGui::Text("Format: %s", formatLabel(st.selected).c_str());
     } else if (hasDefaultDisplay) {
-        ImGui::Text("Format: %s (%s)", formatLabel(defaultDisplay).c_str(), defaultLabel);
+        ImGui::Text("Format: %s (%s)", formatLabel(defaultDisplay).c_str(), shownDefault);
     } else {
-        ImGui::Text("Format: %s", defaultLabel);
+        ImGui::Text("Format: %s", shownDefault);
     }
 
-    const std::string preview = (st.choiceIdx == 0) ? std::string(defaultLabel)
+    const std::string preview = (st.choiceIdx == 0) ? std::string(shownDefault)
                               : (st.choiceIdx >= 1)
                                     ? formatLabel(candidates[(size_t)(st.choiceIdx - 1)].fmt)
                                     : formatLabel(st.selected);
     ImGui::SetNextItemWidth(-80.0f);
     if (ImGui::BeginCombo("##fmtCombo", preview.c_str())) {
-        const std::string defLabel = std::string(defaultLabel) + "##0";
+        const std::string defLabel = std::string(shownDefault) + "###0";
         if (ImGui::Selectable(defLabel.c_str(), st.choiceIdx == 0))
             wa::create_recipe::selectDefault(st, defaultDisplay);
         for (int i = 0; i < nOk; ++i) {
@@ -559,7 +566,7 @@ void AppUi::drawFormatRecipe(wa::create_recipe::FormatState& st,
     ImGui::SetNextItemWidth(-60.0f);
     ImGui::InputText("##fmtInput", st.custom, sizeof(st.custom));
     ImGui::SameLine();
-    if (ImGui::Button(wa::ui_text::kApply)) {
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kApply))) {
         std::string err;
         if (!wa::create_recipe::applyCustom(st, st.custom, &err))
             logLines_.push_back(err);
@@ -569,14 +576,14 @@ void AppUi::drawFormatRecipe(wa::create_recipe::FormatState& st,
 
 void AppUi::drawCaptureOptions(wa::StreamParams& params) {
     ImGui::SameLine();
-    if (ImGui::Button(wa::ui_text::kOptions))
-        ImGui::OpenPopup(wa::ui_text::kCaptureOptionsPopup);
-    if (!ImGui::BeginPopupModal(wa::ui_text::kCaptureOptionsPopup, nullptr,
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kOptions)))
+        ImGui::OpenPopup(wa::ui_text::id(wa::ui_text::kCaptureOptionsPopup));
+    if (!ImGui::BeginPopupModal(wa::ui_text::id(wa::ui_text::kCaptureOptionsPopup), nullptr,
                                 ImGuiWindowFlags_AlwaysAutoResize))
         return;
-    ImGui::TextWrapped("%s", wa::ui_text::kAdvancedOptionsHelp);
+    ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kAdvancedOptionsHelp));
     ImGui::Separator();
-    ImGui::SeparatorText(wa::ui_text::kAdvancedCaptureSection);
+    ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kAdvancedCaptureSection));
     ImGui::PushItemWidth(190);
     drawCaptureStreamParams(params);
     ImGui::PopItemWidth();
@@ -738,7 +745,20 @@ void AppUi::draw() {
         ImGuiWindowFlags_NoSavedSettings;
     ImGui::Begin("WinAudio", nullptr, kWindowFlags);
 
-    if (ImGui::BeginTabBar("##pages")) {
+    const char* langItems[] = {"English", "中文"};
+    const float langText = std::max(ImGui::CalcTextSize(langItems[0]).x,
+                                    ImGui::CalcTextSize(langItems[1]).x);
+    const float langW = langText + ImGui::GetStyle().FramePadding.x * 2.0f + ImGui::GetFrameHeight();
+    const float langGap = ImGui::GetStyle().ItemInnerSpacing.x;
+    ImGuiWindow* window = ImGui::GetCurrentWindow();
+    const float savedMaxX = window->WorkRect.Max.x;
+    const ImVec2 langBarPos = ImGui::GetCursorScreenPos();
+    // The tab bar records its rect at Begin. Restore the full width before page content.
+    window->WorkRect.Max.x -= langW + langGap;
+    const bool pagesOpen = ImGui::BeginTabBar("##pages");
+    window->WorkRect.Max.x = savedMaxX;
+
+    if (pagesOpen) {
         if (ImGui::BeginTabItem("Monitor")) {
             drawMonitorPage();
             ImGui::EndTabItem();
@@ -747,15 +767,15 @@ void AppUi::draw() {
             drawLoopbackPage();
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem(wa::ui_text::kApplicationLoopbackTab)) {
+        if (ImGui::BeginTabItem(wa::ui_text::id(wa::ui_text::kApplicationLoopbackTab))) {
             drawApplicationLoopbackPage();
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem(wa::ui_text::kRenderTab)) {
+        if (ImGui::BeginTabItem(wa::ui_text::id(wa::ui_text::kRenderTab))) {
             drawRenderPage();
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem(wa::ui_text::kPipelineTab)) {
+        if (ImGui::BeginTabItem(wa::ui_text::id(wa::ui_text::kPipelineTab))) {
             drawPipelinePage();
             ImGui::EndTabItem();
         } else if (!pipelineWatch_.running()) {
@@ -763,6 +783,28 @@ void AppUi::draw() {
         }
         ImGui::EndTabBar();
     }
+
+    const ImVec2 afterTabs = ImGui::GetCursorScreenPos();
+    ImGui::SetCursorScreenPos(ImVec2(savedMaxX - langW, langBarPos.y));
+    ImGui::SetNextItemWidth(langW);
+    int langIdx = wa::ui_text::language() == wa::gui_language::Language::ZhCn ? 1 : 0;
+    // Selectable reports the click even when the item is already current, so choosing
+    // the display language still stores the override.
+    if (ImGui::BeginCombo("##guiLanguage", langItems[langIdx])) {
+        for (int i = 0; i < IM_ARRAYSIZE(langItems); ++i) {
+            if (!ImGui::Selectable(langItems[i], i == langIdx)) continue;
+            const auto chosen = i == 1 ? wa::gui_language::Language::ZhCn
+                                       : wa::gui_language::Language::En;
+            wa::ui_text::setLanguage(chosen);
+            ensureLogPrefsPath();
+            if (!wa::log_region_prefs::saveLanguage(logPrefsPath_, chosen, logCollapsed_)) {
+                WA_LOG(wa::log::Level::Warn, "GuiLanguage", "save",
+                       wtou(logPrefsPath_), "failed");
+            }
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::SetCursorScreenPos(afterTabs);
 
     ImGui::End();
 }
@@ -844,7 +886,7 @@ void AppUi::drawLoopbackPage() {
     ImGui::SameLine();
 
     ImGui::BeginChild("loopbackCharts", ImVec2(0, 0), true);
-    drawStackedCaptureTrackHosts(loopbackTracks_, loopbackViz_, wa::ui_text::kLoopbackEmptyHint);
+    drawStackedCaptureTrackHosts(loopbackTracks_, loopbackViz_, wa::ui_text::get(wa::ui_text::kLoopbackEmptyHint));
     ImGui::EndChild();
     ImGui::EndChild();
 
@@ -865,7 +907,7 @@ void AppUi::drawApplicationLoopbackPage() {
 
     ImGui::BeginChild("appLoopbackCharts", ImVec2(0, 0), true);
     drawStackedCaptureTrackHosts(appLoopbackTracks_, appLoopbackViz_,
-                                 wa::ui_text::kApplicationLoopbackEmptyHint);
+                                 wa::ui_text::get(wa::ui_text::kApplicationLoopbackEmptyHint));
     ImGui::EndChild();
     ImGui::EndChild();
 
@@ -934,38 +976,38 @@ void AppUi::drawPipelinePage() {
     float leftW = std::clamp(availX * 0.40f, 520.f, 720.f);
     if (availX < 980.f) leftW = std::max(420.f, availX * 0.42f);
     ImGui::BeginChild("pipelineLeft", ImVec2(leftW, 0), true);
-    ImGui::SeparatorText(wa::ui_text::kPipelineSessions);
-    if (ImGui::Button(wa::ui_text::kPipelineRefresh))
+    ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kPipelineSessions));
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineRefresh)))
         refreshPipelineSessions();
     ImGui::SameLine();
     const bool canProbe = pipelineSelected_ >= 0 && !pipelineProbing_;
     if (!canProbe) ImGui::BeginDisabled();
-    if (ImGui::Button(wa::ui_text::kPipelineProbe))
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineProbe)))
         runPipelineProbe();
     if (!canProbe) ImGui::EndDisabled();
     ImGui::SameLine();
     const bool canAttach = pipelineSelected_ >= 0;
     if (!canAttach) ImGui::BeginDisabled();
-    if (ImGui::Button(wa::ui_text::kPipelineAttach))
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineAttach)))
         runPipelineAttach();
     if (!canAttach) ImGui::EndDisabled();
     ImGui::SameLine();
-    if (ImGui::Checkbox(wa::ui_text::kPipelineShowSelf, &pipelineShowSelf_))
+    if (ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kPipelineShowSelf), &pipelineShowSelf_))
         refreshPipelineSessions();
     const wa::EtwWatchStatus etwStatus = pipelineEtw_.status();
     if (etwStatus == wa::EtwWatchStatus::Unavailable) {
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.90f, 0.55f, 0.55f, 1.f));
-        ImGui::TextUnformatted(wa::ui_text::kPipelineEtwUnavailable);
+        ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineEtwUnavailable));
         ImGui::PopStyleColor();
     } else if (etwStatus == wa::EtwWatchStatus::Listening) {
-        ImGui::TextUnformatted(wa::ui_text::kPipelineEtwListening);
+        ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineEtwListening));
     }
-    if (ImGui::Checkbox(wa::ui_text::kPipelinePump, &pipelinePump_)) {
+    if (ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kPipelinePump), &pipelinePump_)) {
         if (pipelineAttach_.attached())
             pipelineAttach_.setPumpEnabled(pipelinePump_);
     }
     if (pipelineAttach_.attached()) {
-        ImGui::TextUnformatted(wa::ui_text::kPipelineAttached);
+        ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineAttached));
     } else if (!pipelineAttachBanner_.empty()) {
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.90f, 0.55f, 0.55f, 1.f));
         ImGui::TextWrapped("%s", pipelineAttachBanner_.c_str());
@@ -973,7 +1015,7 @@ void AppUi::drawPipelinePage() {
     }
 
     if (pipelineSessions_.empty()) {
-        ImGui::TextWrapped("%s", wa::ui_text::kPipelineEmpty);
+        ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineEmpty));
     } else if (ImGui::BeginTable("pipelineSessions", 7,
                                  ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
                                      ImGuiTableFlags_ScrollY | ImGuiTableFlags_ScrollX |
@@ -994,9 +1036,9 @@ void AppUi::drawPipelinePage() {
             ImGui::TableSetColumnIndex(0);
             const bool selected = (i == pipelineSelected_);
             char label[64];
-            std::snprintf(label, sizeof(label), "%s##ps%d",
-                          s.flow == wa::PipelineFlow::Capture ? wa::ui_text::kPipelineFlowCapture
-                                                             : wa::ui_text::kPipelineFlowRender,
+            std::snprintf(label, sizeof(label), "%s###ps%d",
+                          s.flow == wa::PipelineFlow::Capture ? wa::ui_text::get(wa::ui_text::kPipelineFlowCapture)
+                                                             : wa::ui_text::get(wa::ui_text::kPipelineFlowRender),
                           i);
             if (ImGui::Selectable(label, selected, ImGuiSelectableFlags_SpanAllColumns)) {
                 if (pipelineSelected_ != i) {
@@ -1024,8 +1066,8 @@ void AppUi::drawPipelinePage() {
             ImGui::Text("%.2f", static_cast<double>(s.sessionVolume));
             ImGui::SetItemTooltip("%s", tip.c_str());
             ImGui::TableSetColumnIndex(5);
-            ImGui::TextUnformatted(s.sessionMute ? wa::ui_text::kPipelineMuteYes
-                                                 : wa::ui_text::kPipelineMuteNo);
+            ImGui::TextUnformatted(s.sessionMute ? wa::ui_text::get(wa::ui_text::kPipelineMuteYes)
+                                                 : wa::ui_text::get(wa::ui_text::kPipelineMuteNo));
             ImGui::SetItemTooltip("%s", tip.c_str());
             ImGui::TableSetColumnIndex(6);
             ImGui::TextUnformatted(s.state.c_str());
@@ -1039,9 +1081,9 @@ void AppUi::drawPipelinePage() {
     const float rest = ImGui::GetContentRegionAvail().x;
     const float graphW = std::max(240.0f, rest * 0.55f);
     ImGui::BeginChild("pipelineGraph", ImVec2(graphW, 0), true);
-    ImGui::SeparatorText(wa::ui_text::kPipelineGraph);
+    ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kPipelineGraph));
     if (pipelineSelected_ < 0) {
-        ImGui::TextWrapped("%s", wa::ui_text::kPipelineSelectHint);
+        ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineSelectHint));
     } else {
         for (const auto& n : pipelineNodes_) {
             ImGui::PushStyleColor(ImGuiCol_Text, kindColor(n.kind));
@@ -1060,12 +1102,12 @@ void AppUi::drawPipelinePage() {
 
     ImGui::SameLine();
     ImGui::BeginChild("pipelineCallLog", ImVec2(0, 0), true);
-    ImGui::SeparatorText(wa::ui_text::kPipelineCallLog);
+    ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kPipelineCallLog));
     std::vector<wa::HookedCall> callSrc = pipelineCalls_;
     if (pipelinePump_ && pipelineAttach_.attached()) {
         auto pump = pipelineAttach_.pumpRing();
         callSrc.insert(callSrc.end(), pump.begin(), pump.end());
-        ImGui::Text("%s: %u", wa::ui_text::kPipelineXruns, pipelineAttach_.pumpXruns());
+        ImGui::Text("%s: %u", wa::ui_text::get(wa::ui_text::kPipelineXruns), pipelineAttach_.pumpXruns());
     }
     const auto callView = wa::shapeCallLog(callSrc, pipelinePump_);
     const auto& callLog = callView.entries;
@@ -1075,11 +1117,11 @@ void AppUi::drawPipelinePage() {
     } else if (ImGui::BeginTable("pipelineCalls", 5,
                                  ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
                                      ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp)) {
-        ImGui::TableSetupColumn(wa::ui_text::kPipelineCallColIface);
-        ImGui::TableSetupColumn(wa::ui_text::kPipelineCallColMethod);
-        ImGui::TableSetupColumn(wa::ui_text::kPipelineCallColArgs);
-        ImGui::TableSetupColumn(wa::ui_text::kPipelineCallColHr, ImGuiTableColumnFlags_WidthFixed, 70.f);
-        ImGui::TableSetupColumn(wa::ui_text::kPipelineCallColStream,
+        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColIface));
+        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColMethod));
+        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColArgs));
+        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColHr), ImGuiTableColumnFlags_WidthFixed, 70.f);
+        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColStream),
                                 ImGuiTableColumnFlags_WidthFixed, 70.f);
         ImGui::TableHeadersRow();
         for (const auto& c : callLog) {
@@ -1153,7 +1195,7 @@ void AppUi::drawDumpControls(wa::CaptureTrackList& list, const wa::CaptureTrackS
                              DumpPickKind kind, const char* destroyedLog) {
     const bool picking = dumpPicker_.busy();
     if (t.dumping) {
-        if (ImGui::Button(wa::ui_text::kDumpStop)) {
+        if (ImGui::Button(wa::ui_text::id(wa::ui_text::kDumpStop))) {
             const std::wstring path = t.dumpPath;
             wa::Result r = list.stopDump(t.id);
             logLines_.push_back(r ? ("dump stopped " + wtou(path))
@@ -1162,12 +1204,12 @@ void AppUi::drawDumpControls(wa::CaptureTrackList& list, const wa::CaptureTrackS
         }
     } else {
         ImGui::BeginDisabled(t.state != wa::StreamState::Running || picking);
-        if (ImGui::Button(wa::ui_text::kDump))
+        if (ImGui::Button(wa::ui_text::id(wa::ui_text::kDump)))
             beginDumpPick(kind, t.id);
         ImGui::EndDisabled();
     }
     ImGui::SameLine();
-    if (ImGui::Button(wa::ui_text::kLoopbackDestroy)) {
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kLoopbackDestroy))) {
         const std::wstring dumpPath = t.dumping ? t.dumpPath : std::wstring{};
         list.destroy(t.id);
         if (!dumpPath.empty()) wa::dump_ui::revealDumpFile(dumpPath);
@@ -1224,7 +1266,7 @@ void AppUi::drawRenderPage() {
         else ++i;
     }
     if (tracks.empty()) {
-        ImGui::TextUnformatted(wa::ui_text::kRenderEmptyHint);
+        ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kRenderEmptyHint));
     } else {
         const char* states[] = {"Idle", "Running", "Error"};
         for (const auto& t : tracks) {
@@ -1243,7 +1285,7 @@ void AppUi::drawRenderPage() {
                 if (paused == 0) allPaused = false;
             }
             if (t.state == wa::StreamState::Running && allPaused)
-                ImGui::TextDisabled("%s", wa::ui_text::kRenderChannelsPaused);
+                ImGui::TextDisabled("%s", wa::ui_text::get(wa::ui_text::kRenderChannelsPaused));
             if (t.state == wa::StreamState::Error && !t.message.empty())
                 ImGui::TextDisabled("%s", t.message.c_str());
             if (t.state == wa::StreamState::Running) {
@@ -1251,24 +1293,24 @@ void AppUi::drawRenderPage() {
                     ImGui::PushID(channel);
                     const wa::ChannelPhrase phrase = t.channels[channel].phrase;
                     const char* name = phrase == wa::ChannelPhrase::None
-                                           ? wa::ui_text::kRenderNoPhrase
+                                           ? wa::ui_text::get(wa::ui_text::kRenderNoPhrase)
                                            : wa::ui_text::channelPhraseText(phrase);
                     ImGui::AlignTextToFramePadding();
                     ImGui::TextUnformatted(name);
                     ImGui::SameLine();
                     if (t.channels[channel].paused) {
-                        if (ImGui::SmallButton(wa::ui_text::kRenderContinue))
+                        if (ImGui::SmallButton(wa::ui_text::id(wa::ui_text::kRenderContinue)))
                             renderTracks_.continueChannel(t.id, channel);
-                    } else if (ImGui::SmallButton(wa::ui_text::kRenderPause)) {
+                    } else if (ImGui::SmallButton(wa::ui_text::id(wa::ui_text::kRenderPause))) {
                         renderTracks_.pauseChannel(t.id, channel);
                     }
                     ImGui::SameLine();
-                    if (ImGui::SmallButton(wa::ui_text::kRenderPlayOnce))
+                    if (ImGui::SmallButton(wa::ui_text::id(wa::ui_text::kRenderPlayOnce)))
                         renderTracks_.playOnce(t.id, channel);
                     ImGui::SameLine();
                     int volume = t.channels[channel].volumePercent;
                     ImGui::SetNextItemWidth(140.0f);
-                    if (ImGui::SliderInt(wa::ui_text::kRenderVolume, &volume, 0, 100))
+                    if (ImGui::SliderInt(wa::ui_text::id(wa::ui_text::kRenderVolume), &volume, 0, 100))
                         renderTracks_.setVolume(t.id, channel, volume);
                     ImGui::PopID();
                 }
@@ -1289,7 +1331,7 @@ void AppUi::drawRenderPage() {
                 drawChartHost(nullptr, chartStatus, *vs, wa::chart_host::Mode::CaptureOnly,
                               nullptr, nullptr, &reader);
             }
-            if (ImGui::Button(wa::ui_text::kLoopbackDestroy)) {
+            if (ImGui::Button(wa::ui_text::id(wa::ui_text::kLoopbackDestroy))) {
                 renderTracks_.destroy(t.id);
                 logLines_.push_back("render track destroyed id=" + std::to_string(t.id));
             }
@@ -1306,7 +1348,7 @@ void AppUi::drawRenderPage() {
 void AppUi::drawRenderLeftPanel() {
     if (!monitorDevicesLoaded_) refreshMonitorDevices();
 
-    ImGui::SeparatorText(wa::ui_text::kRenderEndpoint);
+    ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kRenderEndpoint));
     if (ImGui::Button("Refresh devices")) refreshMonitorDevices();
     std::string preview = "(no render devices)";
     if (!renderDevices_.empty() && renderPageDevIdx_ >= 0 &&
@@ -1344,7 +1386,7 @@ void AppUi::drawRenderLeftPanel() {
         wa::RenderTrackCreate spec;
         spec.mode = wa::RenderLayoutMode::SystemDefault;
         spec.source = mix;
-        std::string label = wa::ui_text::kSystemDefault;
+        std::string label = wa::ui_text::get(wa::ui_text::kSystemDefault);
         if (renderHaveCustom_ && renderLayoutIdx_ < 0) {
             spec.mode = wa::RenderLayoutMode::Layout;
             spec.source = wa::AudioFormat{};
@@ -1366,14 +1408,14 @@ void AppUi::drawRenderLeftPanel() {
         return std::pair<wa::RenderTrackCreate, std::string>(std::move(spec), std::move(label));
     };
 
-    ImGui::SeparatorText(wa::ui_text::kRenderLayout);
+    ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kRenderLayout));
     ImGui::TextDisabled("%u Hz, %u-bit", wa::kRenderClientRate,
                         static_cast<unsigned>(wa::kRenderClientBits));
 
     const std::string layoutPreview = chosenLayout().second;
     ImGui::SetNextItemWidth(-1);
     if (ImGui::BeginCombo("##renderLayout", layoutPreview.c_str())) {
-        const std::string defLabel = std::string(wa::ui_text::kSystemDefault) + "##rl0";
+        const std::string defLabel = std::string(wa::ui_text::get(wa::ui_text::kSystemDefault)) + "###rl0";
         if (ImGui::Selectable(defLabel.c_str(), renderLayoutIdx_ == 0 && !renderHaveCustom_)) {
             renderLayoutIdx_ = 0;
             renderHaveCustom_ = false;
@@ -1391,7 +1433,7 @@ void AppUi::drawRenderLeftPanel() {
     ImGui::SetNextItemWidth(-60.0f);
     ImGui::InputText("##renderCustom", renderCustom_, sizeof(renderCustom_));
     ImGui::SameLine();
-    if (ImGui::Button(wa::ui_text::kApply)) {
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kApply))) {
         const wa::RenderCustomLayout layout = wa::renderLayoutFromCustom(renderCustom_);
         if (!layout.ok) {
             logLines_.push_back(layout.message.empty() ? "invalid format" : layout.message);
@@ -1401,11 +1443,11 @@ void AppUi::drawRenderLeftPanel() {
             renderLayoutIdx_ = -1;
         }
     }
-    ImGui::TextDisabled("%s", wa::ui_text::kRenderCustomIgnored);
+    ImGui::TextDisabled("%s", wa::ui_text::get(wa::ui_text::kRenderCustomIgnored));
 
     ImGui::SeparatorText("Control");
     const ImVec2 ctrlBtn(120.0f, ImGui::GetFrameHeight() * 1.3f);
-    if (ImGui::Button(wa::ui_text::kLoopbackCreate, ctrlBtn)) {
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kLoopbackCreate), ctrlBtn)) {
         wa::RenderTrackCreate spec = chosenLayout().first;
         spec.deviceId = deviceIdAt(renderDevices_, renderPageDevIdx_);
         wa::TrackId tid = 0;
@@ -1414,7 +1456,7 @@ void AppUi::drawRenderLeftPanel() {
                               : ("render error: " + r.message));
     }
     ImGui::SameLine();
-    if (ImGui::Button(wa::ui_text::kLoopbackDestroyAll, ctrlBtn)) {
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kLoopbackDestroyAll), ctrlBtn)) {
         renderTracks_.destroyAll();
         logLines_.push_back("render destroy all");
     }
@@ -1445,7 +1487,7 @@ void AppUi::drawLoopbackLeftPanel() {
 
     if (loopbackRecipe_.deviceShown != loopbackDevIdx_)
         recomputeLoopbackFormat();
-    if (ImGui::Button(wa::ui_text::kCapabilities)) {
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kCapabilities))) {
         capsModal_ = loopbackRecipe_.caps;
         capsModalContext_ = "System Loopback render device";
         ImGui::OpenPopup("Device capabilities");
@@ -1455,11 +1497,11 @@ void AppUi::drawLoopbackLeftPanel() {
                      loopbackRecipe_.caps.mixFormat, loopbackRecipe_.caps.hasMix,
                      wa::ui_text::kSystemDefault, "sysLbFmt", loopbackRecipe_.params);
     drawCapsModal();
-    ImGui::Checkbox(wa::ui_text::kLoopbackSilentRender, &loopbackSilentRender_);
+    ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kLoopbackSilentRender), &loopbackSilentRender_);
 
     ImGui::SeparatorText("Control");
     const ImVec2 ctrlBtn(120.0f, ImGui::GetFrameHeight() * 1.3f);
-    if (ImGui::Button(wa::ui_text::kLoopbackCreate, ctrlBtn)) {
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kLoopbackCreate), ctrlBtn)) {
         wa::DeviceId id = renderDevices_.empty() ? L"" : renderDevices_[(size_t)loopbackDevIdx_].id;
         wa::CaptureTrackCreate spec{};
         spec.kind = wa::BackendKind::WasapiShared;
@@ -1473,7 +1515,7 @@ void AppUi::drawLoopbackLeftPanel() {
                               : ("loopback error: " + r.message));
     }
     ImGui::SameLine();
-    if (ImGui::Button(wa::ui_text::kLoopbackDestroyAll, ctrlBtn)) {
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kLoopbackDestroyAll), ctrlBtn)) {
         std::vector<std::wstring> dumpPaths;
         for (const auto& t : loopbackTracks_.poll())
             if (t.dumping) dumpPaths.push_back(t.dumpPath);
@@ -1483,7 +1525,7 @@ void AppUi::drawLoopbackLeftPanel() {
         logLines_.push_back("loopback destroy all");
     }
 
-    ImGui::SeparatorText(wa::ui_text::kLoopbackTracks);
+    ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kLoopbackTracks));
     const char* ss[] = {"Idle", "Running", "Error"};
     const auto tracks = loopbackTracks_.poll();
     for (const auto& t : tracks) {
@@ -1504,8 +1546,8 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
     if (!appLoopbackSessionsLoaded_)
         refreshApplicationLoopbackSessions();
 
-    ImGui::SeparatorText(wa::ui_text::kApplicationLoopbackSessions);
-    if (ImGui::Button(wa::ui_text::kApplicationLoopbackRefresh))
+    ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kApplicationLoopbackSessions));
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kApplicationLoopbackRefresh)))
         refreshApplicationLoopbackSessions();
 
     ImGui::BeginChild("appLoopbackSessionList", ImVec2(0, 170.0f), true);
@@ -1527,22 +1569,22 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
     ImGui::EndChild();
 
     ImGui::AlignTextToFramePadding();
-    ImGui::TextUnformatted(wa::ui_text::kApplicationLoopbackPidLabel);
+    ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kApplicationLoopbackPidLabel));
     ImGui::SameLine();
     ImGui::SetNextItemWidth(120.0f);
     ImGui::InputText("##appLoopbackPid", appLoopbackPid_, sizeof(appLoopbackPid_));
     ImGui::SameLine();
-    ImGui::Checkbox(wa::ui_text::kApplicationLoopbackExclude, &appLoopbackExclude_);
+    ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kApplicationLoopbackExclude), &appLoopbackExclude_);
 
-    ImGui::TextUnformatted(wa::ui_text::kFormatReference);
+    ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kFormatReference));
     ImGui::SameLine();
     if (ImGui::Button("Refresh devices##appLoopbackReference"))
         refreshMonitorDevices();
     ImGui::SameLine();
     drawOsSoundButtons(wa::os_sound_ui::Page::ApplicationLoopback);
-    std::string referencePreview = wa::ui_text::kFormatReferenceNone;
+    std::string referencePreview = wa::ui_text::get(wa::ui_text::kFormatReferenceNone);
     if (appLoopbackReferenceIdx_ == 1) {
-        referencePreview = wa::ui_text::kFormatReferenceDefaultRender;
+        referencePreview = wa::ui_text::get(wa::ui_text::kFormatReferenceDefaultRender);
     } else if (appLoopbackReferenceIdx_ >= 2 &&
                appLoopbackReferenceIdx_ - 2 < (int)renderDevices_.size()) {
         const auto& device = renderDevices_[static_cast<size_t>(appLoopbackReferenceIdx_ - 2)];
@@ -1550,10 +1592,10 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
     }
     ImGui::SetNextItemWidth(-1);
     if (ImGui::BeginCombo("##appLoopbackFormatReference", referencePreview.c_str())) {
-        if (ImGui::Selectable(wa::ui_text::kFormatReferenceNone,
+        if (ImGui::Selectable(wa::ui_text::id(wa::ui_text::kFormatReferenceNone),
                               appLoopbackReferenceIdx_ == 0))
             appLoopbackReferenceIdx_ = 0;
-        if (ImGui::Selectable(wa::ui_text::kFormatReferenceDefaultRender,
+        if (ImGui::Selectable(wa::ui_text::id(wa::ui_text::kFormatReferenceDefaultRender),
                               appLoopbackReferenceIdx_ == 1))
             appLoopbackReferenceIdx_ = 1;
         for (int i = 0; i < (int)renderDevices_.size(); ++i) {
@@ -1568,7 +1610,7 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
     if (appLoopbackRecipe_.deviceShown != appLoopbackReferenceIdx_)
         recomputeApplicationLoopbackFormat();
     ImGui::BeginDisabled(appLoopbackReferenceIdx_ == 0);
-    if (ImGui::Button(wa::ui_text::kCapabilities)) {
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kCapabilities))) {
         capsModal_ = appLoopbackRecipe_.caps;
         capsModalContext_ = "Application Loopback format reference";
         ImGui::OpenPopup("Device capabilities");
@@ -1582,7 +1624,7 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
 
     ImGui::SeparatorText("Control");
     const ImVec2 ctrlBtn(120.0f, ImGui::GetFrameHeight() * 1.3f);
-    if (ImGui::Button(wa::ui_text::kLoopbackCreate, ctrlBtn)) {
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kLoopbackCreate), ctrlBtn)) {
         uint32_t pid = 0;
         if (!wa::parseApplicationLoopbackPid(appLoopbackPid_, pid)) {
             logLines_.push_back("application loopback create error: invalid PID");
@@ -1606,7 +1648,7 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
         }
     }
     ImGui::SameLine();
-    if (ImGui::Button(wa::ui_text::kLoopbackDestroyAll, ctrlBtn)) {
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kLoopbackDestroyAll), ctrlBtn)) {
         std::vector<std::wstring> dumpPaths;
         for (const auto& t : appLoopbackTracks_.poll())
             if (t.dumping) dumpPaths.push_back(t.dumpPath);
@@ -1616,7 +1658,7 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
         logLines_.push_back("application loopback destroy all");
     }
 
-    ImGui::SeparatorText(wa::ui_text::kLoopbackTracks);
+    ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kLoopbackTracks));
     const char* ss[] = {"Idle", "Running", "Error"};
     const auto tracks = appLoopbackTracks_.poll();
     for (const auto& t : tracks) {
@@ -1637,9 +1679,9 @@ void AppUi::drawOsSoundButtons(wa::os_sound_ui::Page page) {
     ImGui::PushID(static_cast<int>(page));
     const auto mmsys = wa::os_sound_ui::recipe(page, wa::os_sound_ui::Button::Mmsys);
     const auto settings = wa::os_sound_ui::recipe(page, wa::os_sound_ui::Button::MsSettings);
-    if (ImGui::Button(mmsys.label)) openOsSound(page, wa::os_sound_ui::Button::Mmsys);
+    if (ImGui::Button(wa::ui_text::id(mmsys.label))) openOsSound(page, wa::os_sound_ui::Button::Mmsys);
     ImGui::SameLine();
-    if (ImGui::Button(settings.label)) openOsSound(page, wa::os_sound_ui::Button::MsSettings);
+    if (ImGui::Button(wa::ui_text::id(settings.label))) openOsSound(page, wa::os_sound_ui::Button::MsSettings);
     ImGui::PopID();
 }
 
@@ -1654,7 +1696,7 @@ void AppUi::openOsSound(wa::os_sound_ui::Page page, wa::os_sound_ui::Button butt
            std::to_string(static_cast<long long>(code)));
     if (wa::os_sound_ui::shellExecuteFailed(code)) {
         WA_LOG(wa::log::Level::Warn, "OsSoundUi", "ShellExecuteW", args, r.failureLog);
-        logLines_.push_back(r.failureLog);
+        logLines_.push_back(wa::ui_text::get(r.failureLog));
     }
 }
 
@@ -1666,7 +1708,7 @@ void AppUi::drawLeftPanel() {
     if (ImGui::Button("Refresh devices")) refreshMonitorDevices();
     ImGui::SameLine();
     drawOsSoundButtons(wa::os_sound_ui::Page::Monitor);
-    if (ImGui::Button(wa::ui_text::kOptions)) ImGui::OpenPopup("Audio parameters (advanced)");
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kOptions))) ImGui::OpenPopup("Audio parameters (advanced)");
     ImGui::SameLine();
     if (ImGui::Button("Capture capabilities...")) {
         wa::ComInitGuard com;
@@ -1754,7 +1796,7 @@ void AppUi::drawLeftPanel() {
     ImGui::BeginDisabled(!monitorStarted_ || ms_.capState != wa::StreamState::Running);
     ImGui::PushID("capDump");
     if (ms_.capDumping) {
-        if (ImGui::Button(wa::ui_text::kDumpStop)) {
+        if (ImGui::Button(wa::ui_text::id(wa::ui_text::kDumpStop))) {
             const std::wstring path = ms_.capDumpPath;
             wa::Result r = monitor_.stopDumpCapture();
             logLines_.push_back(r ? ("dump stopped " + wtou(path))
@@ -1767,7 +1809,7 @@ void AppUi::drawLeftPanel() {
         }
     } else {
         ImGui::BeginDisabled(dumpPicking);
-        if (ImGui::Button(wa::ui_text::kDumpCapture))
+        if (ImGui::Button(wa::ui_text::id(wa::ui_text::kDumpCapture)))
             beginDumpPick(DumpPickKind::MonitorCap);
         ImGui::EndDisabled();
     }
@@ -1778,7 +1820,7 @@ void AppUi::drawLeftPanel() {
                          || ms_.renderState != wa::StreamState::Running);
     ImGui::PushID("renDump");
     if (ms_.renderDumping) {
-        if (ImGui::Button(wa::ui_text::kDumpStop)) {
+        if (ImGui::Button(wa::ui_text::id(wa::ui_text::kDumpStop))) {
             const std::wstring path = ms_.renderDumpPath;
             wa::Result r = monitor_.stopDumpRender();
             logLines_.push_back(r ? ("dump stopped " + wtou(path))
@@ -1791,7 +1833,7 @@ void AppUi::drawLeftPanel() {
         }
     } else {
         ImGui::BeginDisabled(dumpPicking);
-        if (ImGui::Button(wa::ui_text::kDumpRender))
+        if (ImGui::Button(wa::ui_text::id(wa::ui_text::kDumpRender)))
             beginDumpPick(DumpPickKind::MonitorRen);
         ImGui::EndDisabled();
     }
@@ -1894,9 +1936,19 @@ void AppUi::ensureLogPrefsPath() {
 
 void AppUi::loadLogRegionPrefs() {
     ensureLogPrefsPath();
-    const auto r = wa::log_region_prefs::load(logPrefsPath_);
-    logCollapsed_ = r.collapsed;
-    if (r.kind == wa::log_region_prefs::LoadKind::Invalid) {
+    const auto loaded = wa::log_region_prefs::load(logPrefsPath_);
+    logCollapsed_ = loaded.collapsed;
+    const auto uiLang = GetUserDefaultUILanguage();
+    char langId[8];
+    std::snprintf(langId, sizeof(langId), "0x%04X", static_cast<unsigned>(uiLang));
+    WA_LOG(wa::log::Level::Debug, "GuiLanguage", "GetUserDefaultUILanguage", "", langId);
+    const bool displayChinese = wa::gui_language::uiLanguageIsChinese(uiLang);
+    const auto resolved = wa::log_region_prefs::resolve(loaded, displayChinese);
+    wa::ui_text::setLanguage(resolved.language);
+    WA_LOG(wa::log::Level::Info, "GuiLanguage", "resolve",
+           wa::gui_language::token(resolved.language),
+           resolved.fromOverride ? "override" : "display");
+    if (loaded.kind == wa::log_region_prefs::LoadKind::Invalid) {
         WA_LOG(wa::log::Level::Warn, "LogRegionPrefs", "load",
                wtou(logPrefsPath_), "invalid");
     }
@@ -1945,7 +1997,7 @@ void AppUi::drawLogPanel(const char* listId) {
         const float midW = btnX - st.ItemSpacing.x - ImGui::GetCursorPosX();
         if (midW > 8.0f) {
             const bool empty = logLines_.empty();
-            const char* preview = empty ? wa::ui_text::kLogEmpty : logLines_.back().c_str();
+            const char* preview = empty ? wa::ui_text::get(wa::ui_text::kLogEmpty) : logLines_.back().c_str();
             drawClippedLogLine(preview, midW, empty);
         }
     }
@@ -1953,7 +2005,7 @@ void AppUi::drawLogPanel(const char* listId) {
     ImGui::SameLine();
     ImGui::SetCursorPosX(btnX);
     ImGui::PushID("logToggle");
-    const char* glyph = collapsed ? wa::ui_text::kLogExpand : wa::ui_text::kLogCollapse;
+    const char* glyph = collapsed ? wa::ui_text::get(wa::ui_text::kLogExpand) : wa::ui_text::get(wa::ui_text::kLogCollapse);
     if (ImGui::Button(glyph, ImVec2(btnSz, btnSz))) {
         logCollapsed_ = !collapsed;
         if (!logCollapsed_)
@@ -1978,7 +2030,7 @@ void AppUi::drawLogPanel(const char* listId) {
 void AppUi::drawAdvancedModal() {
     if (!ImGui::BeginPopupModal("Audio parameters (advanced)", nullptr,
                                 ImGuiWindowFlags_AlwaysAutoResize)) return;
-    ImGui::TextWrapped("%s", wa::ui_text::kAdvancedOptionsHelp);
+    ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kAdvancedOptionsHelp));
     if (monitorStarted_)
         ImGui::TextColored(ImVec4(1.00f, 0.80f, 0.30f, 1.00f),
                            "Running: parameters are read-only. Stop the monitor to change them.");
@@ -1987,7 +2039,7 @@ void AppUi::drawAdvancedModal() {
     ImGui::BeginDisabled(monitorStarted_);              // view-only while running
 
     ImGui::BeginGroup();                              // ---- Capture column
-    ImGui::SeparatorText(wa::ui_text::kAdvancedCaptureSection);
+    ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kAdvancedCaptureSection));
     ImGui::PushID("capP");
     ImGui::PushItemWidth(190);
     drawCaptureStreamParams(capParams_);
@@ -1998,26 +2050,29 @@ void AppUi::drawAdvancedModal() {
     ImGui::SameLine(0, 24);
 
     ImGui::BeginGroup();                              // ---- Render column
-    ImGui::SeparatorText(wa::ui_text::kAdvancedRenderSection);
+    ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kAdvancedRenderSection));
     ImGui::PushID("renP");
     ImGui::PushItemWidth(190);
     bool renProps = renParams_.clientProperties.enabled;
-    if (ImGui::Checkbox(wa::ui_text::kAdvancedSetClientProperties, &renProps))
+    if (ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kAdvancedSetClientProperties), &renProps))
         renParams_.clientProperties.enabled = renProps;
     ImGui::BeginDisabled(!renParams_.clientProperties.enabled);
     int v = (int)renParams_.clientProperties.category;
     if (ImGui::Combo("Category", &v, kAudioCategories, IM_ARRAYSIZE(kAudioCategories)))
         renParams_.clientProperties.category = (wa::AudioCategory)v;
     bool off = renParams_.clientProperties.offload;
-    if (ImGui::Checkbox(wa::ui_text::kAdvancedHardwareOffload, &off))
+    if (ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kAdvancedHardwareOffload), &off))
         renParams_.clientProperties.offload = off;
     v = (int)renParams_.clientProperties.option;
-    if (ImGui::Combo("Stream option", &v, wa::ui_text::kAdvancedStreamOptions,
+    const char* streamOptions[wa::ui_text::kAdvancedStreamOptionCount];
+    for (int streamOpt = 0; streamOpt < wa::ui_text::kAdvancedStreamOptionCount; ++streamOpt)
+        streamOptions[streamOpt] = wa::ui_text::get(wa::ui_text::kAdvancedStreamOptions[streamOpt]);
+    if (ImGui::Combo("Stream option", &v, streamOptions,
                      wa::ui_text::kAdvancedStreamOptionCount))
         renParams_.clientProperties.option = (wa::StreamOption)v;
     ImGui::EndDisabled();
     bool duck = renParams_.ducking == wa::DuckingMode::OptOut;
-    if (ImGui::Checkbox(wa::ui_text::kAdvancedDuckingOptOut, &duck)) renParams_.ducking = duck ? wa::DuckingMode::OptOut : wa::DuckingMode::Default;
+    if (ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kAdvancedDuckingOptOut), &duck)) renParams_.ducking = duck ? wa::DuckingMode::OptOut : wa::DuckingMode::Default;
     v = (int)renParams_.bufferMs;
     if (ImGui::InputInt("Buffer (ms)", &v)) renParams_.bufferMs = (uint32_t)std::clamp(v, 0, 2000);
     if (ImGui::Button("Reset to system defaults")) renParams_ = wa::StreamParams{};
@@ -2039,12 +2094,12 @@ void AppUi::drawChartsFreezeToolbar(VisualState& viz, const wa::MonitorStatus& s
     viz.chartsFrozen = wa::charts_freeze::applyLifecycle(overallRunning, viz.chartsFrozen);
 
     ImGui::BeginDisabled(!wa::charts_freeze::isControlEnabled(overallRunning));
-    if (ImGui::Button(viz.chartsFrozen ? wa::ui_text::kChartsResume : wa::ui_text::kChartsPause))
+    if (ImGui::Button(viz.chartsFrozen ? wa::ui_text::id(wa::ui_text::kChartsResume) : wa::ui_text::id(wa::ui_text::kChartsPause)))
         viz.chartsFrozen = !viz.chartsFrozen;
     ImGui::EndDisabled();
     if (viz.chartsFrozen) {
         ImGui::SameLine();
-        ImGui::TextUnformatted(wa::ui_text::kChartsPaused);
+        ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kChartsPaused));
     }
 
     // History length for the shared time axis (same window as wave/spec buffers).
@@ -2060,7 +2115,7 @@ void AppUi::drawChartsFreezeToolbar(VisualState& viz, const wa::MonitorStatus& s
 
     ImGui::SameLine();
     ImGui::BeginDisabled(!wa::charts_time_zoom::canZoomOut(viz.xLink0, viz.xLink1, historyH));
-    if (ImGui::Button(wa::ui_text::kChartsZoomOut)) {
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kChartsZoomOut))) {
         const auto z = wa::charts_time_zoom::zoomCentered(viz.xLink0, viz.xLink1, historyH, hopSec, 2.0);
         viz.xLink0 = z.x0;
         viz.xLink1 = z.x1;
@@ -2069,14 +2124,14 @@ void AppUi::drawChartsFreezeToolbar(VisualState& viz, const wa::MonitorStatus& s
     ImGui::SameLine();
     ImGui::BeginDisabled(
         !wa::charts_time_zoom::canZoomIn(viz.xLink0, viz.xLink1, historyH, hopSec));
-    if (ImGui::Button(wa::ui_text::kChartsZoomIn)) {
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kChartsZoomIn))) {
         const auto z = wa::charts_time_zoom::zoomCentered(viz.xLink0, viz.xLink1, historyH, hopSec, 0.5);
         viz.xLink0 = z.x0;
         viz.xLink1 = z.x1;
     }
     ImGui::EndDisabled();
     ImGui::SameLine();
-    if (ImGui::Button(wa::ui_text::kChartsResetView)) {
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kChartsResetView))) {
         const auto full = wa::charts_time_zoom::fullHistory(historyH);
         viz.xLink0 = full.x0;
         viz.xLink1 = full.x1;
