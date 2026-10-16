@@ -753,7 +753,7 @@ void AppUi::draw() {
             drawMonitorPage();
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem("Loopback")) {
+        if (ImGui::BeginTabItem(wa::ui_text::id(wa::ui_text::kLoopbackTab))) {
             drawLoopbackPage();
             ImGui::EndTabItem();
         }
@@ -1455,16 +1455,16 @@ void AppUi::drawRenderLeftPanel() {
 void AppUi::drawLoopbackLeftPanel() {
     if (!monitorDevicesLoaded_) refreshMonitorDevices();
 
-    ImGui::SeparatorText("Source");
-    if (ImGui::Button("Refresh devices")) refreshMonitorDevices();
+    ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kSource));
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kRefreshDevices))) refreshMonitorDevices();
     ImGui::SameLine();
     drawOsSoundButtons(wa::os_sound_ui::Page::Loopback);
-    std::string preview = "(no render devices)";
+    std::string preview = wa::ui_text::get(wa::ui_text::kNoRenderDevices);
     if (!renderDevices_.empty() && loopbackDevIdx_ >= 0 && loopbackDevIdx_ < (int)renderDevices_.size())
         preview = (renderDevices_[(size_t)loopbackDevIdx_].isDefault ? "* " : "") +
                   wtou(renderDevices_[(size_t)loopbackDevIdx_].name);
     ImGui::SetNextItemWidth(-1);
-    if (ImGui::BeginCombo("System audio", preview.c_str())) {
+    if (ImGui::BeginCombo(wa::ui_text::id(wa::ui_text::kSystemAudio), preview.c_str())) {
         for (int i = 0; i < (int)renderDevices_.size(); ++i) {
             std::string l = (renderDevices_[(size_t)i].isDefault ? "* " : "  ") +
                             wtou(renderDevices_[(size_t)i].name);
@@ -1489,7 +1489,7 @@ void AppUi::drawLoopbackLeftPanel() {
     drawCapsModal();
     ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kLoopbackSilentRender), &loopbackSilentRender_);
 
-    ImGui::SeparatorText("Control");
+    ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kControl));
     const ImVec2 ctrlBtn(120.0f, ImGui::GetFrameHeight() * 1.3f);
     if (ImGui::Button(wa::ui_text::id(wa::ui_text::kLoopbackCreate), ctrlBtn)) {
         wa::DeviceId id = renderDevices_.empty() ? L"" : renderDevices_[(size_t)loopbackDevIdx_].id;
@@ -1516,7 +1516,11 @@ void AppUi::drawLoopbackLeftPanel() {
     }
 
     ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kLoopbackTracks));
-    const char* ss[] = {"Idle", "Running", "Error"};
+    const char* ss[] = {
+        wa::ui_text::get(wa::ui_text::kIdle),
+        wa::ui_text::get(wa::ui_text::kRunning),
+        wa::ui_text::get(wa::ui_text::kError),
+    };
     const auto tracks = loopbackTracks_.poll();
     for (const auto& t : tracks) {
         ImGui::PushID(static_cast<int>(t.id));
@@ -1542,7 +1546,7 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
 
     ImGui::BeginChild("appLoopbackSessionList", ImVec2(0, 170.0f), true);
     if (appLoopbackSessions_.empty()) {
-        ImGui::TextUnformatted("(none)");
+        ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kApplicationLoopbackNoSessions));
     } else {
         for (int i = 0; i < (int)appLoopbackSessions_.size(); ++i) {
             const auto& row = appLoopbackSessions_[(size_t)i];
@@ -1568,7 +1572,7 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
 
     ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kFormatReference));
     ImGui::SameLine();
-    if (ImGui::Button("Refresh devices##appLoopbackReference"))
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kRefreshDevices)))
         refreshMonitorDevices();
     ImGui::SameLine();
     drawOsSoundButtons(wa::os_sound_ui::Page::ApplicationLoopback);
@@ -1612,7 +1616,7 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
                      appLoopbackRecipe_.params);
     drawCapsModal();
 
-    ImGui::SeparatorText("Control");
+    ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kControl));
     const ImVec2 ctrlBtn(120.0f, ImGui::GetFrameHeight() * 1.3f);
     if (ImGui::Button(wa::ui_text::id(wa::ui_text::kLoopbackCreate), ctrlBtn)) {
         uint32_t pid = 0;
@@ -1649,7 +1653,11 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
     }
 
     ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kLoopbackTracks));
-    const char* ss[] = {"Idle", "Running", "Error"};
+    const char* ss[] = {
+        wa::ui_text::get(wa::ui_text::kIdle),
+        wa::ui_text::get(wa::ui_text::kRunning),
+        wa::ui_text::get(wa::ui_text::kError),
+    };
     const auto tracks = appLoopbackTracks_.poll();
     for (const auto& t : tracks) {
         ImGui::PushID(static_cast<int>(t.id));
