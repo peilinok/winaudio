@@ -135,9 +135,13 @@ namespace wa::ui_text {
     WA_UI_TEXT(kDeviceCapabilities, "Device capabilities", "设备能力") \
     WA_UI_TEXT(kCaptureCapabilities, "Capture capabilities", "Capture 能力") \
     WA_UI_TEXT(kMonitorTab, "Monitor", nullptr) \
+    WA_UI_TEXT(kLoopbackTab, "Loopback", "Loopback") \
     WA_UI_TEXT(kCaptureDevice, "Capture device", "Capture 设备") \
     WA_UI_TEXT(kRenderDevice, "Render device", "Render 设备") \
     WA_UI_TEXT(kNoDevices, "(no devices)", "（无设备）") \
+    WA_UI_TEXT(kNoRenderDevices, "(no render devices)", "（无 Render 设备）") \
+    WA_UI_TEXT(kSystemAudio, "System audio", "系统音频") \
+    WA_UI_TEXT(kApplicationLoopbackNoSessions, "(none)", "（无）") \
     WA_UI_TEXT(kDelayMs, "Delay (ms)", "延迟 (ms)") \
     WA_UI_TEXT(kWasapiShared, "WASAPI-Shared", nullptr) \
     WA_UI_TEXT(kWasapiExclusive, "WASAPI-Exclusive", nullptr) \

@@ -377,3 +377,32 @@ TEST_F(GuiLanguageText, CapabilityOriginAndSupportWordsFollowLanguage) {
               wa::ui_text::get(wa::ui_text::kSupportExact));
     EXPECT_NE(wa::ui_text::get(wa::ui_text::kSupportExact), wa::ui_text::kSupportExact);
 }
+
+TEST_F(GuiLanguageText, LoopbackLeftoverRowsEnglishPointerAndChineseSlot) {
+    EXPECT_STREQ(wa::ui_text::kLoopbackTab, "Loopback");
+    EXPECT_STREQ(wa::ui_text::kNoRenderDevices, "(no render devices)");
+    EXPECT_STREQ(wa::ui_text::kSystemAudio, "System audio");
+    EXPECT_STREQ(wa::ui_text::kApplicationLoopbackNoSessions, "(none)");
+
+    wa::ui_text::setLanguage(wa::gui_language::Language::En);
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kLoopbackTab), wa::ui_text::kLoopbackTab);
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kNoRenderDevices), wa::ui_text::kNoRenderDevices);
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kSystemAudio), wa::ui_text::kSystemAudio);
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kApplicationLoopbackNoSessions),
+              wa::ui_text::kApplicationLoopbackNoSessions);
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kSource), wa::ui_text::kSource);
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kIdle), wa::ui_text::kIdle);
+
+    wa::ui_text::setLanguage(wa::gui_language::Language::ZhCn);
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kLoopbackTab), "Loopback");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kNoRenderDevices), "（无 Render 设备）");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kSystemAudio), "系统音频");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kApplicationLoopbackNoSessions), "（无）");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kSource), "来源");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kControl), "控制");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kRefreshDevices), "刷新设备");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kIdle), "空闲");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kRunning), "运行中");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kError), "错误");
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kLogExpand), wa::ui_text::kLogExpand);
+}
