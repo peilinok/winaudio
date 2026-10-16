@@ -272,3 +272,108 @@ TEST_F(GuiLanguageText, HelpersThatReturnCatalogConstantsFollowLanguage) {
     EXPECT_NE(tip.find("Active"), std::string::npos);
     EXPECT_NE(tip.find("\nprocess: "), std::string::npos);
 }
+
+TEST_F(GuiLanguageText, MonitorLeftoverRowsEnglishPointerAndChineseSlot) {
+    EXPECT_STREQ(wa::ui_text::kMonitorTab, "Monitor");
+    EXPECT_STREQ(wa::ui_text::kCaptureDevice, "Capture device");
+    EXPECT_STREQ(wa::ui_text::kRenderDevice, "Render device");
+    EXPECT_STREQ(wa::ui_text::kNoDevices, "(no devices)");
+    EXPECT_STREQ(wa::ui_text::kDelayMs, "Delay (ms)");
+    EXPECT_STREQ(wa::ui_text::kWasapiShared, "WASAPI-Shared");
+    EXPECT_STREQ(wa::ui_text::kWasapiExclusive, "WASAPI-Exclusive");
+    EXPECT_STREQ(wa::ui_text::kSyncPlayback, "Sync playback");
+    EXPECT_STREQ(wa::ui_text::kFormatDefault, " (default)");
+    EXPECT_STREQ(wa::ui_text::kAudioParametersAdvanced, "Audio parameters (advanced)");
+    EXPECT_STREQ(wa::ui_text::kRunningParamsReadOnly,
+                 "Running: parameters are read-only. Stop the monitor to change them.");
+    EXPECT_STREQ(wa::ui_text::kStreamOptionCaption, "Stream option");
+    EXPECT_STREQ(wa::ui_text::kBufferMs, "Buffer (ms)");
+    EXPECT_STREQ(wa::ui_text::kCategoryOther, "Other");
+    EXPECT_STREQ(wa::ui_text::kCategoryCommunications, "Communications");
+    EXPECT_STREQ(wa::ui_text::kCategoryMedia, "Media");
+    EXPECT_STREQ(wa::ui_text::kCategoryMovie, "Movie");
+    EXPECT_STREQ(wa::ui_text::kCategoryGameChat, "Game chat");
+    EXPECT_STREQ(wa::ui_text::kCategorySpeech, "Speech");
+    EXPECT_STREQ(wa::ui_text::kCategorySoundEffects, "Sound effects");
+    EXPECT_STREQ(wa::ui_text::kCategoryGameMedia, "Game media");
+    EXPECT_EQ(wa::ui_text::kAudioCategoryCount, 8);
+    EXPECT_EQ(wa::ui_text::kAudioCategoryLabels[0], wa::ui_text::kCategoryOther);
+    EXPECT_EQ(wa::ui_text::kAudioCategoryLabels[7], wa::ui_text::kCategoryGameMedia);
+    EXPECT_STREQ(wa::ui_text::kOriginMix, "Mix");
+    EXPECT_STREQ(wa::ui_text::kOriginDevice, "Device");
+    EXPECT_STREQ(wa::ui_text::kOriginOem, "OEM");
+    EXPECT_STREQ(wa::ui_text::kOriginStandard, "Standard");
+    EXPECT_STREQ(wa::ui_text::kSources, "Sources");
+    EXPECT_STREQ(wa::ui_text::kShared, "Shared");
+    EXPECT_STREQ(wa::ui_text::kExclusive, "Exclusive");
+    EXPECT_STREQ(wa::ui_text::kSupportExact, "Exact");
+    EXPECT_STREQ(wa::ui_text::kSupportClosest, "Closest");
+    EXPECT_STREQ(wa::ui_text::kMonitorCaptureDevice, "Monitor capture device");
+    EXPECT_STREQ(wa::ui_text::kSystemLoopbackRenderDevice, "System Loopback render device");
+    EXPECT_STREQ(wa::ui_text::kApplicationLoopbackFormatReference,
+                 "Application Loopback format reference");
+    EXPECT_STREQ(wa::ui_text::kCaptureWaveformSpectrogram, "Capture waveform + spectrogram");
+    EXPECT_STREQ(wa::ui_text::kRenderWaveformSpectrogramDelayed,
+                 "Render waveform + spectrogram (delayed)");
+    EXPECT_STREQ(wa::ui_text::kCaptureChannelsShown,
+                 "Capture channels: %u / %u channels shown");
+    EXPECT_STREQ(wa::ui_text::kCaptureChannelWaveform, "Capture Ch %u waveform");
+    EXPECT_STREQ(wa::ui_text::kCaptureChannelSpectrogram, "Capture Ch %u spectrogram");
+
+    wa::ui_text::setLanguage(wa::gui_language::Language::En);
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kSyncPlayback), wa::ui_text::kSyncPlayback);
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kRunningParamsReadOnly),
+              wa::ui_text::kRunningParamsReadOnly);
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kCategoryMovie), wa::ui_text::kCategoryMovie);
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kMonitorTab), wa::ui_text::kMonitorTab);
+
+    wa::ui_text::setLanguage(wa::gui_language::Language::ZhCn);
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kSyncPlayback), "同步播放");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kCaptureDevice), "Capture 设备");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kNoDevices), "（无设备）");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kAudioParametersAdvanced), "音频参数（高级）");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kRunningParamsReadOnly),
+                 "运行中：参数只读。请先停止 Monitor 再修改。");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kCategoryOther), "其他");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kCategoryMovie), "电影");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kSupportExact), "精确");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kSupportClosest), "最接近");
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kMonitorTab), wa::ui_text::kMonitorTab);
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kWasapiShared), wa::ui_text::kWasapiShared);
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kWasapiExclusive), wa::ui_text::kWasapiExclusive);
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kCategoryCommunications),
+              wa::ui_text::kCategoryCommunications);
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kCategoryMedia), wa::ui_text::kCategoryMedia);
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kShared), wa::ui_text::kShared);
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kExclusive), wa::ui_text::kExclusive);
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kOriginMix), wa::ui_text::kOriginMix);
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kOriginOem), wa::ui_text::kOriginOem);
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kCaptureChannelWaveform), "Capture Ch %u 波形");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kCaptureChannelSpectrogram),
+                 "Capture Ch %u 声谱图");
+}
+
+TEST_F(GuiLanguageText, CapabilityOriginAndSupportWordsFollowLanguage) {
+    using wa::FormatOrigin;
+    using wa::SupportLevel;
+    const wa::FormatOrigins mixDevice =
+        wa::formatOriginBit(FormatOrigin::Mix) | wa::formatOriginBit(FormatOrigin::Device);
+
+    wa::ui_text::setLanguage(wa::gui_language::Language::En);
+    EXPECT_EQ(wa::ui_text::formatOriginsLabel(0), "-");
+    EXPECT_EQ(wa::ui_text::formatOriginsLabel(mixDevice), "Mix, Device");
+    EXPECT_EQ(wa::ui_text::supportLabel(SupportLevel::Exact), wa::ui_text::kSupportExact);
+    EXPECT_EQ(wa::ui_text::supportLabel(SupportLevel::ClosestMatch),
+              wa::ui_text::kSupportClosest);
+    EXPECT_STREQ(wa::ui_text::supportLabel(SupportLevel::Unsupported), "-");
+
+    wa::ui_text::setLanguage(wa::gui_language::Language::ZhCn);
+    const std::string origins = wa::ui_text::formatOriginsLabel(mixDevice);
+    EXPECT_NE(origins.find(wa::ui_text::get(wa::ui_text::kOriginMix)), std::string::npos);
+    EXPECT_NE(origins.find(wa::ui_text::get(wa::ui_text::kOriginDevice)), std::string::npos);
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kOriginDevice), "设备");
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kOriginMix), wa::ui_text::kOriginMix);
+    EXPECT_EQ(wa::ui_text::supportLabel(SupportLevel::Exact),
+              wa::ui_text::get(wa::ui_text::kSupportExact));
+    EXPECT_NE(wa::ui_text::get(wa::ui_text::kSupportExact), wa::ui_text::kSupportExact);
+}

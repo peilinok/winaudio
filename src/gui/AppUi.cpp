@@ -107,26 +107,6 @@ std::string formatLabel(const wa::AudioFormat& fmt) {
     return text;
 }
 
-std::string formatOriginsLabel(wa::FormatOrigins origins) {
-    std::string text;
-    auto append = [&](const char* name) {
-        if (!text.empty()) text += ", ";
-        text += name;
-    };
-    if (wa::hasFormatOrigin(origins, wa::FormatOrigin::Mix)) append("Mix");
-    if (wa::hasFormatOrigin(origins, wa::FormatOrigin::Device)) append("Device");
-    if (wa::hasFormatOrigin(origins, wa::FormatOrigin::Oem)) append("OEM");
-    if (wa::hasFormatOrigin(origins, wa::FormatOrigin::Standard)) append("Standard");
-    return text.empty() ? "-" : text;
-}
-
-const char* supportLabel(wa::SupportLevel support) {
-    switch (support) {
-    case wa::SupportLevel::Exact: return "Exact";
-    case wa::SupportLevel::ClosestMatch: return "Closest";
-    default: return "-";
-    }
-}
 } // namespace
 
 // Draw a 4-way "move" icon (crosshair + outward arrowheads) centered at c, sized to a box of side s.
@@ -387,10 +367,11 @@ void AppUi::drawFormatRegion() {
 
     // Display current effective format
     const wa::AudioFormat& f = selectedFmt_;
-    ImGui::Text("Format: %u/%u/%u%s%s",
+    ImGui::Text("%s: %u/%u/%u%s%s",
+                wa::ui_text::get(wa::ui_text::kFormat),
                 f.sampleRate, (unsigned)f.bitsPerSample, (unsigned)f.channels,
                 f.isFloat ? "f" : "",
-                haveFmt_ ? "" : " (default)");
+                haveFmt_ ? "" : wa::ui_text::get(wa::ui_text::kFormatDefault));
 
     // Build filtered candidate list for the current backend mode
     const bool isExclusive = (backendIdx_ == 1);
@@ -412,13 +393,15 @@ void AppUi::drawFormatRegion() {
         if (fmt.isFloat) s += "f";
         return s;
     };
-    const std::string preview = (fmtChoiceIdx_ == 0) ? std::string("System default")
+    const char* systemDefault = wa::ui_text::get(wa::ui_text::kSystemDefault);
+    const std::string preview = (fmtChoiceIdx_ == 0) ? std::string(systemDefault)
                               : (fmtChoiceIdx_ >= 1) ? fmtStr(okFmts[(size_t)(fmtChoiceIdx_ - 1)])
                               : fmtStr(selectedFmt_);   // custom (idx == -1)
     ImGui::SetNextItemWidth(-1);
     if (ImGui::BeginCombo("##fmtCombo", preview.c_str())) {
         // Item 0: System default — recomputes selectedFmt_ and haveFmt_ from device/backend
-        if (ImGui::Selectable("System default##0", fmtChoiceIdx_ == 0)) {
+        const std::string defItem = std::string(systemDefault) + "###0";
+        if (ImGui::Selectable(defItem.c_str(), fmtChoiceIdx_ == 0)) {
             fmtChoiceIdx_ = 0;
             recomputeDefaultFormat();
         }
@@ -450,10 +433,9 @@ void AppUi::drawFormatRegion() {
     }
 }
 
-static const char* kAudioCategories[] = {
-    "Other", "Communications", "Media", "Movie",
-    "Game chat", "Speech", "Sound effects", "Game media"
-};
+static void fillCatalogLookup(const char* const* src, const char** dst, int n) {
+    for (int i = 0; i < n; ++i) dst[i] = wa::ui_text::get(src[i]);
+}
 
 static void drawCaptureStreamParams(wa::StreamParams& p) {
     bool capProps = p.clientProperties.enabled;
@@ -461,22 +443,26 @@ static void drawCaptureStreamParams(wa::StreamParams& p) {
         p.clientProperties.enabled = capProps;
     ImGui::BeginDisabled(!p.clientProperties.enabled);
     int v = (int)p.clientProperties.category;
-    if (ImGui::Combo("Category", &v, kAudioCategories, IM_ARRAYSIZE(kAudioCategories)))
+    const char* categories[wa::ui_text::kAudioCategoryCount];
+    fillCatalogLookup(wa::ui_text::kAudioCategoryLabels, categories, wa::ui_text::kAudioCategoryCount);
+    if (ImGui::Combo(wa::ui_text::id(wa::ui_text::kCategory), &v, categories,
+                     wa::ui_text::kAudioCategoryCount))
         p.clientProperties.category = (wa::AudioCategory)v;
     bool capOff = p.clientProperties.offload;
     if (ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kAdvancedHardwareOffload), &capOff))
         p.clientProperties.offload = capOff;
     v = (int)p.clientProperties.option;
     const char* streamOptions[wa::ui_text::kAdvancedStreamOptionCount];
-    for (int streamOpt = 0; streamOpt < wa::ui_text::kAdvancedStreamOptionCount; ++streamOpt)
-        streamOptions[streamOpt] = wa::ui_text::get(wa::ui_text::kAdvancedStreamOptions[streamOpt]);
-    if (ImGui::Combo("Stream option", &v, streamOptions,
+    fillCatalogLookup(wa::ui_text::kAdvancedStreamOptions, streamOptions,
+                 wa::ui_text::kAdvancedStreamOptionCount);
+    if (ImGui::Combo(wa::ui_text::id(wa::ui_text::kStreamOptionCaption), &v, streamOptions,
                      wa::ui_text::kAdvancedStreamOptionCount))
         p.clientProperties.option = (wa::StreamOption)v;
     ImGui::EndDisabled();
     v = (int)p.bufferMs;
-    if (ImGui::InputInt("Buffer (ms)", &v)) p.bufferMs = (uint32_t)std::clamp(v, 0, 2000);
-    if (ImGui::Button("Reset to system defaults")) p = wa::StreamParams{};
+    if (ImGui::InputInt(wa::ui_text::id(wa::ui_text::kBufferMs), &v))
+        p.bufferMs = (uint32_t)std::clamp(v, 0, 2000);
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kResetToSystemDefaults))) p = wa::StreamParams{};
 }
 
 void AppUi::recomputeLoopbackFormat() {
@@ -534,12 +520,14 @@ void AppUi::drawFormatRecipe(wa::create_recipe::FormatState& st,
     if (st.choiceIdx < -1 || st.choiceIdx > nOk) st.choiceIdx = 0;
 
     const char* shownDefault = wa::ui_text::get(defaultLabel);
+    const char* formatCaption = wa::ui_text::get(wa::ui_text::kFormat);
     if (st.haveRequested) {
-        ImGui::Text("Format: %s", formatLabel(st.selected).c_str());
+        ImGui::Text("%s: %s", formatCaption, formatLabel(st.selected).c_str());
     } else if (hasDefaultDisplay) {
-        ImGui::Text("Format: %s (%s)", formatLabel(defaultDisplay).c_str(), shownDefault);
+        ImGui::Text("%s: %s (%s)", formatCaption, formatLabel(defaultDisplay).c_str(),
+                    shownDefault);
     } else {
-        ImGui::Text("Format: %s", shownDefault);
+        ImGui::Text("%s: %s", formatCaption, shownDefault);
     }
 
     const std::string preview = (st.choiceIdx == 0) ? std::string(shownDefault)
@@ -554,7 +542,8 @@ void AppUi::drawFormatRecipe(wa::create_recipe::FormatState& st,
         for (int i = 0; i < nOk; ++i) {
             const auto& choice = candidates[static_cast<size_t>(i)];
             const std::string label = formatLabel(choice.fmt) + "  [" +
-                formatOriginsLabel(choice.origins) + "; " + supportLabel(choice.shared) +
+                wa::ui_text::formatOriginsLabel(choice.origins) + "; " +
+                wa::ui_text::supportLabel(choice.shared) +
                 "]##" + std::to_string(i + 1);
             if (ImGui::Selectable(label.c_str(), st.choiceIdx == i + 1))
                 wa::create_recipe::selectCandidate(st, choice.fmt, i + 1);
@@ -588,7 +577,8 @@ void AppUi::drawCaptureOptions(wa::StreamParams& params) {
     drawCaptureStreamParams(params);
     ImGui::PopItemWidth();
     ImGui::Separator();
-    if (ImGui::Button("Close", ImVec2(120, 0))) ImGui::CloseCurrentPopup();
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kClose), ImVec2(120, 0)))
+        ImGui::CloseCurrentPopup();
     ImGui::EndPopup();
 }
 
@@ -610,8 +600,8 @@ static void drawYUnitLabel(const char* unit, bool rightSide = false) {
 
 const char* AppUi::chartTitle(int id) {
     switch (id) {
-    case 0: return "Capture waveform + spectrogram";
-    case 1: return "Render waveform + spectrogram (delayed)";
+    case 0: return wa::ui_text::get(wa::ui_text::kCaptureWaveformSpectrogram);
+    case 1: return wa::ui_text::get(wa::ui_text::kRenderWaveformSpectrogramDelayed);
     default: return "";
     }
 }
@@ -759,7 +749,7 @@ void AppUi::draw() {
     window->WorkRect.Max.x = savedMaxX;
 
     if (pagesOpen) {
-        if (ImGui::BeginTabItem("Monitor")) {
+        if (ImGui::BeginTabItem(wa::ui_text::id(wa::ui_text::kMonitorTab))) {
             drawMonitorPage();
             ImGui::EndTabItem();
         }
@@ -1489,8 +1479,8 @@ void AppUi::drawLoopbackLeftPanel() {
         recomputeLoopbackFormat();
     if (ImGui::Button(wa::ui_text::id(wa::ui_text::kCapabilities))) {
         capsModal_ = loopbackRecipe_.caps;
-        capsModalContext_ = "System Loopback render device";
-        ImGui::OpenPopup("Device capabilities");
+        capsModalContext_ = wa::ui_text::kSystemLoopbackRenderDevice;
+        ImGui::OpenPopup(wa::ui_text::id(wa::ui_text::kDeviceCapabilities));
     }
     drawFormatRecipe(loopbackRecipe_.format,
                      wa::create_recipe::sharedFormatChoices(loopbackRecipe_.caps),
@@ -1612,8 +1602,8 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
     ImGui::BeginDisabled(appLoopbackReferenceIdx_ == 0);
     if (ImGui::Button(wa::ui_text::id(wa::ui_text::kCapabilities))) {
         capsModal_ = appLoopbackRecipe_.caps;
-        capsModalContext_ = "Application Loopback format reference";
-        ImGui::OpenPopup("Device capabilities");
+        capsModalContext_ = wa::ui_text::kApplicationLoopbackFormatReference;
+        ImGui::OpenPopup(wa::ui_text::id(wa::ui_text::kDeviceCapabilities));
     }
     ImGui::EndDisabled();
     drawFormatRecipe(appLoopbackRecipe_.format,
@@ -1704,26 +1694,27 @@ void AppUi::drawLeftPanel() {
     if (!monitorDevicesLoaded_) refreshMonitorDevices();
 
     // --- Devices ---
-    ImGui::SeparatorText("Devices");
-    if (ImGui::Button("Refresh devices")) refreshMonitorDevices();
+    ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kDevices));
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kRefreshDevices))) refreshMonitorDevices();
     ImGui::SameLine();
     drawOsSoundButtons(wa::os_sound_ui::Page::Monitor);
-    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kOptions))) ImGui::OpenPopup("Audio parameters (advanced)");
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kOptions)))
+        ImGui::OpenPopup(wa::ui_text::id(wa::ui_text::kAudioParametersAdvanced));
     ImGui::SameLine();
-    if (ImGui::Button("Capture capabilities...")) {
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kCaptureCapabilities))) {
         wa::ComInitGuard com;
         wa::DeviceId capId = (capDevIdx_ >= 0 && capDevIdx_ < (int)capDevices_.size())
                              ? capDevices_[(size_t)capDevIdx_].id : L"";
         enumerator_.queryCapabilities(wa::DataFlow::Capture, capId, capsCache_);
         capsModal_ = capsCache_;
-        capsModalContext_ = "Monitor capture device";
-        ImGui::OpenPopup("Device capabilities");
+        capsModalContext_ = wa::ui_text::kMonitorCaptureDevice;
+        ImGui::OpenPopup(wa::ui_text::id(wa::ui_text::kDeviceCapabilities));
     }
 
     auto deviceCombo = [&](const char* caption, const char* comboId,
                            const std::vector<wa::DeviceInfo>& devs, int& idx) {
-        ImGui::TextUnformatted(caption);
-        std::string preview = "(no devices)";
+        ImGui::TextUnformatted(wa::ui_text::get(caption));
+        std::string preview = wa::ui_text::get(wa::ui_text::kNoDevices);
         if (!devs.empty() && idx >= 0 && idx < (int)devs.size())
             preview = (devs[(size_t)idx].isDefault ? "* " : "") + wtou(devs[(size_t)idx].name);
         ImGui::SetNextItemWidth(-1);
@@ -1736,21 +1727,24 @@ void AppUi::drawLeftPanel() {
             ImGui::EndCombo();
         }
     };
-    deviceCombo("Capture device", "##capdev", capDevices_, capDevIdx_);
-    deviceCombo("Render device",  "##rendev", renderDevices_, renderDevIdx_);
+    deviceCombo(wa::ui_text::kCaptureDevice, "##capdev", capDevices_, capDevIdx_);
+    deviceCombo(wa::ui_text::kRenderDevice,  "##rendev", renderDevices_, renderDevIdx_);
     drawAdvancedModal();
     drawCapsModal();
 
     // --- Control ---
-    ImGui::SeparatorText("Control");
-    const char* backends[] = {"WASAPI-Shared", "WASAPI-Exclusive"};
-    ImGui::Combo("Backend", &backendIdx_, backends, 2);
-    ImGui::SliderInt("Delay (ms)", &delayMs_, 0, 500);
+    ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kControl));
+    const char* backends[] = {
+        wa::ui_text::get(wa::ui_text::kWasapiShared),
+        wa::ui_text::get(wa::ui_text::kWasapiExclusive),
+    };
+    ImGui::Combo(wa::ui_text::id(wa::ui_text::kBackend), &backendIdx_, backends, 2);
+    ImGui::SliderInt(wa::ui_text::id(wa::ui_text::kDelayMs), &delayMs_, 0, 500);
     drawFormatRegion();
 
     const ImVec2 ctrlBtn(120.0f, ImGui::GetFrameHeight() * 1.3f);   // enlarged Start/Stop button
     if (!monitorStarted_) {
-        if (ImGui::Button("Start", ctrlBtn)) {
+        if (ImGui::Button(wa::ui_text::id(wa::ui_text::kStart), ctrlBtn)) {
             wa::DeviceId capId = capDevices_.empty()    ? L"" : capDevices_[capDevIdx_].id;
             wa::DeviceId renId = renderDevices_.empty() ? L"" : renderDevices_[renderDevIdx_].id;
             wa::BackendKind kind = (backendIdx_ == 1) ? wa::BackendKind::WasapiExclusive
@@ -1765,7 +1759,7 @@ void AppUi::drawLeftPanel() {
             }
         }
     } else {
-        if (ImGui::Button("Stop", ctrlBtn)) {
+        if (ImGui::Button(wa::ui_text::id(wa::ui_text::kStop), ctrlBtn)) {
             const std::wstring capDump = ms_.capDumping ? ms_.capDumpPath : std::wstring{};
             const std::wstring renDump = ms_.renderDumping ? ms_.renderDumpPath : std::wstring{};
             monitor_.stop();
@@ -1781,7 +1775,7 @@ void AppUi::drawLeftPanel() {
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + (ctrlBtn.y - ImGui::GetFrameHeight()) * 0.5f);
 
     // Playback checkbox — always toggleable; applies live while running, else takes effect on next Start.
-    if (ImGui::Checkbox("同步播放 (playback)", &playbackEnabled_)) {
+    if (ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kSyncPlayback), &playbackEnabled_)) {
         if (monitorStarted_ && !playbackEnabled_ && ms_.renderDumping) {
             const std::wstring path = ms_.renderDumpPath;
             wa::Result r = monitor_.stopDumpRender();
@@ -1841,8 +1835,12 @@ void AppUi::drawLeftPanel() {
     ImGui::EndDisabled();
 
     // --- Status ---
-    ImGui::SeparatorText("Status");
-    const char* ss[] = {"Idle", "Running", "Error"};
+    ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kStatus));
+    const char* ss[] = {
+        wa::ui_text::get(wa::ui_text::kIdle),
+        wa::ui_text::get(wa::ui_text::kRunning),
+        wa::ui_text::get(wa::ui_text::kError),
+    };
     ImGui::Text("overall=%s  cap=%s  ren=%s  sr=%u  delay=%ums",
         ss[(int)ms_.overall], ss[(int)ms_.capState], ss[(int)ms_.renderState],
         ms_.sampleRate, ms_.delayMs);
@@ -2028,12 +2026,12 @@ void AppUi::drawLogPanel(const char* listId) {
 }
 
 void AppUi::drawAdvancedModal() {
-    if (!ImGui::BeginPopupModal("Audio parameters (advanced)", nullptr,
+    if (!ImGui::BeginPopupModal(wa::ui_text::id(wa::ui_text::kAudioParametersAdvanced), nullptr,
                                 ImGuiWindowFlags_AlwaysAutoResize)) return;
     ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kAdvancedOptionsHelp));
     if (monitorStarted_)
-        ImGui::TextColored(ImVec4(1.00f, 0.80f, 0.30f, 1.00f),
-                           "Running: parameters are read-only. Stop the monitor to change them.");
+        ImGui::TextColored(ImVec4(1.00f, 0.80f, 0.30f, 1.00f), "%s",
+                           wa::ui_text::get(wa::ui_text::kRunningParamsReadOnly));
     ImGui::Separator();
 
     ImGui::BeginDisabled(monitorStarted_);              // view-only while running
@@ -2058,24 +2056,29 @@ void AppUi::drawAdvancedModal() {
         renParams_.clientProperties.enabled = renProps;
     ImGui::BeginDisabled(!renParams_.clientProperties.enabled);
     int v = (int)renParams_.clientProperties.category;
-    if (ImGui::Combo("Category", &v, kAudioCategories, IM_ARRAYSIZE(kAudioCategories)))
+    const char* categories[wa::ui_text::kAudioCategoryCount];
+    fillCatalogLookup(wa::ui_text::kAudioCategoryLabels, categories, wa::ui_text::kAudioCategoryCount);
+    if (ImGui::Combo(wa::ui_text::id(wa::ui_text::kCategory), &v, categories,
+                     wa::ui_text::kAudioCategoryCount))
         renParams_.clientProperties.category = (wa::AudioCategory)v;
     bool off = renParams_.clientProperties.offload;
     if (ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kAdvancedHardwareOffload), &off))
         renParams_.clientProperties.offload = off;
     v = (int)renParams_.clientProperties.option;
     const char* streamOptions[wa::ui_text::kAdvancedStreamOptionCount];
-    for (int streamOpt = 0; streamOpt < wa::ui_text::kAdvancedStreamOptionCount; ++streamOpt)
-        streamOptions[streamOpt] = wa::ui_text::get(wa::ui_text::kAdvancedStreamOptions[streamOpt]);
-    if (ImGui::Combo("Stream option", &v, streamOptions,
+    fillCatalogLookup(wa::ui_text::kAdvancedStreamOptions, streamOptions,
+                 wa::ui_text::kAdvancedStreamOptionCount);
+    if (ImGui::Combo(wa::ui_text::id(wa::ui_text::kStreamOptionCaption), &v, streamOptions,
                      wa::ui_text::kAdvancedStreamOptionCount))
         renParams_.clientProperties.option = (wa::StreamOption)v;
     ImGui::EndDisabled();
     bool duck = renParams_.ducking == wa::DuckingMode::OptOut;
     if (ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kAdvancedDuckingOptOut), &duck)) renParams_.ducking = duck ? wa::DuckingMode::OptOut : wa::DuckingMode::Default;
     v = (int)renParams_.bufferMs;
-    if (ImGui::InputInt("Buffer (ms)", &v)) renParams_.bufferMs = (uint32_t)std::clamp(v, 0, 2000);
-    if (ImGui::Button("Reset to system defaults")) renParams_ = wa::StreamParams{};
+    if (ImGui::InputInt(wa::ui_text::id(wa::ui_text::kBufferMs), &v))
+        renParams_.bufferMs = (uint32_t)std::clamp(v, 0, 2000);
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kResetToSystemDefaults)))
+        renParams_ = wa::StreamParams{};
     ImGui::PopItemWidth();
     ImGui::PopID();
     ImGui::EndGroup();
@@ -2083,7 +2086,8 @@ void AppUi::drawAdvancedModal() {
     ImGui::EndDisabled();
 
     ImGui::Separator();
-    if (ImGui::Button("Close", ImVec2(120, 0))) ImGui::CloseCurrentPopup();
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kClose), ImVec2(120, 0)))
+        ImGui::CloseCurrentPopup();
     ImGui::EndPopup();
 }
 
@@ -2378,7 +2382,8 @@ void AppUi::drawComboPanel(wa::ScopeReader& reader, const wa::MonitorStatus& sta
         const uint32_t shownChannels = std::min<uint32_t>(
             capturePlan.visibleChannels, (uint32_t)viz.capChannelWaves.size());
         if (actualChannels > shownChannels)
-            ImGui::Text("Capture channels: %u / %u channels shown", shownChannels, actualChannels);
+            ImGui::Text(wa::ui_text::get(wa::ui_text::kCaptureChannelsShown),
+                        shownChannels, actualChannels);
 
         wa::ChartBuffers buffers;
         buffers.channelWaves = &viz.capChannelWaves;
@@ -2395,8 +2400,10 @@ void AppUi::drawComboPanel(wa::ScopeReader& reader, const wa::MonitorStatus& sta
 
         for (uint32_t ch = 0; ch < shownChannels; ++ch) {
             std::vector<float>& wave = viz.capChannelWaves[(size_t)ch];
-            const std::string title = "Capture Ch " + std::to_string(ch + 1u) + " waveform";
-            ImGui::TextUnformatted(title.c_str());
+            char title[64];
+            std::snprintf(title, sizeof(title),
+                          wa::ui_text::get(wa::ui_text::kCaptureChannelWaveform), ch + 1u);
+            ImGui::TextUnformatted(title);
             const std::string plotId = "##capWaveCh" + std::to_string(ch);
             drawWaveformPanel(viz, plotId.c_str(), wave.data(), viz.waveN, viz.waveSr,
                               refreshed.haveWave, kMultiWaveH, kSlotCapWaveBase + (int)ch);
@@ -2405,8 +2412,10 @@ void AppUi::drawComboPanel(wa::ScopeReader& reader, const wa::MonitorStatus& sta
         const uint32_t hz = (sr > 0) ? sr : 48000u;
         const double histSec = (double)(kSpecCols * kFftHop) / (double)hz;
         for (uint32_t ch = 0; ch < shownChannels; ++ch) {
-            const std::string title = "Capture Ch " + std::to_string(ch + 1u) + " spectrogram";
-            ImGui::TextUnformatted(title.c_str());
+            char title[64];
+            std::snprintf(title, sizeof(title),
+                          wa::ui_text::get(wa::ui_text::kCaptureChannelSpectrogram), ch + 1u);
+            ImGui::TextUnformatted(title);
             const std::string plotId = "##capSpecCh" + std::to_string(ch);
             wa::Spectrogram* spec = (ch < viz.capChannelSpecs.size())
                                         ? viz.capChannelSpecs[(size_t)ch].get()
@@ -2479,16 +2488,16 @@ void AppUi::drawChartPanel(int id, wa::ScopeReader& captureReader, wa::ScopeRead
 }
 
 void AppUi::drawCapsModal() {
-    if (!ImGui::BeginPopupModal("Device capabilities", nullptr,
+    if (!ImGui::BeginPopupModal(wa::ui_text::id(wa::ui_text::kDeviceCapabilities), nullptr,
                                 ImGuiWindowFlags_AlwaysAutoResize)) return;
 
-    if (!capsModalContext_.empty())
-        ImGui::TextUnformatted(capsModalContext_.c_str());
+    if (capsModalContext_)
+        ImGui::TextUnformatted(wa::ui_text::get(capsModalContext_));
 
     if (ImGui::BeginTable("sources", 3, ImGuiTableFlags_BordersOuter)) {
-        ImGui::TableSetupColumn("Mix");
-        ImGui::TableSetupColumn("Device");
-        ImGui::TableSetupColumn("OEM");
+        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kOriginMix));
+        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kOriginDevice));
+        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kOriginOem));
         ImGui::TableHeadersRow();
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
@@ -2519,11 +2528,11 @@ void AppUi::drawCapsModal() {
     ImGui::BeginChild("##capsScroll", ImVec2(760.0f, 360.0f), false);
     if (ImGui::BeginTable("caps", 5,
                           ImGuiTableFlags_BordersOuter | ImGuiTableFlags_RowBg)) {
-        ImGui::TableSetupColumn("Format");
-        ImGui::TableSetupColumn("Layout");
-        ImGui::TableSetupColumn("Sources");
-        ImGui::TableSetupColumn("Shared");
-        ImGui::TableSetupColumn("Exclusive");
+        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kFormat));
+        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kRenderLayout));
+        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kSources));
+        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kShared));
+        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kExclusive));
         ImGui::TableHeadersRow();
         for (const auto& fs : capsModal_.matrix) {
             ImGui::TableNextRow();
@@ -2532,17 +2541,18 @@ void AppUi::drawCapsModal() {
             ImGui::TableSetColumnIndex(1);
             ImGui::TextUnformatted(wa::channelLayoutLabel(fs.fmt).c_str());
             ImGui::TableSetColumnIndex(2);
-            ImGui::TextUnformatted(formatOriginsLabel(fs.origins).c_str());
+            ImGui::TextUnformatted(wa::ui_text::formatOriginsLabel(fs.origins).c_str());
             ImGui::TableSetColumnIndex(3);
-            ImGui::TextUnformatted(supportLabel(fs.shared));
+            ImGui::TextUnformatted(wa::ui_text::supportLabel(fs.shared));
             ImGui::TableSetColumnIndex(4);
-            ImGui::TextUnformatted(supportLabel(fs.exclusive));
+            ImGui::TextUnformatted(wa::ui_text::supportLabel(fs.exclusive));
         }
         ImGui::EndTable();
     }
     ImGui::EndChild();
 
     ImGui::Separator();
-    if (ImGui::Button("Close", ImVec2(120.0f, 0.0f))) ImGui::CloseCurrentPopup();
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kClose), ImVec2(120.0f, 0.0f)))
+        ImGui::CloseCurrentPopup();
     ImGui::EndPopup();
 }
