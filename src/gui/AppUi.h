@@ -200,7 +200,7 @@ private:
     int                    capDevShown_     = -1;
     wa::DeviceCapabilities capsCache_{};
     wa::DeviceCapabilities capsModal_{};
-    std::string            capsModalContext_;
+    const char*            capsModalContext_ = nullptr;
 
     wa::dump_ui::FolderPicker dumpPicker_;
     DumpPickKind              dumpPickKind_ = DumpPickKind::None;

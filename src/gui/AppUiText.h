@@ -1,4 +1,5 @@
 #pragma once
+#include "Capabilities.h"
 #include "GuiLanguage.h"
 #include "PhraseCatalog.h"
 #include "PipelineGraph.h"
@@ -132,7 +133,52 @@ namespace wa::ui_text {
     WA_UI_TEXT(kCategory, "Category", "类别") \
     WA_UI_TEXT(kResetToSystemDefaults, "Reset to system defaults", "重置为系统默认") \
     WA_UI_TEXT(kDeviceCapabilities, "Device capabilities", "设备能力") \
-    WA_UI_TEXT(kCaptureCapabilities, "Capture capabilities", "Capture 能力")
+    WA_UI_TEXT(kCaptureCapabilities, "Capture capabilities", "Capture 能力") \
+    WA_UI_TEXT(kMonitorTab, "Monitor", nullptr) \
+    WA_UI_TEXT(kCaptureDevice, "Capture device", "Capture 设备") \
+    WA_UI_TEXT(kRenderDevice, "Render device", "Render 设备") \
+    WA_UI_TEXT(kNoDevices, "(no devices)", "（无设备）") \
+    WA_UI_TEXT(kDelayMs, "Delay (ms)", "延迟 (ms)") \
+    WA_UI_TEXT(kWasapiShared, "WASAPI-Shared", nullptr) \
+    WA_UI_TEXT(kWasapiExclusive, "WASAPI-Exclusive", nullptr) \
+    WA_UI_TEXT(kSyncPlayback, "Sync playback", "同步播放") \
+    WA_UI_TEXT(kFormatDefault, " (default)", "（默认）") \
+    WA_UI_TEXT(kAudioParametersAdvanced, "Audio parameters (advanced)", "音频参数（高级）") \
+    WA_UI_TEXT(kRunningParamsReadOnly, \
+        "Running: parameters are read-only. Stop the monitor to change them.", \
+        "运行中：参数只读。请先停止 Monitor 再修改。") \
+    WA_UI_TEXT(kStreamOptionCaption, "Stream option", "流选项") \
+    WA_UI_TEXT(kBufferMs, "Buffer (ms)", "缓冲 (ms)") \
+    WA_UI_TEXT(kCategoryOther, "Other", "其他") \
+    WA_UI_TEXT(kCategoryCommunications, "Communications", nullptr) \
+    WA_UI_TEXT(kCategoryMedia, "Media", nullptr) \
+    WA_UI_TEXT(kCategoryMovie, "Movie", "电影") \
+    WA_UI_TEXT(kCategoryGameChat, "Game chat", "游戏聊天") \
+    WA_UI_TEXT(kCategorySpeech, "Speech", "语音") \
+    WA_UI_TEXT(kCategorySoundEffects, "Sound effects", "音效") \
+    WA_UI_TEXT(kCategoryGameMedia, "Game media", "游戏媒体") \
+    WA_UI_TEXT(kOriginMix, "Mix", nullptr) \
+    WA_UI_TEXT(kOriginDevice, "Device", "设备") \
+    WA_UI_TEXT(kOriginOem, "OEM", nullptr) \
+    WA_UI_TEXT(kOriginStandard, "Standard", "标准") \
+    WA_UI_TEXT(kSources, "Sources", "来源") \
+    WA_UI_TEXT(kShared, "Shared", nullptr) \
+    WA_UI_TEXT(kExclusive, "Exclusive", nullptr) \
+    WA_UI_TEXT(kSupportExact, "Exact", "精确") \
+    WA_UI_TEXT(kSupportClosest, "Closest", "最接近") \
+    WA_UI_TEXT(kMonitorCaptureDevice, "Monitor capture device", "Monitor Capture 设备") \
+    WA_UI_TEXT(kSystemLoopbackRenderDevice, "System Loopback render device", \
+        "System Loopback Render 设备") \
+    WA_UI_TEXT(kApplicationLoopbackFormatReference, "Application Loopback format reference", \
+        "Application Loopback 格式参考") \
+    WA_UI_TEXT(kCaptureWaveformSpectrogram, "Capture waveform + spectrogram", \
+        "Capture 波形 + 声谱图") \
+    WA_UI_TEXT(kRenderWaveformSpectrogramDelayed, "Render waveform + spectrogram (delayed)", \
+        "Render 波形 + 声谱图（延迟）") \
+    WA_UI_TEXT(kCaptureChannelsShown, "Capture channels: %u / %u channels shown", \
+        "Capture 声道：%u / %u 个声道已显示") \
+    WA_UI_TEXT(kCaptureChannelWaveform, "Capture Ch %u waveform", "Capture Ch %u 波形") \
+    WA_UI_TEXT(kCaptureChannelSpectrogram, "Capture Ch %u spectrogram", "Capture Ch %u 声谱图")
 
 #define WA_UI_TEXT(name, en, zh) inline constexpr const char* name = en;
 WA_UI_TEXT_ROWS
@@ -152,6 +198,19 @@ inline constexpr const char* kAdvancedStreamOptions[] = {
 };
 inline constexpr int kAdvancedStreamOptionCount =
     static_cast<int>(sizeof(kAdvancedStreamOptions) / sizeof(kAdvancedStreamOptions[0]));
+
+inline constexpr const char* kAudioCategoryLabels[] = {
+    kCategoryOther,
+    kCategoryCommunications,
+    kCategoryMedia,
+    kCategoryMovie,
+    kCategoryGameChat,
+    kCategorySpeech,
+    kCategorySoundEffects,
+    kCategoryGameMedia,
+};
+inline constexpr int kAudioCategoryCount =
+    static_cast<int>(sizeof(kAudioCategoryLabels) / sizeof(kAudioCategoryLabels[0]));
 
 inline wa::gui_language::Language& currentLanguageStorage() {
     static wa::gui_language::Language language = wa::gui_language::Language::En;
@@ -261,6 +320,38 @@ inline std::string formatLiveSessionTooltip(const LiveSessionView& row) {
 inline const char* pipelineCallLogEmptyText(bool attached, bool pumpEnabled) {
     if (!attached) return get(kPipelineCallLogEmpty);
     return get(pumpEnabled ? kPipelineCallLogWaitingPump : kPipelineCallLogWaiting);
+}
+
+inline const char* formatOriginName(FormatOrigin origin) {
+    switch (origin) {
+    case FormatOrigin::Mix: return get(kOriginMix);
+    case FormatOrigin::Device: return get(kOriginDevice);
+    case FormatOrigin::Oem: return get(kOriginOem);
+    case FormatOrigin::Standard: return get(kOriginStandard);
+    }
+    return "-";
+}
+
+inline std::string formatOriginsLabel(FormatOrigins origins) {
+    std::string text;
+    auto append = [&](FormatOrigin origin) {
+        if (!hasFormatOrigin(origins, origin)) return;
+        if (!text.empty()) text += ", ";
+        text += formatOriginName(origin);
+    };
+    append(FormatOrigin::Mix);
+    append(FormatOrigin::Device);
+    append(FormatOrigin::Oem);
+    append(FormatOrigin::Standard);
+    return text.empty() ? std::string("-") : text;
+}
+
+inline const char* supportLabel(SupportLevel support) {
+    switch (support) {
+    case SupportLevel::Exact: return get(kSupportExact);
+    case SupportLevel::ClosestMatch: return get(kSupportClosest);
+    default: return "-";
+    }
 }
 
 } // namespace wa::ui_text
