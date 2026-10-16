@@ -1,21 +1,23 @@
-# GUI Screenshots
+# GUI screenshots
 
-这些截图来自 WinAudio GUI 的真实运行状态，用于展示主要工作模式下的波形、声谱图、状态与日志区域。
+[中文](gui-screenshots.zh-CN.md)
+
+These screenshots are from a real WinAudio GUI session. They show the waveform, spectrogram, status, and log region for the main modes.
 
 ## Monitor
 
-双流延迟监听模式同时展示采集端与渲染端的波形和声谱图。
+The dual-stream latency listener shows the capture and render waveforms and spectrograms together.
 
-![Monitor running](images/winaudio-monitor-running.png)
+![Monitor running](images/winaudio-monitor-running.en.png)
 
 ## Loopback
 
-Loopback 页是一组 System Loopback Capture Track：每路一个 Capture-only Chart Host，回采所选 render endpoint。详见 README Loopback 小节。
+The Loopback page is a list of System Loopback Capture Tracks. Each track has its own Capture-only Chart Host and records the selected render endpoint. See the Loopback section in the README.
 
-![Loopback running](images/winaudio-loopback-running.png)
+![Loopback running](images/winaudio-loopback-running.en.png)
 
 ## Application Loopback
 
-Application Loopback 页同样是 Capture Track 列表。Capture source 为 PID + IncludeTree / ExcludeTree。详见 README Application Loopback 小节。
+The Application Loopback page is also a Capture Track list. The Capture source is a PID plus IncludeTree or ExcludeTree. See the Application Loopback section in the README.
 
-![Application Loopback running](images/winaudio-application-loopback-running.png)
+![Application Loopback running](images/winaudio-application-loopback-running.en.png)
