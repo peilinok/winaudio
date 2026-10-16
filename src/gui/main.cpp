@@ -15,6 +15,7 @@
 #include "imgui_impl_dx11.h"
 #include <d3d11.h>
 #include <tchar.h>
+#include <filesystem>
 
 // Data
 static ID3D11Device*            g_pd3dDevice = nullptr;
@@ -84,11 +85,6 @@ int main(int, char**)
     //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, nullptr, io.Fonts->GetGlyphRangesJapanese());
     //IM_ASSERT(font != nullptr);
 
-    // WinAudio: load Microsoft YaHei with Simplified-Chinese glyph ranges so
-    // Chinese device names render instead of '???'.
-    io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\msyh.ttc", 18.0f, nullptr,
-                                 io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
-
     // Our state
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
@@ -98,6 +94,7 @@ int main(int, char**)
 
     // WinAudio: logging — file (winaudio.log, exe dir) + GUI panel via callback sink.
     // The callback runs on the logging pump thread; pushLog buffers thread-safely.
+    // Init before the font load so a missing face can be recorded.
     wa::log::init();
     wa::log::setThreadName("main");
     wa::log::addFileSink("winaudio.log");
@@ -105,6 +102,20 @@ int main(int, char**)
         ui.pushLog(static_cast<int>(lvl), line);
     });
     wa::log::setLevel(wa::log::Level::Info);
+
+    // System Microsoft YaHei, once, for both GUI languages. Not redistributed.
+    // Skip AddFontFromFileTTF when the file is absent: that call asserts in
+    // Debug before it can return null, so the fallback would never run.
+    constexpr const char* kYaHeiPath = "C:\\Windows\\Fonts\\msyh.ttc";
+    std::error_code yaHeiEc;
+    const bool yaHeiPresent = std::filesystem::exists(kYaHeiPath, yaHeiEc) && !yaHeiEc;
+    if (!yaHeiPresent ||
+        !io.Fonts->AddFontFromFileTTF(kYaHeiPath, 18.0f, nullptr,
+                                     io.Fonts->GetGlyphRangesChineseSimplifiedCommon())) {
+        io.Fonts->AddFontDefault();
+        WA_LOG(wa::log::Level::Warn, "GuiFont", "AddFontFromFileTTF", kYaHeiPath,
+               yaHeiPresent ? "failed" : "missing");
+    }
     ui.loadLogRegionPrefs();
     ui.loadProductionPhrases();
 
