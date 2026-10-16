@@ -1011,13 +1011,20 @@ void AppUi::drawPipelinePage() {
                                      ImGuiTableFlags_ScrollY | ImGuiTableFlags_ScrollX |
                                      ImGuiTableFlags_Resizable | ImGuiTableFlags_SizingFixedFit,
                                  ImVec2(0, ImGui::GetContentRegionAvail().y))) {
-        ImGui::TableSetupColumn("Flow", ImGuiTableColumnFlags_WidthFixed, 70.f);
-        ImGui::TableSetupColumn("Process", ImGuiTableColumnFlags_WidthFixed, 180.f);
-        ImGui::TableSetupColumn("PID", ImGuiTableColumnFlags_WidthFixed, 64.f);
-        ImGui::TableSetupColumn("Device", ImGuiTableColumnFlags_WidthFixed, 240.f);
-        ImGui::TableSetupColumn("Vol", ImGuiTableColumnFlags_WidthFixed, 48.f);
-        ImGui::TableSetupColumn("Mute", ImGuiTableColumnFlags_WidthFixed, 48.f);
-        ImGui::TableSetupColumn("State", ImGuiTableColumnFlags_WidthFixed, 72.f);
+        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColFlow),
+                                ImGuiTableColumnFlags_WidthFixed, 70.f);
+        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColProcess),
+                                ImGuiTableColumnFlags_WidthFixed, 180.f);
+        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kApplicationLoopbackPidLabel),
+                                ImGuiTableColumnFlags_WidthFixed, 64.f);
+        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColDevice),
+                                ImGuiTableColumnFlags_WidthFixed, 240.f);
+        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColVol),
+                                ImGuiTableColumnFlags_WidthFixed, 48.f);
+        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColMute),
+                                ImGuiTableColumnFlags_WidthFixed, 48.f);
+        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColState),
+                                ImGuiTableColumnFlags_WidthFixed, 72.f);
         ImGui::TableHeadersRow();
         for (int i = 0; i < (int)pipelineSessions_.size(); ++i) {
             const auto& s = pipelineSessions_[(size_t)i];
@@ -1258,16 +1265,22 @@ void AppUi::drawRenderPage() {
     if (tracks.empty()) {
         ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kRenderEmptyHint));
     } else {
-        const char* states[] = {"Idle", "Running", "Error"};
+        const char* states[] = {
+            wa::ui_text::get(wa::ui_text::kIdle),
+            wa::ui_text::get(wa::ui_text::kRunning),
+            wa::ui_text::get(wa::ui_text::kError),
+        };
         for (const auto& t : tracks) {
             ImGui::PushID(static_cast<int>(t.id));
             const int stateIdx = (int)t.state;
-            const char* state = (stateIdx >= 0 && stateIdx < 3) ? states[stateIdx] : "Idle";
+            const char* state = (stateIdx >= 0 && stateIdx < 3)
+                                    ? states[stateIdx]
+                                    : wa::ui_text::get(wa::ui_text::kIdle);
             ImGui::Text("id=%llu  %s", (unsigned long long)t.id, state);
             const wa::AudioFormat& shown =
                 t.actualFormat.sampleRate ? t.actualFormat : t.clientFormat;
             if (t.state != wa::StreamState::Error && shown.sampleRate) {
-                ImGui::Text("%u Hz, %u-bit", shown.sampleRate,
+                ImGui::Text(wa::ui_text::get(wa::ui_text::kRenderFormatUnits), shown.sampleRate,
                             static_cast<unsigned>(shown.bitsPerSample));
             }
             bool allPaused = !t.channelPaused.empty();
@@ -1339,8 +1352,8 @@ void AppUi::drawRenderLeftPanel() {
     if (!monitorDevicesLoaded_) refreshMonitorDevices();
 
     ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kRenderEndpoint));
-    if (ImGui::Button("Refresh devices")) refreshMonitorDevices();
-    std::string preview = "(no render devices)";
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kRefreshDevices))) refreshMonitorDevices();
+    std::string preview = wa::ui_text::get(wa::ui_text::kNoRenderDevices);
     if (!renderDevices_.empty() && renderPageDevIdx_ >= 0 &&
         renderPageDevIdx_ < (int)renderDevices_.size()) {
         preview = (renderDevices_[(size_t)renderPageDevIdx_].isDefault ? "* " : "") +
@@ -1384,7 +1397,7 @@ void AppUi::drawRenderLeftPanel() {
             spec.source.channelMask = renderCustomLayout_.channelMask;
             spec.source.sampleRate = 0;
             spec.source.bitsPerSample = 0;
-            label = wa::channelLayoutLabel(spec.source);
+            label = wa::ui_text::channelLayoutText(spec.source.channels, spec.source.channelMask);
         } else if (renderLayoutIdx_ >= 1 && renderLayoutIdx_ <= (int)layouts.size()) {
             const wa::RenderLayout& layout = layouts[(size_t)renderLayoutIdx_ - 1];
             spec.mode = wa::RenderLayoutMode::Layout;
@@ -1393,13 +1406,13 @@ void AppUi::drawRenderLeftPanel() {
             spec.source.channelMask = layout.channelMask;
             spec.source.sampleRate = 0;
             spec.source.bitsPerSample = 0;
-            label = layout.label;
+            label = wa::ui_text::channelLayoutText(layout.channels, layout.channelMask);
         }
         return std::pair<wa::RenderTrackCreate, std::string>(std::move(spec), std::move(label));
     };
 
     ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kRenderLayout));
-    ImGui::TextDisabled("%u Hz, %u-bit", wa::kRenderClientRate,
+    ImGui::TextDisabled(wa::ui_text::get(wa::ui_text::kRenderFormatUnits), wa::kRenderClientRate,
                         static_cast<unsigned>(wa::kRenderClientBits));
 
     const std::string layoutPreview = chosenLayout().second;
@@ -1411,7 +1424,10 @@ void AppUi::drawRenderLeftPanel() {
             renderHaveCustom_ = false;
         }
         for (int i = 0; i < (int)layouts.size(); ++i) {
-            const std::string label = layouts[(size_t)i].label + "##rl" + std::to_string(i + 1);
+            const std::string label =
+                wa::ui_text::channelLayoutText(layouts[(size_t)i].channels,
+                                               layouts[(size_t)i].channelMask) +
+                "##rl" + std::to_string(i + 1);
             if (ImGui::Selectable(label.c_str(), renderLayoutIdx_ == i + 1)) {
                 renderLayoutIdx_ = i + 1;
                 renderHaveCustom_ = false;
@@ -1435,7 +1451,7 @@ void AppUi::drawRenderLeftPanel() {
     }
     ImGui::TextDisabled("%s", wa::ui_text::get(wa::ui_text::kRenderCustomIgnored));
 
-    ImGui::SeparatorText("Control");
+    ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kControl));
     const ImVec2 ctrlBtn(120.0f, ImGui::GetFrameHeight() * 1.3f);
     if (ImGui::Button(wa::ui_text::id(wa::ui_text::kLoopbackCreate), ctrlBtn)) {
         wa::RenderTrackCreate spec = chosenLayout().first;
