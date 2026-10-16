@@ -254,7 +254,7 @@ TEST_F(GuiLanguageText, HelpersThatReturnCatalogConstantsFollowLanguage) {
               wa::ui_text::get(wa::ui_text::kPipelineCallLogWaitingPump));
     EXPECT_EQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::None),
               wa::ui_text::get(wa::ui_text::kRenderNoPhrase));
-    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::Channel1), "channel 1");
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::Channel1), "声道 1");
 
     wa::LiveSessionView row;
     row.flow = wa::PipelineFlow::Render;
@@ -267,10 +267,11 @@ TEST_F(GuiLanguageText, HelpersThatReturnCatalogConstantsFollowLanguage) {
     EXPECT_NE(flow, wa::ui_text::kPipelineFlowRender);
     EXPECT_NE(mute, wa::ui_text::kPipelineMuteNo);
     EXPECT_NE(tip.find(flow), std::string::npos);
-    EXPECT_NE(tip.find(std::string("\nmute: ") + mute), std::string::npos);
+    EXPECT_NE(tip.find(std::string(wa::ui_text::get(wa::ui_text::kPipelineTipMute)) + mute),
+              std::string::npos);
     EXPECT_NE(tip.find("chrome.exe"), std::string::npos);
     EXPECT_NE(tip.find("Active"), std::string::npos);
-    EXPECT_NE(tip.find("\nprocess: "), std::string::npos);
+    EXPECT_NE(tip.find(wa::ui_text::get(wa::ui_text::kPipelineTipProcess)), std::string::npos);
 }
 
 TEST_F(GuiLanguageText, MonitorLeftoverRowsEnglishPointerAndChineseSlot) {
@@ -405,4 +406,145 @@ TEST_F(GuiLanguageText, LoopbackLeftoverRowsEnglishPointerAndChineseSlot) {
     EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kRunning), "运行中");
     EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kError), "错误");
     EXPECT_EQ(wa::ui_text::get(wa::ui_text::kLogExpand), wa::ui_text::kLogExpand);
+}
+
+TEST_F(GuiLanguageText, ChannelPhraseLabelsFollowLanguage) {
+    wa::ui_text::setLanguage(wa::gui_language::Language::En);
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::FrontLeft), "Front left");
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::FrontRight), "Front right");
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::FrontCenter), "Front center");
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::LowFrequency), "Low frequency");
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::BackLeft), "Back left");
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::BackRight), "Back right");
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::BackCenter), "Back center");
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::SideLeft), "Side left");
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::SideRight), "Side right");
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::FrontLeftOfCenter),
+                 "Front left of center");
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::FrontRightOfCenter),
+                 "Front right of center");
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::TopCenter), "Top center");
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::TopFrontLeft), "Top front left");
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::TopFrontCenter),
+                 "Top front center");
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::TopFrontRight),
+                 "Top front right");
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::TopBackLeft), "Top back left");
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::TopBackCenter), "Top back center");
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::TopBackRight), "Top back right");
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::Channel1), "channel 1");
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::Channel8), "channel 8");
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::None), "No phrase");
+    EXPECT_EQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::FrontLeft),
+              wa::ui_text::kPhraseFrontLeft);
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kPhraseFrontLeft), wa::ui_text::kPhraseFrontLeft);
+    EXPECT_STREQ(wa::ui_text::kPhraseChannel1, "channel 1");
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kPhraseChannel1), wa::ui_text::kPhraseChannel1);
+
+    wa::ui_text::setLanguage(wa::gui_language::Language::ZhCn);
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::FrontLeft), "前左");
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::LowFrequency), "低频");
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::FrontLeftOfCenter), "前左中");
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::TopFrontLeft), "顶前左");
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::Channel1), "声道 1");
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::Channel8), "声道 8");
+    EXPECT_STRNE(wa::ui_text::channelPhraseText(wa::ChannelPhrase::FrontLeft),
+                 wa::ui_text::channelPhraseText(wa::ChannelPhrase::Channel1));
+    EXPECT_EQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::None),
+              wa::ui_text::get(wa::ui_text::kRenderNoPhrase));
+    EXPECT_STREQ(wa::ui_text::channelPhraseText(wa::ChannelPhrase::None), "无语句");
+}
+
+TEST_F(GuiLanguageText, LiveSessionTooltipFragmentsFollowLanguage) {
+    wa::LiveSessionView row;
+    row.flow = wa::PipelineFlow::Capture;
+    row.sessionMute = true;
+    row.processName = "chrome.exe";
+    row.processId = 25060;
+    row.deviceName = "Headset";
+    row.sessionVolume = 0.75f;
+    row.state = "Active";
+
+    wa::ui_text::setLanguage(wa::gui_language::Language::En);
+    const std::string en = wa::ui_text::formatLiveSessionTooltip(row);
+    EXPECT_NE(en.find("\nprocess: chrome.exe"), std::string::npos);
+    EXPECT_NE(en.find("\npid: 25060"), std::string::npos);
+    EXPECT_NE(en.find("\ndevice: Headset"), std::string::npos);
+    EXPECT_NE(en.find("\nvolume: 0.75"), std::string::npos);
+    EXPECT_NE(en.find("\nmute: yes"), std::string::npos);
+    EXPECT_NE(en.find("\nstate: Active"), std::string::npos);
+    EXPECT_NE(en.find(wa::ui_text::kPipelineFlowCapture), std::string::npos);
+    EXPECT_STREQ(wa::ui_text::kPipelineTipProcess, "process: ");
+    EXPECT_STREQ(wa::ui_text::kPipelineTipPid, "pid: ");
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kPipelineTipProcess), wa::ui_text::kPipelineTipProcess);
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kPipelineTipState), wa::ui_text::kPipelineTipState);
+
+    wa::ui_text::setLanguage(wa::gui_language::Language::ZhCn);
+    const std::string zh = wa::ui_text::formatLiveSessionTooltip(row);
+    EXPECT_NE(zh.find("\n进程：chrome.exe"), std::string::npos);
+    EXPECT_NE(zh.find("\nPID：25060"), std::string::npos);
+    EXPECT_NE(zh.find("\n设备：Headset"), std::string::npos);
+    EXPECT_NE(zh.find("\n音量：0.75"), std::string::npos);
+    EXPECT_NE(zh.find("\n静音：是"), std::string::npos);
+    EXPECT_NE(zh.find("\n状态：Active"), std::string::npos);
+    EXPECT_NE(zh.find("chrome.exe"), std::string::npos);
+    EXPECT_NE(zh.find("Headset"), std::string::npos);
+    EXPECT_NE(zh.find("25060"), std::string::npos);
+    EXPECT_NE(zh.find("0.75"), std::string::npos);
+    EXPECT_NE(zh.find("Active"), std::string::npos);
+    EXPECT_EQ(zh.find("\nprocess: "), std::string::npos);
+    EXPECT_EQ(zh.find("\nmute: "), std::string::npos);
+    const char* flow = wa::ui_text::get(wa::ui_text::kPipelineFlowCapture);
+    EXPECT_NE(flow, wa::ui_text::kPipelineFlowCapture);
+    EXPECT_NE(zh.find(flow), std::string::npos);
+}
+
+TEST_F(GuiLanguageText, RenderAndPipelineLeftoverLabelsFollowLanguage) {
+    EXPECT_STREQ(wa::ui_text::kRenderFormatUnits, "%u Hz, %u-bit");
+    EXPECT_STREQ(wa::ui_text::kPipelineColFlow, "Flow");
+    EXPECT_STREQ(wa::ui_text::kPipelineColProcess, "Process");
+    EXPECT_STREQ(wa::ui_text::kPipelineColDevice, "Device");
+    EXPECT_STREQ(wa::ui_text::kPipelineColVol, "Vol");
+    EXPECT_STREQ(wa::ui_text::kPipelineColMute, "Mute");
+    EXPECT_STREQ(wa::ui_text::kPipelineColState, "State");
+
+    wa::ui_text::setLanguage(wa::gui_language::Language::En);
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kRenderFormatUnits), wa::ui_text::kRenderFormatUnits);
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kPipelineColFlow), wa::ui_text::kPipelineColFlow);
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kPipelineColDevice), wa::ui_text::kPipelineColDevice);
+    char enFmt[64];
+    std::snprintf(enFmt, sizeof(enFmt), wa::ui_text::get(wa::ui_text::kRenderFormatUnits),
+                  48000u, 16u);
+    EXPECT_STREQ(enFmt, "48000 Hz, 16-bit");
+
+    wa::ui_text::setLanguage(wa::gui_language::Language::ZhCn);
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kRenderFormatUnits), "%u Hz，%u 位");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kPipelineColFlow), "流向");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kPipelineColProcess), "进程");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kPipelineColDevice), "设备");
+    EXPECT_NE(wa::ui_text::get(wa::ui_text::kPipelineColVol), wa::ui_text::kPipelineColVol);
+    EXPECT_NE(wa::ui_text::get(wa::ui_text::kPipelineColMute), wa::ui_text::kPipelineColMute);
+    EXPECT_NE(wa::ui_text::get(wa::ui_text::kPipelineColState), wa::ui_text::kPipelineColState);
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kApplicationLoopbackPidLabel), "PID");
+    char zhFmt[64];
+    std::snprintf(zhFmt, sizeof(zhFmt), wa::ui_text::get(wa::ui_text::kRenderFormatUnits),
+                  48000u, 16u);
+    EXPECT_STREQ(zhFmt, "48000 Hz，16 位");
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kLogExpand), wa::ui_text::kLogExpand);
+
+    wa::ui_text::setLanguage(wa::gui_language::Language::En);
+    EXPECT_STREQ(wa::ui_text::kLayoutStereo, "Stereo");
+    EXPECT_STREQ(wa::ui_text::kLayoutMask, "mask 0x%X");
+    EXPECT_EQ(wa::ui_text::channelLayoutText(2, 0x3u), "Stereo / mask 0x3");
+    EXPECT_EQ(wa::ui_text::channelLayoutText(2, 0x5u), "mask 0x5");
+    EXPECT_EQ(wa::ui_text::channelLayoutText(3, 0u), "3 channels");
+    EXPECT_EQ(wa::ui_text::channelLayoutText(6, 0x3Fu), "5.1 / mask 0x3F");
+    EXPECT_EQ(wa::ui_text::get(wa::ui_text::kLayout51), wa::ui_text::kLayout51);
+
+    wa::ui_text::setLanguage(wa::gui_language::Language::ZhCn);
+    EXPECT_EQ(wa::ui_text::channelLayoutText(2, 0x3u), "立体声 / 掩码 0x3");
+    EXPECT_EQ(wa::ui_text::channelLayoutText(2, 0x5u), "掩码 0x5");
+    EXPECT_EQ(wa::ui_text::channelLayoutText(3, 0u), "3 声道");
+    EXPECT_EQ(wa::ui_text::channelLayoutText(6, 0x3Fu), "5.1 / 掩码 0x3F");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kLayout51), "5.1");
 }

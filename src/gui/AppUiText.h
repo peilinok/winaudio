@@ -1,4 +1,5 @@
 #pragma once
+#include "AudioFormat.h"
 #include "Capabilities.h"
 #include "GuiLanguage.h"
 #include "PhraseCatalog.h"
@@ -64,12 +65,46 @@ namespace wa::ui_text {
     WA_UI_TEXT(kRenderEndpoint, "Render endpoint", "Render 端点") \
     WA_UI_TEXT(kRenderLayout, "Layout", "布局") \
     WA_UI_TEXT(kRenderCustomIgnored, "Sample rate and bit depth are ignored.", "采样率和位深将被忽略。") \
+    WA_UI_TEXT(kRenderFormatUnits, "%u Hz, %u-bit", "%u Hz，%u 位") \
+    WA_UI_TEXT(kLayoutMono, "Mono", "单声道") \
+    WA_UI_TEXT(kLayoutStereo, "Stereo", "立体声") \
+    WA_UI_TEXT(kLayoutQuad, "Quad", "四声道") \
+    WA_UI_TEXT(kLayout51, "5.1", "5.1") \
+    WA_UI_TEXT(kLayout71, "7.1", "7.1") \
+    WA_UI_TEXT(kLayoutMask, "mask 0x%X", "掩码 0x%X") \
+    WA_UI_TEXT(kLayoutChannelCount, "%u channels", "%u 声道") \
     WA_UI_TEXT(kRenderChannelsPaused, "All channels paused", "所有声道已暂停") \
     WA_UI_TEXT(kRenderPause, "Pause", "暂停") \
     WA_UI_TEXT(kRenderContinue, "Continue", "继续") \
     WA_UI_TEXT(kRenderPlayOnce, "Play once", "播放一次") \
     WA_UI_TEXT(kRenderNoPhrase, "No phrase", "无语句") \
     WA_UI_TEXT(kRenderVolume, "Volume", "音量") \
+    WA_UI_TEXT(kPhraseFrontLeft, "Front left", "前左") \
+    WA_UI_TEXT(kPhraseFrontRight, "Front right", "前右") \
+    WA_UI_TEXT(kPhraseFrontCenter, "Front center", "前中") \
+    WA_UI_TEXT(kPhraseLowFrequency, "Low frequency", "低频") \
+    WA_UI_TEXT(kPhraseBackLeft, "Back left", "后左") \
+    WA_UI_TEXT(kPhraseBackRight, "Back right", "后右") \
+    WA_UI_TEXT(kPhraseBackCenter, "Back center", "后中") \
+    WA_UI_TEXT(kPhraseSideLeft, "Side left", "侧左") \
+    WA_UI_TEXT(kPhraseSideRight, "Side right", "侧右") \
+    WA_UI_TEXT(kPhraseFrontLeftOfCenter, "Front left of center", "前左中") \
+    WA_UI_TEXT(kPhraseFrontRightOfCenter, "Front right of center", "前右中") \
+    WA_UI_TEXT(kPhraseTopCenter, "Top center", "顶中") \
+    WA_UI_TEXT(kPhraseTopFrontLeft, "Top front left", "顶前左") \
+    WA_UI_TEXT(kPhraseTopFrontCenter, "Top front center", "顶前中") \
+    WA_UI_TEXT(kPhraseTopFrontRight, "Top front right", "顶前右") \
+    WA_UI_TEXT(kPhraseTopBackLeft, "Top back left", "顶后左") \
+    WA_UI_TEXT(kPhraseTopBackCenter, "Top back center", "顶后中") \
+    WA_UI_TEXT(kPhraseTopBackRight, "Top back right", "顶后右") \
+    WA_UI_TEXT(kPhraseChannel1, "channel 1", "声道 1") \
+    WA_UI_TEXT(kPhraseChannel2, "channel 2", "声道 2") \
+    WA_UI_TEXT(kPhraseChannel3, "channel 3", "声道 3") \
+    WA_UI_TEXT(kPhraseChannel4, "channel 4", "声道 4") \
+    WA_UI_TEXT(kPhraseChannel5, "channel 5", "声道 5") \
+    WA_UI_TEXT(kPhraseChannel6, "channel 6", "声道 6") \
+    WA_UI_TEXT(kPhraseChannel7, "channel 7", "声道 7") \
+    WA_UI_TEXT(kPhraseChannel8, "channel 8", "声道 8") \
     WA_UI_TEXT(kApplicationLoopbackEmptyHint, "Create a Track to capture application audio.", "创建 Track 以采集应用音频。") \
     WA_UI_TEXT(kLogEmpty, "(empty)", "（空）") \
     WA_UI_TEXT(kLogExpand, "+", nullptr) \
@@ -107,6 +142,18 @@ namespace wa::ui_text {
     WA_UI_TEXT(kPipelineFlowRender, "render", "Render") \
     WA_UI_TEXT(kPipelineMuteYes, "yes", "是") \
     WA_UI_TEXT(kPipelineMuteNo, "no", "否") \
+    WA_UI_TEXT(kPipelineTipProcess, "process: ", "进程：") \
+    WA_UI_TEXT(kPipelineTipPid, "pid: ", "PID：") \
+    WA_UI_TEXT(kPipelineTipDevice, "device: ", "设备：") \
+    WA_UI_TEXT(kPipelineTipVolume, "volume: ", "音量：") \
+    WA_UI_TEXT(kPipelineTipMute, "mute: ", "静音：") \
+    WA_UI_TEXT(kPipelineTipState, "state: ", "状态：") \
+    WA_UI_TEXT(kPipelineColFlow, "Flow", "流向") \
+    WA_UI_TEXT(kPipelineColProcess, "Process", "进程") \
+    WA_UI_TEXT(kPipelineColDevice, "Device", "设备") \
+    WA_UI_TEXT(kPipelineColVol, "Vol", "音量") \
+    WA_UI_TEXT(kPipelineColMute, "Mute", "静音") \
+    WA_UI_TEXT(kPipelineColState, "State", "状态") \
     WA_UI_TEXT(kPipelineCrossBitness, "Attach failed: cross-bitness", "附加失败：位数不匹配") \
     WA_UI_TEXT(kPipelineNoDebug, "Attach failed: missing debug rights", "附加失败：缺少调试权限") \
     WA_UI_TEXT(kPipelineCallColIface, "Iface", "接口") \
@@ -267,32 +314,32 @@ inline const char* id(const char* english) {
 
 inline const char* channelPhraseText(ChannelPhrase phrase) {
     switch (phrase) {
-    case ChannelPhrase::FrontLeft: return "Front left";
-    case ChannelPhrase::FrontRight: return "Front right";
-    case ChannelPhrase::FrontCenter: return "Front center";
-    case ChannelPhrase::LowFrequency: return "Low frequency";
-    case ChannelPhrase::BackLeft: return "Back left";
-    case ChannelPhrase::BackRight: return "Back right";
-    case ChannelPhrase::BackCenter: return "Back center";
-    case ChannelPhrase::SideLeft: return "Side left";
-    case ChannelPhrase::SideRight: return "Side right";
-    case ChannelPhrase::FrontLeftOfCenter: return "Front left of center";
-    case ChannelPhrase::FrontRightOfCenter: return "Front right of center";
-    case ChannelPhrase::TopCenter: return "Top center";
-    case ChannelPhrase::TopFrontLeft: return "Top front left";
-    case ChannelPhrase::TopFrontCenter: return "Top front center";
-    case ChannelPhrase::TopFrontRight: return "Top front right";
-    case ChannelPhrase::TopBackLeft: return "Top back left";
-    case ChannelPhrase::TopBackCenter: return "Top back center";
-    case ChannelPhrase::TopBackRight: return "Top back right";
-    case ChannelPhrase::Channel1: return "channel 1";
-    case ChannelPhrase::Channel2: return "channel 2";
-    case ChannelPhrase::Channel3: return "channel 3";
-    case ChannelPhrase::Channel4: return "channel 4";
-    case ChannelPhrase::Channel5: return "channel 5";
-    case ChannelPhrase::Channel6: return "channel 6";
-    case ChannelPhrase::Channel7: return "channel 7";
-    case ChannelPhrase::Channel8: return "channel 8";
+    case ChannelPhrase::FrontLeft: return get(kPhraseFrontLeft);
+    case ChannelPhrase::FrontRight: return get(kPhraseFrontRight);
+    case ChannelPhrase::FrontCenter: return get(kPhraseFrontCenter);
+    case ChannelPhrase::LowFrequency: return get(kPhraseLowFrequency);
+    case ChannelPhrase::BackLeft: return get(kPhraseBackLeft);
+    case ChannelPhrase::BackRight: return get(kPhraseBackRight);
+    case ChannelPhrase::BackCenter: return get(kPhraseBackCenter);
+    case ChannelPhrase::SideLeft: return get(kPhraseSideLeft);
+    case ChannelPhrase::SideRight: return get(kPhraseSideRight);
+    case ChannelPhrase::FrontLeftOfCenter: return get(kPhraseFrontLeftOfCenter);
+    case ChannelPhrase::FrontRightOfCenter: return get(kPhraseFrontRightOfCenter);
+    case ChannelPhrase::TopCenter: return get(kPhraseTopCenter);
+    case ChannelPhrase::TopFrontLeft: return get(kPhraseTopFrontLeft);
+    case ChannelPhrase::TopFrontCenter: return get(kPhraseTopFrontCenter);
+    case ChannelPhrase::TopFrontRight: return get(kPhraseTopFrontRight);
+    case ChannelPhrase::TopBackLeft: return get(kPhraseTopBackLeft);
+    case ChannelPhrase::TopBackCenter: return get(kPhraseTopBackCenter);
+    case ChannelPhrase::TopBackRight: return get(kPhraseTopBackRight);
+    case ChannelPhrase::Channel1: return get(kPhraseChannel1);
+    case ChannelPhrase::Channel2: return get(kPhraseChannel2);
+    case ChannelPhrase::Channel3: return get(kPhraseChannel3);
+    case ChannelPhrase::Channel4: return get(kPhraseChannel4);
+    case ChannelPhrase::Channel5: return get(kPhraseChannel5);
+    case ChannelPhrase::Channel6: return get(kPhraseChannel6);
+    case ChannelPhrase::Channel7: return get(kPhraseChannel7);
+    case ChannelPhrase::Channel8: return get(kPhraseChannel8);
     case ChannelPhrase::None:
     case ChannelPhrase::Count:
         break;
@@ -306,19 +353,52 @@ inline std::string formatLiveSessionTooltip(const LiveSessionView& row) {
     std::string out;
     out.reserve(128 + row.processName.size() + row.deviceName.size() + row.state.size());
     out += get((row.flow == PipelineFlow::Capture) ? kPipelineFlowCapture : kPipelineFlowRender);
-    out += "\nprocess: ";
+    out += '\n';
+    out += get(kPipelineTipProcess);
     out += row.processName;
-    out += "\npid: ";
+    out += '\n';
+    out += get(kPipelineTipPid);
     out += std::to_string(row.processId);
-    out += "\ndevice: ";
+    out += '\n';
+    out += get(kPipelineTipDevice);
     out += row.deviceName;
-    out += "\nvolume: ";
+    out += '\n';
+    out += get(kPipelineTipVolume);
     out += vol;
-    out += "\nmute: ";
+    out += '\n';
+    out += get(kPipelineTipMute);
     out += get(row.sessionMute ? kPipelineMuteYes : kPipelineMuteNo);
-    out += "\nstate: ";
+    out += '\n';
+    out += get(kPipelineTipState);
     out += row.state;
     return out;
+}
+
+inline std::string channelLayoutText(uint16_t channels, uint32_t channelMask) {
+    const uint32_t mask = channelMask ? channelMask : defaultChannelMask(channels);
+    const char* name = nullptr;
+    if (mask == defaultChannelMask(channels)) {
+        switch (channels) {
+        case 1: name = get(kLayoutMono); break;
+        case 2: name = get(kLayoutStereo); break;
+        case 4: name = get(kLayoutQuad); break;
+        case 6: name = get(kLayout51); break;
+        case 8: name = get(kLayout71); break;
+        default: break;
+        }
+    }
+    char suffix[64];
+    if (mask != 0) {
+        std::snprintf(suffix, sizeof(suffix), get(kLayoutMask), static_cast<unsigned>(mask));
+    } else {
+        std::snprintf(suffix, sizeof(suffix), get(kLayoutChannelCount),
+                      static_cast<unsigned>(channels));
+    }
+    if (!name) return std::string(suffix);
+    std::string text = name;
+    text += " / ";
+    text += suffix;
+    return text;
 }
 
 inline const char* pipelineCallLogEmptyText(bool attached, bool pumpEnabled) {
