@@ -15,6 +15,9 @@
 #include "imgui_impl_dx11.h"
 #include <d3d11.h>
 #include <tchar.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <filesystem>
 
 // Data
@@ -31,6 +34,23 @@ void CleanupDeviceD3D();
 void CreateRenderTarget();
 void CleanupRenderTarget();
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+static void writeFrameProbeRecords(FILE* file, const wa::FrameProbe& probe) {
+    char line[512];
+    for (int i = 0; i < static_cast<int>(wa::FrameSlice::Count); ++i) {
+        const int n = probe.formatLine(static_cast<wa::FrameSlice>(i), line,
+                                       static_cast<int>(sizeof(line)));
+        if (n > 0)
+            std::fwrite(line, 1, static_cast<size_t>(n), file);
+    }
+    std::fflush(file);
+}
+
+// Unset, empty, and "0" leave the probe off. Read once, before the frame loop.
+static bool frameProbeRequested() {
+    const char* value = std::getenv("WINAUDIO_FRAME_PROBE");
+    return value != nullptr && value[0] != '\0' && std::strcmp(value, "0") != 0;
+}
 
 // Main code
 int main(int, char**)
@@ -119,6 +139,17 @@ int main(int, char**)
     ui.loadLogRegionPrefs();
     ui.loadProductionPhrases();
 
+    // Append records after Present. Failure leaves the probe off. Not wa::log:
+    // a log line would be counted by the next frame's log-drain slice.
+    FILE* frameProbeLog = nullptr;
+    if (frameProbeRequested() &&
+        fopen_s(&frameProbeLog, "winaudio-frame-probe.log", "a") == 0 && frameProbeLog) {
+        ui.frameProbe().setEnabled(true);
+        const char* header = wa::FrameProbe::headerLine();
+        std::fwrite(header, 1, std::strlen(header), frameProbeLog);
+        std::fflush(frameProbeLog);
+    }
+
     // Main loop
     bool done = false;
     while (!done)
@@ -168,10 +199,21 @@ int main(int, char**)
         g_pd3dDeviceContext->ClearRenderTargetView(g_mainRenderTargetView, clear_color_with_alpha);
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 
-        // Present
-        HRESULT hr = g_pSwapChain->Present(1, 0);   // Present with vsync
+        // Present(1, 0) only. The occluded Present(0, DXGI_PRESENT_TEST) above is not this slice.
+        HRESULT hr = S_OK;
+        {
+            wa::FrameBracket presentBracket(ui.frameProbe(), wa::FrameSlice::Present);
+            hr = g_pSwapChain->Present(1, 0);   // Present with vsync
+        }
         //HRESULT hr = g_pSwapChain->Present(0, 0); // Present without vsync
         g_SwapChainOccluded = (hr == DXGI_STATUS_OCCLUDED);
+        if (frameProbeLog)
+            writeFrameProbeRecords(frameProbeLog, ui.frameProbe());
+    }
+
+    if (frameProbeLog) {
+        std::fclose(frameProbeLog);
+        frameProbeLog = nullptr;
     }
 
     // Join engines and the Live session watch before the window is destroyed.

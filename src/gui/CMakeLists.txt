@@ -2,6 +2,7 @@ add_executable(WinAudioGui
     AppUi.cpp
     ChartDataPipeline.cpp
     DumpUi.cpp
+    FrameProbe.cpp
     main.cpp
     Spectrogram.cpp
 )
