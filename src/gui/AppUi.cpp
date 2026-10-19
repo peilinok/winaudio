@@ -696,16 +696,21 @@ void AppUi::ensureRunningVisuals(const wa::MonitorStatus& status, VisualState& v
 }
 
 void AppUi::draw() {
+    frameProbe_.beginFrame();
     // Drain lines buffered by the logging pump thread into the panel history (bounded).
+    // The bracket covers the lock and the trim. The probe itself only writes its slot.
     {
-        std::lock_guard<std::mutex> lk(logMutex_);
-        for (auto& l : pendingLog_) logLines_.push_back(std::move(l));
-        pendingLog_.clear();
+        wa::FrameBracket logDrain(frameProbe_, wa::FrameSlice::LogDrain);
+        {
+            std::lock_guard<std::mutex> lk(logMutex_);
+            for (auto& l : pendingLog_) logLines_.push_back(std::move(l));
+            pendingLog_.clear();
+        }
+        constexpr size_t kMaxLogLines = 5000;
+        if (logLines_.size() > kMaxLogLines)
+            logLines_.erase(logLines_.begin(),
+                            logLines_.begin() + (logLines_.size() - kMaxLogLines));
     }
-    constexpr size_t kMaxLogLines = 5000;
-    if (logLines_.size() > kMaxLogLines)
-        logLines_.erase(logLines_.begin(),
-                        logLines_.begin() + (logLines_.size() - kMaxLogLines));
 
     applyDumpPick();
     // Volume, mute, and Active patches apply on every frame, including while
@@ -2297,9 +2302,11 @@ void AppUi::drawSpectrogramPanel(VisualState& viz, const char* plotId, wa::Spect
         ImPlot::SetupAxisLimits(ImAxis_Y1, lo0, hiL,
                                 viz.resetYAxes ? ImGuiCond_Always : ImGuiCond_Once);
         if (nTick > 0) ImPlot::SetupAxisTicks(ImAxis_Y1, tickV, nTick, tickL);
-        if (spec)
+        if (spec) {
+            wa::FrameBracket heatmap(frameProbe_, wa::FrameSlice::Heatmap);
             ImPlot::PlotHeatmap("##hm", spec->data(), spec->rows(), spec->cols(), -96.0, 0.0, nullptr,
                 ImPlotPoint(0, loL), ImPlotPoint(histSec, hiL));
+        }
         drawYUnitLabel("Hz", true);
         viz.plotHovPrev[slot] = ImPlot::IsPlotHovered();
         ImPlot::EndPlot();
@@ -2350,16 +2357,20 @@ void AppUi::drawWaveformPanel(VisualState& viz, const char* plotId, const float*
             } else {
                 const int cols = (int)pw;
                 viz.envX.resize((size_t)cols); viz.envMin.resize((size_t)cols); viz.envMax.resize((size_t)cols);
-                for (int c = 0; c < cols; ++c) {
-                    int s0 = iLo + (int)((int64_t)visN * c / cols);
-                    int s1 = iLo + (int)((int64_t)visN * (c + 1) / cols);
-                    if (s1 <= s0) s1 = s0 + 1;
-                    if (s1 > n)   s1 = n;
-                    float mn = wave[s0], mx = wave[s0];
-                    for (int s = s0 + 1; s < s1; ++s) { mn = std::min(mn, wave[s]); mx = std::max(mx, wave[s]); }
-                    viz.envX[(size_t)c]   = (float)(0.5 * (double)(s0 + s1) * invSr);
-                    viz.envMin[(size_t)c] = dbWarp(mn);              // warp commutes with min/max
-                    viz.envMax[(size_t)c] = dbWarp(mx);
+                {
+                    // Resize stays outside: it can allocate. The bracket times the min/max fill only.
+                    wa::FrameBracket envelope(frameProbe_, wa::FrameSlice::Envelope);
+                    for (int c = 0; c < cols; ++c) {
+                        int s0 = iLo + (int)((int64_t)visN * c / cols);
+                        int s1 = iLo + (int)((int64_t)visN * (c + 1) / cols);
+                        if (s1 <= s0) s1 = s0 + 1;
+                        if (s1 > n)   s1 = n;
+                        float mn = wave[s0], mx = wave[s0];
+                        for (int s = s0 + 1; s < s1; ++s) { mn = std::min(mn, wave[s]); mx = std::max(mx, wave[s]); }
+                        viz.envX[(size_t)c]   = (float)(0.5 * (double)(s0 + s1) * invSr);
+                        viz.envMin[(size_t)c] = dbWarp(mn);              // warp commutes with min/max
+                        viz.envMax[(size_t)c] = dbWarp(mx);
+                    }
                 }
                 // Translucent body (FillAlpha multiplies color.w) + opaque min/max outline.
                 ImPlot::SetNextFillStyle(kWaveColor, kWaveEnvFillAlpha);

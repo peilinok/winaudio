@@ -11,6 +11,7 @@
 #include "CreateRecipe.h"
 #include "DeviceEnumerator.h"
 #include "DumpUi.h"
+#include "FrameProbe.h"
 #include "OsSoundUi.h"
 #include "EndpointGraphReader.h"
 #include "EtwInitialize.h"
@@ -27,6 +28,7 @@ class AppUi {
 public:
     void draw();          // called each frame; polls engines and redraws the active page
     void stopAll();       // stop engines on shutdown (idempotent)
+    wa::FrameProbe& frameProbe() { return frameProbe_; }
     void setMainWindow(void* hwnd);
     void pushLog(int level, const std::string& line);  // thread-safe; called from the logging pump thread
     void loadLogRegionPrefs();
@@ -142,6 +144,7 @@ private:
     std::vector<std::string> logLines_;
     std::mutex               logMutex_;    // guards pendingLog_ (pump thread → draw drains it)
     std::vector<std::string> pendingLog_;
+    wa::FrameProbe           frameProbe_;  // off until main() enables it; slots only, no logging
     int                      logLevelIdx_ = 2;   // 0=Trace..4=Err; default Info
     bool                     logCollapsed_ = false;
     bool                     logPinToBottomOnExpand_ = false; // one-shot after clicking +
