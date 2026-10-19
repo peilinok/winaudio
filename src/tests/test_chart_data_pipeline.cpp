@@ -1,9 +1,16 @@
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <iostream>
 #include <vector>
 #include "ChartDataPipeline.h"
 #include "FakeScopeReader.h"
 #include "Spectrogram.h"
+
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
 
 using namespace wa;
 
@@ -234,4 +241,110 @@ TEST(ChartDataPipeline, WaveProgressiveFillPutsNewestAtTail) {
     EXPECT_FLOAT_EQ(wave[5], 10.f);
     EXPECT_FLOAT_EQ(wave[6], 20.f);
     EXPECT_FLOAT_EQ(wave[7], 30.f);
+}
+
+// Device-free record for one 8-channel refreshCharts at the GUI sizes.
+// No time limit: the line is the citeable record, not a pass bar.
+TEST(ChartDataPipeline, RefreshCharts8chRecord) {
+    constexpr uint16_t kChannels = 8;
+    constexpr size_t kFftWin = 2048;
+    constexpr size_t kFftHop = 1024;
+    constexpr size_t kCatchup = 8;
+    constexpr int kSpecRows = 128;
+    constexpr int kSpecCols = 480;
+    constexpr int kWaveN = kSpecCols * static_cast<int>(kFftHop);
+    constexpr int kCalls = 16;
+    constexpr uint32_t kSr = 48000;
+
+    FakeScopeReader reader(kChannels);
+    std::vector<float> chunk(4096 * kChannels);
+    size_t left = static_cast<size_t>(kWaveN);
+    uint32_t filled = 0;
+    while (left > 0) {
+        const size_t nfr = std::min(left, static_cast<size_t>(4096));
+        for (size_t i = 0; i < nfr; ++i) {
+            const float s = static_cast<float>((filled + i) & 1023) / 1023.f;
+            for (uint16_t ch = 0; ch < kChannels; ++ch)
+                chunk[i * kChannels + ch] = s;
+        }
+        reader.pushInterleaved(chunk.data(), nfr);
+        filled += static_cast<uint32_t>(nfr);
+        left -= nfr;
+    }
+
+    std::vector<std::vector<float>> channelWaves(
+        kChannels, std::vector<float>(static_cast<size_t>(kWaveN), 0.f));
+    std::vector<std::vector<float>> channelSpecWindows(
+        kChannels, std::vector<float>(kFftWin, 0.f));
+    std::vector<std::unique_ptr<Spectrogram>> channelSpecs;
+    channelSpecs.reserve(kChannels);
+    for (uint16_t ch = 0; ch < kChannels; ++ch) {
+        channelSpecs.push_back(std::make_unique<Spectrogram>(
+            kSpecRows, kSpecCols, 20.0, static_cast<double>(kSr) / 2.0, kSr));
+    }
+    std::vector<std::complex<float>> work(kFftWin);
+    std::vector<float> mag(kFftWin / 2 + 1, 0.f);
+    uint64_t nextEnd = 0;
+
+    ChartRefreshParams params;
+    params.reader = &reader;
+    params.streamActive = true;
+    params.fftWin = kFftWin;
+    params.fftHop = kFftHop;
+    params.maxCatchup = kCatchup;
+
+    ChartBuffers buffers;
+    buffers.channelWaves = &channelWaves;
+    buffers.channelCount = kChannels;
+    buffers.waveN = kWaveN;
+    buffers.waveSr = kSr;
+    buffers.channelSpecWindows = &channelSpecWindows;
+    buffers.channelSpecs = &channelSpecs;
+    buffers.work = &work;
+    buffers.mag = &mag;
+    buffers.nextEnd = &nextEnd;
+    buffers.specSr = kSr;
+
+    ASSERT_TRUE(refreshCharts(params, buffers).haveWave);
+    EXPECT_EQ(nextEnd, reader.written());
+
+    LARGE_INTEGER freq;
+    ASSERT_TRUE(QueryPerformanceFrequency(&freq));
+    ASSERT_GT(freq.QuadPart, 0);
+
+    // Each call is one full maxCatchup refresh. Resetting the cursor keeps
+    // later calls from becoming wave-copy only after the first catch-up.
+    LARGE_INTEGER t0;
+    LARGE_INTEGER t1;
+    ASSERT_TRUE(QueryPerformanceCounter(&t0));
+    for (int i = 0; i < kCalls; ++i) {
+        nextEnd = 0;
+        ASSERT_TRUE(refreshCharts(params, buffers).haveWave);
+    }
+    ASSERT_TRUE(QueryPerformanceCounter(&t1));
+    EXPECT_EQ(nextEnd, reader.written());
+
+    const uint64_t ticks = static_cast<uint64_t>(t1.QuadPart - t0.QuadPart);
+    const uint64_t qpcFreq = static_cast<uint64_t>(freq.QuadPart);
+    ASSERT_GT(ticks, 1u);
+    const uint64_t whole = ticks / qpcFreq;
+    const uint64_t rem = ticks % qpcFreq;
+    const uint64_t nanos = whole * 1000000000ull + (rem * 1000000000ull) / qpcFreq;
+
+#ifdef NDEBUG
+    const char* build = "Release";
+#else
+    const char* build = "Debug";
+#endif
+    std::cout << "slice=refreshCharts-8ch"
+              << " build=" << build
+              << " N=" << kCalls
+              << " ticks=" << ticks
+              << " qpc_freq=" << qpcFreq
+              << " nanos=" << nanos
+              << " uncertainty_ticks=1"
+              << " hops_per_call=" << kCatchup
+              << " command=.\\build\\bin\\" << build
+              << "\\WinAudioTests.exe --gtest_filter=ChartDataPipeline.RefreshCharts8chRecord"
+              << "\n";
 }
