@@ -2,39 +2,96 @@
 #include "Analysis.h"
 #include "Fft.h"
 #include <algorithm>
+#include <cstring>
 
 namespace wa {
 namespace {
 
-bool fillLatestWaveMono(const ScopeReader& reader, float* wave, int waveN) {
+bool fillLatestWaveMono(const ScopeReader& reader, float* wave, int waveN,
+                        uint64_t* filledThrough) {
     if (!wave || waveN <= 0) return false;
     const uint64_t written = reader.written();
+    if (written == 0) return false;
+
+    if (filledThrough && *filledThrough == written) return true;
+
     const size_t nn = static_cast<size_t>(std::min<uint64_t>(written, static_cast<uint64_t>(waveN)));
     if (nn == 0) return false;
+
+    if (filledThrough && *filledThrough > 0 && written > *filledThrough) {
+        const uint64_t delta64 = written - *filledThrough;
+        if (delta64 < static_cast<uint64_t>(waveN) &&
+            static_cast<uint64_t>(waveN) <= written) {
+            // Steady-state incremental: shift left, snapshot only the new tail.
+            const int delta = static_cast<int>(delta64);
+            const int keep = waveN - delta;
+            std::memmove(wave, wave + delta, static_cast<size_t>(keep) * sizeof(float));
+            uint64_t end = 0;
+            if (!reader.snapshotLatest(static_cast<size_t>(delta), wave + keep, end))
+                return false;
+            *filledThrough = written;
+            return true;
+        }
+    }
+
     const int head = waveN - static_cast<int>(nn);
-    std::fill(wave, wave + head, 0.f);
+    if (head > 0) std::fill(wave, wave + head, 0.f);
     uint64_t end = 0;
-    return reader.snapshotLatest(nn, wave + head, end);
+    if (!reader.snapshotLatest(nn, wave + head, end)) return false;
+    if (filledThrough) *filledThrough = written;
+    return true;
 }
 
 bool fillLatestWaveChannels(const ScopeReader& reader, std::vector<std::vector<float>>& channelWaves,
-                            uint32_t channelCount, int waveN) {
+                            uint32_t channelCount, int waveN, uint64_t* filledThrough) {
     if (waveN <= 0 || channelCount == 0) return false;
     const uint64_t written = reader.written();
+    if (written == 0) return false;
+
+    if (filledThrough && *filledThrough == written) {
+        const uint32_t shown =
+            std::min(channelCount, static_cast<uint32_t>(channelWaves.size()));
+        return shown > 0 && static_cast<int>(channelWaves[0].size()) >= waveN;
+    }
+
     const size_t nn = static_cast<size_t>(std::min<uint64_t>(written, static_cast<uint64_t>(waveN)));
     if (nn == 0) return false;
     const uint32_t shown =
         std::min(channelCount, static_cast<uint32_t>(channelWaves.size()));
+    if (shown == 0) return false;
+
+    const bool canIncremental = filledThrough && *filledThrough > 0 && written > *filledThrough &&
+                                static_cast<uint64_t>(waveN) <= written;
+    const uint64_t delta64 = canIncremental ? (written - *filledThrough) : 0;
+    const bool incremental =
+        canIncremental && delta64 < static_cast<uint64_t>(waveN);
+
     bool any = false;
-    for (uint32_t ch = 0; ch < shown; ++ch) {
-        std::vector<float>& wave = channelWaves[static_cast<size_t>(ch)];
-        if (static_cast<int>(wave.size()) < waveN) continue;
-        const int head = waveN - static_cast<int>(nn);
-        std::fill(wave.begin(), wave.begin() + head, 0.f);
-        if (reader.snapshotChannelEndingAt(static_cast<uint16_t>(ch), written, nn,
-                                           wave.data() + head))
-            any = true;
+    if (incremental) {
+        const int delta = static_cast<int>(delta64);
+        const int keep = waveN - delta;
+        for (uint32_t ch = 0; ch < shown; ++ch) {
+            std::vector<float>& wave = channelWaves[static_cast<size_t>(ch)];
+            if (static_cast<int>(wave.size()) < waveN) continue;
+            std::memmove(wave.data(), wave.data() + delta,
+                         static_cast<size_t>(keep) * sizeof(float));
+            if (reader.snapshotChannelEndingAt(static_cast<uint16_t>(ch), written,
+                                               static_cast<size_t>(delta),
+                                               wave.data() + keep))
+                any = true;
+        }
+    } else {
+        for (uint32_t ch = 0; ch < shown; ++ch) {
+            std::vector<float>& wave = channelWaves[static_cast<size_t>(ch)];
+            if (static_cast<int>(wave.size()) < waveN) continue;
+            const int head = waveN - static_cast<int>(nn);
+            if (head > 0) std::fill(wave.begin(), wave.begin() + head, 0.f);
+            if (reader.snapshotChannelEndingAt(static_cast<uint16_t>(ch), written, nn,
+                                               wave.data() + head))
+                any = true;
+        }
     }
+    if (any && filledThrough) *filledThrough = written;
     return any;
 }
 
@@ -106,9 +163,11 @@ ChartRefreshResult refreshCharts(const ChartRefreshParams& params, ChartBuffers&
     if (buffers.waveSr > 0 && buffers.waveN > 0) {
         if (multi)
             result.haveWave = fillLatestWaveChannels(*params.reader, *buffers.channelWaves,
-                                                     buffers.channelCount, buffers.waveN);
+                                                     buffers.channelCount, buffers.waveN,
+                                                     buffers.waveFilledThrough);
         else if (buffers.wave)
-            result.haveWave = fillLatestWaveMono(*params.reader, buffers.wave, buffers.waveN);
+            result.haveWave = fillLatestWaveMono(*params.reader, buffers.wave, buffers.waveN,
+                                                 buffers.waveFilledThrough);
     }
 
     if (buffers.specSr > 0 && buffers.nextEnd) {

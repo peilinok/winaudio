@@ -243,7 +243,8 @@ TEST(ChartDataPipeline, WaveProgressiveFillPutsNewestAtTail) {
     EXPECT_FLOAT_EQ(wave[7], 30.f);
 }
 
-// Device-free record for one 8-channel refreshCharts at the GUI sizes.
+// Device-free record for live 8-channel refreshCharts at the GUI sizes:
+// each call advances written by maxCatchup hops (incremental wave + catch-up FFTs).
 // No time limit: the line is the citeable record, not a pass bar.
 TEST(ChartDataPipeline, RefreshCharts8chRecord) {
     constexpr uint16_t kChannels = 8;
@@ -255,22 +256,27 @@ TEST(ChartDataPipeline, RefreshCharts8chRecord) {
     constexpr int kWaveN = kSpecCols * static_cast<int>(kFftHop);
     constexpr int kCalls = 16;
     constexpr uint32_t kSr = 48000;
+    constexpr size_t kAdvance = kCatchup * kFftHop;
 
     FakeScopeReader reader(kChannels);
     std::vector<float> chunk(4096 * kChannels);
-    size_t left = static_cast<size_t>(kWaveN);
-    uint32_t filled = 0;
-    while (left > 0) {
-        const size_t nfr = std::min(left, static_cast<size_t>(4096));
-        for (size_t i = 0; i < nfr; ++i) {
-            const float s = static_cast<float>((filled + i) & 1023) / 1023.f;
-            for (uint16_t ch = 0; ch < kChannels; ++ch)
-                chunk[i * kChannels + ch] = s;
+    auto pushFrames = [&](size_t frames, uint32_t& filled) {
+        size_t left = frames;
+        while (left > 0) {
+            const size_t nfr = std::min(left, static_cast<size_t>(4096));
+            for (size_t i = 0; i < nfr; ++i) {
+                const float s = static_cast<float>((filled + i) & 1023) / 1023.f;
+                for (uint16_t ch = 0; ch < kChannels; ++ch)
+                    chunk[i * kChannels + ch] = s;
+            }
+            reader.pushInterleaved(chunk.data(), nfr);
+            filled += static_cast<uint32_t>(nfr);
+            left -= nfr;
         }
-        reader.pushInterleaved(chunk.data(), nfr);
-        filled += static_cast<uint32_t>(nfr);
-        left -= nfr;
-    }
+    };
+
+    uint32_t filled = 0;
+    pushFrames(static_cast<size_t>(kWaveN), filled);
 
     std::vector<std::vector<float>> channelWaves(
         kChannels, std::vector<float>(static_cast<size_t>(kWaveN), 0.f));
@@ -285,6 +291,7 @@ TEST(ChartDataPipeline, RefreshCharts8chRecord) {
     std::vector<std::complex<float>> work(kFftWin);
     std::vector<float> mag(kFftWin / 2 + 1, 0.f);
     uint64_t nextEnd = 0;
+    uint64_t waveFilled = 0;
 
     ChartRefreshParams params;
     params.reader = &reader;
@@ -298,6 +305,7 @@ TEST(ChartDataPipeline, RefreshCharts8chRecord) {
     buffers.channelCount = kChannels;
     buffers.waveN = kWaveN;
     buffers.waveSr = kSr;
+    buffers.waveFilledThrough = &waveFilled;
     buffers.channelSpecWindows = &channelSpecWindows;
     buffers.channelSpecs = &channelSpecs;
     buffers.work = &work;
@@ -307,22 +315,24 @@ TEST(ChartDataPipeline, RefreshCharts8chRecord) {
 
     ASSERT_TRUE(refreshCharts(params, buffers).haveWave);
     EXPECT_EQ(nextEnd, reader.written());
+    EXPECT_EQ(waveFilled, reader.written());
 
     LARGE_INTEGER freq;
     ASSERT_TRUE(QueryPerformanceFrequency(&freq));
     ASSERT_GT(freq.QuadPart, 0);
 
-    // Each call is one full maxCatchup refresh. Resetting the cursor keeps
-    // later calls from becoming wave-copy only after the first catch-up.
+    // Live path: each call pushes maxCatchup hops of new audio so both
+    // incremental wave fill and FFT catch-up stay on the hot path.
     LARGE_INTEGER t0;
     LARGE_INTEGER t1;
     ASSERT_TRUE(QueryPerformanceCounter(&t0));
     for (int i = 0; i < kCalls; ++i) {
-        nextEnd = 0;
+        pushFrames(kAdvance, filled);
         ASSERT_TRUE(refreshCharts(params, buffers).haveWave);
     }
     ASSERT_TRUE(QueryPerformanceCounter(&t1));
     EXPECT_EQ(nextEnd, reader.written());
+    EXPECT_EQ(waveFilled, reader.written());
 
     const uint64_t ticks = static_cast<uint64_t>(t1.QuadPart - t0.QuadPart);
     const uint64_t qpcFreq = static_cast<uint64_t>(freq.QuadPart);
@@ -344,7 +354,103 @@ TEST(ChartDataPipeline, RefreshCharts8chRecord) {
               << " nanos=" << nanos
               << " uncertainty_ticks=1"
               << " hops_per_call=" << kCatchup
+              << " wave=incremental"
               << " command=.\\build\\bin\\" << build
               << "\\WinAudioTests.exe --gtest_filter=ChartDataPipeline.RefreshCharts8chRecord"
               << "\n";
+}
+
+TEST(ChartDataPipeline, WaveIncrementalMatchesFullRefill) {
+    FakeScopeReader r(2);
+    const float block1[] = {
+        1, 10, 2, 20, 3, 30, 4, 40, 5, 50, 6, 60, 7, 70, 8, 80,
+    };
+    r.pushInterleaved(block1, 8);
+
+    std::vector<std::vector<float>> wavesA(2, std::vector<float>(8, 0.f));
+    std::vector<std::vector<float>> wavesB(2, std::vector<float>(8, 0.f));
+    std::vector<std::vector<float>> specWin(2, std::vector<float>(kWin, 0.f));
+    std::vector<std::unique_ptr<Spectrogram>> specs;
+    specs.push_back(std::make_unique<Spectrogram>(4, 4, 20.0, 24000.0, 48000));
+    specs.push_back(std::make_unique<Spectrogram>(4, 4, 20.0, 24000.0, 48000));
+    std::vector<std::complex<float>> work(kWin);
+    std::vector<float> mag;
+    uint64_t nextEnd = 0;
+    uint64_t filledA = 0;
+
+    ChartRefreshParams p;
+    p.reader = &r;
+    p.streamActive = true;
+    p.fftWin = kWin;
+    p.fftHop = kHop;
+    p.maxCatchup = kCatch;
+
+    ChartBuffers a;
+    a.channelWaves = &wavesA;
+    a.channelCount = 2;
+    a.waveN = 8;
+    a.waveSr = 48000;
+    a.waveFilledThrough = &filledA;
+    a.channelSpecWindows = &specWin;
+    a.channelSpecs = &specs;
+    a.work = &work;
+    a.mag = &mag;
+    a.nextEnd = &nextEnd;
+    a.specSr = 48000;
+
+    ASSERT_TRUE(refreshCharts(p, a).haveWave);
+    EXPECT_EQ(filledA, r.written());
+
+    const float block2[] = {9, 90, 10, 100, 11, 110};
+    r.pushInterleaved(block2, 3);
+    ASSERT_TRUE(refreshCharts(p, a).haveWave); // incremental (+3)
+
+    // Full refill into B without cursor (same reader state).
+    ChartBuffers b;
+    b.channelWaves = &wavesB;
+    b.channelCount = 2;
+    b.waveN = 8;
+    b.waveSr = 48000;
+    b.channelSpecWindows = &specWin;
+    b.channelSpecs = &specs;
+    b.work = &work;
+    b.mag = &mag;
+    b.nextEnd = &nextEnd;
+    b.specSr = 48000;
+    ASSERT_TRUE(refreshCharts(p, b).haveWave);
+
+    for (int ch = 0; ch < 2; ++ch)
+        for (int i = 0; i < 8; ++i)
+            EXPECT_FLOAT_EQ(wavesA[static_cast<size_t>(ch)][static_cast<size_t>(i)],
+                            wavesB[static_cast<size_t>(ch)][static_cast<size_t>(i)])
+                << "ch=" << ch << " i=" << i;
+}
+
+TEST(ChartDataPipeline, WaveSkipWhenWrittenUnchanged) {
+    FakeScopeReader r(1);
+    fillRamp(r, 64);
+
+    std::vector<float> wave(32, 0.f);
+    std::vector<float> specWin(kWin, 0.f);
+    std::vector<std::complex<float>> work(kWin);
+    std::vector<float> mag;
+    Spectrogram spec(4, 4, 20.0, 24000.0, 48000);
+    uint64_t nextEnd = 0;
+    uint64_t filled = 0;
+
+    ChartRefreshParams p;
+    p.reader = &r;
+    p.streamActive = true;
+    p.fftWin = kWin;
+    p.fftHop = kHop;
+
+    ChartBuffers b = makeMonoBuffers(wave, specWin, work, mag, spec, nextEnd, 32);
+    b.waveFilledThrough = &filled;
+    ASSERT_TRUE(refreshCharts(p, b).haveWave);
+    const float mid = wave[16];
+    wave[16] = 123.f; // poison; skip path must not rewrite
+    ASSERT_TRUE(refreshCharts(p, b).haveWave);
+    EXPECT_FLOAT_EQ(wave[16], 123.f);
+    EXPECT_EQ(filled, r.written());
+    (void)mid;
 }

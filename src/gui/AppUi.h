@@ -59,6 +59,8 @@ private:
         std::vector<float>               magCap, magRender;
         uint64_t nextCapEnd    = 0;
         uint64_t nextRenderEnd = 0;
+        uint64_t waveFilledCap = 0;    // ScopeReader written() covered by cap wave buffers
+        uint64_t waveFilledRender = 0; // same for render-side wave
         uint32_t specSr        = 0;
         uint32_t capSpecChannels = 0;
 

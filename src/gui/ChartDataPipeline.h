@@ -28,6 +28,9 @@ struct ChartBuffers {
     uint32_t                       channelCount = 0;        // 0/1 => mono; >=2 multi
     int                            waveN = 0;
     uint32_t                       waveSr = 0;              // >0 when wave/spec buffers ready
+    // Optional cursor: reader.written() covered by the wave buffers. Enables skip when
+    // unchanged and incremental tail updates when written advances by less than waveN.
+    uint64_t*                      waveFilledThrough = nullptr;
 
     // Spectrogram hop windows + FFT scratch.
     std::vector<float>*                       specWin = nullptr;           // mono, size fftWin

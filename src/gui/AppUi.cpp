@@ -633,6 +633,8 @@ void AppUi::resetVisuals(VisualState& viz) {
     viz.magRender.clear();
     viz.nextCapEnd = 0;
     viz.nextRenderEnd = 0;
+    viz.waveFilledCap = 0;
+    viz.waveFilledRender = 0;
     viz.specSr = 0;
     viz.capSpecChannels = 0;
     viz.capSpec.reset();
@@ -647,6 +649,7 @@ void AppUi::resetRenderVisuals(VisualState& viz) {
     viz.magRender.clear();
     viz.renderSpec.reset();
     viz.nextRenderEnd = 0;
+    viz.waveFilledRender = 0;
     std::fill(viz.renderWave.begin(), viz.renderWave.end(), 0.f);
 }
 
@@ -670,6 +673,8 @@ void AppUi::ensureRunningVisuals(const wa::MonitorStatus& status, VisualState& v
         viz.capChannelWaves.assign((size_t)capChannels,
                                    std::vector<float>((size_t)viz.waveN, 0.f));
         viz.capWaveChannels = capChannels;
+        viz.waveFilledCap = 0;
+        viz.waveFilledRender = 0;
         viz.xLink0 = 0.0;
         viz.xLink1 = (double)(kSpecCols * kFftHop) / (double)sr;
     }
@@ -2457,6 +2462,7 @@ void AppUi::drawComboPanel(wa::ScopeReader& reader, const wa::MonitorStatus& sta
         buffers.channelCount = shownChannels;
         buffers.waveN = viz.waveN;
         buffers.waveSr = viz.waveSr;
+        buffers.waveFilledThrough = &viz.waveFilledCap;
         buffers.channelSpecWindows = &viz.capSpecWindows;
         buffers.channelSpecs = &viz.capChannelSpecs;
         buffers.work = &viz.workCap;
@@ -2513,6 +2519,7 @@ void AppUi::drawComboPanel(wa::ScopeReader& reader, const wa::MonitorStatus& sta
     buffers.wave = wave.empty() ? nullptr : wave.data();
     buffers.waveN = viz.waveN;
     buffers.waveSr = viz.waveSr;
+    buffers.waveFilledThrough = renderSide ? &viz.waveFilledRender : &viz.waveFilledCap;
     buffers.specWin = &viz.specWin;
     buffers.work = renderSide ? &viz.workRender : &viz.workCap;
     buffers.mag = renderSide ? &viz.magRender : &viz.magCap;
