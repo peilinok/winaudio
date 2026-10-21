@@ -1,4 +1,5 @@
 #include "AppUi.h"
+#include "HeatmapRgba.h"
 #include "ApplicationLoopbackUiModel.h"
 #include "AppUiText.h"
 #include "CaptureChannelView.h"
@@ -178,6 +179,11 @@ void AppUi::stopAll() {
     renderTracks_.destroyAll();
     pipelineEtw_.stop();
     pipelineAttach_.stop();
+}
+
+void AppUi::releaseGpu() {
+    for (auto& tex : heatmapTex_)
+        tex.reset();
 }
 
 void AppUi::refreshApplicationLoopbackSessions() {
@@ -2304,8 +2310,40 @@ void AppUi::drawSpectrogramPanel(VisualState& viz, const char* plotId, wa::Spect
         if (nTick > 0) ImPlot::SetupAxisTicks(ImAxis_Y1, tickV, nTick, tickL);
         if (spec) {
             wa::FrameBracket heatmap(frameProbe_, wa::FrameSlice::Heatmap);
-            ImPlot::PlotHeatmap("##hm", spec->data(), spec->rows(), spec->cols(), -96.0, 0.0, nullptr,
-                ImPlotPoint(0, loL), ImPlotPoint(histSec, hiL));
+            // Texture path: one PlotImage quad instead of rows*cols ImPlot rects.
+            // HeatmapTexture::ensure skips RGBA rebuild + upload when revision is unchanged.
+            static uint32_t lut[256];
+            static bool lutReady = false;
+            if (!lutReady) {
+                static const wa::HeatmapColorStop kStops[] = {
+                    {0.050f, 0.030f, 0.528f, 0.00f},
+                    {0.294f, 0.012f, 0.631f, 0.55f},
+                    {0.492f, 0.012f, 0.658f, 0.90f},
+                    {0.658f, 0.135f, 0.588f, 1.00f},
+                    {0.798f, 0.280f, 0.470f, 1.00f},
+                    {0.902f, 0.425f, 0.353f, 1.00f},
+                    {0.973f, 0.586f, 0.252f, 1.00f},
+                    {0.940f, 0.975f, 0.131f, 1.00f},
+                };
+                wa::buildHeatmapLut(kStops, 8, lut);
+                lutReady = true;
+            }
+            constexpr int kTexSlots = (int)(sizeof(heatmapTex_) / sizeof(heatmapTex_[0]));
+            bool drew = false;
+            if (slot >= 0 && slot < kTexSlots) {
+                if (!heatmapTex_[slot])
+                    heatmapTex_[slot] = std::make_unique<wa::HeatmapTexture>();
+                if (heatmapTex_[slot]->ensure(spec->data(), spec->rows(), spec->cols(),
+                                              spec->revision(), -96.f, 0.f, lut)) {
+                    ImPlot::PlotImage("##hm", heatmapTex_[slot]->textureId(),
+                                      ImPlotPoint(0, loL), ImPlotPoint(histSec, hiL));
+                    drew = true;
+                }
+            }
+            if (!drew) {
+                ImPlot::PlotHeatmap("##hm", spec->data(), spec->rows(), spec->cols(), -96.0, 0.0,
+                                    nullptr, ImPlotPoint(0, loL), ImPlotPoint(histSec, hiL));
+            }
         }
         drawYUnitLabel("Hz", true);
         viz.plotHovPrev[slot] = ImPlot::IsPlotHovered();

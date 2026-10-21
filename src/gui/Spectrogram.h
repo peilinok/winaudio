@@ -18,6 +18,8 @@ public:
     int    cols() const { return cols_; }
     double fmin() const { return fmin_; }
     double fmax() const { return fmax_; }
+    // Bumps on pushColumn/clear so GUI can skip texture rebuilds when unchanged.
+    uint64_t revision() const { return revision_; }
 private:
     void buildMap(size_t magBins);         // precompute per-row [binLo,binHi] once (lazy)
     int rows_, cols_; double fmin_, fmax_; uint32_t sr_; float floor_;
@@ -25,5 +27,6 @@ private:
     size_t mappedBins_ = 0;                // magBins value used when buildMap was called
     std::vector<int> rowBinLo_, rowBinHi_; // size rows_, inclusive bin range per row
     std::vector<float> buf_;               // rows_*cols_, row-major
+    uint64_t revision_ = 0;
 };
 } // namespace wa

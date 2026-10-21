@@ -8,6 +8,7 @@
 // - Introduction, links and more at the top of imgui.cpp
 
 #include "AppUi.h"
+#include "GuiGpu.h"
 #include "Log.h"
 #include "imgui.h"
 #include "implot.h"
@@ -88,6 +89,7 @@ int main(int, char**)
     // Setup Platform/Renderer backends
     ImGui_ImplWin32_Init(hwnd);
     ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
+    wa::setGuiGpu(g_pd3dDevice, g_pd3dDeviceContext);
 
     // Load Fonts
     // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
@@ -218,9 +220,11 @@ int main(int, char**)
 
     // Join engines and the Live session watch before the window is destroyed.
     ui.stopAll();
+    ui.releaseGpu();  // drop heatmap textures before the D3D device goes away
     wa::log::shutdown();   // flush + stop the logging pump before teardown
 
     // Cleanup
+    wa::setGuiGpu(nullptr, nullptr);
     ImGui_ImplDX11_Shutdown();
     ImGui_ImplWin32_Shutdown();
     ImPlot::DestroyContext();

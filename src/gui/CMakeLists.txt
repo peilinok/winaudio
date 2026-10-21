@@ -3,6 +3,9 @@ add_executable(WinAudioGui
     ChartDataPipeline.cpp
     DumpUi.cpp
     FrameProbe.cpp
+    GuiGpu.cpp
+    HeatmapRgba.cpp
+    HeatmapTexture.cpp
     main.cpp
     Spectrogram.cpp
 )
