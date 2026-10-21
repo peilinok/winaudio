@@ -22,6 +22,7 @@
 #include "PipelineGraph.h"
 #include "SharedProbe.h"
 #include "Spectrogram.h"
+#include "WaveEnvelope.h"
 #include "HeatmapTexture.h"
 #include "TrackScopeReader.h"
 
@@ -44,6 +45,9 @@ private:
         uint32_t capWaveChannels = 0;
         double   xLink0 = 0.0, xLink1 = 0.0;
         std::vector<float> envX, envMin, envMax;
+        uint64_t waveEpoch = 0;                      // bumps when chart wave buffers refresh
+        wa::MinMaxPyramid envPyramid;                // mono / render-side envelope LOD
+        std::vector<wa::MinMaxPyramid> capEnvPyramids; // per capture-channel envelope LOD
         float comboRatio = 0.5f;
         bool  chartsFrozen = false; // pause chart data refresh only; audio continues
         bool  resetYAxes = false;   // one-shot: next draw restores default Y on all plots
@@ -115,7 +119,7 @@ private:
     void drawComboPanel(wa::ScopeReader& reader, const wa::MonitorStatus& status, VisualState& viz,
                         bool renderSide);
     void drawSpectrogramPanel(VisualState& viz, const char* plotId, wa::Spectrogram* spec, double histSec, float height, int slot);
-    void drawWaveformPanel(VisualState& viz, const char* plotId, const float* wave, int n, uint32_t sr, bool haveData, float height, int slot);
+    void drawWaveformPanel(VisualState& viz, const char* plotId, const float* wave, int n, uint32_t sr, bool haveData, float height, int slot, wa::MinMaxPyramid* pyr = nullptr);
     float logRegionHeight() const;
     void drawLogRegion(const char* regionId, const char* listId);
     void drawLogPanel(const char* listId);
