@@ -17,3 +17,4 @@ x64/
 # Dear ImGui runtime layout state
 imgui.ini
 *.codegraph
+.scratch/

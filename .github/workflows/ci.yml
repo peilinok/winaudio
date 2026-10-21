@@ -41,4 +41,5 @@ jobs:
           path: |
             build/bin/${{ matrix.config }}/WinAudioGui.exe
             build/bin/${{ matrix.config }}/WinAudioCli.exe
+            build/bin/${{ matrix.config }}/LoopbackTreeProbe.exe
           if-no-files-found: error
