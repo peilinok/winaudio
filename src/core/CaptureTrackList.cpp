@@ -267,7 +267,32 @@ Result CaptureTrackList::create(const CaptureTrackCreate& spec, TrackId* outId) 
             const uint16_t ch = fmt.channels ? fmt.channels : static_cast<uint16_t>(1);
             std::vector<uint8_t> buf(16384);
             std::vector<float> interleaved(4096u * ch, 0.f);
+            bool captureFaultSeen = false;
+            bool silentFaultSeen = false;
             while (mem->running.load(std::memory_order_relaxed)) {
+                // Runtime faults (e.g. the endpoint was unplugged). The pump keeps
+                // running so an open WAV is finalized normally on Destroy; the track
+                // stays listed in Error until the user destroys it.
+                if (!captureFaultSeen && mem->backend->inError()) {
+                    captureFaultSeen = true;
+                    const long hr = mem->backend->stats().runtimeError;
+                    const std::string why = hr ? wa::log::hrName(hr) : std::string("inError");
+                    // (no id in args: m->id is assigned after this thread starts)
+                    WA_LOG(wa::log::Level::Err, "CaptureTrackList", "capture.runtime",
+                           std::string("source=") + sourceName(mem->source.kind), why);
+                    std::lock_guard<std::mutex> lk(mem->mtx);
+                    mem->status.state = StreamState::Error;
+                    mem->status.message = "capture stream stopped: " + why;
+                }
+                if (!silentFaultSeen && mem->silent && mem->silent->inError()) {
+                    silentFaultSeen = true;
+                    const long hr = mem->silent->stats().runtimeError;
+                    WA_LOG(wa::log::Level::Warn, "CaptureTrackList", "silentRender.runtime",
+                           "",
+                           hr ? wa::log::hrName(hr) : std::string("inError"));
+                    std::lock_guard<std::mutex> lk(mem->mtx);
+                    mem->status.silentRenderState = StreamState::Error;
+                }
                 size_t got = mem->ring->read(buf.data(), buf.size());
                 if (got == 0 || frameBytes == 0) {
                     Sleep(5);

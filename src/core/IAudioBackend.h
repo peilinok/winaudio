@@ -56,6 +56,7 @@ struct BackendStats {
     uint64_t    underruns = 0;
     uint64_t    idleSilenceFrames = 0;
     uint64_t    silentPacketFrames = 0;
+    long        runtimeError = 0;   // first worker-thread HRESULT failure; 0 = healthy
 };
 
 class IAudioBackend {

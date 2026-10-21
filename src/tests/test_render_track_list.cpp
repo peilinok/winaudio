@@ -54,8 +54,12 @@ public:
     BackendStats stats() const override {
         BackendStats s{};
         s.actualFormat = openedFormat_;
+        s.runtimeError = runtimeHr_.load(std::memory_order_relaxed);
         return s;
     }
+    bool inError() const override { return runtimeHr_.load(std::memory_order_relaxed) < 0; }
+    void failRuntime(long hr) { runtimeHr_.store(hr, std::memory_order_relaxed); }
+    std::atomic<long> runtimeHr_{0};
 
     std::vector<int16_t> pull(size_t frames) {
         if (!fill_ || !fill_->fn || channels_ == 0 || frames > 0xffffffffu) return {};
@@ -167,6 +171,29 @@ TEST(RenderTrackList, CreateStartsSharedSilentTrack) {
     for (int16_t sample : frames) EXPECT_EQ(sample, 0);
 
     list.destroyAll();
+}
+
+TEST(RenderTrackList, RuntimeBackendFaultPollsAsError) {
+    Rig rig;
+    RenderTrackList list(rig.factory());
+    RenderTrackCreate spec;
+    spec.deviceId = L"spk-1";
+    spec.mode = RenderLayoutMode::Layout;
+    spec.source = pcm(48000, 16, 2, 0x3u);
+    TrackId id = 0;
+    ASSERT_TRUE(list.create(spec, &id));
+    ASSERT_EQ(rig.renders.size(), 1u);
+    ASSERT_EQ(list.poll()[0].state, StreamState::Running);
+
+    rig.renders[0]->failRuntime(static_cast<long>(static_cast<int32_t>(0x88890004u))); // AUDCLNT_E_DEVICE_INVALIDATED
+    const auto st = list.poll();
+    ASSERT_EQ(st.size(), 1u);
+    EXPECT_EQ(st[0].state, StreamState::Error);
+    EXPECT_NE(st[0].message.find("AUDCLNT_E_DEVICE_INVALIDATED"), std::string::npos)
+        << st[0].message;
+
+    list.destroy(id);
+    EXPECT_TRUE(list.poll().empty());
 }
 
 TEST(RenderTrackList, SystemDefaultUsesMixChannelsAndMaskNotRate) {

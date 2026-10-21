@@ -359,6 +359,16 @@ std::vector<RenderTrackStatus> RenderTrackList::poll() const {
     out.reserve(members_.size());
     for (const auto& member : members_) {
         RenderTrackStatus status = member->status;
+        // A render worker that hit a runtime fault (device removed, ...) has stopped
+        // pulling samples; report it instead of a frozen "Running" row. The backend
+        // already logged the HRESULT once, so nothing is logged from this hot path.
+        if (status.state == StreamState::Running && member->backend &&
+            member->backend->inError()) {
+            const long hr = member->backend->stats().runtimeError;
+            status.state = StreamState::Error;
+            status.message = "render stream stopped: " +
+                             (hr ? wa::log::hrName(hr) : std::string("inError"));
+        }
         status.chartChannels = member->tapChannels;
         status.channelPaused.assign(member->channels, 1);
         status.channels.assign(member->channels, {});

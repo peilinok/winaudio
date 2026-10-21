@@ -285,6 +285,16 @@ void Engine::captureLoop(std::wstring wavPath) {
     }
     std::vector<uint8_t> buf(16384);
     while (running_.load()) {
+        if (backend_->inError()) {   // device removed etc.: stop instead of idling forever
+            const long hr = backend_->stats().runtimeError;
+            const std::string why = hr ? wa::log::hrName(hr) : std::string("inError");
+            WA_LOG(wa::log::Level::Err, "Engine", "capture.runtime", "", why);
+            std::lock_guard<std::mutex> lk(mtx_);
+            status_.state = EngineState::Error;
+            status_.message = "capture stream stopped: " + why;
+            running_.store(false);
+            break;
+        }
         size_t got = ring_->read(buf.data(), buf.size());
         if (got == 0) { Sleep(5); }
         else {
@@ -338,6 +348,17 @@ void Engine::playbackLoop(std::wstring wavPath) {
     std::vector<uint8_t> buf(16384);
     bool fileDone = false;
     while (running_.load()) {
+        // Without this, a render worker that died (device removed) never drains the
+        // ring, so this loop -- and `WinAudioCli play` -- would wait forever.
+        if (backend_->inError()) {
+            const long hr = backend_->stats().runtimeError;
+            const std::string why = hr ? wa::log::hrName(hr) : std::string("inError");
+            WA_LOG(wa::log::Level::Err, "Engine", "playback.runtime", "", why);
+            std::lock_guard<std::mutex> lk(mtx_);
+            status_.state = EngineState::Error;
+            status_.message = "render stream stopped: " + why;
+            break;
+        }
         if (!fileDone) {
             // keep the ring topped up
             while (ring_->availableWrite() >= buf.size()) {

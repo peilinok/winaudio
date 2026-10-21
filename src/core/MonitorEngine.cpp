@@ -465,15 +465,26 @@ void MonitorEngine::pumpLoop() {
 
         if (capBackend_ && capBackend_->inError()
             && capState_.load(std::memory_order_relaxed) != StreamState::Error) {
-            WA_LOG(wa::log::Level::Err, "MonitorEngine", "capture.runtime", "", "inError");
+            WA_LOG(wa::log::Level::Err, "MonitorEngine", "capture.runtime", "",
+                   wa::log::hrName(capBackend_->stats().runtimeError));
             capState_.store(StreamState::Error, std::memory_order_relaxed);
             overall_.store(StreamState::Error, std::memory_order_relaxed);
             errorCode_.store(static_cast<uint32_t>(MonitorError::CaptureStart),
                              std::memory_order_relaxed);
         }
+        // Silent keep-alive render (System Loopback only): started before the pump and
+        // stopped after it is joined, so reading it here is race-free. Its loss only
+        // means loopback capture may go quiet while the endpoint idles; capture stays up.
+        if (silentRenderBackend_ && silentRenderBackend_->inError()
+            && silentRenderState_.load(std::memory_order_relaxed) == StreamState::Running) {
+            WA_LOG(wa::log::Level::Warn, "MonitorEngine", "silentRender.runtime", "",
+                   wa::log::hrName(silentRenderBackend_->stats().runtimeError));
+            silentRenderState_.store(StreamState::Error, std::memory_order_relaxed);
+        }
         if (renderBackend_ && renderBackend_->inError()
             && renderState_.load(std::memory_order_relaxed) != StreamState::Error) {
-            WA_LOG(wa::log::Level::Err, "MonitorEngine", "render.runtime", "", "inError");
+            WA_LOG(wa::log::Level::Err, "MonitorEngine", "render.runtime", "",
+                   wa::log::hrName(renderBackend_->stats().runtimeError));
             renderState_.store(StreamState::Error, std::memory_order_relaxed);
             overall_.store(StreamState::Error, std::memory_order_relaxed);
             errorCode_.store(static_cast<uint32_t>(MonitorError::RenderStart),

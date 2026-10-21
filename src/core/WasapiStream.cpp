@@ -45,6 +45,13 @@ uint32_t loopbackSilenceFramesForElapsed(uint32_t sampleRate, uint64_t elapsedMs
     return static_cast<uint32_t>((static_cast<uint64_t>(sampleRate) * boundedMs) / 1000u);
 }
 
+bool isTransientCaptureError(long hr) {
+    // AUDCLNT_E_BUFFER_ERROR: exclusive-mode GetBuffer found no packet this pass
+    //   (documented: wait for the next processing pass).
+    // AUDCLNT_E_BUFFER_OPERATION_PENDING: a stream reset is in progress.
+    return hr == AUDCLNT_E_BUFFER_ERROR || hr == AUDCLNT_E_BUFFER_OPERATION_PENDING;
+}
+
 uint32_t captureSilentPacketFrames(uint32_t frames, unsigned flags) {
     return (flags & AUDCLNT_BUFFERFLAGS_SILENT) ? frames : 0u;
 }
@@ -102,6 +109,16 @@ void WasapiStream::signalReady(Result res) {
 
 Result WasapiStream::start() {
     if (running_.exchange(true)) return Result::Ok();
+    // A worker that left runLoop() on a runtime fault cleared running_ itself but was
+    // never joined. Join it before relaunching (assigning to a joinable std::thread
+    // calls std::terminate). It is already past runLoop(), so this only waits for
+    // client_->Stop() and thread teardown.
+    if (thread_.joinable()) thread_.join();
+    fault_.reset();
+    // threadMain fills client_ / the service via GetAddressOf(), which does not release
+    // a previous pointer; drop the last session's objects so a restart does not leak them.
+    resetService();
+    client_.Reset();
     if (hEvent_) { CloseHandle(static_cast<HANDLE>(hEvent_)); hEvent_ = nullptr; }
     hEvent_ = CreateEventW(nullptr, FALSE, FALSE, nullptr);
     if (!hEvent_) {
@@ -149,7 +166,18 @@ BackendStats WasapiStream::stats() const {
     s.idleSilenceFrames = idleSilenceFrames_.load(std::memory_order_relaxed);
     s.silentPacketFrames = silentPacketFrames_.load(std::memory_order_relaxed);
     if (ring_) { s.overruns = ring_->overruns(); s.underruns = ring_->underruns(); }
+    s.runtimeError = fault_.code();
     return s;
+}
+
+bool WasapiStream::reportRuntimeFault(const char* call, HRESULT hr) {
+    if (SUCCEEDED(hr)) return false;
+    if (fault_.report(static_cast<long>(hr))) {
+        WA_LOG(wa::log::Level::Err, "WasapiStream", call,
+               "runtime fault; worker loop exiting", wa::log::hrName(hr));
+    }
+    running_.store(false);
+    return true;
 }
 
 Result WasapiStream::applyClientProperties() {
@@ -331,10 +359,15 @@ void WasapiCaptureStream::runLoop() {
     while (running_.load()) {
         DWORD waitRc = WaitForSingleObject(static_cast<HANDLE>(hEvent_), kCaptureWaitMs);
         wa::log::emitTrace("WasapiStream", "WaitForSingleObject", 0, waitRc, 0);
+        if (waitRc == WAIT_FAILED &&
+            reportRuntimeFault("WaitForSingleObject", HRESULT_FROM_WIN32(GetLastError())))
+            break;
         bool wroteFrames = false;
         bool sawPacket = false;
         UINT32 packet = 0;
         HRESULT hrNP = S_OK;
+        HRESULT hrPacket = S_OK;          // first GetBuffer/ReleaseBuffer failure
+        const char* packetCall = "";
         while (hrNP = capture_->GetNextPacketSize(&packet),
                wa::log::emitTrace("WasapiStream", "GetNextPacketSize", packet, 0, (long)hrNP),
                SUCCEEDED(hrNP) && packet > 0) {
@@ -342,8 +375,11 @@ void WasapiCaptureStream::runLoop() {
             BYTE* data = nullptr; UINT32 frames = 0; DWORD flags = 0;
             HRESULT hrGB = capture_->GetBuffer(&data, &frames, &flags, nullptr, nullptr);
             wa::log::emitTrace("WasapiStream", "GetBuffer", frames, (unsigned)flags, (long)hrGB);
-            if (FAILED(hrGB))
+            if (FAILED(hrGB)) {
+                // Exclusive capture may report "no packet this pass"; wait for the next one.
+                if (!isTransientCaptureError(hrGB)) { hrPacket = hrGB; packetCall = "GetBuffer"; }
                 break;
+            }
             const size_t bytes = static_cast<size_t>(frames) * frameBytes_;
             if (flags & AUDCLNT_BUFFERFLAGS_SILENT) {
                 static thread_local std::vector<uint8_t> zeros;
@@ -362,7 +398,12 @@ void WasapiCaptureStream::runLoop() {
             }
             HRESULT hrRB = capture_->ReleaseBuffer(frames);
             wa::log::emitTrace("WasapiStream", "ReleaseBuffer", frames, 0, (long)hrRB);
+            if (FAILED(hrRB)) { hrPacket = hrRB; packetCall = "ReleaseBuffer"; break; }
         }
+        // Unplug/disable/format change surface here (AUDCLNT_E_DEVICE_INVALIDATED, ...).
+        // Before this check the loop kept polling a dead client every 200 ms forever.
+        if (!isTransientCaptureError(hrNP) && reportRuntimeFault("GetNextPacketSize", hrNP)) break;
+        if (reportRuntimeFault(packetCall, hrPacket)) break;
         if (shouldWriteLoopbackIdleSilence(waitRc, static_cast<long>(hrNP), sawPacket, wroteFrames)) {
             const ULONGLONG nowMs = GetTickCount64();
             const uint32_t frames = idleSilenceFrames(
@@ -442,28 +483,43 @@ void WasapiRenderStream::runLoop() {
                        frameBytes_ == static_cast<uint32_t>(actualFormat_.channels) * 2u;
     while (running_.load()) {
         DWORD waitRc = WaitForSingleObject(static_cast<HANDLE>(hEvent_), 200);
+        if (waitRc == WAIT_FAILED &&
+            reportRuntimeFault("WaitForSingleObject", HRESULT_FROM_WIN32(GetLastError())))
+            break;
+        if (!running_.load()) break;   // stop() signals hEvent_; don't touch the device again
         UINT32 frames;
         if (exclusive) {
             // Exclusive event-driven: refill the whole buffer, but only on a real
             // buffer-ready event. On a wait timeout, retry rather than calling
             // GetBuffer prematurely (which would fail and kill the render thread).
-            if (waitRc != WAIT_OBJECT_0) continue;
+            if (waitRc != WAIT_OBJECT_0) {
+                // A removed endpoint stops signaling the event, so a timeout is the only
+                // place an exclusive stream can notice it. GetCurrentPadding is a
+                // read-only probe that returns AUDCLNT_E_DEVICE_INVALIDATED then.
+                UINT32 probe = 0;
+                HRESULT hrProbe = client_->GetCurrentPadding(&probe);
+                wa::log::emitTrace("WasapiStream", "GetCurrentPadding(probe)", probe, 0,
+                                   (long)hrProbe);
+                if (reportRuntimeFault("GetCurrentPadding", hrProbe)) break;
+                continue;
+            }
             frames = bufferFrames_;
         } else {
             UINT32 padding = 0;
             HRESULT hrPad = client_->GetCurrentPadding(&padding);
             wa::log::emitTrace("WasapiStream", "GetCurrentPadding", padding, 0, (long)hrPad);
-            if (FAILED(hrPad)) break;
+            if (reportRuntimeFault("GetCurrentPadding", hrPad)) break;
             frames = bufferFrames_ - padding;
             if (frames == 0) continue;
         }
         BYTE* buf = nullptr;
         HRESULT hrGB = render_->GetBuffer(frames, &buf);
         wa::log::emitTrace("WasapiStream", "GetBuffer", frames, 0, (long)hrGB);
-        if (FAILED(hrGB)) break;
+        if (reportRuntimeFault("GetBuffer", hrGB)) break;
         fillRenderPacket(buf, frames, frameBytes_, pcm16, sampleFill_, sampleFillCtx_, ring_);
         HRESULT hrRB = render_->ReleaseBuffer(frames, 0);
         wa::log::emitTrace("WasapiStream", "ReleaseBuffer", frames, 0, (long)hrRB);
+        if (reportRuntimeFault("ReleaseBuffer", hrRB)) break;
     }
 }
 
@@ -513,13 +569,16 @@ void WasapiSilentRenderStream::runLoop() {
     while (running_.load()) {
         DWORD waitRc = WaitForSingleObject(static_cast<HANDLE>(hEvent_), 200);
         wa::log::emitTrace("WasapiSilentRenderStream", "WaitForSingleObject", 0, waitRc, 0);
+        if (waitRc == WAIT_FAILED &&
+            reportRuntimeFault("WaitForSingleObject", HRESULT_FROM_WIN32(GetLastError())))
+            break;
         if (!running_.load()) break;
 
         UINT32 padding = 0;
         HRESULT hrPad = client_->GetCurrentPadding(&padding);
         wa::log::emitTrace("WasapiSilentRenderStream", "GetCurrentPadding", padding, 0,
                            static_cast<long>(hrPad));
-        if (FAILED(hrPad)) break;
+        if (reportRuntimeFault("GetCurrentPadding", hrPad)) break;
 
         UINT32 frames = bufferFrames_ - padding;
         if (frames == 0) continue;
@@ -528,12 +587,12 @@ void WasapiSilentRenderStream::runLoop() {
         HRESULT hrGB = render_->GetBuffer(frames, &buf);
         wa::log::emitTrace("WasapiSilentRenderStream", "GetBuffer", frames, 0,
                            static_cast<long>(hrGB));
-        if (FAILED(hrGB)) break;
+        if (reportRuntimeFault("GetBuffer", hrGB)) break;
 
         HRESULT hrRB = render_->ReleaseBuffer(frames, AUDCLNT_BUFFERFLAGS_SILENT);
         wa::log::emitTrace("WasapiSilentRenderStream", "ReleaseBuffer", frames,
                            AUDCLNT_BUFFERFLAGS_SILENT, static_cast<long>(hrRB));
-        if (FAILED(hrRB)) break;
+        if (reportRuntimeFault("ReleaseBuffer", hrRB)) break;
     }
 }
 
