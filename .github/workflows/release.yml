@@ -61,6 +61,7 @@ jobs:
               "$buildDir/bin/Release/WinAudioGui.exe",
               "$buildDir/bin/Release/WinAudioCli.exe",
               "$buildDir/bin/Release/LoopbackTreeProbe.exe",
+              "$buildDir/bin/Release/WinAudioHook.dll",
               "$buildDir/bin/Release/channel-idents"
             )
             Compress-Archive -Path $files -DestinationPath "WinAudio-$safeSuffix-win-$arch.zip" -Force
