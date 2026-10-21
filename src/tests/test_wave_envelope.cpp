@@ -49,11 +49,11 @@ TEST(WaveEnvelope, PyramidReusedForSameEpoch) {
     wave[0] = 0.99f;  // mutate source; same epoch must not rebuild
     ensureMinMaxPyramid(pyr, wave.data(), kN, /*epoch=*/7);
     EXPECT_EQ(pyr.blockMin.data(), minPtr);
-    EXPECT_FLOAT_EQ(pyr.blockMin[0], std::sin(0.f));  // stale vs mutated â€” by design
+    EXPECT_FLOAT_EQ(pyr.blockMin[0], std::sin(0.f));  // stale vs mutated â€?by design
 
     ensureMinMaxPyramid(pyr, wave.data(), kN, /*epoch=*/8);
     EXPECT_EQ(pyr.epoch, 8u);
-    EXPECT_FLOAT_EQ(pyr.blockMax[0], wave[0]);  // rebuilt â€” peak sits in block 0
+    EXPECT_FLOAT_EQ(pyr.blockMax[0], wave[0]);  // rebuilt â€?peak sits in block 0
 }
 
 TEST(WaveEnvelope, PyramidPathCloseToExactWhenSppLarge) {
@@ -140,5 +140,10 @@ TEST(WaveEnvelope, EightChannelFullHistoryTiming) {
 
     // Cached pyramid query must beat the admitted ~0.49 ms exact scan by a wide margin.
     EXPECT_LT(pyrNs, exactNs * 0.25);
-    EXPECT_LT(pyrNs, 250'000.0);  // << admitted ~0.49 ms exact; machine noise OK
+#if defined(NDEBUG)
+    EXPECT_LT(pyrNs, 250'000.0);  // Release: << admitted ~0.49 ms exact; machine noise OK
+#else
+    // Debug CI runners are ~4x slower; keep relative bound only for absolute floor.
+    EXPECT_LT(pyrNs, 2'000'000.0);
+#endif
 }
