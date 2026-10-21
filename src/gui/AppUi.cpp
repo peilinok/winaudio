@@ -1,5 +1,6 @@
 #include "AppUi.h"
 #include "HeatmapRgba.h"
+#include "WaveEnvelope.h"
 #include "ApplicationLoopbackUiModel.h"
 #include "AppUiText.h"
 #include "CaptureChannelView.h"
@@ -93,12 +94,9 @@ enum : int {
 // |x| in dBFS, warped so 0 dBFS -> +/-1 and kWaveDbFloor or quieter (incl. silence) -> 0 (the
 // center line reads -inf). Monotonic, so min/max envelopes commute with the warp.
 inline float dbWarp(float x) {
-    const float ax = std::fabs(x);
-    if (ax <= 1e-6f) return 0.f;
-    const float db = 20.0f * std::log10(ax);
-    if (db <= kWaveDbFloor) return 0.f;
-    const float p = 1.0f - db / kWaveDbFloor;   // 0 dB -> 1, floor -> 0
-    return (x < 0.f) ? -p : p;
+    // Shared with WaveEnvelope so LOD min/max and the zoomed-in path stay identical.
+    static_assert(kWaveDbFloor == wa::kWaveEnvDbFloor, "waveform dB floor mismatch");
+    return wa::waveDbWarp(x);
 }
 
 std::string formatLabel(const wa::AudioFormat& fmt) {
@@ -624,6 +622,9 @@ void AppUi::resetVisuals(VisualState& viz) {
     viz.envX.clear();
     viz.envMin.clear();
     viz.envMax.clear();
+    viz.waveEpoch = 0;
+    viz.envPyramid = {};
+    viz.capEnvPyramids.clear();
     viz.workCap.clear();
     viz.workRender.clear();
     viz.specWin.clear();
@@ -2355,9 +2356,11 @@ void AppUi::drawSpectrogramPanel(VisualState& viz, const char* plotId, wa::Spect
 // Draw one waveform over the shared time axis (xLink0_..xLink1_ seconds). wave[i] is at t = i/sr,
 // so the buffer's tail holds the newest samples (right edge). Level-of-detail: zoomed in -> raw
 // line; zoomed out -> per-pixel min/max envelope with translucent fill + opaque outline so far
-// view stays readable while remaining column-aligned with the spectrogram.
+// view stays readable while remaining column-aligned with the spectrogram. Optional MinMaxPyramid
+// avoids a full raw history scan on later frames with the same waveEpoch (freeze / pan / zoom).
 void AppUi::drawWaveformPanel(VisualState& viz, const char* plotId, const float* wave, int n,
-                              uint32_t sr, bool haveData, float height, int slot) {
+                              uint32_t sr, bool haveData, float height, int slot,
+                              wa::MinMaxPyramid* pyr) {
     if (!ImPlot::BeginPlot(plotId, ImVec2(-1, height))) return;
     // Y locked while the plot area was hovered last frame -> in-plot wheel/drag act on X only;
     // zoom amplitude via the Y ruler. X tick labels hidden: the spectrogram below shows the time.
@@ -2377,7 +2380,7 @@ void AppUi::drawWaveformPanel(VisualState& viz, const char* plotId, const float*
     static const double kAmpV[] = {-1.0, -0.9, -0.8, -0.6, -0.2, 0.0, 0.2, 0.6, 0.8, 0.9, 1.0};
     static const char*  kAmpL[] = {"0", "-6", "-12", "-24", "-48", "-inf", "-48", "-24", "-12", "-6", "0"};
     ImPlot::SetupAxisTicks(ImAxis_Y1, kAmpV, 11, kAmpL);
-    if (haveData && n > 0 && sr > 0) {
+    if (haveData && n > 0 && sr > 0 && wave) {
         const double invSr = 1.0 / (double)sr;
         int iLo = (int)std::floor(viz.xLink0 * (double)sr);
         int iHi = (int)std::ceil (viz.xLink1 * (double)sr);
@@ -2398,17 +2401,8 @@ void AppUi::drawWaveformPanel(VisualState& viz, const char* plotId, const float*
                 {
                     // Resize stays outside: it can allocate. The bracket times the min/max fill only.
                     wa::FrameBracket envelope(frameProbe_, wa::FrameSlice::Envelope);
-                    for (int c = 0; c < cols; ++c) {
-                        int s0 = iLo + (int)((int64_t)visN * c / cols);
-                        int s1 = iLo + (int)((int64_t)visN * (c + 1) / cols);
-                        if (s1 <= s0) s1 = s0 + 1;
-                        if (s1 > n)   s1 = n;
-                        float mn = wave[s0], mx = wave[s0];
-                        for (int s = s0 + 1; s < s1; ++s) { mn = std::min(mn, wave[s]); mx = std::max(mx, wave[s]); }
-                        viz.envX[(size_t)c]   = (float)(0.5 * (double)(s0 + s1) * invSr);
-                        viz.envMin[(size_t)c] = dbWarp(mn);              // warp commutes with min/max
-                        viz.envMax[(size_t)c] = dbWarp(mx);
-                    }
+                    wa::fillWaveEnvelope(wave, n, iLo, iHi, cols, invSr, pyr, viz.waveEpoch,
+                                         viz.envX.data(), viz.envMin.data(), viz.envMax.data());
                 }
                 // Translucent body (FillAlpha multiplies color.w) + opaque min/max outline.
                 ImPlot::SetNextFillStyle(kWaveColor, kWaveEnvFillAlpha);
@@ -2471,15 +2465,30 @@ void AppUi::drawComboPanel(wa::ScopeReader& reader, const wa::MonitorStatus& sta
         buffers.specSr = viz.specSr;
         const wa::ChartRefreshResult refreshed = wa::refreshCharts(refreshParams, buffers);
 
+        if (viz.capEnvPyramids.size() < (size_t)shownChannels)
+            viz.capEnvPyramids.resize((size_t)shownChannels);
+        if (!viz.chartsFrozen && refreshed.haveWave)
+            ++viz.waveEpoch;
+
         for (uint32_t ch = 0; ch < shownChannels; ++ch) {
             std::vector<float>& wave = viz.capChannelWaves[(size_t)ch];
             char title[64];
             std::snprintf(title, sizeof(title),
                           wa::ui_text::get(wa::ui_text::kCaptureChannelWaveform), ch + 1u);
             ImGui::TextUnformatted(title);
+            // Skip envelope work for channels scrolled out of the chart host clip rect.
+            const float waveW = std::max(ImGui::GetContentRegionAvail().x, 1.0f);
+            const ImVec2 wavePos = ImGui::GetCursorScreenPos();
+            const ImVec2 waveMax(wavePos.x + waveW, wavePos.y + kMultiWaveH);
+            if (!ImGui::IsRectVisible(wavePos, waveMax)) {
+                ImGui::Dummy(ImVec2(waveW, kMultiWaveH));
+                viz.plotHovPrev[kSlotCapWaveBase + (int)ch] = false;
+                continue;
+            }
             const std::string plotId = "##capWaveCh" + std::to_string(ch);
             drawWaveformPanel(viz, plotId.c_str(), wave.data(), viz.waveN, viz.waveSr,
-                              refreshed.haveWave, kMultiWaveH, kSlotCapWaveBase + (int)ch);
+                              refreshed.haveWave, kMultiWaveH, kSlotCapWaveBase + (int)ch,
+                              &viz.capEnvPyramids[(size_t)ch]);
         }
 
         const uint32_t hz = (sr > 0) ? sr : 48000u;
@@ -2517,8 +2526,10 @@ void AppUi::drawComboPanel(wa::ScopeReader& reader, const wa::MonitorStatus& sta
         ok = true;
 
     const float waveH = kComboH * viz.comboRatio;
+    if (!viz.chartsFrozen && ok)
+        ++viz.waveEpoch;
     drawWaveformPanel(viz, renderSide ? "##renWave" : "##capWave", wave.data(), viz.waveN, viz.waveSr, ok,
-                      waveH, renderSide ? kSlotRenWave : kSlotCapWaveBase);
+                      waveH, renderSide ? kSlotRenWave : kSlotCapWaveBase, &viz.envPyramid);
 
     // Splitter: drag to rebalance waveform vs spectrogram height (the axes re-lay out to fit).
     ImGui::InvisibleButton(renderSide ? "##renSplit" : "##capSplit",

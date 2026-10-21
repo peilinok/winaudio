@@ -19,6 +19,7 @@ add_executable(WinAudioTests
     test_production_catalog.cpp
     test_spectrogram.cpp
     test_heatmap_rgba.cpp
+    test_wave_envelope.cpp
     test_capture_channel_view.cpp
     test_charts_freeze.cpp
     test_charts_time_zoom.cpp
@@ -45,6 +46,7 @@ add_executable(WinAudioTests
     test_create_recipe.cpp
     ${CMAKE_SOURCE_DIR}/src/gui/Spectrogram.cpp   # compiled into tests, as in the current setup
     ${CMAKE_SOURCE_DIR}/src/gui/HeatmapRgba.cpp
+    ${CMAKE_SOURCE_DIR}/src/gui/WaveEnvelope.cpp
     ${CMAKE_SOURCE_DIR}/src/gui/ChartDataPipeline.cpp
     ${CMAKE_SOURCE_DIR}/src/gui/DumpUi.cpp
     ${CMAKE_SOURCE_DIR}/src/gui/FrameProbe.cpp

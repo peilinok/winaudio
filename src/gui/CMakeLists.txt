@@ -6,6 +6,7 @@ add_executable(WinAudioGui
     GuiGpu.cpp
     HeatmapRgba.cpp
     HeatmapTexture.cpp
+    WaveEnvelope.cpp
     main.cpp
     Spectrogram.cpp
 )
