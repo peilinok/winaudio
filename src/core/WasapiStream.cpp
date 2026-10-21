@@ -229,6 +229,10 @@ Result WasapiStream::prepareClient(IMMDevice* dev) {
 void WasapiStream::threadMain() {
     ComInitGuard com; // this thread's own MTA apartment
     WA_LOG(wa::log::Level::Info, "WasapiStream", "threadMain", "worker thread started", "");
+    if (!com.ok()) {
+        signalReady(HrToResult(com.hr, "WasapiStream: CoInitializeEx"));
+        return;
+    }
 
     ComPtr<IMMDeviceEnumerator> e;
     HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,

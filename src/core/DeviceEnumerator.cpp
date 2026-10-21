@@ -240,6 +240,7 @@ Result DeviceEnumerator::mixFormat(const DeviceId& id, AudioFormat& out) {
 
 Result DeviceEnumerator::deviceFormat(const DeviceId& id, AudioFormat& out) {
     ComInitGuard com;
+    if (!com.ok()) return HrToResult(com.hr, "DeviceEnumerator: CoInitializeEx");
     ComPtr<IMMDevice> dev;
     if (Result r = openDevice(DataFlow::Render, id, dev); !r) return r;
     ComPtr<IPropertyStore> props;
@@ -256,6 +257,7 @@ Result DeviceEnumerator::deviceFormat(const DeviceId& id, AudioFormat& out) {
 
 Result DeviceEnumerator::oemFormat(const DeviceId& id, AudioFormat& out) {
     ComInitGuard com;
+    if (!com.ok()) return HrToResult(com.hr, "DeviceEnumerator: CoInitializeEx");
     ComPtr<IMMDevice> dev;
     if (Result r = openDevice(DataFlow::Render, id, dev); !r) return r;
     ComPtr<IPropertyStore> props;
@@ -272,6 +274,7 @@ Result DeviceEnumerator::oemFormat(const DeviceId& id, AudioFormat& out) {
 
 Result DeviceEnumerator::queryCapabilities(DataFlow flow, const DeviceId& id, DeviceCapabilities& out) {
     ComInitGuard com;
+    if (!com.ok()) return HrToResult(com.hr, "DeviceEnumerator: CoInitializeEx");
     out = DeviceCapabilities{};
     ComPtr<IMMDevice> dev;
     if (Result r = openDevice(flow, id, dev); !r) return r;

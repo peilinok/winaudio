@@ -71,6 +71,7 @@ std::vector<DeviceInfo> Engine::enumerate(DataFlow flow) {
 Result Engine::probeFormat(BackendKind kind, DataFlow flow, const DeviceId& id,
                            const AudioFormat& fmt) {
     ComInitGuard com;
+    if (!com.ok()) return HrToResult(com.hr, "Engine: CoInitializeEx");
     WA_LOG(wa::log::Level::Info, "Engine", "probeFormat",
         "kind=" + std::string(kind == BackendKind::WasapiExclusive ? "exclusive" : "shared")
         + " flow=" + std::string(flow == DataFlow::Capture ? "capture" : "render")
