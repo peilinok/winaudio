@@ -1,0 +1,3 @@
+add_executable(LoopbackTreeProbe LoopbackTreeProbe.cpp)
+target_link_libraries(LoopbackTreeProbe PRIVATE WinAudioCore)
+wa_set_project_warnings(LoopbackTreeProbe)

@@ -34,7 +34,11 @@ _Avoid_: MonitorEngine (when only the read surface is meant), ScopeBuffer (stora
 
 **Hop**:
 Fixed sample-count step between successive analysis windows that feed one spectrogram column.
-_Avoid_: Frame (GUI frame), buffer period alone
+_Avoid_: GUI frame, buffer period alone
+
+**GUI frame**:
+One refresh of the main window that draws the active page and presents it. A stall here is the window becoming inoperable.
+_Avoid_: Hop, Render Track, audio callback, vertical blank alone
 
 **Chart freeze**:
 User-visible pause of chart data refresh only; capture and playback continue. On a loopback page it applies to one Track’s Chart Host, not the whole page.
