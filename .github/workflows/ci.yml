@@ -42,4 +42,5 @@ jobs:
             build/bin/${{ matrix.config }}/WinAudioGui.exe
             build/bin/${{ matrix.config }}/WinAudioCli.exe
             build/bin/${{ matrix.config }}/LoopbackTreeProbe.exe
+            build/bin/${{ matrix.config }}/WinAudioHook.dll
           if-no-files-found: error
