@@ -41,8 +41,12 @@ public:
     BackendStats stats() const override {
         BackendStats s{};
         s.actualFormat = fmt_;
+        s.runtimeError = runtimeHr_.load(std::memory_order_relaxed);
         return s;
     }
+    bool inError() const override { return runtimeHr_.load(std::memory_order_relaxed) < 0; }
+    void failRuntime(long hr) { runtimeHr_.store(hr, std::memory_order_relaxed); }
+    std::atomic<long> runtimeHr_{0};
 
     AudioFormat        fmt_;
     bool               failStart_ = false;
@@ -134,6 +138,68 @@ TEST(CaptureTrackList, DestroyRemovesTrackAndStopsBackend) {
     EXPECT_TRUE(list.poll().empty());
     ASSERT_FALSE(rig.stopped.empty());
     EXPECT_TRUE(rig.stopped.back()->load(std::memory_order_relaxed));
+}
+
+TEST(CaptureTrackList, RuntimeBackendFaultMarksTrackError) {
+    ListRig rig;
+    CaptureTrackList list(rig.factory());
+    TrackId id = 0;
+    CaptureTrackCreate spec{};
+    ASSERT_TRUE(list.create(spec, &id));
+    ASSERT_EQ(rig.caps.size(), 1u);
+    EXPECT_EQ(list.poll()[0].state, StreamState::Running);
+
+    rig.caps[0]->failRuntime(static_cast<long>(static_cast<int32_t>(0x88890004u))); // AUDCLNT_E_DEVICE_INVALIDATED
+    ASSERT_TRUE(waitFor([&] { return list.poll()[0].state == StreamState::Error; }));
+    const auto st = list.poll();
+    ASSERT_EQ(st.size(), 1u) << "a faulted track stays listed until Destroy";
+    EXPECT_NE(st[0].message.find("AUDCLNT_E_DEVICE_INVALIDATED"), std::string::npos)
+        << st[0].message;
+    EXPECT_FALSE(rig.stopped[0]->load()) << "the list does not stop the backend by itself";
+
+    list.destroy(id);
+    EXPECT_TRUE(list.poll().empty());
+    EXPECT_TRUE(rig.stopped[0]->load());
+}
+
+TEST(CaptureTrackList, RuntimeFaultStillFinalizesCreateTimeWav) {
+    ListRig rig;
+    CaptureTrackList list(rig.factory());
+    CaptureTrackCreate spec{};
+    spec.wavPath = tempWav(L"fault");
+    TrackId id = 0;
+    ASSERT_TRUE(list.create(spec, &id));
+    ASSERT_EQ(rig.caps.size(), 1u);
+    const int16_t pcm[8] = {1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000};
+    rig.caps[0]->pushPcm(pcm, sizeof(pcm));
+    ASSERT_TRUE(waitFor([&] { return list.written(id) >= 4; }));
+
+    rig.caps[0]->failRuntime(static_cast<long>(static_cast<int32_t>(0x88890004u)));
+    ASSERT_TRUE(waitFor([&] { return list.poll()[0].state == StreamState::Error; }));
+    list.destroy(id);
+
+    wa::WavReader r;
+    ASSERT_TRUE(r.open(spec.wavPath)) << "WAV written before the fault must stay readable";
+    std::vector<int16_t> back(8, 0);
+    EXPECT_EQ(r.read(back.data(), sizeof(pcm)), sizeof(pcm));
+    EXPECT_EQ(std::vector<int16_t>(pcm, pcm + 8), back);
+    r.close();
+    DeleteFileW(spec.wavPath.c_str());
+}
+
+TEST(CaptureTrackList, SilentRenderRuntimeFaultKeepsCaptureRunning) {
+    ListRig rig;
+    CaptureTrackList list(rig.factory(), rig.silentFactory());
+    TrackId id = 0;
+    CaptureTrackCreate spec{};
+    spec.source.kind = CaptureSourceKind::SystemLoopback;
+    ASSERT_TRUE(list.create(spec, &id));
+    ASSERT_EQ(rig.silents.size(), 1u);
+    EXPECT_EQ(list.poll()[0].silentRenderState, StreamState::Running);
+
+    rig.silents[0]->failRuntime(static_cast<long>(static_cast<int32_t>(0x88890004u)));
+    ASSERT_TRUE(waitFor([&] { return list.poll()[0].silentRenderState == StreamState::Error; }));
+    EXPECT_EQ(list.poll()[0].state, StreamState::Running);
 }
 
 TEST(CaptureTrackList, DestroyAllClearsEveryMember) {

@@ -6,6 +6,7 @@
 #include <vector>
 #include "IAudioBackend.h"
 #include "ComUtil.h"
+#include "RuntimeFault.h"
 #include <mmdeviceapi.h>
 #include <audioclient.h>
 
@@ -22,6 +23,8 @@ uint32_t loopbackSilenceFramesForTimeout(uint32_t sampleRate, uint32_t timeoutMs
 uint32_t loopbackSilenceFramesForElapsed(uint32_t sampleRate, uint64_t elapsedMs,
                                          uint32_t maxMs);
 uint32_t captureSilentPacketFrames(uint32_t frames, unsigned flags);
+// Capture-side HRESULTs that mean "try again next pass", not a dead stream.
+bool isTransientCaptureError(long hr);
 bool shouldWriteLoopbackIdleSilence(unsigned waitResult, long packetStatus,
                                     bool sawPacket, bool wroteFrames);
 
@@ -42,6 +45,9 @@ public:
     void   stop() override;
     void   close() override;
     BackendStats stats() const override;
+    // True once the worker loop hit a failing WASAPI call (e.g. the endpoint was
+    // unplugged: AUDCLNT_E_DEVICE_INVALIDATED). Latched until the next start().
+    bool inError() const override { return fault_.failed(); }
 
 protected:
     // Direction-specific hooks implemented by Capture/Render subclasses.
@@ -52,6 +58,13 @@ protected:
     virtual void   resetService() = 0;    // Reset() the service ComPtr (called from close())
 
     bool isExclusive() const { return mode_ == WasapiMode::Exclusive; }
+
+    // Worker-thread only. Latches the first failing HRESULT (logged once at Err),
+    // clears running_ so a later start() relaunches, and returns true when hr is a
+    // failure; the caller must then leave runLoop(). running_ is cleared here, not
+    // after runLoop() returns, so a start() racing with the exit cannot have its
+    // running_ = true overwritten by the dying worker.
+    bool reportRuntimeFault(const char* call, HRESULT hr);
 
     // Scaffolding state visible to subclasses.
     RingBuffer* ring_ = nullptr;
@@ -64,6 +77,7 @@ protected:
     void*       hEvent_ = nullptr;        // HANDLE
     ComPtr<IAudioClient> client_;
     DWORD extraInitFlags_ = 0; // caller-supplied extras (e.g. LOOPBACK)
+    RuntimeFault fault_;
 
 private:
     void   threadMain();

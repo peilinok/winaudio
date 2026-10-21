@@ -15,6 +15,7 @@
 #include <vector>
 #include "ComUtil.h"
 #include "IAudioBackend.h"
+#include "RuntimeFault.h"
 #include "StreamInit.h"
 #include "WasapiStream.h"
 
@@ -50,6 +51,9 @@ public:
     void   close() override;
     BackendStats stats() const override;
     void* dataReadyEvent() const override { return pumpEvent_; }
+    // Latched runtime fault of the capture worker (e.g. AUDCLNT_E_DEVICE_INVALIDATED);
+    // cleared by the next start().
+    bool inError() const override { return fault_.failed(); }
 
 private:
     void threadMain();
@@ -58,6 +62,8 @@ private:
     Result initializeClient();
     Result createService();
     void runLoop();
+    // Worker-thread only; same contract as WasapiStream::reportRuntimeFault.
+    bool reportRuntimeFault(const char* call, HRESULT hr);
 
     WasapiMode mode_;
     uint32_t processId_ = 0;
@@ -76,6 +82,7 @@ private:
     std::atomic<bool> running_{false};
     std::atomic<uint64_t> idleSilenceFrames_{0};
     std::atomic<uint64_t> silentPacketFrames_{0};
+    RuntimeFault fault_;
     void* hEvent_ = nullptr;
     void* pumpEvent_ = nullptr;
     std::thread thread_;

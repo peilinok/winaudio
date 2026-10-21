@@ -122,6 +122,27 @@ TEST(ApplicationLoopbackCaptureStream, AcceptsSharedOpenWithValidPid) {
     EXPECT_TRUE(static_cast<bool>(r));
 }
 
+TEST(WasapiRuntimeFault, TransientCaptureErrorsAreNotFatal) {
+    EXPECT_TRUE(isTransientCaptureError(AUDCLNT_E_BUFFER_ERROR));
+    EXPECT_TRUE(isTransientCaptureError(AUDCLNT_E_BUFFER_OPERATION_PENDING));
+    EXPECT_FALSE(isTransientCaptureError(AUDCLNT_E_DEVICE_INVALIDATED));
+    EXPECT_FALSE(isTransientCaptureError(AUDCLNT_E_SERVICE_NOT_RUNNING));
+    EXPECT_FALSE(isTransientCaptureError(S_OK));
+}
+
+TEST(WasapiRuntimeFault, UnstartedStreamsReportHealthy) {
+    WasapiCaptureStream cap(WasapiMode::Shared, nullptr);
+    WasapiRenderStream ren(WasapiMode::Shared, nullptr);
+    WasapiSilentRenderStream sil(WasapiMode::Shared, nullptr);
+    ApplicationLoopbackCaptureStream app(WasapiMode::Shared, 4242u, nullptr);
+    EXPECT_FALSE(cap.inError());
+    EXPECT_FALSE(ren.inError());
+    EXPECT_FALSE(sil.inError());
+    EXPECT_FALSE(app.inError());
+    EXPECT_EQ(cap.stats().runtimeError, 0);
+    EXPECT_EQ(app.stats().runtimeError, 0);
+}
+
 TEST(ApplicationLoopbackCaptureStream, DefaultFormatMatchesProcessLoopbackSampleFallback) {
     AudioFormat fmt = defaultApplicationLoopbackFormat();
 

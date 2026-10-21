@@ -793,6 +793,22 @@ TEST(MonitorEngine, LoopbackStartsSilentRenderByDefault) {
     EXPECT_EQ(eng.poll().silentRenderState, StreamState::Idle);
 }
 
+TEST(MonitorEngine, SilentRenderRuntimeFaultIsReportedWithoutStoppingCapture) {
+    FakeRig rig;
+    MonitorEngine eng(rig.factory(), rig.silentFactory());
+    CaptureSource source{CaptureSourceKind::SystemLoopback, L"loopback-render-id"};
+    ASSERT_TRUE(eng.start(BackendKind::WasapiShared, source, L"", 50, false));
+    ASSERT_NE(rig.silentPtr, nullptr);
+    ASSERT_EQ(eng.poll().silentRenderState, StreamState::Running);
+
+    rig.silentPtr->failRuntime();
+    ASSERT_TRUE(waitFor([&] { return eng.poll().silentRenderState == StreamState::Error; }));
+    MonitorStatus st = eng.poll();
+    EXPECT_EQ(st.capState, StreamState::Running);
+    EXPECT_NE(st.overall, StreamState::Error);
+    eng.stop();
+}
+
 TEST(MonitorEngine, PollExposesCaptureProgressAndLoopbackSilenceFrames) {
     FakeRig rig;
     MonitorEngine eng(rig.factory(), rig.silentFactory());

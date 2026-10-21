@@ -212,6 +212,12 @@ Result ApplicationLoopbackCaptureStream::open(const DeviceId&, const AudioFormat
 
 Result ApplicationLoopbackCaptureStream::start() {
     if (running_.exchange(true)) return Result::Ok();
+    // Join a worker that exited on a runtime fault (it cleared running_ but was not
+    // joined); assigning to a joinable std::thread would call std::terminate.
+    if (thread_.joinable()) thread_.join();
+    fault_.reset();
+    capture_.Reset();   // createService() uses GetAddressOf(); don't leak the old one
+    client_.Reset();
     if (hEvent_) { CloseHandle(static_cast<HANDLE>(hEvent_)); hEvent_ = nullptr; }
     if (pumpEvent_) { CloseHandle(static_cast<HANDLE>(pumpEvent_)); pumpEvent_ = nullptr; }
 
@@ -263,7 +269,19 @@ BackendStats ApplicationLoopbackCaptureStream::stats() const {
     s.idleSilenceFrames = idleSilenceFrames_.load(std::memory_order_relaxed);
     s.silentPacketFrames = silentPacketFrames_.load(std::memory_order_relaxed);
     if (ring_) { s.overruns = ring_->overruns(); s.underruns = ring_->underruns(); }
+    s.runtimeError = fault_.code();
     return s;
+}
+
+bool ApplicationLoopbackCaptureStream::reportRuntimeFault(const char* call, HRESULT hr) {
+    if (SUCCEEDED(hr)) return false;
+    if (fault_.report(static_cast<long>(hr))) {
+        WA_LOG(wa::log::Level::Err, "ApplicationLoopbackCaptureStream", call,
+               "runtime fault; worker loop exiting pid=" + std::to_string(processId_),
+               wa::log::hrName(hr));
+    }
+    running_.store(false);   // before leaving runLoop: a racing start() is never overwritten
+    return true;
 }
 
 void ApplicationLoopbackCaptureStream::signalReady(Result res) {
@@ -347,10 +365,15 @@ void ApplicationLoopbackCaptureStream::runLoop() {
     ULONGLONG lastWriteMs = GetTickCount64();
     while (running_.load()) {
         DWORD waitRc = WaitForSingleObject(static_cast<HANDLE>(hEvent_), kCaptureWaitMs);
+        if (waitRc == WAIT_FAILED &&
+            reportRuntimeFault("WaitForSingleObject", HRESULT_FROM_WIN32(GetLastError())))
+            break;
         bool wroteFrames = false;
         bool sawPacket = false;
         UINT32 packet = 0;
         HRESULT hrNP = S_OK;
+        HRESULT hrPacket = S_OK;          // first GetBuffer/ReleaseBuffer failure
+        const char* packetCall = "";
         while (hrNP = capture_->GetNextPacketSize(&packet),
                SUCCEEDED(hrNP) && packet > 0) {
             sawPacket = true;
@@ -358,7 +381,10 @@ void ApplicationLoopbackCaptureStream::runLoop() {
             UINT32 frames = 0;
             DWORD flags = 0;
             HRESULT hrGB = capture_->GetBuffer(&data, &frames, &flags, nullptr, nullptr);
-            if (FAILED(hrGB)) break;
+            if (FAILED(hrGB)) {
+                if (!isTransientCaptureError(hrGB)) { hrPacket = hrGB; packetCall = "GetBuffer"; }
+                break;
+            }
             const size_t bytes = static_cast<size_t>(frames) * frameBytes_;
             if (flags & AUDCLNT_BUFFERFLAGS_SILENT) {
                 static thread_local std::vector<uint8_t> zeros;
@@ -375,8 +401,11 @@ void ApplicationLoopbackCaptureStream::runLoop() {
                 lastWriteMs = GetTickCount64();
                 if (pumpEvent_) SetEvent(static_cast<HANDLE>(pumpEvent_));
             }
-            capture_->ReleaseBuffer(frames);
+            HRESULT hrRB = capture_->ReleaseBuffer(frames);
+            if (FAILED(hrRB)) { hrPacket = hrRB; packetCall = "ReleaseBuffer"; break; }
         }
+        if (!isTransientCaptureError(hrNP) && reportRuntimeFault("GetNextPacketSize", hrNP)) break;
+        if (reportRuntimeFault(packetCall, hrPacket)) break;
 
         if (shouldWriteLoopbackIdleSilence(waitRc, static_cast<long>(hrNP), sawPacket,
                                            wroteFrames)) {
