@@ -14,6 +14,7 @@ Spectrogram::Spectrogram(int logRows, int cols, double fmin, double fmax,
 
 void Spectrogram::clear() {
     std::fill(buf_.begin(), buf_.end(), floor_);
+    ++revision_;
 }
 
 void Spectrogram::buildMap(size_t magBins) {
@@ -67,6 +68,7 @@ void Spectrogram::pushColumn(const std::vector<float>& linMagDb) {
         std::memmove(row, row + 1, (size_t)(cols_ - 1) * sizeof(float));
         row[cols_ - 1] = v;
     }
+    ++revision_;
 }
 
 const float* Spectrogram::data() const {

@@ -22,12 +22,14 @@
 #include "PipelineGraph.h"
 #include "SharedProbe.h"
 #include "Spectrogram.h"
+#include "HeatmapTexture.h"
 #include "TrackScopeReader.h"
 
 class AppUi {
 public:
     void draw();          // called each frame; polls engines and redraws the active page
     void stopAll();       // stop engines on shutdown (idempotent)
+    void releaseGpu();    // release DX heatmap textures before device teardown
     wa::FrameProbe& frameProbe() { return frameProbe_; }
     void setMainWindow(void* hwnd);
     void pushLog(int level, const std::string& line);  // thread-safe; called from the logging pump thread
@@ -145,6 +147,8 @@ private:
     std::mutex               logMutex_;    // guards pendingLog_ (pump thread → draw drains it)
     std::vector<std::string> pendingLog_;
     wa::FrameProbe           frameProbe_;  // off until main() enables it; slots only, no logging
+    // One GPU heatmap texture per spectrogram plot slot; dirty-skipped via Spectrogram::revision().
+    std::unique_ptr<wa::HeatmapTexture> heatmapTex_[32];
     int                      logLevelIdx_ = 2;   // 0=Trace..4=Err; default Info
     bool                     logCollapsed_ = false;
     bool                     logPinToBottomOnExpand_ = false; // one-shot after clicking +
