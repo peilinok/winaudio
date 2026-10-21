@@ -179,6 +179,11 @@ WinAudioCli monitor [--cap <id>] [--render <id>] [--delay-ms N] [--seconds N] [-
 - Capture Tracks are independent. They are not mixed into one audio stream or one WAV. There is no product cap on how many run at once, and no number here is a Windows / WASAPI limit.
 - waveIn / waveOut (the MME backend) is not implemented.
 
+
+## License
+
+MIT. See [LICENSE](LICENSE).
+
 ## Development
 
 - The developer guide (build details, architecture, and coding constraints) is [CLAUDE.md](CLAUDE.md). Domain terms are in [CONTEXT.md](CONTEXT.md). Design documents for each feature are under `docs/superpowers/specs/`, and implementation plans are under `docs/superpowers/plans/`.
