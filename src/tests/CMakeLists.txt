@@ -26,6 +26,7 @@ add_executable(WinAudioTests
     test_chart_data_pipeline.cpp
     test_chart_host.cpp
     test_capabilities.cpp
+    test_device_enhancements.cpp
     test_log.cpp
     test_loopback.cpp
     test_audio_session_enumerator.cpp

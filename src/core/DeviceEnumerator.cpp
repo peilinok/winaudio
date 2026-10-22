@@ -7,12 +7,162 @@
 #include "Log.h"
 #include "AudioFormatStr.h"
 
+
+// FX / CompositeFX CLSID keys (audioenginebaseapo.h). Endpoint OpenPropertyStore
+// often returns VT_EMPTY; INF values live under the MMDevices FxProperties registry key.
+DEFINE_PROPERTYKEY(PKEY_FX_StreamEffectClsid,
+                   0xd04e05a6, 0x594b, 0x4fb6, 0xa8, 0x0d, 0x01, 0xaf, 0x5e, 0xed, 0x7d, 0x1d, 5);
+DEFINE_PROPERTYKEY(PKEY_FX_ModeEffectClsid,
+                   0xd04e05a6, 0x594b, 0x4fb6, 0xa8, 0x0d, 0x01, 0xaf, 0x5e, 0xed, 0x7d, 0x1d, 6);
+DEFINE_PROPERTYKEY(PKEY_FX_EndpointEffectClsid,
+                   0xd04e05a6, 0x594b, 0x4fb6, 0xa8, 0x0d, 0x01, 0xaf, 0x5e, 0xed, 0x7d, 0x1d, 7);
+DEFINE_PROPERTYKEY(PKEY_CompositeFX_StreamEffectClsid,
+                   0xd04e05a6, 0x594b, 0x4fb6, 0xa8, 0x0d, 0x01, 0xaf, 0x5e, 0xed, 0x7d, 0x1d, 13);
+DEFINE_PROPERTYKEY(PKEY_CompositeFX_ModeEffectClsid,
+                   0xd04e05a6, 0x594b, 0x4fb6, 0xa8, 0x0d, 0x01, 0xaf, 0x5e, 0xed, 0x7d, 0x1d, 14);
+DEFINE_PROPERTYKEY(PKEY_CompositeFX_EndpointEffectClsid,
+                   0xd04e05a6, 0x594b, 0x4fb6, 0xa8, 0x0d, 0x01, 0xaf, 0x5e, 0xed, 0x7d, 0x1d, 15);
 namespace wa {
 
 namespace {
 EDataFlow toEDataFlow(DataFlow f) { return f == DataFlow::Capture ? eCapture : eRender; }
 
-// 读一个 PKEY 的 WAVEFORMATEX blob -> AudioFormat；成功返回 true。
+std::string wideToUtf8(const wchar_t* w) {
+    if (!w || !*w) return {};
+    int n = WideCharToMultiByte(CP_UTF8, 0, w, -1, nullptr, 0, nullptr, nullptr);
+    if (n <= 1) return {};
+    std::string s(static_cast<size_t>(n - 1), 0);
+    WideCharToMultiByte(CP_UTF8, 0, w, -1, s.data(), n, nullptr, nullptr);
+    return s;
+}
+
+// IMMDevice id is "{0.0.0.00000000}.{guid}" / "{0.0.1.00000000}.{guid}".
+std::wstring endpointGuidKey(const DeviceId& id) {
+    const auto pos = id.rfind(L'.');
+    if (pos == std::wstring::npos || pos + 1 >= id.size()) return {};
+    return id.substr(pos + 1);
+}
+
+void appendOption(std::vector<EnhancementOption>& out, const char* id, const char* name,
+                  const std::string& value) {
+    if (value.empty()) return;
+    for (const auto& existing : out) {
+        if (existing.id == id) return;
+    }
+    EnhancementOption opt;
+    opt.id = id;
+    opt.name = name;
+    opt.value = value;
+    out.push_back(std::move(opt));
+}
+
+std::string regMultiSzToCsv(const wchar_t* multi) {
+    if (!multi) return {};
+    std::string out;
+    for (const wchar_t* p = multi; *p; p += wcslen(p) + 1) {
+        if (!out.empty()) out += ',';
+        out += wideToUtf8(p);
+    }
+    return out;
+}
+
+// FxProperties holds INF-published APO CLSIDs; not exposed via IMMDevice::OpenPropertyStore.
+void readFxOptionsFromRegistry(DataFlow flow, const DeviceId& id,
+                               std::vector<EnhancementOption>& out) {
+    const std::wstring guid = endpointGuidKey(id);
+    if (guid.empty()) return;
+    const wchar_t* leaf = flow == DataFlow::Capture ? L"Capture" : L"Render";
+    std::wstring path = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\MMDevices\\Audio\\";
+    path += leaf;
+    path += L'\\';
+    path += guid;
+    path += L"\\FxProperties";
+
+    HKEY key = nullptr;
+    LONG lr = RegOpenKeyExW(HKEY_LOCAL_MACHINE, path.c_str(), 0, KEY_READ, &key);
+    WA_LOG(wa::log::Level::Debug, "DeviceEnum", "RegOpenKeyEx(FxProperties)",
+           wa::narrowAscii(guid), lr == ERROR_SUCCESS ? "OK" : ("err=" + std::to_string(lr)));
+    if (lr != ERROR_SUCCESS || !key) return;
+
+    auto readValue = [&](DWORD propId, const char* optId, const char* optName) {
+        wchar_t valueName[128];
+        swprintf_s(valueName, L"{d04e05a6-594b-4fb6-a80d-01af5eed7d1d},%u", propId);
+        DWORD type = 0, bytes = 0;
+        LONG q = RegQueryValueExW(key, valueName, nullptr, &type, nullptr, &bytes);
+        if (q != ERROR_SUCCESS || bytes == 0) return;
+        std::vector<wchar_t> buf(bytes / sizeof(wchar_t) + 2, 0);
+        q = RegQueryValueExW(key, valueName, nullptr, &type,
+                             reinterpret_cast<LPBYTE>(buf.data()), &bytes);
+        if (q != ERROR_SUCCESS) return;
+        std::string value;
+        if (type == REG_SZ || type == REG_EXPAND_SZ) {
+            value = wideToUtf8(buf.data());
+        } else if (type == REG_MULTI_SZ) {
+            value = regMultiSzToCsv(buf.data());
+        }
+        // Skip placeholder NIL CLSID-only entries.
+        if (value == "{00000000-0000-0000-0000-000000000000}" ||
+            value == "[{00000000-0000-0000-0000-000000000000}]") {
+            return;
+        }
+        appendOption(out, optId, optName, value);
+    };
+
+    readValue(5,  "SFX",  "Stream effect (SFX)");
+    readValue(6,  "MFX",  "Mode effect (MFX)");
+    readValue(7,  "EFX",  "Endpoint effect (EFX)");
+    readValue(13, "CSFX", "Composite stream effect");
+    readValue(14, "CMFX", "Composite mode effect");
+    readValue(15, "CEFX", "Composite endpoint effect");
+    RegCloseKey(key);
+}
+
+void readEnhancements(IPropertyStore* props, DataFlow flow, const DeviceId& id, DeviceInfo& info) {
+    info.enhancements = EnhancementsState::Unknown;
+    info.enhancementOptions.clear();
+
+    PROPVARIANT sysfx;
+    PropVariantInit(&sysfx);
+    HRESULT hr = props->GetValue(PKEY_AudioEndpoint_Disable_SysFx, &sysfx);
+    WA_LOG(wa::log::Level::Debug, "DeviceEnum", "IPropertyStore::GetValue",
+           "key=Disable_SysFx vt=" + std::to_string(static_cast<int>(sysfx.vt)),
+           ::wa::log::hrName(hr));
+    if (SUCCEEDED(hr)) {
+        if (sysfx.vt == VT_UI4 || sysfx.vt == VT_I4 || sysfx.vt == VT_UINT || sysfx.vt == VT_INT) {
+            info.enhancements = enhancementsStateFromSysFxUlVal(sysfx.ulVal);
+        } else if (sysfx.vt == VT_BOOL) {
+            // VARIANT_TRUE => disabled (mirrors EndpointGraphReader).
+            info.enhancements = sysfx.boolVal != VARIANT_FALSE
+                ? EnhancementsState::Disabled : EnhancementsState::Enabled;
+        } else if (sysfx.vt == VT_EMPTY || sysfx.vt == VT_NULL) {
+            // Key unset: Windows treats system effects as enabled by default.
+            info.enhancements = EnhancementsState::Enabled;
+        }
+    }
+    PropVariantClear(&sysfx);
+
+    auto readClsid = [&](const PROPERTYKEY& key, const char* optId, const char* optName) {
+        PROPVARIANT pv;
+        PropVariantInit(&pv);
+        HRESULT h = props->GetValue(key, &pv);
+        WA_LOG(wa::log::Level::Debug, "DeviceEnum", "IPropertyStore::GetValue",
+               std::string("key=FX_") + optId + " vt=" + std::to_string(static_cast<int>(pv.vt)),
+               ::wa::log::hrName(h));
+        if (SUCCEEDED(h) && (pv.vt == VT_LPWSTR || pv.vt == VT_BSTR) && pv.pwszVal && pv.pwszVal[0]) {
+            appendOption(info.enhancementOptions, optId, optName, wideToUtf8(pv.pwszVal));
+        }
+        PropVariantClear(&pv);
+    };
+    readClsid(PKEY_FX_StreamEffectClsid,            "SFX",  "Stream effect (SFX)");
+    readClsid(PKEY_FX_ModeEffectClsid,              "MFX",  "Mode effect (MFX)");
+    readClsid(PKEY_FX_EndpointEffectClsid,          "EFX",  "Endpoint effect (EFX)");
+    readClsid(PKEY_CompositeFX_StreamEffectClsid,   "CSFX", "Composite stream effect");
+    readClsid(PKEY_CompositeFX_ModeEffectClsid,     "CMFX", "Composite mode effect");
+    readClsid(PKEY_CompositeFX_EndpointEffectClsid, "CEFX", "Composite endpoint effect");
+
+    if (info.enhancementOptions.empty())
+        readFxOptionsFromRegistry(flow, id, info.enhancementOptions);
+}
 bool readFormatKey(IPropertyStore* props, const PROPERTYKEY& key, AudioFormat& out) {
     PROPVARIANT pv; PropVariantInit(&pv);
     bool ok = false;
@@ -85,6 +235,7 @@ Result readInfo(IMMDevice* dev, DataFlow flow, bool isDefault, DeviceInfo& info)
         PropVariantClear(&name);
         info.hasDeviceFormat = readFormatKey(props.Get(), PKEY_AudioEngine_DeviceFormat, info.deviceFormat);
         info.hasOemFormat    = readFormatKey(props.Get(), PKEY_AudioEngine_OEMFormat,    info.oemFormat);
+        readEnhancements(props.Get(), flow, info.id, info);
     }
 
     ComPtr<IAudioClient> client;
