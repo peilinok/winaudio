@@ -382,9 +382,7 @@ void WasapiCaptureStream::runLoop() {
             }
             const size_t bytes = static_cast<size_t>(frames) * frameBytes_;
             if (flags & AUDCLNT_BUFFERFLAGS_SILENT) {
-                static thread_local std::vector<uint8_t> zeros;
-                zeros.assign(bytes, 0);
-                ring_->write(zeros.data(), bytes);
+                ring_->writeZeros(bytes);
                 silentPacketFrames_.fetch_add(captureSilentPacketFrames(frames, flags),
                                               std::memory_order_relaxed);
                 wroteFrames = true;
@@ -411,9 +409,7 @@ void WasapiCaptureStream::runLoop() {
                                           ? nowMs - lastWriteMs
                                           : kCaptureWaitMs));
             if (frames > 0 && frameBytes_ > 0) {
-                static thread_local std::vector<uint8_t> zeros;
-                zeros.assign(static_cast<size_t>(frames) * frameBytes_, 0);
-                ring_->write(zeros.data(), zeros.size());
+                ring_->writeZeros(static_cast<size_t>(frames) * frameBytes_);
                 idleSilenceFrames_.fetch_add(frames, std::memory_order_relaxed);
                 lastWriteMs = nowMs;
                 if (pumpEvent_) SetEvent(static_cast<HANDLE>(pumpEvent_));

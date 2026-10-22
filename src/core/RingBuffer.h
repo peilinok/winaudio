@@ -15,6 +15,8 @@ public:
     explicit RingBuffer(size_t capacityBytes);
 
     size_t write(const void* data, size_t bytes);
+    // Zero-fill into the ring without an intermediate buffer (audio hot path).
+    size_t writeZeros(size_t bytes);
     size_t read(void* out, size_t bytes);
 
     size_t capacity() const { return buf_.size(); }
