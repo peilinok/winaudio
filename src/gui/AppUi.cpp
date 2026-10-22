@@ -106,6 +106,32 @@ std::string formatLabel(const wa::AudioFormat& fmt) {
     return text;
 }
 
+static std::string deviceEnhancementsSuffix(const wa::DeviceInfo& d) {
+    if (d.enhancements == wa::EnhancementsState::Enabled)
+        return std::string(" [") + wa::ui_text::get(wa::ui_text::kEnhancementsOnShort) + "]";
+    if (d.enhancements == wa::EnhancementsState::Disabled)
+        return std::string(" [") + wa::ui_text::get(wa::ui_text::kEnhancementsOffShort) + "]";
+    return {};
+}
+
+static std::string devicePickerLabel(const wa::DeviceInfo& d, bool starredPreview) {
+    const char* mark = starredPreview
+        ? (d.isDefault ? "* " : "")
+        : (d.isDefault ? "* " : "  ");
+    return std::string(mark) + wtou(d.name) + deviceEnhancementsSuffix(d);
+}
+
+static void drawDeviceEnhancementsDetail(const wa::DeviceInfo& d) {
+    ImGui::TextDisabled("%s: %s",
+        wa::ui_text::get(wa::ui_text::kEnhancementsLabel),
+        wa::enhancementsStateName(d.enhancements));
+    if (d.enhancementOptions.empty()) return;
+    ImGui::TextDisabled("%s:", wa::ui_text::get(wa::ui_text::kEnhancementOptions));
+    for (const auto& o : d.enhancementOptions) {
+        ImGui::BulletText("%s (%s): %s", o.name.c_str(), o.id.c_str(), o.value.c_str());
+    }
+}
+
 } // namespace
 
 // Draw a 4-way "move" icon (crosshair + outward arrowheads) centered at c, sized to a box of side s.
@@ -118,6 +144,7 @@ static void drawMoveIcon(ImDrawList* dl, ImVec2 c, float s, ImU32 col) {
     dl->AddTriangleFilled(ImVec2(c.x - tip, c.y), ImVec2(c.x - tip + ah, c.y - aw), ImVec2(c.x - tip + ah, c.y + aw), col); // left
     dl->AddTriangleFilled(ImVec2(c.x + tip, c.y), ImVec2(c.x + tip - ah, c.y - aw), ImVec2(c.x + tip - ah, c.y + aw), col); // right
 }
+
 
 void AppUi::refreshMonitorDevices() {
     wa::ComInitGuard com;   // REQUIRED: GUI thread has no COM; DeviceEnumerator needs it
@@ -1373,14 +1400,12 @@ void AppUi::drawRenderLeftPanel() {
     std::string preview = wa::ui_text::get(wa::ui_text::kNoRenderDevices);
     if (!renderDevices_.empty() && renderPageDevIdx_ >= 0 &&
         renderPageDevIdx_ < (int)renderDevices_.size()) {
-        preview = (renderDevices_[(size_t)renderPageDevIdx_].isDefault ? "* " : "") +
-                  wtou(renderDevices_[(size_t)renderPageDevIdx_].name);
+        preview = devicePickerLabel(renderDevices_[(size_t)renderPageDevIdx_], true);
     }
     ImGui::SetNextItemWidth(-1);
     if (ImGui::BeginCombo("##renderEndpoint", preview.c_str())) {
         for (int i = 0; i < (int)renderDevices_.size(); ++i) {
-            const std::string label = (renderDevices_[(size_t)i].isDefault ? "* " : "  ") +
-                                      wtou(renderDevices_[(size_t)i].name) +
+            const std::string label = devicePickerLabel(renderDevices_[(size_t)i], false) +
                                       "##renderDev" + std::to_string(i);
             if (ImGui::Selectable(label.c_str(), renderPageDevIdx_ == i))
                 renderPageDevIdx_ = i;
@@ -1494,13 +1519,11 @@ void AppUi::drawLoopbackLeftPanel() {
     drawOsSoundButtons(wa::os_sound_ui::Page::Loopback);
     std::string preview = wa::ui_text::get(wa::ui_text::kNoRenderDevices);
     if (!renderDevices_.empty() && loopbackDevIdx_ >= 0 && loopbackDevIdx_ < (int)renderDevices_.size())
-        preview = (renderDevices_[(size_t)loopbackDevIdx_].isDefault ? "* " : "") +
-                  wtou(renderDevices_[(size_t)loopbackDevIdx_].name);
+        preview = devicePickerLabel(renderDevices_[(size_t)loopbackDevIdx_], true);
     ImGui::SetNextItemWidth(-1);
     if (ImGui::BeginCombo(wa::ui_text::id(wa::ui_text::kSystemAudio), preview.c_str())) {
         for (int i = 0; i < (int)renderDevices_.size(); ++i) {
-            std::string l = (renderDevices_[(size_t)i].isDefault ? "* " : "  ") +
-                            wtou(renderDevices_[(size_t)i].name);
+            std::string l = devicePickerLabel(renderDevices_[(size_t)i], false);
             if (ImGui::Selectable((l + "##loopdev" + std::to_string(i)).c_str(),
                                   loopbackDevIdx_ == i))
                 loopbackDevIdx_ = i;
@@ -1615,7 +1638,7 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
     } else if (appLoopbackReferenceIdx_ >= 2 &&
                appLoopbackReferenceIdx_ - 2 < (int)renderDevices_.size()) {
         const auto& device = renderDevices_[static_cast<size_t>(appLoopbackReferenceIdx_ - 2)];
-        referencePreview = (device.isDefault ? "* " : "") + wtou(device.name);
+        referencePreview = devicePickerLabel(device, true);
     }
     ImGui::SetNextItemWidth(-1);
     if (ImGui::BeginCombo("##appLoopbackFormatReference", referencePreview.c_str())) {
@@ -1627,7 +1650,7 @@ void AppUi::drawApplicationLoopbackLeftPanel() {
             appLoopbackReferenceIdx_ = 1;
         for (int i = 0; i < (int)renderDevices_.size(); ++i) {
             const auto& device = renderDevices_[static_cast<size_t>(i)];
-            const std::string label = (device.isDefault ? "* " : "  ") + wtou(device.name) +
+            const std::string label = devicePickerLabel(device, false) +
                                       "##appref" + std::to_string(i);
             if (ImGui::Selectable(label.c_str(), appLoopbackReferenceIdx_ == i + 2))
                 appLoopbackReferenceIdx_ = i + 2;
@@ -1757,16 +1780,18 @@ void AppUi::drawLeftPanel() {
         ImGui::TextUnformatted(wa::ui_text::get(caption));
         std::string preview = wa::ui_text::get(wa::ui_text::kNoDevices);
         if (!devs.empty() && idx >= 0 && idx < (int)devs.size())
-            preview = (devs[(size_t)idx].isDefault ? "* " : "") + wtou(devs[(size_t)idx].name);
+            preview = devicePickerLabel(devs[(size_t)idx], true);
         ImGui::SetNextItemWidth(-1);
         if (ImGui::BeginCombo(comboId, preview.c_str())) {
             for (int i = 0; i < (int)devs.size(); ++i) {
-                std::string l = (devs[(size_t)i].isDefault ? "* " : "  ") + wtou(devs[(size_t)i].name);
+                std::string l = devicePickerLabel(devs[(size_t)i], false);
                 if (ImGui::Selectable((l + "##" + std::to_string(i)).c_str(), idx == i))
                     idx = i;
             }
             ImGui::EndCombo();
         }
+        if (!devs.empty() && idx >= 0 && idx < (int)devs.size())
+            drawDeviceEnhancementsDetail(devs[(size_t)idx]);
     };
     deviceCombo(wa::ui_text::kCaptureDevice, "##capdev", capDevices_, capDevIdx_);
     deviceCombo(wa::ui_text::kRenderDevice,  "##rendev", renderDevices_, renderDevIdx_);

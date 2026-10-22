@@ -187,6 +187,11 @@ namespace wa::ui_text {
     WA_UI_TEXT(kRenderDevice, "Render device", "Render 设备") \
     WA_UI_TEXT(kNoDevices, "(no devices)", "（无设备）") \
     WA_UI_TEXT(kNoRenderDevices, "(no render devices)", "（无 Render 设备）") \
+    WA_UI_TEXT(kEnhancementsOnShort, "FX on", "增强开") \
+    WA_UI_TEXT(kEnhancementsOffShort, "FX off", "增强关") \
+    WA_UI_TEXT(kEnhancementsUnknownShort, "FX ?", "增强未知") \
+    WA_UI_TEXT(kEnhancementsLabel, "Enhancements", "音频增强") \
+    WA_UI_TEXT(kEnhancementOptions, "Enhancement options", "增强选项") \
     WA_UI_TEXT(kSystemAudio, "System audio", "系统音频") \
     WA_UI_TEXT(kApplicationLoopbackNoSessions, "(none)", "（无）") \
     WA_UI_TEXT(kDelayMs, "Delay (ms)", "延迟 (ms)") \

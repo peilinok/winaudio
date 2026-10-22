@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <string>
 #include <vector>
 #include "AudioFormat.h"
@@ -39,6 +40,35 @@ struct LoopbackOptions {
     bool silentRender = true;
 };
 
+// Endpoint system-effects master switch (PKEY_AudioEndpoint_Disable_SysFx).
+// Unknown = property missing or unreadable; not the same as Disabled.
+enum class EnhancementsState : uint8_t {
+    Unknown = 0,
+    Enabled,
+    Disabled,
+};
+
+inline const char* enhancementsStateName(EnhancementsState s) {
+    switch (s) {
+    case EnhancementsState::Enabled:  return "on";
+    case EnhancementsState::Disabled: return "off";
+    default:                          return "unknown";
+    }
+}
+
+// Map ENDPOINT_SYSFX_* (VT_UI4 ulVal). Call only when the property was present.
+inline EnhancementsState enhancementsStateFromSysFxUlVal(uint32_t ulVal) {
+    return ulVal == 0 ? EnhancementsState::Enabled : EnhancementsState::Disabled;
+}
+
+// Discoverable enhancement descriptor (APO slot CLSID, etc.). Empty list is normal
+// when the endpoint publishes no FX property keys; not an error.
+struct EnhancementOption {
+    std::string id;    // stable key, e.g. "SFX" | "MFX" | "EFX"
+    std::string name;  // short English label
+    std::string value; // e.g. CLSID string
+};
+
 struct DeviceInfo {
     DeviceId     id;
     std::wstring name;
@@ -47,6 +77,8 @@ struct DeviceInfo {
     AudioFormat  mixFormat{};       // shared-mode mix format
     AudioFormat  deviceFormat{}; bool hasDeviceFormat = false; // PKEY_AudioEngine_DeviceFormat
     AudioFormat  oemFormat{};    bool hasOemFormat    = false; // PKEY_AudioEngine_OEMFormat
+    EnhancementsState enhancements = EnhancementsState::Unknown;
+    std::vector<EnhancementOption> enhancementOptions;
 };
 
 struct BackendStats {

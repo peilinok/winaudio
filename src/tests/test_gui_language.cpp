@@ -189,6 +189,9 @@ TEST_F(GuiLanguageText, ChineseReturnsFilledSlotAndFallsBackWhenMissing) {
     EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kApplicationLoopbackTab), "Application Loopback");
     EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kLoopbackEmptyHint), "创建 Track 以采集系统音频。");
     EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kChartsPause), "暂停图表");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kEnhancementsOnShort), "增强开");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kEnhancementsOffShort), "增强关");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kEnhancementsLabel), "音频增强");
     EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kLogEmpty), "（空）");
     EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kMmsysCplFailed), "mmsys.cpl：ShellExecute 失败");
     EXPECT_EQ(wa::ui_text::get(wa::ui_text::kApply), wa::ui_text::get(wa::ui_text::kApply));
@@ -219,6 +222,10 @@ TEST_F(GuiLanguageText, SharedLabelsExistForLaterPages) {
     EXPECT_STREQ(wa::ui_text::kControl, "Control");
     EXPECT_STREQ(wa::ui_text::kSource, "Source");
     EXPECT_STREQ(wa::ui_text::kDevices, "Devices");
+    EXPECT_STREQ(wa::ui_text::kEnhancementsOnShort, "FX on");
+    EXPECT_STREQ(wa::ui_text::kEnhancementsOffShort, "FX off");
+    EXPECT_STREQ(wa::ui_text::kEnhancementsLabel, "Enhancements");
+    EXPECT_STREQ(wa::ui_text::kEnhancementOptions, "Enhancement options");
     EXPECT_STREQ(wa::ui_text::kStatus, "Status");
     EXPECT_STREQ(wa::ui_text::kStart, "Start");
     EXPECT_STREQ(wa::ui_text::kStop, "Stop");

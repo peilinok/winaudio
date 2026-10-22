@@ -119,6 +119,16 @@ int wmain(int argc, wchar_t** argv) {
                 d.mixFormat.sampleRate, d.mixFormat.channels,
                 d.mixFormat.isFloat ? L"float" : L"pcm");
             std::wprintf(L"     id=%s\n", d.id.c_str());
+            std::printf("     enhancements=%s", enhancementsStateName(d.enhancements));
+            if (!d.enhancementOptions.empty()) {
+                std::printf("  options=");
+                for (size_t i = 0; i < d.enhancementOptions.size(); ++i) {
+                    const auto& o = d.enhancementOptions[i];
+                    if (i) std::printf(";");
+                    std::printf("%s=%s", o.id.c_str(), o.value.c_str());
+                }
+            }
+            std::printf("\n");
         }
         return 0;
     }
