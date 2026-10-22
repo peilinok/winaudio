@@ -44,6 +44,43 @@ TEST(RingBuffer, WrapAround) {
     EXPECT_EQ(0, memcmp(b, out, 6));
 }
 
+TEST(RingBuffer, WriteZerosRoundTrip) {
+    RingBuffer rb(16);
+    EXPECT_EQ(rb.writeZeros(4), 4u);
+    EXPECT_EQ(rb.availableRead(), 4u);
+    uint8_t out[4] = {1, 1, 1, 1};
+    EXPECT_EQ(rb.read(out, 4), 4u);
+    EXPECT_EQ(out[0], 0);
+    EXPECT_EQ(out[1], 0);
+    EXPECT_EQ(out[2], 0);
+    EXPECT_EQ(out[3], 0);
+}
+
+TEST(RingBuffer, WriteZerosOverrunCountedWhenFull) {
+    RingBuffer rb(4);
+    EXPECT_EQ(rb.writeZeros(8), 4u);
+    EXPECT_EQ(rb.overruns(), 1u);
+    uint8_t out[4] = {1, 1, 1, 1};
+    EXPECT_EQ(rb.read(out, 4), 4u);
+    EXPECT_EQ(out[0], 0);
+    EXPECT_EQ(out[1], 0);
+    EXPECT_EQ(out[2], 0);
+    EXPECT_EQ(out[3], 0);
+}
+
+TEST(RingBuffer, WriteZerosWrapAround) {
+    RingBuffer rb(8);
+    uint8_t a[6] = {1, 2, 3, 4, 5, 6};
+    uint8_t tmp[6] = {};
+    rb.write(a, 6);
+    rb.read(tmp, 6);
+    EXPECT_EQ(rb.writeZeros(6), 6u);
+    uint8_t out[6] = {9, 9, 9, 9, 9, 9};
+    EXPECT_EQ(rb.read(out, 6), 6u);
+    for (int i = 0; i < 6; ++i)
+        EXPECT_EQ(out[i], 0) << "byte " << i;
+}
+
 TEST(RingBuffer, SpscStress) {
     const size_t N = 1'000'000;
     RingBuffer rb(1024);

@@ -34,6 +34,24 @@ size_t RingBuffer::write(const void* data, size_t bytes) {
     return n;
 }
 
+size_t RingBuffer::writeZeros(size_t bytes) {
+    const size_t h = head_.load(std::memory_order_relaxed);
+    const size_t t = tail_.load(std::memory_order_acquire);
+    const size_t freeBytes = buf_.size() - (h - t);
+    const size_t n = std::min(bytes, freeBytes);
+    if (n < bytes) overruns_.fetch_add(1, std::memory_order_relaxed);
+
+    const size_t cap = buf_.size();
+    const size_t off = h % cap;
+    const size_t first = std::min(n, cap - off);
+    std::memset(buf_.data() + off, 0, first);
+    if (n > first)
+        std::memset(buf_.data(), 0, n - first);
+
+    head_.store(h + n, std::memory_order_release);
+    return n;
+}
+
 size_t RingBuffer::read(void* out, size_t bytes) {
     const size_t t = tail_.load(std::memory_order_relaxed);
     const size_t h = head_.load(std::memory_order_acquire);
