@@ -164,6 +164,7 @@ namespace wa::ui_text {
     WA_UI_TEXT(kPipelineNoDebug, "Attach failed: missing debug rights", "附加失败：缺少调试权限") \
     WA_UI_TEXT(kPipelineCallColIface, "Iface", "接口") \
     WA_UI_TEXT(kPipelineCallColMethod, "Method", "方法") \
+    WA_UI_TEXT(kPipelineCallColCall, "Call", "调用") \
     WA_UI_TEXT(kPipelineCallColArgs, "Args", "参数") \
     WA_UI_TEXT(kPipelineCallColHr, "HR", "HR") \
     WA_UI_TEXT(kPipelineCallColStream, "Stream", "流") \
@@ -172,6 +173,8 @@ namespace wa::ui_text {
     WA_UI_TEXT(kPipelineCallColPre, "Pre", "调用前") \
     WA_UI_TEXT(kPipelineCallColPost, "Post", "调用后") \
     WA_UI_TEXT(kPipelineCallParams, "Parameters", "参数") \
+    WA_UI_TEXT(kPipelineCallParamsSelectHint, "Select a call log row to view parameters.", "选择一条调用记录以查看参数。") \
+    WA_UI_TEXT(kPipelineCallParamsEmpty, "No parameters for this call.", "此调用无参数。") \
     WA_UI_TEXT(kPipelinePump, "Record pump metadata", "记录 pump 元数据") \
     WA_UI_TEXT(kPipelineXruns, "xruns", "xruns") \
     WA_UI_TEXT(kRefreshDevices, "Refresh devices", "刷新设备") \

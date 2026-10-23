@@ -206,6 +206,7 @@ private:
     wa::EtwInitializeHint pipelineEtwHint_{};
     wa::OnDemandAttach pipelineAttach_;
     std::vector<wa::HookedCall> pipelineCalls_;
+    int pipelineCallSelected_ = -1;
     std::string pipelineAttachBanner_;
     char pipelineAttachPid_[32] = "";
     uint32_t pipelineAttachFailPid_ = 0;
