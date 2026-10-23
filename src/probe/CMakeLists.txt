@@ -1,3 +1,7 @@
 add_executable(LoopbackTreeProbe LoopbackTreeProbe.cpp)
 target_link_libraries(LoopbackTreeProbe PRIVATE WinAudioCore)
 wa_set_project_warnings(LoopbackTreeProbe)
+
+add_executable(AttachSmoke AttachSmoke.cpp)
+target_link_libraries(AttachSmoke PRIVATE WinAudioCore)
+wa_set_project_warnings(AttachSmoke)

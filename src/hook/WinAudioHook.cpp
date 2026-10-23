@@ -501,16 +501,56 @@ HRESULT STDMETHODCALLTYPE HookGetDefault(IMMDeviceEnumerator* self, EDataFlow fl
     return hr;
 }
 
-// Activate without Initialize so we patch the shared IAudioClient vtable
-// without opening a dummy stream in the target.
+// Patch shared IAudioClient vtable, then briefly Initialize (no Start) so
+// GetService can patch capture/render/volume/session/clock vtables too.
+// Without that, attach-after on an already-pumping stream leaves Call log and
+// pump metadata empty until the target calls GetService again.
+void patchServicesFromClient(IAudioClient* client) {
+    if (!client) return;
+    void* svc = nullptr;
+    if (SUCCEEDED(client->GetService(__uuidof(IAudioCaptureClient), &svc)) && svc) {
+        patchService(svc, __uuidof(IAudioCaptureClient));
+        static_cast<IUnknown*>(svc)->Release();
+        svc = nullptr;
+    }
+    if (SUCCEEDED(client->GetService(__uuidof(IAudioRenderClient), &svc)) && svc) {
+        patchService(svc, __uuidof(IAudioRenderClient));
+        static_cast<IUnknown*>(svc)->Release();
+        svc = nullptr;
+    }
+    if (SUCCEEDED(client->GetService(__uuidof(ISimpleAudioVolume), &svc)) && svc) {
+        patchService(svc, __uuidof(ISimpleAudioVolume));
+        static_cast<IUnknown*>(svc)->Release();
+        svc = nullptr;
+    }
+    if (SUCCEEDED(client->GetService(__uuidof(IAudioSessionControl), &svc)) && svc) {
+        patchService(svc, __uuidof(IAudioSessionControl));
+        static_cast<IUnknown*>(svc)->Release();
+        svc = nullptr;
+    }
+    if (SUCCEEDED(client->GetService(__uuidof(IAudioClock), &svc)) && svc) {
+        patchService(svc, __uuidof(IAudioClock));
+        static_cast<IUnknown*>(svc)->Release();
+        svc = nullptr;
+    }
+}
+
 void tryActivate(IMMDevice* dev) {
     if (!dev) return;
     patchDevice(dev);
     void* raw = nullptr;
-    if (SUCCEEDED(dev->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &raw)) && raw) {
-        patchClient(raw);
-        static_cast<IUnknown*>(raw)->Release();
+    if (FAILED(dev->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &raw)) || !raw) return;
+    IAudioClient* client = static_cast<IAudioClient*>(raw);
+    patchClient(client);
+    WAVEFORMATEX* mix = nullptr;
+    if (SUCCEEDED(client->GetMixFormat(&mix)) && mix) {
+        // Shared only; no Start - avoid audible glitch while still reaching GetService.
+        const HRESULT ihr =
+            client->Initialize(AUDCLNT_SHAREMODE_SHARED, 0, 1000000, 0, mix, nullptr);
+        CoTaskMemFree(mix);
+        if (SUCCEEDED(ihr)) patchServicesFromClient(client);
     }
+    client->Release();
 }
 
 void patchAllDevices(IMMDeviceEnumerator* enumer, EDataFlow flow) {
