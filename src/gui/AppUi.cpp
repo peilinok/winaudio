@@ -443,6 +443,11 @@ void AppUi::rebuildPipelineProcessTree() {
     const uint32_t hidePid = pipelineShowSelf_ ? 0u : static_cast<uint32_t>(GetCurrentProcessId());
     pipelineTree_ = wa::groupProcessTreeByName(wa::buildProcessTree(
         pipelineProcesses_, pipelineSessions_, pipelineAudioOnly_, hidePid));
+    applyPipelineProcessSort();
+}
+
+void AppUi::applyPipelineProcessSort() {
+    wa::sortProcessNameGroups(pipelineTree_, pipelineProcessSortCol_, pipelineProcessSortAsc_);
 }
 
 void AppUi::rebuildPipelineGraph() {
@@ -1420,24 +1425,45 @@ void AppUi::drawPipelinePage() {
         } else if (ImGui::BeginTable("pipelineProcesses", 7,
                                      ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
                                          ImGuiTableFlags_ScrollY | ImGuiTableFlags_ScrollX |
-                                         ImGuiTableFlags_Resizable | ImGuiTableFlags_SizingFixedFit,
+                                         ImGuiTableFlags_Resizable | ImGuiTableFlags_SizingFixedFit |
+                                         ImGuiTableFlags_Sortable | ImGuiTableFlags_SortTristate,
                                      ImVec2(0, ImGui::GetContentRegionAvail().y))) {
             ImGui::TableSetupScrollFreeze(0, 1);
             ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColProcess),
-                                    ImGuiTableColumnFlags_WidthFixed, 260.f);
+                                    ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_DefaultSort,
+                                    260.f);
             ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kApplicationLoopbackPidLabel),
                                     ImGuiTableColumnFlags_WidthFixed, 64.f);
             ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColDevice),
-                                    ImGuiTableColumnFlags_WidthFixed, 240.f);
+                                    ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort,
+                                    240.f);
             ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColVol),
-                                    ImGuiTableColumnFlags_WidthFixed, 48.f);
+                                    ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort,
+                                    48.f);
             ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColMute),
-                                    ImGuiTableColumnFlags_WidthFixed, 48.f);
+                                    ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort,
+                                    48.f);
             ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColState),
                                     ImGuiTableColumnFlags_WidthFixed, 72.f);
             ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColAttach),
-                                    ImGuiTableColumnFlags_WidthFixed, 72.f);
+                                    ImGuiTableColumnFlags_WidthFixed | ImGuiTableColumnFlags_NoSort,
+                                    72.f);
             ImGui::TableHeadersRow();
+            if (ImGuiTableSortSpecs* sortSpecs = ImGui::TableGetSortSpecs()) {
+                if (sortSpecs->SpecsDirty) {
+                    if (sortSpecs->SpecsCount > 0) {
+                        pipelineProcessSortCol_ = sortSpecs->Specs[0].ColumnIndex;
+                        pipelineProcessSortAsc_ =
+                            sortSpecs->Specs[0].SortDirection != ImGuiSortDirection_Descending;
+                    } else {
+                        // Tristate cleared: restore default name ascending.
+                        pipelineProcessSortCol_ = 0;
+                        pipelineProcessSortAsc_ = true;
+                    }
+                    applyPipelineProcessSort();
+                    sortSpecs->SpecsDirty = false;
+                }
+            }
             // Name group / process with audio: muted blue. Active session row: green.
             const ImU32 audioProcessBg = IM_COL32(48, 72, 112, 120);
             const ImU32 activeSessionBg = IM_COL32(40, 120, 64, 150);
@@ -1536,9 +1562,20 @@ void AppUi::drawPipelinePage() {
                 const bool nameOpen = ImGui::TreeNodeEx(
                     reinterpret_cast<void*>(static_cast<intptr_t>(-(gi + 1))), ntf, "%s",
                     g.name.c_str());
-                ImGui::SetItemTooltip("%s", g.name.c_str());
+                if (ImGui::IsItemClicked()) {
+                    // Name-group root shows the primary instance PID; fill it for Attach.
+                    if (g.rootPid != 0) {
+                        if (pipelineSelectedPid_ != g.rootPid) switchPipelinePid(g.rootPid);
+                        pipelineSelected_ = -1;
+                        pipelineSelectedPid_ = g.rootPid;
+                        std::snprintf(pipelineAttachPid_, sizeof(pipelineAttachPid_), "%u",
+                                      g.rootPid);
+                        rebuildPipelineGraph();
+                    }
+                }
+                ImGui::SetItemTooltip("%s (root PID %u)", g.name.c_str(), g.rootPid);
                 ImGui::TableSetColumnIndex(1);
-                ImGui::TextUnformatted("-");
+                ImGui::Text("%u", g.rootPid);
                 ImGui::TableSetColumnIndex(2);
                 ImGui::Text(wa::ui_text::get(wa::ui_text::kPipelineProcessCountFmt),
                             static_cast<int>(g.processes.size()));
@@ -1548,7 +1585,8 @@ void AppUi::drawPipelinePage() {
                 for (const wa::ProcessTreeRow& proc : g.processes)
                     drawProcessRow(proc, gi + 1);
                 ImGui::TreePop();
-            }            ImGui::EndTable();
+            }
+            ImGui::EndTable();
         }
         ImGui::EndChild();
 
