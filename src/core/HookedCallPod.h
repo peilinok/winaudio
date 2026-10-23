@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -20,7 +20,7 @@ constexpr uint32_t kPumpCap = 64;
 constexpr uint32_t kInstallPending = 0;
 constexpr uint32_t kInstallOk = 1;
 constexpr uint32_t kInstallFailed = 2;
-constexpr uint32_t kRingLayout = 2;
+constexpr uint32_t kRingLayout = 3;
 
 // IUnknown occupies slots 0-2. These match the Windows SDK vtables.
 constexpr int kSlotDeviceActivate = 3;

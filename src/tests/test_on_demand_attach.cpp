@@ -1,4 +1,4 @@
-#include <gtest/gtest.h>
+﻿#include <gtest/gtest.h>
 #include "HookedCallPod.h"
 #include "OnDemandAttach.h"
 
@@ -92,11 +92,11 @@ TEST(OnDemandAttach, SnapshotSurvivesUnmap) {
 TEST(OnDemandAttach, MapNameIncludesLayoutVersion) {
     wchar_t name[64] = {};
     hook_ipc::mapName(25060, name, 64);
-    EXPECT_STREQ(name, L"Local\\WinAudioHook-2-25060");
+    EXPECT_STREQ(name, L"Local\\WinAudioHook-3-25060");
 }
 
 TEST(OnDemandAttach, StagedHookFileNameFollowsLayout) {
-    EXPECT_EQ(stagedHookFileName(), L"WinAudioHook-2.dll");
+    EXPECT_EQ(stagedHookFileName(), L"WinAudioHook-3.dll");
 }
 
 TEST(OnDemandAttach, CreateHookMappingIsVisibleInSameProcess) {
