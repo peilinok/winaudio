@@ -93,10 +93,12 @@ cd winaudio
 ### list — 枚举设备
 
 ```powershell
-WinAudioCli list [--render|--capture]
+WinAudioCli list [--render|--capture] [--effects]
 ```
 
-默认列出 render 设备。`*` 标记系统默认设备，同时打印混音格式与设备 id（供 `--device` / `--cap` 使用）。
+默认列出 render 设备。`*` 标记系统默认设备，同时打印混音格式、设备 id（供 `--device` / `--cap` 使用），以及端点增强状态（`enhancements=on|off|unknown`，若有则附带 APO CLSID 槽位）。
+
+`--effects` 会再对每个设备短暂打开 Shared 流（Initialize，**不 Start**），通过 `IAudioEffectsManager` 打印流级效果（`类型:on|off[+set]`）。需要 **Windows 11 build 22000+**；在 Windows 10 或接口不可用时输出 `streamEffects=(none)`。不加 `--effects` 的枚举不会打开音频流。
 
 ### caps — 设备能力
 

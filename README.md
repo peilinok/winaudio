@@ -93,10 +93,12 @@ The **PID** input and the **Exclude** checkbox (unchecked by default) belong to 
 ### list — enumerate devices
 
 ```powershell
-WinAudioCli list [--render|--capture]
+WinAudioCli list [--render|--capture] [--effects]
 ```
 
-Render devices are listed by default. `*` marks the system default. The line also prints the mix format and the device id (for `--device` / `--cap`).
+Render devices are listed by default. `*` marks the system default. The line also prints the mix format, the device id (for `--device` / `--cap`), and endpoint enhancement status (`enhancements=on|off|unknown` plus APO CLSID slots when published).
+
+`--effects` additionally opens a short Shared stream per device (Initialize, **no Start**) and prints stream-level effects from `IAudioEffectsManager` (`type:on|off[+set]`). Requires **Windows 11 build 22000+**; on Windows 10 or when the manager is unavailable the line is `streamEffects=(none)`. Enumeration without `--effects` never opens a stream.
 
 ### caps — device capabilities
 
