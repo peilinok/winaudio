@@ -137,11 +137,14 @@ static void drawDeviceEnhancementsDetail(const wa::DeviceInfo& d, wa::DataFlow f
     if (!d.enhancementOptions.empty()) {
         ImGui::TextDisabled("%s:", wa::ui_text::get(wa::ui_text::kEnhancementOptions));
         for (const auto& o : d.enhancementOptions) {
-            ImGui::BulletText("%s (%s): %s", o.name.c_str(), o.id.c_str(), o.value.c_str());
+            // Abbreviation only; hover shows full name + CLSID/value.
+            ImGui::BulletText("%s", o.id.c_str());
+            ImGui::SetItemTooltip("%s\n%s", o.name.c_str(), o.value.c_str());
         }
     }
 
     // Stream effects require an open Shared client (Initialize, no Start). On demand only.
+    ImGui::TextDisabled("%s:", wa::ui_text::get(wa::ui_text::kStreamEffects));
     if (ImGui::SmallButton(wa::ui_text::id(wa::ui_text::kProbeStreamEffects))) {
         *fx.deviceId = d.id;
         *fx.flow = flow;
@@ -151,11 +154,9 @@ static void drawDeviceEnhancementsDetail(const wa::DeviceInfo& d, wa::DataFlow f
         wa::Result r = wa::probeStreamAudioEffects(flow, d.id, *fx.effects);
         if (!r) *fx.error = r.message;
     }
-    ImGui::SameLine();
-    ImGui::TextDisabled("%s", wa::ui_text::get(wa::ui_text::kStreamEffectsNeedWin11));
+    ImGui::SetItemTooltip("%s", wa::ui_text::get(wa::ui_text::kStreamEffectsNeedWin11));
 
     if (*fx.haveResult && *fx.deviceId == d.id && *fx.flow == flow) {
-        ImGui::TextDisabled("%s:", wa::ui_text::get(wa::ui_text::kStreamEffects));
         if (!fx.error->empty()) {
             ImGui::TextColored(ImVec4(1.f, 0.4f, 0.4f, 1.f), "%s", fx.error->c_str());
         } else if (fx.effects->empty()) {
@@ -167,6 +168,8 @@ static void drawDeviceEnhancementsDetail(const wa::DeviceInfo& d, wa::DataFlow f
                     e.canSetState ? " (settable)" : "");
             }
         }
+    } else {
+        ImGui::TextDisabled("%s", wa::ui_text::get(wa::ui_text::kStreamEffectsHint));
     }
 }
 
