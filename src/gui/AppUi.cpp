@@ -1256,24 +1256,23 @@ void AppUi::drawPipelinePage() {
     const float gap = ImGui::GetStyle().ItemSpacing.y;
     const float contentH = std::max(120.0f, availY - logH - gap);
 
-    // Three full-width rows: sessions/controls | Call Log (primary) | graph.
+    // Top: Live sessions | graph side-by-side. Middle: Call Log full width.
     ImGui::BeginChild("pipelineContent", ImVec2(0, contentH), false);
     {
         const float rowAvail = ImGui::GetContentRegionAvail().y;
-        float topRowH = std::clamp(rowAvail * 0.30f, 180.0f, 280.0f);
-        float bottomRowH = std::clamp(rowAvail * 0.22f, 110.0f, 200.0f);
-        float midRowH = rowAvail - topRowH - bottomRowH - gap * 2.0f;
-        if (midRowH < 160.0f) {
-            const float deficit = 160.0f - midRowH;
-            const float takeTop = std::min(deficit * 0.55f, std::max(0.0f, topRowH - 160.0f));
-            const float takeBot = std::min(deficit - takeTop, std::max(0.0f, bottomRowH - 100.0f));
-            topRowH -= takeTop;
-            bottomRowH -= takeBot;
-            midRowH = rowAvail - topRowH - bottomRowH - gap * 2.0f;
-            midRowH = std::max(120.0f, midRowH);
+        float topRowH = std::clamp(rowAvail * 0.42f, 200.0f, 360.0f);
+        float callRowH = rowAvail - topRowH - gap;
+        if (callRowH < 180.0f) {
+            const float deficit = 180.0f - callRowH;
+            topRowH = std::max(160.0f, topRowH - deficit);
+            callRowH = std::max(140.0f, rowAvail - topRowH - gap);
         }
 
-        ImGui::BeginChild("pipelineTop", ImVec2(0, topRowH), true);
+        ImGui::BeginChild("pipelineTopRow", ImVec2(0, topRowH), false);
+        const float availX = ImGui::GetContentRegionAvail().x;
+        float leftW = std::clamp(availX * 0.55f, 520.f, 820.f);
+        if (availX < 980.f) leftW = std::max(420.f, availX * 0.58f);
+        ImGui::BeginChild("pipelineLeft", ImVec2(leftW, 0), true);
         ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kPipelineSessions));
         if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineRefresh)))
             refreshPipelineSessions();
@@ -1449,7 +1448,29 @@ void AppUi::drawPipelinePage() {
         }
         ImGui::EndChild();
 
-        ImGui::BeginChild("pipelineCallLog", ImVec2(0, midRowH), true);
+        ImGui::SameLine();
+        ImGui::BeginChild("pipelineGraph", ImVec2(0, 0), true);
+        ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kPipelineGraph));
+        if (pipelineSelected_ < 0) {
+            ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineSelectHint));
+        } else {
+            for (const auto& n : pipelineNodes_) {
+                ImGui::PushStyleColor(ImGuiCol_Text, kindColor(n.kind));
+                ImGui::Text("%s [%s]", n.title.c_str(), wa::observationKindName(n.kind));
+                ImGui::PopStyleColor();
+                for (const auto& p : n.params) {
+                    ImGui::PushStyleColor(ImGuiCol_Text, kindColor(p.kind));
+                    ImGui::BulletText("%s: %s [%s]", p.key.c_str(), p.value.c_str(),
+                                      wa::observationKindName(p.kind));
+                    ImGui::PopStyleColor();
+                }
+                ImGui::Spacing();
+            }
+        }
+        ImGui::EndChild();
+        ImGui::EndChild();
+
+        ImGui::BeginChild("pipelineCallLog", ImVec2(0, callRowH), true);
         ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kPipelineCallLog));
         std::vector<wa::HookedCall> callSrc = pipelineCalls_;
         if (pipelinePump_ && pipelineAttach_.attached()) {
@@ -1528,26 +1549,6 @@ void AppUi::drawPipelinePage() {
                 }
             }
             ImGui::EndTable();
-        }
-        ImGui::EndChild();
-
-        ImGui::BeginChild("pipelineGraph", ImVec2(0, 0), true);
-        ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kPipelineGraph));
-        if (pipelineSelected_ < 0) {
-            ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineSelectHint));
-        } else {
-            for (const auto& n : pipelineNodes_) {
-                ImGui::PushStyleColor(ImGuiCol_Text, kindColor(n.kind));
-                ImGui::Text("%s [%s]", n.title.c_str(), wa::observationKindName(n.kind));
-                ImGui::PopStyleColor();
-                for (const auto& p : n.params) {
-                    ImGui::PushStyleColor(ImGuiCol_Text, kindColor(p.kind));
-                    ImGui::BulletText("%s: %s [%s]", p.key.c_str(), p.value.c_str(),
-                                      wa::observationKindName(p.kind));
-                    ImGui::PopStyleColor();
-                }
-                ImGui::Spacing();
-            }
         }
         ImGui::EndChild();
     }
