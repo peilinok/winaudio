@@ -31,7 +31,7 @@ AttachBlock evaluateAttach(uint32_t pid, uint32_t ourPid, bool sameBitness, bool
 bool remoteLoadLibrarySucceeded(uint32_t waitResult, uint32_t exitCode);
 
 // Message for a failed hook install. Callers must snapshot `installed` before
-// UnmapViewOfFile — the view is invalid afterwards.
+// UnmapViewOfFile 鈥?the view is invalid afterwards.
 const char* attachInstallFailMessage(uint32_t installed);
 
 std::wstring stagedHookFileName();
@@ -53,6 +53,7 @@ public:
     std::vector<HookedCall> pumpRing() const;
     uint32_t pumpXruns() const;
     void setPumpEnabled(bool on);
+    void setCaptureEnabled(bool on);
 
 private:
     struct Impl;
@@ -60,3 +61,4 @@ private:
 };
 
 }  // namespace wa
+

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -20,7 +20,7 @@ constexpr uint32_t kPumpCap = 64;
 constexpr uint32_t kInstallPending = 0;
 constexpr uint32_t kInstallOk = 1;
 constexpr uint32_t kInstallFailed = 2;
-constexpr uint32_t kRingLayout = 3;
+constexpr uint32_t kRingLayout = 4;
 
 // IUnknown occupies slots 0-2. These match the Windows SDK vtables.
 constexpr int kSlotDeviceActivate = 3;
@@ -84,6 +84,7 @@ struct Ring {
     uint32_t pumpXruns;
     uint32_t installed;
     uint32_t flow;  // 0 = capture, 1 = render
+    uint32_t captureEnabled;  // 0 = detach/quiet; 1 = record calls
     wchar_t deviceId[256];
     CallPod slots[kCap];
     CallPod pumpSlots[kPumpCap];
@@ -116,3 +117,4 @@ inline HANDLE createHookMapping(uint32_t pid, bool* sdApplied = nullptr) {
 
 }  // namespace hook_ipc
 }  // namespace wa
+

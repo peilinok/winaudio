@@ -86,9 +86,16 @@ cd winaudio
 | **IncludeTree**（默认） | Exclude 未勾 | `IncludeTree` | 只采集目标 PID 及其**子进程树**的音频 |
 | **ExcludeTree** | 勾选 Exclude | `ExcludeTree` | 采集 process-loopback 混音中**除**该进程树以外的部分 |
 
+### Pipeline（Live 会话 API 监控）
+
+选择 Live 会话后 **附加 (Attach)** 注入 `WinAudioHook.dll`（需同位数），在调用日志中查看 Core Audio / WASAPI COM 调用、关键参数与 HRESULT。**分离 (Detach)** 会安静停止采集并解除共享映射。可选 **录制调用 / 保存调用**，JSONL 默认写到 `%LOCALAPPDATA%\\WinAudio\\pipeline-calls`。GetBuffer/ReleaseBuffer 的 pump 元数据仍默认关闭。这不是完整 API Monitor：仅封闭 COM 集合，无调用栈、无跨位数注入。
+
+
 ## CLI 使用
 
 `WinAudioCli.exe <子命令> [参数]`，子命令：`list` / `caps` / `probe` / `capture` / `play` / `monitor` / `effects` / `enhancements`。
+
+
 
 ### list — 枚举设备
 

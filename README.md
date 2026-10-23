@@ -86,9 +86,16 @@ The **PID** input and the **Exclude** checkbox (unchecked by default) belong to 
 | **IncludeTree** (default) | Exclude unchecked | `IncludeTree` | Capture only the target PID and its **child process tree** |
 | **ExcludeTree** | Exclude checked | `ExcludeTree` | Capture the process-loopback mix **except** that process tree |
 
+### Pipeline (Live session API monitor)
+
+Pick a Live session, **Attach** to inject `WinAudioHook.dll` (same bitness), and watch Core Audio / WASAPI COM calls with parameters and HRESULT in the Call log. **Detach** stops capture (quiet + unmap) without needing a process restart. Optional **Record calls** / **Save calls** writes JSONL under `%LOCALAPPDATA%\\WinAudio\\pipeline-calls`. Pump GetBuffer/ReleaseBuffer metadata stays opt-in. Not a full API Monitor: closed COM set only, no stack walks, no cross-bitness inject.
+
+
 ## CLI use
 
 `WinAudioCli.exe <subcommand> [options]`. Subcommands: `list` / `caps` / `probe` / `capture` / `play` / `monitor` / `effects` / `enhancements`.
+
+
 
 ### list — enumerate devices
 

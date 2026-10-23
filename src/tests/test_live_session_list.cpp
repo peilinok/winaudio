@@ -387,6 +387,10 @@ TEST(PipelineUiText, ExposesPipelineTabControls) {
     EXPECT_STREQ(wa::etwWatchStatusText(wa::EtwWatchStatus::Listening),
                  wa::ui_text::kPipelineEtwListening);
     EXPECT_STREQ(wa::ui_text::kPipelineAttach, "Attach");
+    EXPECT_STREQ(wa::ui_text::kPipelineDetach, "Detach");
+    EXPECT_STREQ(wa::ui_text::kPipelineRecord, "Record calls");
+    EXPECT_STREQ(wa::ui_text::kPipelineSaveCalls, "Save calls");
+    EXPECT_STREQ(wa::ui_text::kPipelineColAttach, "Hook");
     EXPECT_STREQ(wa::ui_text::kPipelineCallLog, "Call log");
     EXPECT_STREQ(wa::ui_text::kPipelineAttached, "Attached");
     EXPECT_STREQ(wa::ui_text::kPipelineCallLogEmpty,

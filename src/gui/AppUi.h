@@ -3,6 +3,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include "AudioSessionEnumerator.h"
 #include "CaptureTrackList.h"
@@ -18,6 +19,7 @@
 #include "LiveSessionEnumerator.h"
 #include "LiveSessionWatch.h"
 #include "MonitorEngine.h"
+#include "CallLogStore.h"
 #include "OnDemandAttach.h"
 #include "PipelineGraph.h"
 #include "SharedProbe.h"
@@ -77,6 +79,11 @@ private:
     void applyLiveSessionCellPatches();
     void runPipelineProbe();
     void runPipelineAttach();
+    void runPipelineDetach();
+    void savePipelineCallLog();
+    wa::PipelineAttachUiState pipelineAttachUiFor(const wa::LiveSessionView& row) const;
+    void setPipelineAttachUi(const wa::LiveSessionView& row, wa::PipelineAttachUiState state,
+                             const std::string& banner = {});
     void drawMonitorPage();
     void drawPipelinePage();
     void drawLoopbackPage();
@@ -201,6 +208,11 @@ private:
     std::vector<wa::HookedCall> pipelineCalls_;
     std::string pipelineAttachBanner_;
     bool pipelinePump_ = false;
+    bool pipelineRecord_ = false;
+    wa::CallLogStore pipelineCallStore_;
+    std::string pipelineAttachSessionKey_;
+    std::unordered_map<std::string, wa::PipelineAttachUiState> pipelineAttachUi_;
+    std::unordered_map<std::string, std::string> pipelineAttachFailBanner_;
 
     wa::StreamParams capParams_{};    // Advanced 弹窗编辑;Start 时传入(运行中只读)
     wa::StreamParams renParams_{};
