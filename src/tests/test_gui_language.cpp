@@ -573,3 +573,19 @@ TEST_F(GuiLanguageText, RenderAndPipelineLeftoverLabelsFollowLanguage) {
     EXPECT_EQ(wa::ui_text::channelLayoutText(6, 0x3Fu), "5.1 / 掩码 0x3F");
     EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kLayout51), "5.1");
 }
+
+TEST(GuiLanguage, PipelineTrustBannersHaveEnglishAndChinese) {
+    wa::ui_text::setLanguage(wa::gui_language::Language::En);
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kPipelineInitSourceHooked),
+                 wa::ui_text::kPipelineInitSourceHooked);
+    EXPECT_NE(std::string(wa::ui_text::kPipelineKindLegend).find("Probed"), std::string::npos);
+    EXPECT_NE(std::string(wa::ui_text::kPipelineProbeBanner).find("not the target"), std::string::npos);
+    wa::ui_text::setLanguage(wa::gui_language::Language::ZhCn);
+    EXPECT_NE(wa::ui_text::get(wa::ui_text::kPipelineInitSourceHooked),
+              wa::ui_text::kPipelineInitSourceHooked);
+    EXPECT_NE(wa::ui_text::get(wa::ui_text::kPipelineMultiStreamBanner),
+              wa::ui_text::kPipelineMultiStreamBanner);
+    EXPECT_NE(wa::ui_text::get(wa::ui_text::kPipelineOtherPidBanner),
+              wa::ui_text::kPipelineOtherPidBanner);
+    wa::ui_text::setLanguage(wa::gui_language::Language::En);
+}

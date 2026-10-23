@@ -136,6 +136,14 @@ _Avoid_: API Monitor dump, PCM capture, ETW etl file, unbounded GetBuffer log
 The confidence label on a pipeline node or parameter: Observed, Probed, Inferred, Skipped, or Unknown. Hooked-stream arguments are Observed. Shared-probe effect types stay Probed and must not be shown as the target's APO instances.
 _Avoid_: guaranteed, actual APO instance, "what Chrome ran"
 
+**Initialize field source**:
+Whether Session / SFX / MFX Initialize-related fields on the processing graph came from none, an ETW match, or a Hooked-stream override for the selected Live session PID. Hooked wins over ETW. The graph joins only that PID's Call log rows (plus legacy pid 0).
+_Avoid_: global Call log as graph input, mixing another attached PID into Observed Initialize
+
+**Hooked stream (graph)**:
+One IAudioClient lifetime inside an attached process, identified by Call log stream id. When several Hooked streams exist for the selected PID, graph Initialize fields use the latest stream's contributors only; the UI must say so.
+_Avoid_: one Initialize across all streams, treating Probed Shared-probe effects as that stream's APO instances
+
 **Shared probe**:
 A short-lived WASAPI Shared stream this process opens on the same endpoint as a Live session, to query advertised effect types when no Hooked stream is attached. Not Exclusive; not a clone of the target's stream.
 _Avoid_: Exclusive probe, Hooked stream

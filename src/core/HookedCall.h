@@ -32,9 +32,43 @@ CallLogView shapeCallLog(const std::vector<HookedCall>& in, bool pumpEnabled,
 
 EtwInitializeHint extractHookedInitialize(const std::vector<HookedCall>& calls);
 
+// Latest Initialize (by timeMs) picks the primary streamId when non-zero; only that
+// stream's Initialize / SetClientProperties / InitializeSharedAudioStream contribute.
+struct HookedInitializeExtract {
+    EtwInitializeHint hint;
+    uint32_t primaryStreamId = 0;
+    size_t streamCount = 0;  // distinct stream ids with Initialize* in the input
+};
+
+HookedInitializeExtract extractHookedInitializeDetailed(const std::vector<HookedCall>& calls);
+
 // Hooked fields replace matching ETW fields when present.
 EtwInitializeHint mergeInitializeHint(const EtwInitializeHint& etw,
                                       const EtwInitializeHint& hooked);
+
+// Keep calls whose pid is 0 (legacy / unset) or equals sessionPid.
+std::vector<HookedCall> filterHookedCallsForSession(const std::vector<HookedCall>& calls,
+                                                    uint32_t sessionPid);
+
+enum class InitializeFieldSource : uint8_t { None = 0, Etw = 1, Hooked = 2 };
+
+// Honest join summary for Pipeline graph banners (device-free).
+struct PipelineJoinStatus {
+    InitializeFieldSource initializeSource = InitializeFieldSource::None;
+    bool etwMatched = false;
+    bool probesPresent = false;
+    size_t hookedStreamCount = 0;
+    uint32_t primaryStreamId = 0;
+    size_t sessionControlCalls = 0;
+    size_t otherPidCalls = 0;
+};
+
+PipelineJoinStatus makePipelineJoinStatus(const EtwInitializeHint& etw,
+                                          const std::vector<ProbeSlice>& probes,
+                                          const std::vector<HookedCall>& allCalls,
+                                          const std::vector<HookedCall>& sessionCalls);
+
+const char* initializeFieldSourceName(InitializeFieldSource src);
 
 }  // namespace wa
 
