@@ -195,6 +195,7 @@ namespace wa::ui_text {
     WA_UI_TEXT(kStreamEffects, "Stream effects", "流效果") \
     WA_UI_TEXT(kProbeStreamEffects, "Probe stream effects", "探测流效果") \
     WA_UI_TEXT(kStreamEffectsNone, "(none)", "（无）") \
+    WA_UI_TEXT(kStreamEffectsHint,         "Click Probe to list AEC / Noise Suppression (Win11).",         "点击「探测流效果」可列出 AEC / 噪声抑制（需 Win11）。") \
     WA_UI_TEXT(kStreamEffectsNeedWin11,         "Requires Windows 11 (build 22000+); opens a short Shared stream (no Start).",         "需要 Windows 11（build 22000+）；会短暂打开 Shared 流（不 Start）。") \
     WA_UI_TEXT(kSystemAudio, "System audio", "系统音频") \
     WA_UI_TEXT(kApplicationLoopbackNoSessions, "(none)", "（无）") \
