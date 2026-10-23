@@ -23,6 +23,7 @@
 #include "OnDemandAttach.h"
 #include "PipelineGraph.h"
 #include "SharedProbe.h"
+#include "UserProcessEnumerator.h"
 #include "AudioEffects.h"
 #include "Spectrogram.h"
 #include "WaveEnvelope.h"
@@ -74,6 +75,8 @@ private:
     void refreshMonitorDevices();
     void refreshApplicationLoopbackSessions();
     void refreshPipelineSessions();
+    void refreshPipelineProcesses();
+    void rebuildPipelineProcessTree();
     void rebuildPipelineGraph();
     void applyPipelineJoin();
     void applyLiveSessionCellPatches();
@@ -197,6 +200,13 @@ private:
     bool pipelineShowSelf_ = false;
     int  pipelineSelected_ = -1;
     std::vector<wa::LiveSessionView> pipelineSessions_;
+    // Default: list every user process; sessions grouped under their process.
+    bool pipelineAudioOnly_ = false;
+    // PID of the selected process row (or of the selected session row).
+    uint32_t pipelineSelectedPid_ = 0;
+    std::vector<wa::UserProcessInfo> pipelineProcesses_;
+    std::vector<wa::ProcessTreeRow> pipelineTree_;
+    unsigned long long pipelineProcessesTick_ = 0;
     std::vector<wa::PipelineNode> pipelineNodes_;
     std::vector<wa::ProbeSlice> pipelineProbes_;
     bool pipelineProbing_ = false;
