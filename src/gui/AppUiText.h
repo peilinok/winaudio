@@ -180,6 +180,8 @@ namespace wa::ui_text {
     WA_UI_TEXT(kPipelineCallParamsEmpty, "No parameters for this call.", "此调用无参数。") \
     WA_UI_TEXT(kPipelineCallFilter, "Filter", "过滤") \
     WA_UI_TEXT(kPipelineCallFilterHint, "Fuzzy filter Call / Args...", "模糊过滤 调用/参数...") \
+    WA_UI_TEXT(kPipelineCallIfaceAll, "All", "全部") \
+    WA_UI_TEXT(kPipelineCallFailuresOnly, "Failures only", "仅失败") \
     WA_UI_TEXT(kPipelinePump, "Record pump metadata", "记录 pump 元数据") \
     WA_UI_TEXT(kPipelineXruns, "xruns", "xruns") \
     WA_UI_TEXT(kRefreshDevices, "Refresh devices", "刷新设备") \

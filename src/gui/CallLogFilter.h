@@ -1,5 +1,6 @@
 #pragma once
 #include "PipelineGraph.h"
+#include <algorithm>
 #include <cctype>
 #include <string>
 #include <string_view>
@@ -9,6 +10,16 @@ namespace wa::call_log_filter {
 
 inline char asciiLower(unsigned char c) {
     return static_cast<char>(std::tolower(c));
+}
+
+inline bool asciiEqualsIgnoreCase(std::string_view a, std::string_view b) {
+    if (a.size() != b.size()) return false;
+    for (size_t i = 0; i < a.size(); ++i) {
+        if (asciiLower(static_cast<unsigned char>(a[i])) !=
+            asciiLower(static_cast<unsigned char>(b[i])))
+            return false;
+    }
+    return true;
 }
 
 // Case-insensitive subsequence match (e.g. "iacl" -> "IAudioClient::Initialize").
@@ -57,13 +68,65 @@ inline bool callMatches(const HookedCall& c, std::string_view filter) {
     return false;
 }
 
+// Combined Call Log filters for debugging. Empty iface => all interfaces.
+// failuresOnly keeps rows whose HRESULT is not S_OK (0).
+struct FilterOpts {
+    std::string_view text;
+    std::string_view iface;
+    bool failuresOnly = false;
+};
+
+inline bool callMatches(const HookedCall& c, const FilterOpts& opts) {
+    if (opts.failuresOnly && c.hresult == 0) return false;
+    if (!opts.iface.empty() && !asciiEqualsIgnoreCase(c.iface, opts.iface)) return false;
+    return callMatches(c, opts.text);
+}
+
+// Unique iface names, sorted case-insensitively for chip/combo UI.
+inline std::vector<std::string> uniqueIfaces(const std::vector<HookedCall>& calls) {
+    std::vector<std::string> out;
+    for (const auto& c : calls) {
+        if (c.iface.empty()) continue;
+        bool seen = false;
+        for (const auto& s : out) {
+            if (asciiEqualsIgnoreCase(s, c.iface)) {
+                seen = true;
+                break;
+            }
+        }
+        if (!seen) out.push_back(c.iface);
+    }
+    std::sort(out.begin(), out.end(), [](const std::string& a, const std::string& b) {
+        const size_t n = (std::min)(a.size(), b.size());
+        for (size_t i = 0; i < n; ++i) {
+            const char ca = asciiLower(static_cast<unsigned char>(a[i]));
+            const char cb = asciiLower(static_cast<unsigned char>(b[i]));
+            if (ca != cb) return ca < cb;
+        }
+        return a.size() < b.size();
+    });
+    return out;
+}
+
 // Indices into `calls` that match filter (empty filter => all indices).
 inline std::vector<size_t> matchingIndices(const std::vector<HookedCall>& calls,
                                            std::string_view filter) {
+    FilterOpts opts;
+    opts.text = filter;
     std::vector<size_t> out;
     out.reserve(calls.size());
     for (size_t i = 0; i < calls.size(); ++i) {
-        if (callMatches(calls[i], filter)) out.push_back(i);
+        if (callMatches(calls[i], opts)) out.push_back(i);
+    }
+    return out;
+}
+
+inline std::vector<size_t> matchingIndices(const std::vector<HookedCall>& calls,
+                                           const FilterOpts& opts) {
+    std::vector<size_t> out;
+    out.reserve(calls.size());
+    for (size_t i = 0; i < calls.size(); ++i) {
+        if (callMatches(calls[i], opts)) out.push_back(i);
     }
     return out;
 }
