@@ -114,7 +114,9 @@ Opens a short Shared stream (Initialize, **no Start**), calls `IAudioEffectsMana
 WinAudioCli enhancements set [--capture|--render] [--device <id>] on|off
 ```
 
-Writes `PKEY_AudioEndpoint_Disable_SysFx` on the endpoint property store (`on` → 0 / enabled, `off` → 1 / disabled), then re-reads `DeviceInfo.enhancements`. **Only allowed before a capture/render stream is started** in this process (error: `start stream 前才能改`). Writing often needs Administrator rights; on `ACCESS_DENIED` the CLI auto-relaunches itself elevated (UAC prompt). Pass `--no-elevate` to skip the relaunch (used by the elevated child and by the GUI helper). Default flow is render.
+Writes `PKEY_AudioEndpoint_Disable_SysFx` (`on` → 0 / enabled, `off` → 1 / disabled) via undocumented `IPolicyConfig` into **both** the effects store (`FxProperties`, what Sound CPL / Win11 Settings toggle) and the endpoint property store (what `IMMDevice::OpenPropertyStore` sees), then re-reads `DeviceInfo.enhancements` (Fx store preferred). **Only allowed before a capture/render stream is started** in this process (error: `start stream 前才能改`). Writing often needs Administrator rights; on `ACCESS_DENIED` the CLI auto-relaunches itself elevated (UAC prompt). Pass `--no-elevate` to skip the relaunch (used by the elevated child and by the GUI helper). Default flow is render.
+
+**Hearing a difference:** the property flip alone does not rebuild APO graphs for Shared streams that are already open elsewhere (Chrome, music apps, etc.). Sound CPL Apply typically forces that rebuild; after `enhancements set`, stop/start playback (or the WinAudio stream) so the engine picks up the new SysFx state. Spatial sound and OEM/hardware DSP outside INF SysFx APOs are unaffected.
 
 ### caps — device capabilities
 

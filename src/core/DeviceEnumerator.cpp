@@ -1,4 +1,5 @@
 #include "DeviceEnumerator.h"
+#include "PolicyConfig.h"
 #include "ComUtil.h"
 #include <initguid.h>
 #include <mmdeviceapi.h>
@@ -121,25 +122,33 @@ void readEnhancements(IPropertyStore* props, DataFlow flow, const DeviceId& id, 
     info.enhancements = EnhancementsState::Unknown;
     info.enhancementOptions.clear();
 
-    PROPVARIANT sysfx;
-    PropVariantInit(&sysfx);
-    HRESULT hr = props->GetValue(PKEY_AudioEndpoint_Disable_SysFx, &sysfx);
-    WA_LOG(wa::log::Level::Debug, "DeviceEnum", "IPropertyStore::GetValue",
-           "key=Disable_SysFx vt=" + std::to_string(static_cast<int>(sysfx.vt)),
-           ::wa::log::hrName(hr));
-    if (SUCCEEDED(hr)) {
-        if (sysfx.vt == VT_UI4 || sysfx.vt == VT_I4 || sysfx.vt == VT_UINT || sysfx.vt == VT_INT) {
-            info.enhancements = enhancementsStateFromSysFxUlVal(sysfx.ulVal);
-        } else if (sysfx.vt == VT_BOOL) {
-            // VARIANT_TRUE => disabled (mirrors EndpointGraphReader).
-            info.enhancements = sysfx.boolVal != VARIANT_FALSE
-                ? EnhancementsState::Disabled : EnhancementsState::Enabled;
-        } else if (sysfx.vt == VT_EMPTY || sysfx.vt == VT_NULL) {
-            // Key unset: Windows treats system effects as enabled by default.
-            info.enhancements = EnhancementsState::Enabled;
+    // Prefer Fx store (Sound CPL / Win11 Settings); fall back to endpoint OpenPropertyStore.
+    if (auto ul = readDisableSysFxUlVal(id)) {
+        info.enhancements = enhancementsStateFromSysFxUlVal(*ul);
+        WA_LOG(wa::log::Level::Debug, "DeviceEnum", "readDisableSysFxUlVal",
+               "ulVal=" + std::to_string(*ul),
+               enhancementsStateName(info.enhancements));
+    } else {
+        PROPVARIANT sysfx;
+        PropVariantInit(&sysfx);
+        HRESULT hr = props->GetValue(PKEY_AudioEndpoint_Disable_SysFx, &sysfx);
+        WA_LOG(wa::log::Level::Debug, "DeviceEnum", "IPropertyStore::GetValue",
+               "key=Disable_SysFx vt=" + std::to_string(static_cast<int>(sysfx.vt)),
+               ::wa::log::hrName(hr));
+        if (SUCCEEDED(hr)) {
+            if (sysfx.vt == VT_UI4 || sysfx.vt == VT_I4 || sysfx.vt == VT_UINT || sysfx.vt == VT_INT) {
+                info.enhancements = enhancementsStateFromSysFxUlVal(sysfx.ulVal);
+            } else if (sysfx.vt == VT_BOOL) {
+                // VARIANT_TRUE => disabled (mirrors EndpointGraphReader).
+                info.enhancements = sysfx.boolVal != VARIANT_FALSE
+                    ? EnhancementsState::Disabled : EnhancementsState::Enabled;
+            } else if (sysfx.vt == VT_EMPTY || sysfx.vt == VT_NULL) {
+                // Key unset: Windows treats system effects as enabled by default.
+                info.enhancements = EnhancementsState::Enabled;
+            }
         }
+        PropVariantClear(&sysfx);
     }
-    PropVariantClear(&sysfx);
 
     auto readClsid = [&](const PROPERTYKEY& key, const char* optId, const char* optName) {
         PROPVARIANT pv;
@@ -461,7 +470,7 @@ Result DeviceEnumerator::queryCapabilities(DataFlow flow, const DeviceId& id, De
         if (closest) CoTaskMemFree(closest);
         return h;
     };
-    // Shared 的 S_FALSE(可转换但非精确) 也算"可用"；Exclusive 仅严格 S_OK。
+    // Shared 鐨?S_FALSE(鍙浆鎹絾闈炵簿纭? 涔熺畻"鍙敤"锛汦xclusive 浠呬弗鏍?S_OK銆?
     out.matrix = buildCapabilityMatrix(capabilityCandidates(out),
         [&](const AudioFormat& f) {
             const HRESULT h = probe(f, AUDCLNT_SHAREMODE_SHARED);
@@ -473,7 +482,7 @@ Result DeviceEnumerator::queryCapabilities(DataFlow flow, const DeviceId& id, De
             return probe(f, AUDCLNT_SHAREMODE_EXCLUSIVE) == S_OK
                 ? SupportLevel::Exact : SupportLevel::Unsupported;
         });
-    // 三来源
+    // 涓夋潵婧?
     return Result::Ok();
 }
 

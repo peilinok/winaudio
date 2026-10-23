@@ -1,10 +1,10 @@
 #include "EndpointEnhancements.h"
 #include "ComUtil.h"
 #include "DeviceEnumerator.h"
+#include "PolicyConfig.h"
 #include "Log.h"
 #include "AudioFormatStr.h"
 #include <mmdeviceapi.h>
-#include <functiondiscoverykeys_devpkey.h>
 #include <atomic>
 
 namespace wa {
@@ -39,6 +39,15 @@ Result openEndpoint(DataFlow flow, const DeviceId& id, ComPtr<IMMDevice>& dev) {
     return Result::Ok();
 }
 
+Result endpointIdOf(IMMDevice* dev, DeviceId& out) {
+    LPWSTR raw = nullptr;
+    HRESULT hr = dev->GetId(&raw);
+    if (FAILED(hr) || !raw) return HrToResult(hr, "EndpointEnhancements: GetId");
+    out.assign(raw);
+    CoTaskMemFree(raw);
+    return Result::Ok();
+}
+
 }  // namespace
 
 void noteAppStreamStarted() {
@@ -48,7 +57,6 @@ void noteAppStreamStarted() {
 void noteAppStreamStopped() {
     const int prev = g_appStreamActive.fetch_sub(1, std::memory_order_acq_rel);
     if (prev <= 0) {
-        // Under-count (mismatched stop); clamp back to 0.
         g_appStreamActive.store(0, std::memory_order_release);
         WA_LOG(wa::log::Level::Warn, "EndpointFx", "noteAppStreamStopped", "",
                "underflow clamped");
@@ -86,38 +94,18 @@ Result setEndpointEnhancements(DataFlow flow, const DeviceId& id, EnhancementsSt
         return r;
     }
 
-    ComPtr<IPropertyStore> props;
-    HRESULT hr = dev->OpenPropertyStore(STGM_READWRITE, props.GetAddressOf());
-    WA_LOG(wa::log::Level::Debug, "EndpointFx", "OpenPropertyStore", "STGM_READWRITE",
-           wa::log::hrName(hr));
-    if (FAILED(hr)) {
-        WA_LOG(wa::log::Level::Err, "EndpointFx", "OpenPropertyStore", "STGM_READWRITE",
-               wa::log::hrName(hr));
-        return HrToResult(hr, "EndpointEnhancements: OpenPropertyStore(STGM_READWRITE)");
+    DeviceId resolved = id;
+    if (resolved.empty()) {
+        if (Result r = endpointIdOf(dev.Get(), resolved); !r) {
+            WA_LOG(wa::log::Level::Err, "EndpointFx", "GetId", "", r.message);
+            return r;
+        }
     }
 
-    PROPVARIANT pv;
-    PropVariantInit(&pv);
-    pv.vt = VT_UI4;
-    pv.ulVal = ulVal;
-
-    hr = props->SetValue(PKEY_AudioEndpoint_Disable_SysFx, pv);
-    WA_LOG(wa::log::Level::Debug, "EndpointFx", "SetValue(Disable_SysFx)",
-           "ulVal=" + std::to_string(ulVal), wa::log::hrName(hr));
-    PropVariantClear(&pv);
-    if (FAILED(hr)) {
-        WA_LOG(wa::log::Level::Err, "EndpointFx", "SetValue(Disable_SysFx)", "",
-               wa::log::hrName(hr));
-        return HrToResult(hr, "EndpointEnhancements: SetValue(Disable_SysFx)");
-    }
-
-    hr = props->Commit();
-    WA_LOG(wa::log::Level::Info, "EndpointFx", "Commit(Disable_SysFx)",
-           "ulVal=" + std::to_string(ulVal), wa::log::hrName(hr));
-    if (FAILED(hr)) {
-        WA_LOG(wa::log::Level::Err, "EndpointFx", "Commit(Disable_SysFx)", "",
-               wa::log::hrName(hr));
-        return HrToResult(hr, "EndpointEnhancements: Commit");
+    // Write FxProperties store (Sound CPL path) then endpoint store via IPolicyConfig.
+    if (Result r = writeDisableSysFxUlVal(resolved, ulVal); !r) {
+        WA_LOG(wa::log::Level::Err, "EndpointFx", "writeDisableSysFxUlVal", "", r.message);
+        return r;
     }
 
     if (outInfo) {

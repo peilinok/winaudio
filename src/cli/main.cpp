@@ -45,7 +45,7 @@ static void usage() {
         "  effects set: Shared Initialize + SetAudioEffectState (Win11 build 22000+).\n"
         "  <effect> is a braced GUID, type name, or kebab slug (e.g. noise-suppression).\n"
         "WinAudioCli enhancements set [--capture|--render] [--device <id>] on|off\n"
-        "  enhancements set: write PKEY_AudioEndpoint_Disable_SysFx (0=on, 1=off).\n"
+        "  enhancements set: write Disable_SysFx via IPolicyConfig Fx+endpoint stores (0=on, 1=off).\n"
         "  Must run before any capture/render stream is started in this process.\n"
         "  ACCESS_DENIED auto-relaunches elevated (UAC); pass --no-elevate to skip.\n");
 }
