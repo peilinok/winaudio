@@ -26,6 +26,7 @@ add_library(WinAudioCore STATIC
     SharedProbe.cpp
     AudioEffects.cpp
     EndpointEnhancements.cpp
+    PolicyConfig.cpp
     Elevate.cpp
     EtwInitialize.cpp
     HookedCall.cpp

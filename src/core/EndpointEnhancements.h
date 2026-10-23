@@ -17,10 +17,13 @@ inline Result refuseEnhancementsWhileStreaming() {
                         "start stream 前才能改");
 }
 
-// Write PKEY_AudioEndpoint_Disable_SysFx via IMMDevice::OpenPropertyStore(STGM_READWRITE).
+// Write PKEY_AudioEndpoint_Disable_SysFx via undocumented IPolicyConfig to BOTH
+// the effects (FxProperties) store and the endpoint property store.
 // Enabled -> ulVal 0 (ENDPOINT_SYSFX_ENABLED); Disabled -> ulVal 1 (ENDPOINT_SYSFX_DISABLED).
 // Unknown is rejected. Does not elevate; ACCESS_DENIED is returned to the caller.
-// When outInfo is non-null, re-reads DeviceInfo after a successful Commit.
+// When outInfo is non-null, re-reads DeviceInfo after a successful write.
+// Audible APO change may require clients to reopen Shared streams (Sound CPL Apply
+// typically forces a rebuild; a bare property write does not).
 Result setEndpointEnhancements(DataFlow flow, const DeviceId& id, EnhancementsState state,
                                DeviceInfo* outInfo = nullptr);
 
