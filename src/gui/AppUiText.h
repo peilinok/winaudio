@@ -167,6 +167,11 @@ namespace wa::ui_text {
     WA_UI_TEXT(kPipelineCallColArgs, "Args", "参数") \
     WA_UI_TEXT(kPipelineCallColHr, "HR", "HR") \
     WA_UI_TEXT(kPipelineCallColStream, "Stream", "流") \
+    WA_UI_TEXT(kPipelineCallColType, "Type", "类型") \
+    WA_UI_TEXT(kPipelineCallColName, "Name", "名称") \
+    WA_UI_TEXT(kPipelineCallColPre, "Pre", "调用前") \
+    WA_UI_TEXT(kPipelineCallColPost, "Post", "调用后") \
+    WA_UI_TEXT(kPipelineCallParams, "Parameters", "参数") \
     WA_UI_TEXT(kPipelinePump, "Record pump metadata", "记录 pump 元数据") \
     WA_UI_TEXT(kPipelineXruns, "xruns", "xruns") \
     WA_UI_TEXT(kRefreshDevices, "Refresh devices", "刷新设备") \
