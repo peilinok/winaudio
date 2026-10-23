@@ -7,6 +7,9 @@
 #include <windows.h>
 #include <mmdeviceapi.h>
 #include <audioclient.h>
+#include <mmreg.h>
+#include <ks.h>
+#include <ksmedia.h>
 #include <audiopolicy.h>
 #include <objbase.h>
 #include <cstring>
@@ -180,6 +183,173 @@ void formatWave(const WAVEFORMATEX* fmt, char* out, size_t n) {
     sprintf_s(out, n, "%u/%u%s/%u", fmt->nSamplesPerSec, fmt->wBitsPerSample, fl, fmt->nChannels);
 }
 
+
+void formatPtr(const void* p, char* out, size_t n) {
+    if (!p) {
+        copyStr(out, n, "NULL");
+        return;
+    }
+    sprintf_s(out, n, "0x%p", p);
+}
+
+void formatHr(HRESULT hr, char* out, size_t n) {
+    switch (hr) {
+        case S_OK: copyStr(out, n, "S_OK"); return;
+        case S_FALSE: copyStr(out, n, "S_FALSE"); return;
+        case E_INVALIDARG: copyStr(out, n, "E_INVALIDARG"); return;
+        case E_POINTER: copyStr(out, n, "E_POINTER"); return;
+        case E_NOINTERFACE: copyStr(out, n, "E_NOINTERFACE"); return;
+        case E_OUTOFMEMORY: copyStr(out, n, "E_OUTOFMEMORY"); return;
+        case E_FAIL: copyStr(out, n, "E_FAIL"); return;
+        case E_ACCESSDENIED: copyStr(out, n, "E_ACCESSDENIED"); return;
+        case AUDCLNT_E_NOT_INITIALIZED: copyStr(out, n, "AUDCLNT_E_NOT_INITIALIZED"); return;
+        case AUDCLNT_E_ALREADY_INITIALIZED: copyStr(out, n, "AUDCLNT_E_ALREADY_INITIALIZED"); return;
+        case AUDCLNT_E_WRONG_ENDPOINT_TYPE: copyStr(out, n, "AUDCLNT_E_WRONG_ENDPOINT_TYPE"); return;
+        case AUDCLNT_E_DEVICE_INVALIDATED: copyStr(out, n, "AUDCLNT_E_DEVICE_INVALIDATED"); return;
+        case AUDCLNT_E_NOT_STOPPED: copyStr(out, n, "AUDCLNT_E_NOT_STOPPED"); return;
+        case AUDCLNT_E_BUFFER_TOO_LARGE: copyStr(out, n, "AUDCLNT_E_BUFFER_TOO_LARGE"); return;
+        case AUDCLNT_E_UNSUPPORTED_FORMAT: copyStr(out, n, "AUDCLNT_E_UNSUPPORTED_FORMAT"); return;
+        case AUDCLNT_E_DEVICE_IN_USE: copyStr(out, n, "AUDCLNT_E_DEVICE_IN_USE"); return;
+        case AUDCLNT_E_EXCLUSIVE_MODE_NOT_ALLOWED:
+            copyStr(out, n, "AUDCLNT_E_EXCLUSIVE_MODE_NOT_ALLOWED");
+            return;
+        case AUDCLNT_E_BUFFER_SIZE_NOT_ALIGNED:
+            copyStr(out, n, "AUDCLNT_E_BUFFER_SIZE_NOT_ALIGNED");
+            return;
+        case AUDCLNT_E_ENDPOINT_CREATE_FAILED:
+            copyStr(out, n, "AUDCLNT_E_ENDPOINT_CREATE_FAILED");
+            return;
+        case AUDCLNT_E_SERVICE_NOT_RUNNING: copyStr(out, n, "AUDCLNT_E_SERVICE_NOT_RUNNING"); return;
+        case AUDCLNT_S_BUFFER_EMPTY: copyStr(out, n, "AUDCLNT_S_BUFFER_EMPTY"); return;
+        default:
+            sprintf_s(out, n, "0x%08X", static_cast<unsigned>(hr));
+            return;
+    }
+}
+
+const char* shareModeName(AUDCLNT_SHAREMODE share) {
+    return share == AUDCLNT_SHAREMODE_EXCLUSIVE ? "AUDCLNT_SHAREMODE_EXCLUSIVE"
+                                                : "AUDCLNT_SHAREMODE_SHARED";
+}
+
+void formatStreamFlags(DWORD flags, char* out, size_t n) {
+    if (flags == 0) {
+        copyStr(out, n, "0x0");
+        return;
+    }
+    char buf[160] = {};
+    size_t used = 0;
+    auto add = [&](const char* name, DWORD bit) {
+        if (!(flags & bit)) return;
+        if (used && used + 1 < sizeof(buf)) buf[used++] = '|';
+        const size_t ln = strlen(name);
+        if (used + ln < sizeof(buf)) {
+            memcpy(buf + used, name, ln);
+            used += ln;
+        }
+    };
+    add("AUDCLNT_STREAMFLAGS_CROSSPROCESS", AUDCLNT_STREAMFLAGS_CROSSPROCESS);
+    add("AUDCLNT_STREAMFLAGS_LOOPBACK", AUDCLNT_STREAMFLAGS_LOOPBACK);
+    add("AUDCLNT_STREAMFLAGS_EVENTCALLBACK", AUDCLNT_STREAMFLAGS_EVENTCALLBACK);
+    add("AUDCLNT_STREAMFLAGS_NOPERSIST", AUDCLNT_STREAMFLAGS_NOPERSIST);
+    add("AUDCLNT_STREAMFLAGS_RATEADJUST", AUDCLNT_STREAMFLAGS_RATEADJUST);
+    add("AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY", AUDCLNT_STREAMFLAGS_SRC_DEFAULT_QUALITY);
+    add("AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM", AUDCLNT_STREAMFLAGS_AUTOCONVERTPCM);
+    add("AUDCLNT_SESSIONFLAGS_EXPIREWHENUNOWNED", AUDCLNT_SESSIONFLAGS_EXPIREWHENUNOWNED);
+    add("AUDCLNT_SESSIONFLAGS_DISPLAY_HIDE", AUDCLNT_SESSIONFLAGS_DISPLAY_HIDE);
+    add("AUDCLNT_SESSIONFLAGS_DISPLAY_HIDEWHENEXPIRED", AUDCLNT_SESSIONFLAGS_DISPLAY_HIDEWHENEXPIRED);
+    if (used == 0)
+        sprintf_s(out, n, "0x%lX", static_cast<unsigned long>(flags));
+    else {
+        buf[used] = 0;
+        sprintf_s(out, n, "0x%lX (%s)", static_cast<unsigned long>(flags), buf);
+    }
+}
+
+void formatGuid(const GUID* g, char* out, size_t n) {
+    if (!g) {
+        copyStr(out, n, "NULL");
+        return;
+    }
+    sprintf_s(out, n, "{%08lX-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X}",
+              static_cast<unsigned long>(g->Data1), g->Data2, g->Data3, g->Data4[0], g->Data4[1],
+              g->Data4[2], g->Data4[3], g->Data4[4], g->Data4[5], g->Data4[6], g->Data4[7]);
+}
+
+const char* waveFormatTagName(WORD tag) {
+    switch (tag) {
+        case WAVE_FORMAT_PCM: return "WAVE_FORMAT_PCM";
+        case WAVE_FORMAT_IEEE_FLOAT: return "WAVE_FORMAT_IEEE_FLOAT";
+        case WAVE_FORMAT_EXTENSIBLE: return "WAVE_FORMAT_EXTENSIBLE";
+        default: return nullptr;
+    }
+}
+
+void formatWaveTag(WORD tag, char* out, size_t n) {
+    if (const char* named = waveFormatTagName(tag))
+        sprintf_s(out, n, "%s (0x%04X)", named, tag);
+    else
+        sprintf_s(out, n, "0x%04X", tag);
+}
+
+void formatSubFormat(const GUID& g, char* out, size_t n) {
+    if (g == KSDATAFORMAT_SUBTYPE_PCM)
+        copyStr(out, n, "KSDATAFORMAT_SUBTYPE_PCM");
+    else if (g == KSDATAFORMAT_SUBTYPE_IEEE_FLOAT)
+        copyStr(out, n, "KSDATAFORMAT_SUBTYPE_IEEE_FLOAT");
+    else
+        formatGuid(&g, out, n);
+}
+
+void pushWaveFormat(wa::hook_ipc::ArgBlobWriter& w, uint8_t depth, const WAVEFORMATEX* fmt) {
+    using wa::hook_ipc::kArgIn;
+    if (!fmt) return;
+    char num[64] = {};
+    char tag[64] = {};
+    formatWaveTag(fmt->wFormatTag, tag, sizeof(tag));
+    w.push(depth, kArgIn, "WORD", "wFormatTag", tag, tag);
+    sprintf_s(num, "%u", fmt->nChannels);
+    w.push(depth, kArgIn, "WORD", "nChannels", num, num);
+    sprintf_s(num, "%u", fmt->nSamplesPerSec);
+    w.push(depth, kArgIn, "DWORD", "nSamplesPerSec", num, num);
+    sprintf_s(num, "%u", fmt->nAvgBytesPerSec);
+    w.push(depth, kArgIn, "DWORD", "nAvgBytesPerSec", num, num);
+    sprintf_s(num, "%u", fmt->nBlockAlign);
+    w.push(depth, kArgIn, "WORD", "nBlockAlign", num, num);
+    sprintf_s(num, "%u", fmt->wBitsPerSample);
+    w.push(depth, kArgIn, "WORD", "wBitsPerSample", num, num);
+    sprintf_s(num, "%u", fmt->cbSize);
+    w.push(depth, kArgIn, "WORD", "cbSize", num, num);
+    const bool extensible =
+        fmt->wFormatTag == WAVE_FORMAT_EXTENSIBLE &&
+        fmt->cbSize >= (sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX));
+    if (!extensible) return;
+    const auto* ext = reinterpret_cast<const WAVEFORMATEXTENSIBLE*>(fmt);
+    sprintf_s(num, "%u", ext->Samples.wValidBitsPerSample);
+    w.push(depth, kArgIn, "WORD", "wValidBitsPerSample", num, num);
+    sprintf_s(num, "0x%08lX", static_cast<unsigned long>(ext->dwChannelMask));
+    w.push(depth, kArgIn, "DWORD", "dwChannelMask", num, num);
+    char sub[80] = {};
+    formatSubFormat(ext->SubFormat, sub, sizeof(sub));
+    w.push(depth, kArgIn, "GUID", "SubFormat", sub, sub);
+}
+
+void sealArgs(CallPod& p, wa::hook_ipc::ArgBlobWriter& w) {
+    p.argBlobLen = (w.len <= sizeof(p.argBlob)) ? w.len : 0;
+}
+
+void beginArgs(CallPod& p, wa::hook_ipc::ArgBlobWriter& w) {
+    w.reset(p.argBlob, static_cast<uint16_t>(sizeof(p.argBlob)));
+    p.argBlobLen = 0;
+}
+
+void pushReturn(wa::hook_ipc::ArgBlobWriter& w, HRESULT hr) {
+    char buf[64] = {};
+    formatHr(hr, buf, sizeof(buf));
+    w.push(0, wa::hook_ipc::kArgRet, "HRESULT", "Return", buf, buf);
+}
+
+
 bool patchSlot(void* obj, int slot, void* hook, void** orig) {
     return wa::hook_ipc::patchVtableSlot(obj, slot, hook, orig);
 }
@@ -195,18 +365,44 @@ HRESULT STDMETHODCALLTYPE HookInitialize(IAudioClient* self, AUDCLNT_SHAREMODE s
     copyStr(p.method, sizeof(p.method), "Initialize");
     char wave[64] = {};
     formatWave(fmt, wave, sizeof(wave));
-    sprintf_s(p.args, "share=%s flags=0x%lX bufferMs=%lld periodMs=%lld fmt=%s",
-              share == AUDCLNT_SHAREMODE_EXCLUSIVE ? "exclusive" : "shared",
-              static_cast<unsigned long>(flags),
-              static_cast<long long>(dur / 10000),
-              static_cast<long long>(per / 10000), wave);
+    sprintf_s(p.args, "ShareMode=%s StreamFlags=0x%lX hnsBufferDuration=%lld hnsPeriodicity=%lld fmt=%s",
+              share == AUDCLNT_SHAREMODE_EXCLUSIVE ? "EXCLUSIVE" : "SHARED",
+              static_cast<unsigned long>(flags), static_cast<long long>(dur),
+              static_cast<long long>(per), wave);
     p.hresult = static_cast<int32_t>(hr);
     p.hasExclusive = 1;
     p.exclusive = share == AUDCLNT_SHAREMODE_EXCLUSIVE ? 1 : 0;
     p.hasFormat = 1;
     copyStr(p.format, sizeof(p.format), wave);
+
+    wa::hook_ipc::ArgBlobWriter w;
+    beginArgs(p, w);
+    char tmp[96] = {};
+    formatPtr(self, tmp, sizeof(tmp));
+    w.push(0, wa::hook_ipc::kArgIn, "IAudioClient*", "this", tmp, tmp);
+    copyStr(tmp, sizeof(tmp), shareModeName(share));
+    w.push(0, wa::hook_ipc::kArgIn, "AUDCLNT_SHAREMODE", "ShareMode", tmp, tmp);
+    formatStreamFlags(flags, tmp, sizeof(tmp));
+    w.push(0, wa::hook_ipc::kArgIn, "DWORD", "StreamFlags", tmp, tmp);
+    sprintf_s(tmp, "%lld", static_cast<long long>(dur));
+    w.push(0, wa::hook_ipc::kArgIn, "REFERENCE_TIME", "hnsBufferDuration", tmp, tmp);
+    sprintf_s(tmp, "%lld", static_cast<long long>(per));
+    w.push(0, wa::hook_ipc::kArgIn, "REFERENCE_TIME", "hnsPeriodicity", tmp, tmp);
+    formatPtr(fmt, tmp, sizeof(tmp));
+    w.push(0, wa::hook_ipc::kArgIn, "WAVEFORMATEX*", "pFormat", tmp, tmp);
+    if (fmt) {
+        w.push(1, wa::hook_ipc::kArgIn, "WAVEFORMATEX", "*pFormat", wave, wave);
+        pushWaveFormat(w, 2, fmt);
+    }
+    formatPtr(session, tmp, sizeof(tmp));
+    w.push(0, wa::hook_ipc::kArgIn, "LPCGUID", "AudioSessionGuid", tmp, tmp);
+    if (session) {
+        formatGuid(session, tmp, sizeof(tmp));
+        w.push(1, wa::hook_ipc::kArgIn, "GUID", "*AudioSessionGuid", tmp, tmp);
+    }
+    pushReturn(w, hr);
+    sealArgs(p, w);
     emit(p);
-    (void)session;
     return hr;
 }
 
@@ -441,9 +637,24 @@ void patchService(void* obj, REFIID iid) {
 
 HRESULT STDMETHODCALLTYPE HookGetService(IAudioClient* self, REFIID iid, void** pp) {
     const HRESULT hr = g_getService ? g_getService(self, iid, pp) : E_UNEXPECTED;
-    char args[80] = {};
-    sprintf_s(args, "iid=%s", iidName(iid));
-    emitSimple(sid(self), "IAudioClient", "GetService", args, hr);
+    CallPod p{};
+    p.streamId = sid(self);
+    copyStr(p.iface, sizeof(p.iface), "IAudioClient");
+    copyStr(p.method, sizeof(p.method), "GetService");
+    sprintf_s(p.args, "iid=%s", iidName(iid));
+    p.hresult = static_cast<int32_t>(hr);
+    wa::hook_ipc::ArgBlobWriter w;
+    beginArgs(p, w);
+    char tmp[96] = {};
+    formatPtr(self, tmp, sizeof(tmp));
+    w.push(0, wa::hook_ipc::kArgIn, "IAudioClient*", "this", tmp, tmp);
+    copyStr(tmp, sizeof(tmp), iidName(iid));
+    w.push(0, wa::hook_ipc::kArgIn, "REFIID", "riid", tmp, tmp);
+    formatPtr(pp ? *pp : nullptr, tmp, sizeof(tmp));
+    w.push(0, wa::hook_ipc::kArgOut, "void**", "ppv", "", tmp);
+    pushReturn(w, hr);
+    sealArgs(p, w);
+    emit(p);
     if (SUCCEEDED(hr) && pp && *pp) patchService(*pp, iid);
     return hr;
 }
@@ -456,6 +667,13 @@ HRESULT STDMETHODCALLTYPE HookSetClientProperties(IAudioClient2* self,
     copyStr(p.iface, sizeof(p.iface), "IAudioClient2");
     copyStr(p.method, sizeof(p.method), "SetClientProperties");
     p.hresult = static_cast<int32_t>(hr);
+    wa::hook_ipc::ArgBlobWriter w;
+    beginArgs(p, w);
+    char tmp[96] = {};
+    formatPtr(self, tmp, sizeof(tmp));
+    w.push(0, wa::hook_ipc::kArgIn, "IAudioClient2*", "this", tmp, tmp);
+    formatPtr(props, tmp, sizeof(tmp));
+    w.push(0, wa::hook_ipc::kArgIn, "AudioClientProperties*", "pProperties", tmp, tmp);
     if (props) {
         p.hasCategory = 1;
         copyStr(p.category, sizeof(p.category), categoryName(static_cast<int>(props->eCategory)));
@@ -464,7 +682,18 @@ HRESULT STDMETHODCALLTYPE HookSetClientProperties(IAudioClient2* self,
         p.hasMatchFormat = 1;
         p.matchFormat = (props->Options & AUDCLNT_STREAMOPTIONS_MATCH_FORMAT) ? 1 : 0;
         sprintf_s(p.args, "category=%s raw=%u matchformat=%u", p.category, p.raw, p.matchFormat);
+        sprintf_s(tmp, "%u", props->cbSize);
+        w.push(1, wa::hook_ipc::kArgIn, "UINT32", "cbSize", tmp, tmp);
+        w.push(1, wa::hook_ipc::kArgIn, "AUDIO_STREAM_CATEGORY", "eCategory", p.category, p.category);
+        sprintf_s(tmp, "0x%lX", static_cast<unsigned long>(props->Options));
+        w.push(1, wa::hook_ipc::kArgIn, "AUDCLNT_STREAMOPTIONS", "Options", tmp, tmp);
+        sprintf_s(tmp, "%u", p.raw);
+        w.push(2, wa::hook_ipc::kArgIn, "BOOL", "RAW", tmp, tmp);
+        sprintf_s(tmp, "%u", p.matchFormat);
+        w.push(2, wa::hook_ipc::kArgIn, "BOOL", "MATCH_FORMAT", tmp, tmp);
     }
+    pushReturn(w, hr);
+    sealArgs(p, w);
     emit(p);
     return hr;
 }
@@ -479,15 +708,38 @@ HRESULT STDMETHODCALLTYPE HookInitShared(IAudioClient3* self, DWORD flags, UINT3
     copyStr(p.method, sizeof(p.method), "InitializeSharedAudioStream");
     char wave[64] = {};
     formatWave(fmt, wave, sizeof(wave));
-    sprintf_s(p.args, "flags=0x%lX period=%u fmt=%s", static_cast<unsigned long>(flags), period,
-              wave);
+    sprintf_s(p.args, "StreamFlags=0x%lX PeriodInFrames=%u fmt=%s",
+              static_cast<unsigned long>(flags), period, wave);
     p.hresult = static_cast<int32_t>(hr);
     p.hasExclusive = 1;
     p.exclusive = 0;
     p.hasFormat = 1;
     copyStr(p.format, sizeof(p.format), wave);
+
+    wa::hook_ipc::ArgBlobWriter w;
+    beginArgs(p, w);
+    char tmp[96] = {};
+    formatPtr(self, tmp, sizeof(tmp));
+    w.push(0, wa::hook_ipc::kArgIn, "IAudioClient3*", "this", tmp, tmp);
+    formatStreamFlags(flags, tmp, sizeof(tmp));
+    w.push(0, wa::hook_ipc::kArgIn, "DWORD", "StreamFlags", tmp, tmp);
+    sprintf_s(tmp, "%u", period);
+    w.push(0, wa::hook_ipc::kArgIn, "UINT32", "PeriodInFrames", tmp, tmp);
+    formatPtr(fmt, tmp, sizeof(tmp));
+    w.push(0, wa::hook_ipc::kArgIn, "WAVEFORMATEX*", "pFormat", tmp, tmp);
+    if (fmt) {
+        w.push(1, wa::hook_ipc::kArgIn, "WAVEFORMATEX", "*pFormat", wave, wave);
+        pushWaveFormat(w, 2, fmt);
+    }
+    formatPtr(session, tmp, sizeof(tmp));
+    w.push(0, wa::hook_ipc::kArgIn, "LPCGUID", "AudioSessionGuid", tmp, tmp);
+    if (session) {
+        formatGuid(session, tmp, sizeof(tmp));
+        w.push(1, wa::hook_ipc::kArgIn, "GUID", "*AudioSessionGuid", tmp, tmp);
+    }
+    pushReturn(w, hr);
+    sealArgs(p, w);
     emit(p);
-    (void)session;
     return hr;
 }
 
@@ -537,9 +789,28 @@ HRESULT STDMETHODCALLTYPE HookActivate(IMMDevice* self, REFIID iid, DWORD ctx, P
                                        void** ppInterface) {
     const HRESULT hr =
         g_activate ? g_activate(self, iid, ctx, params, ppInterface) : E_UNEXPECTED;
-    char args[80] = {};
-    sprintf_s(args, "iid=%s", iidName(iid));
-    emitSimple(sid(self), "IMMDevice", "Activate", args, hr);
+    CallPod p{};
+    p.streamId = sid(self);
+    copyStr(p.iface, sizeof(p.iface), "IMMDevice");
+    copyStr(p.method, sizeof(p.method), "Activate");
+    sprintf_s(p.args, "iid=%s", iidName(iid));
+    p.hresult = static_cast<int32_t>(hr);
+    wa::hook_ipc::ArgBlobWriter w;
+    beginArgs(p, w);
+    char tmp[96] = {};
+    formatPtr(self, tmp, sizeof(tmp));
+    w.push(0, wa::hook_ipc::kArgIn, "IMMDevice*", "this", tmp, tmp);
+    copyStr(tmp, sizeof(tmp), iidName(iid));
+    w.push(0, wa::hook_ipc::kArgIn, "REFIID", "iid", tmp, tmp);
+    sprintf_s(tmp, "0x%lX", static_cast<unsigned long>(ctx));
+    w.push(0, wa::hook_ipc::kArgIn, "DWORD", "dwClsCtx", tmp, tmp);
+    formatPtr(params, tmp, sizeof(tmp));
+    w.push(0, wa::hook_ipc::kArgIn, "PROPVARIANT*", "pActivationParams", tmp, tmp);
+    formatPtr(ppInterface ? *ppInterface : nullptr, tmp, sizeof(tmp));
+    w.push(0, wa::hook_ipc::kArgOut, "void**", "ppInterface", "", tmp);
+    pushReturn(w, hr);
+    sealArgs(p, w);
+    emit(p);
     if (SUCCEEDED(hr) && ppInterface && *ppInterface) {
         if (iid == __uuidof(IAudioClient) || iid == __uuidof(IAudioClient2) ||
             iid == __uuidof(IAudioClient3)) {

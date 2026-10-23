@@ -11,6 +11,12 @@ bool isPumpMethod(const std::string& method);
 
 std::string sanitizeHookedArgs(std::string args);
 
+// Decode hook_ipc arg blob into CallArg rows. Returns false when blob is empty
+// or not a v1 payload; out is cleared either way.
+bool decodeCallArgBlob(const uint8_t* data, uint16_t len, std::vector<CallArg>& out);
+
+const char* callArgDirName(uint8_t dir);
+
 inline constexpr size_t kDefaultPumpRingCap = 64;
 
 struct CallLogView {
@@ -31,3 +37,4 @@ EtwInitializeHint mergeInitializeHint(const EtwInitializeHint& etw,
                                       const EtwInitializeHint& hooked);
 
 }  // namespace wa
+

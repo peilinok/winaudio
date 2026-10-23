@@ -1436,22 +1436,64 @@ void AppUi::drawPipelinePage() {
         ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColIface));
         ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColMethod));
         ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColArgs));
-        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColHr), ImGuiTableColumnFlags_WidthFixed, 70.f);
+        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColHr), ImGuiTableColumnFlags_WidthFixed, 96.f);
         ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColStream),
                                 ImGuiTableColumnFlags_WidthFixed, 70.f);
         ImGui::TableHeadersRow();
-        for (const auto& c : callLog) {
+        for (size_t row = 0; row < callLog.size(); ++row) {
+            const auto& c = callLog[row];
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
             ImGui::TextUnformatted(c.iface.c_str());
             ImGui::TableSetColumnIndex(1);
-            ImGui::TextUnformatted(c.method.c_str());
+            const bool hasParams = !c.parameters.empty();
+            bool open = false;
+            if (hasParams) {
+                ImGui::PushID(static_cast<int>(row));
+                open = ImGui::TreeNodeEx("method", ImGuiTreeNodeFlags_SpanAvailWidth |
+                                                       ImGuiTreeNodeFlags_NoTreePushOnOpen,
+                                         "%s", c.method.c_str());
+                ImGui::PopID();
+            } else {
+                ImGui::TextUnformatted(c.method.c_str());
+            }
             ImGui::TableSetColumnIndex(2);
             ImGui::TextUnformatted(c.args.c_str());
             ImGui::TableSetColumnIndex(3);
             ImGui::TextUnformatted(wa::CallLogStore::formatHresult(c.hresult).c_str());
             ImGui::TableSetColumnIndex(4);
             ImGui::Text("%u", c.streamId);
+            if (open && hasParams) {
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Indent(12.f);
+                if (ImGui::BeginTable("callParams", 4,
+                                      ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
+                                          ImGuiTableFlags_SizingStretchProp)) {
+                    ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColType));
+                    ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColName));
+                    ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColPre));
+                    ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColPost));
+                    ImGui::TableHeadersRow();
+                    for (const auto& a : c.parameters) {
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextUnformatted(a.type.c_str());
+                        ImGui::TableSetColumnIndex(1);
+                        if (a.depth > 0) {
+                            ImGui::Text("%*s%s", static_cast<int>(a.depth) * 2, "", a.name.c_str());
+                        } else {
+                            ImGui::TextUnformatted(a.name.c_str());
+                        }
+                        ImGui::TableSetColumnIndex(2);
+                        ImGui::TextWrapped("%s", a.pre.c_str());
+                        ImGui::TableSetColumnIndex(3);
+                        ImGui::TextWrapped("%s", a.post.c_str());
+                    }
+                    ImGui::EndTable();
+                }
+                ImGui::Unindent(12.f);
+            }
         }
         ImGui::EndTable();
     }

@@ -1,6 +1,7 @@
 #include "OnDemandAttach.h"
 #include "AudioFormatStr.h"
 #include "ComUtil.h"
+#include "HookedCall.h"
 #include "HookedCallPod.h"
 #include "Log.h"
 #ifndef WIN32_LEAN_AND_MEAN
@@ -121,6 +122,8 @@ HookedCall fromPod(const hook_ipc::CallPod& p) {
     if (p.hasMatchFormat) c.matchFormat = p.matchFormat != 0;
     if (p.hasExclusive) c.exclusive = p.exclusive != 0;
     if (p.hasFormat) c.format = std::string(p.format);
+    if (p.argBlobLen > 0)
+        decodeCallArgBlob(p.argBlob, p.argBlobLen, c.parameters);
     return c;
 }
 

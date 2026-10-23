@@ -29,6 +29,7 @@ public:
     Result saveDefaultJsonl(uint32_t pid, std::wstring& outPath) const;
 
     static std::string formatHresult(int32_t hr);
+    static std::string formatHresultHex(int32_t hr);
     static std::string toJsonLine(const HookedCall& c);
     static std::string toCsvHeader();
     static std::string toCsvLine(const HookedCall& c);

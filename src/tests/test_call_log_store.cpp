@@ -13,24 +13,41 @@ static HookedCall sampleCall() {
     c.timeMs = 123;
     c.iface = "IAudioClient";
     c.method = "Initialize";
-    c.args = "share=shared flags=0x0 bufferMs=10 periodMs=0 fmt=48000/32f/2";
+    c.args = "ShareMode=SHARED StreamFlags=0x0 hnsBufferDuration=100000 hnsPeriodicity=0 fmt=48000/32f/2";
     c.hresult = 0;
     c.streamId = 42;
     c.format = "48000/32f/2";
     c.exclusive = false;
+    CallArg share;
+    share.type = "AUDCLNT_SHAREMODE";
+    share.name = "ShareMode";
+    share.pre = "AUDCLNT_SHAREMODE_SHARED";
+    share.post = share.pre;
+    c.parameters.push_back(share);
+    CallArg ret;
+    ret.dir = 3;
+    ret.type = "HRESULT";
+    ret.name = "Return";
+    ret.pre = "S_OK";
+    ret.post = "S_OK";
+    c.parameters.push_back(ret);
     return c;
 }
 
-TEST(CallLogStore, FormatHresultHex) {
-    EXPECT_EQ(CallLogStore::formatHresult(0), "0x00000000");
-    EXPECT_EQ(CallLogStore::formatHresult(static_cast<int32_t>(0x80004005)), "0x80004005");
+TEST(CallLogStore, FormatHresultSymbolic) {
+    EXPECT_EQ(CallLogStore::formatHresult(0), "S_OK");
+    EXPECT_EQ(CallLogStore::formatHresultHex(0), "0x00000000");
+    EXPECT_EQ(CallLogStore::formatHresult(static_cast<int32_t>(0x80004005)), "E_FAIL");
 }
 
 TEST(CallLogStore, JsonLineIncludesArgsAndHr) {
     const std::string line = CallLogStore::toJsonLine(sampleCall());
     EXPECT_NE(line.find("\"method\":\"Initialize\""), std::string::npos);
-    EXPECT_NE(line.find("bufferMs=10"), std::string::npos);
-    EXPECT_NE(line.find("\"hr\":\"0x00000000\""), std::string::npos);
+    EXPECT_NE(line.find("hnsBufferDuration=100000"), std::string::npos);
+    EXPECT_NE(line.find("\"hr\":\"S_OK\""), std::string::npos);
+    EXPECT_NE(line.find("\"parameters\":["), std::string::npos);
+    EXPECT_NE(line.find("ShareMode"), std::string::npos);
+    EXPECT_NE(line.find("AUDCLNT_SHAREMODE_SHARED"), std::string::npos);
 }
 
 TEST(CallLogStore, RecordingGatesAppend) {
@@ -63,7 +80,8 @@ TEST(CallLogStore, SaveJsonlRoundTrip) {
     ASSERT_GT(n, 0u);
     const std::string body(buf, n);
     EXPECT_NE(body.find("Initialize"), std::string::npos);
-    EXPECT_NE(body.find("0x00000000"), std::string::npos);
+    EXPECT_NE(body.find("S_OK"), std::string::npos);
+    EXPECT_NE(body.find("parameters"), std::string::npos);
 }
 
 TEST(CallLogStore, LiveSessionAttachKeyPrefersInstanceId) {
