@@ -16,6 +16,12 @@
 #include <cstdint>
 #include "HookedCallPod.h"
 
+// Test builds observe the actual entry points; production and timing builds
+// compile these markers out completely.
+#ifndef WA_HOOK_OBSERVE
+#define WA_HOOK_OBSERVE(event) ((void)0)
+#endif
+
 using wa::hook_ipc::CallPod;
 using wa::hook_ipc::Ring;
 using wa::hook_ipc::kCap;
@@ -105,6 +111,7 @@ void copyStr(char* dst, size_t n, const char* src) {
 }
 
 int64_t nowMs() {
+    WA_HOOK_OBSERVE(timestamp);
     FILETIME ft{};
     GetSystemTimeAsFileTime(&ft);
     ULARGE_INTEGER u;
@@ -113,11 +120,19 @@ int64_t nowMs() {
     return static_cast<int64_t>(u.QuadPart / 10000ULL) - 11644473600000LL;
 }
 
+bool shouldEmit(bool pump) {
+    return g_ring && !ReadAcquire(&g_quiet) &&
+           ReadULongAcquire(reinterpret_cast<const volatile ULONG*>(&g_ring->captureEnabled)) &&
+           (!pump || ReadULongAcquire(reinterpret_cast<const volatile ULONG*>(&g_ring->pumpEnabled)));
+}
+
 void emit(CallPod pod) {
-    if (!g_ring || g_quiet || !g_ring->captureEnabled) return;
+    WA_HOOK_OBSERVE(precommit);
+    if (!shouldEmit(pod.pump != 0)) return;
+    WA_HOOK_OBSERVE(accepted);
     pod.timeMs = nowMs();
     if (pod.pump) {
-        if (!g_ring->pumpEnabled) return;
+        WA_HOOK_OBSERVE(write);
         if (pod.xrun)
             InterlockedIncrement(reinterpret_cast<volatile LONG*>(&g_ring->pumpXruns));
         const LONG idx =
@@ -485,6 +500,8 @@ HRESULT STDMETHODCALLTYPE HookCapGetBuffer(IAudioCaptureClient* self, BYTE** dat
                                            DWORD* flags, UINT64* pos, UINT64* qpc) {
     const HRESULT hr =
         g_capGet ? g_capGet(self, data, frames, flags, pos, qpc) : E_UNEXPECTED;
+    if (!shouldEmit(true)) return hr;
+    WA_HOOK_OBSERVE(prepare);
     CallPod p{};
     p.streamId = sid(self);
     p.pump = 1;
@@ -492,6 +509,7 @@ HRESULT STDMETHODCALLTYPE HookCapGetBuffer(IAudioCaptureClient* self, BYTE** dat
     copyStr(p.method, sizeof(p.method), "GetBuffer");
     const UINT32 n = (SUCCEEDED(hr) && frames) ? *frames : 0;
     const DWORD fl = flags ? *flags : 0;
+    WA_HOOK_OBSERVE(format);
     sprintf_s(p.args, "frames=%u flags=0x%lX", n, static_cast<unsigned long>(fl));
     p.hresult = static_cast<int32_t>(hr);
     p.xrun = (FAILED(hr) || (fl & AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY)) ? 1 : 0;
@@ -501,11 +519,14 @@ HRESULT STDMETHODCALLTYPE HookCapGetBuffer(IAudioCaptureClient* self, BYTE** dat
 
 HRESULT STDMETHODCALLTYPE HookCapReleaseBuffer(IAudioCaptureClient* self, UINT32 frames) {
     const HRESULT hr = g_capRel ? g_capRel(self, frames) : E_UNEXPECTED;
+    if (!shouldEmit(true)) return hr;
+    WA_HOOK_OBSERVE(prepare);
     CallPod p{};
     p.streamId = sid(self);
     p.pump = 1;
     copyStr(p.iface, sizeof(p.iface), "IAudioCaptureClient");
     copyStr(p.method, sizeof(p.method), "ReleaseBuffer");
+    WA_HOOK_OBSERVE(format);
     sprintf_s(p.args, "frames=%u", frames);
     p.hresult = static_cast<int32_t>(hr);
     p.xrun = FAILED(hr) ? 1 : 0;
@@ -515,11 +536,14 @@ HRESULT STDMETHODCALLTYPE HookCapReleaseBuffer(IAudioCaptureClient* self, UINT32
 
 HRESULT STDMETHODCALLTYPE HookRenGetBuffer(IAudioRenderClient* self, UINT32 frames, BYTE** data) {
     const HRESULT hr = g_renGet ? g_renGet(self, frames, data) : E_UNEXPECTED;
+    if (!shouldEmit(true)) return hr;
+    WA_HOOK_OBSERVE(prepare);
     CallPod p{};
     p.streamId = sid(self);
     p.pump = 1;
     copyStr(p.iface, sizeof(p.iface), "IAudioRenderClient");
     copyStr(p.method, sizeof(p.method), "GetBuffer");
+    WA_HOOK_OBSERVE(format);
     sprintf_s(p.args, "frames=%u", frames);
     p.hresult = static_cast<int32_t>(hr);
     p.xrun = FAILED(hr) ? 1 : 0;
@@ -530,11 +554,14 @@ HRESULT STDMETHODCALLTYPE HookRenGetBuffer(IAudioRenderClient* self, UINT32 fram
 HRESULT STDMETHODCALLTYPE HookRenReleaseBuffer(IAudioRenderClient* self, UINT32 frames,
                                                DWORD flags) {
     const HRESULT hr = g_renRel ? g_renRel(self, frames, flags) : E_UNEXPECTED;
+    if (!shouldEmit(true)) return hr;
+    WA_HOOK_OBSERVE(prepare);
     CallPod p{};
     p.streamId = sid(self);
     p.pump = 1;
     copyStr(p.iface, sizeof(p.iface), "IAudioRenderClient");
     copyStr(p.method, sizeof(p.method), "ReleaseBuffer");
+    WA_HOOK_OBSERVE(format);
     sprintf_s(p.args, "frames=%u flags=0x%lX", frames, static_cast<unsigned long>(flags));
     p.hresult = static_cast<int32_t>(hr);
     p.xrun = FAILED(hr) ? 1 : 0;
@@ -1001,7 +1028,7 @@ DWORD WINAPI HookThread(LPVOID) {
     }
     const bool ok = install();
     g_ring->installed = ok ? kInstallOk : kInstallFailed;
-    if (ok) g_ring->captureEnabled = 1;
+    if (ok) InterlockedExchange(reinterpret_cast<volatile LONG*>(&g_ring->captureEnabled), 1);
     return 0;
 }
 

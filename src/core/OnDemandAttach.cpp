@@ -238,8 +238,8 @@ OnDemandAttach::~OnDemandAttach() { stop(); }
 void OnDemandAttach::stop() {
     if (!impl_) return;
     if (impl_->ring) {
-        impl_->ring->captureEnabled = 0;
-        impl_->ring->pumpEnabled = 0;
+        InterlockedExchange(reinterpret_cast<volatile LONG*>(&impl_->ring->captureEnabled), 0);
+        InterlockedExchange(reinterpret_cast<volatile LONG*>(&impl_->ring->pumpEnabled), 0);
         UnmapViewOfFile(impl_->ring);
         impl_->ring = nullptr;
     }
@@ -370,7 +370,7 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
     impl_->pid = pid;
     impl_->readIndex = ring->writeIndex;
     impl_->block = AttachBlock::None;
-    ring->captureEnabled = 1u;
+    InterlockedExchange(reinterpret_cast<volatile LONG*>(&ring->captureEnabled), 1);
     WA_LOG(wa::log::Level::Info, "Attach", "start",
            "pid=" + std::to_string(pid) + " " + name, "attached");
     return Result::Ok();
@@ -398,7 +398,8 @@ std::vector<HookedCall> OnDemandAttach::drain() {
 
 std::vector<HookedCall> OnDemandAttach::pumpRing() const {
     std::vector<HookedCall> out;
-    if (!attached() || !impl_->ring->pumpEnabled) return out;
+    if (!attached() || !ReadULongAcquire(reinterpret_cast<const volatile ULONG*>(&impl_->ring->pumpEnabled)))
+        return out;
     const uint32_t write = impl_->ring->pumpWriteIndex;
     const uint32_t n = write < hook_ipc::kPumpCap ? write : hook_ipc::kPumpCap;
     out.reserve(n);
@@ -414,14 +415,14 @@ uint32_t OnDemandAttach::pumpXruns() const {
 
 void OnDemandAttach::setPumpEnabled(bool on) {
     if (!impl_ || !impl_->ring) return;
-    impl_->ring->pumpEnabled = on ? 1u : 0u;
+    InterlockedExchange(reinterpret_cast<volatile LONG*>(&impl_->ring->pumpEnabled), on ? 1 : 0);
     WA_LOG(wa::log::Level::Debug, "Attach", "setPumpEnabled",
            on ? "on" : "off", "S_OK");
 }
 
 void OnDemandAttach::setCaptureEnabled(bool on) {
     if (!impl_ || !impl_->ring) return;
-    impl_->ring->captureEnabled = on ? 1u : 0u;
+    InterlockedExchange(reinterpret_cast<volatile LONG*>(&impl_->ring->captureEnabled), on ? 1 : 0);
     WA_LOG(wa::log::Level::Debug, "Attach", "setCaptureEnabled",
            on ? "on" : "off", "S_OK");
 }

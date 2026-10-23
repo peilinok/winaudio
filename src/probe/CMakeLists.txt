@@ -5,3 +5,12 @@ wa_set_project_warnings(LoopbackTreeProbe)
 add_executable(AttachSmoke AttachSmoke.cpp)
 target_link_libraries(AttachSmoke PRIVATE WinAudioCore)
 wa_set_project_warnings(AttachSmoke)
+
+add_executable(HookBufferProbe HookBufferProbe.cpp)
+target_include_directories(HookBufferProbe PRIVATE ${CMAKE_SOURCE_DIR}/src/core)
+target_link_libraries(HookBufferProbe PRIVATE ole32 oleaut32 mmdevapi uuid advapi32)
+wa_set_project_warnings(HookBufferProbe)
+
+add_executable(HookAudioProbe HookAudioProbe.cpp)
+target_link_libraries(HookAudioProbe PRIVATE WinAudioCore)
+wa_set_project_warnings(HookAudioProbe)
