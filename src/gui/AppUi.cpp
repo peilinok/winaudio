@@ -1492,20 +1492,10 @@ void AppUi::drawPipelinePage() {
         } else {
             const float callAvailX = ImGui::GetContentRegionAvail().x;
             const float splitGap = ImGui::GetStyle().ItemSpacing.x;
-            // Parameters grows with the window; cap the Call table so it cannot dominate when maximized.
-            // Fixed Call/Args/HR/Stream columns only need ~430px content width.
-            constexpr float kCallTableCap = 460.f;
-            constexpr float kCallTableMin = 260.f;
-            float paramsW = std::max(callAvailX * 0.58f, 420.f);
-            float tableW = callAvailX - paramsW - splitGap;
-            if (tableW > kCallTableCap) {
-                tableW = kCallTableCap;
-                paramsW = callAvailX - tableW - splitGap;
-            }
-            if (tableW < kCallTableMin) {
-                tableW = std::min(kCallTableMin, callAvailX * 0.38f);
-                paramsW = std::max(240.f, callAvailX - tableW - splitGap);
-            }
+            // Call list : Parameters ~= 4:6 at any window width (including maximized).
+            const float inner = std::max(1.f, callAvailX - splitGap);
+            const float tableW = inner * 0.40f;
+            const float paramsW = inner - tableW;
 
             ImGui::BeginChild("pipelineCallTable", ImVec2(tableW, 0), false);
             if (ImGui::BeginTable("pipelineCalls", 4,
