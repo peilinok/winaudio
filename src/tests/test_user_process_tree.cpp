@@ -67,3 +67,32 @@ TEST(UserProcessEnumerator, IncludesCurrentProcess) {
     ASSERT_NE(it, procs.end());
     EXPECT_FALSE(it->name.empty());
 }
+
+TEST(UserProcessTree, GroupsSameNameUnderOneParent) {
+    const std::vector<wa::UserProcessInfo> procs = {
+        {1, "ChatGPT.exe"}, {2, "chatgpt.exe"}, {3, "solo.exe"}, {4, "ChatGPT.exe"}};
+    const std::vector<wa::LiveSessionView> sessions = {session(2, "chatgpt.exe", "Active")};
+    const auto rows = wa::buildProcessTree(procs, sessions, false, 0);
+    const auto groups = wa::groupProcessTreeByName(rows);
+    ASSERT_EQ(groups.size(), 2u);
+    // Audio-owning name first.
+    EXPECT_EQ(groups[0].name, "chatgpt.exe");
+    ASSERT_EQ(groups[0].processes.size(), 3u);
+    EXPECT_TRUE(groups[0].hasAudio);
+    EXPECT_TRUE(groups[0].hasActiveSession);
+    EXPECT_EQ(groups[0].sessionCount, 1);
+    // Within the name group: audio PID first, then ascending pid.
+    EXPECT_EQ(groups[0].processes[0].pid, 2u);
+    EXPECT_EQ(groups[0].processes[1].pid, 1u);
+    EXPECT_EQ(groups[0].processes[2].pid, 4u);
+    EXPECT_EQ(groups[1].name, "solo.exe");
+    ASSERT_EQ(groups[1].processes.size(), 1u);
+}
+
+TEST(UserProcessTree, SingletonNameStaysOneProcessGroup) {
+    const std::vector<wa::UserProcessInfo> procs = {{9, "only.exe"}};
+    const auto groups = wa::groupProcessTreeByName(wa::buildProcessTree(procs, {}, false, 0));
+    ASSERT_EQ(groups.size(), 1u);
+    EXPECT_EQ(groups[0].processes.size(), 1u);
+    EXPECT_FALSE(groups[0].hasAudio);
+}
