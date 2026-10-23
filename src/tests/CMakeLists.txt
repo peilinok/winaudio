@@ -49,6 +49,7 @@ add_executable(WinAudioTests
     test_cli_options.cpp
     test_dump_ui.cpp
     test_frame_probe.cpp
+    test_page_probe.cpp
     test_os_sound_ui.cpp
     test_log_region_prefs.cpp
     test_gui_language.cpp
@@ -67,7 +68,7 @@ target_include_directories(WinAudioTests PRIVATE
 )
 string(REPLACE "\\" "/" WA_CHANNEL_IDENT_DIR "${CMAKE_SOURCE_DIR}/assets/channel-idents")
 target_compile_definitions(WinAudioTests PRIVATE "WA_CHANNEL_IDENT_DIR=\"${WA_CHANNEL_IDENT_DIR}\"")
-target_link_libraries(WinAudioTests PRIVATE WinAudioCore gtest_main shell32)
+target_link_libraries(WinAudioTests PRIVATE WinAudioCore gtest_main shell32 imgui)
 wa_set_project_warnings(WinAudioTests)
 
 include(GoogleTest)

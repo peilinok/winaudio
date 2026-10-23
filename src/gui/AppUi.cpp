@@ -1019,7 +1019,6 @@ void AppUi::ensureRunningVisuals(const wa::MonitorStatus& status, VisualState& v
 }
 
 void AppUi::draw() {
-    frameProbe_.beginFrame();
     // Drain lines buffered by the logging pump thread into the panel history (bounded).
     // The bracket covers the lock and the trim. The probe itself only writes its slot.
     {
@@ -1077,23 +1076,33 @@ void AppUi::draw() {
     window->WorkRect.Max.x = savedMaxX;
 
     if (pagesOpen) {
-        if (ImGui::BeginTabItem(wa::ui_text::id(wa::ui_text::kMonitorTab))) {
+        bool pageOpen = ImGui::BeginTabItem(wa::ui_text::id(wa::ui_text::kMonitorTab));
+        frameProbe_.pageState("Monitor", ImGui::IsItemClicked(), pageOpen);
+        if (pageOpen) {
             drawMonitorPage();
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem(wa::ui_text::id(wa::ui_text::kLoopbackTab))) {
+        pageOpen = ImGui::BeginTabItem(wa::ui_text::id(wa::ui_text::kLoopbackTab));
+        frameProbe_.pageState("SystemLoopback", ImGui::IsItemClicked(), pageOpen);
+        if (pageOpen) {
             drawLoopbackPage();
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem(wa::ui_text::id(wa::ui_text::kApplicationLoopbackTab))) {
+        pageOpen = ImGui::BeginTabItem(wa::ui_text::id(wa::ui_text::kApplicationLoopbackTab));
+        frameProbe_.pageState("ApplicationLoopback", ImGui::IsItemClicked(), pageOpen);
+        if (pageOpen) {
             drawApplicationLoopbackPage();
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem(wa::ui_text::id(wa::ui_text::kRenderTab))) {
+        pageOpen = ImGui::BeginTabItem(wa::ui_text::id(wa::ui_text::kRenderTab));
+        frameProbe_.pageState("Render", ImGui::IsItemClicked(), pageOpen);
+        if (pageOpen) {
             drawRenderPage();
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem(wa::ui_text::id(wa::ui_text::kPipelineTab))) {
+        pageOpen = ImGui::BeginTabItem(wa::ui_text::id(wa::ui_text::kPipelineTab));
+        frameProbe_.pageState("Pipeline", ImGui::IsItemClicked(), pageOpen);
+        if (pageOpen) {
             drawPipelinePage();
             ImGui::EndTabItem();
         } else if (!pipelineWatch_.running()) {
