@@ -1261,12 +1261,13 @@ void AppUi::drawPipelinePage() {
     ImGui::BeginChild("pipelineContent", ImVec2(0, contentH), false);
     {
         const float rowAvail = ImGui::GetContentRegionAvail().y;
-        float topRowH = std::clamp(rowAvail * 0.42f, 200.0f, 360.0f);
+        // Prefer a taller sessions|graph band; Call Log stays readable but shorter.
+        float topRowH = std::clamp(rowAvail * 0.52f, 220.0f, 420.0f);
         float callRowH = rowAvail - topRowH - gap;
-        if (callRowH < 180.0f) {
-            const float deficit = 180.0f - callRowH;
-            topRowH = std::max(160.0f, topRowH - deficit);
-            callRowH = std::max(140.0f, rowAvail - topRowH - gap);
+        if (callRowH < 150.0f) {
+            const float deficit = 150.0f - callRowH;
+            topRowH = std::max(180.0f, topRowH - deficit);
+            callRowH = std::max(120.0f, rowAvail - topRowH - gap);
         }
 
         ImGui::BeginChild("pipelineTopRow", ImVec2(0, topRowH), false);
@@ -1490,21 +1491,26 @@ void AppUi::drawPipelinePage() {
                                                                           pipelinePump_));
         } else {
             const float callAvailX = ImGui::GetContentRegionAvail().x;
-            float paramsW = std::clamp(callAvailX * 0.36f, 280.f, 420.f);
-            if (callAvailX < 720.f) paramsW = std::max(220.f, callAvailX * 0.40f);
-            const float tableW = std::max(240.f, callAvailX - paramsW - ImGui::GetStyle().ItemSpacing.x);
+            // Keep Parameters panel dominant; shrink Call/Args so the right pane is not clipped.
+            float paramsW = std::clamp(callAvailX * 0.48f, 340.f, 560.f);
+            if (callAvailX < 800.f) paramsW = std::max(280.f, callAvailX * 0.50f);
+            // Cap params so the left table keeps a usable minimum width.
+            paramsW = std::min(paramsW, std::max(280.f, callAvailX - 240.f - ImGui::GetStyle().ItemSpacing.x));
+            const float tableW = std::max(220.f, callAvailX - paramsW - ImGui::GetStyle().ItemSpacing.x);
 
             ImGui::BeginChild("pipelineCallTable", ImVec2(tableW, 0), false);
             if (ImGui::BeginTable("pipelineCalls", 4,
                                  ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
-                                     ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp |
-                                     ImGuiTableFlags_Resizable)) {
-                ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColCall));
-                ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColArgs));
+                                     ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingFixedFit |
+                                     ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollX)) {
+                ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColCall),
+                                        ImGuiTableColumnFlags_WidthFixed, 180.f);
+                ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColArgs),
+                                        ImGuiTableColumnFlags_WidthFixed, 100.f);
                 ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColHr),
-                                        ImGuiTableColumnFlags_WidthFixed, 96.f);
+                                        ImGuiTableColumnFlags_WidthFixed, 88.f);
                 ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColStream),
-                                        ImGuiTableColumnFlags_WidthFixed, 70.f);
+                                        ImGuiTableColumnFlags_WidthFixed, 64.f);
                 ImGui::TableHeadersRow();
                 for (size_t row = 0; row < callLog.size(); ++row) {
                     const auto& call = callLog[row];
@@ -1531,7 +1537,7 @@ void AppUi::drawPipelinePage() {
             ImGui::EndChild();
 
             ImGui::SameLine();
-            ImGui::BeginChild("pipelineCallParams", ImVec2(0, 0), true);
+            ImGui::BeginChild("pipelineCallParams", ImVec2(paramsW, 0), true);
             ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kPipelineCallParams));
             if (pipelineCallSelected_ < 0 || pipelineCallSelected_ >= (int)callLog.size()) {
                 ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineCallParamsSelectHint));
