@@ -7,6 +7,7 @@
 #include "WaveEnvelope.h"
 #include "ApplicationLoopbackUiModel.h"
 #include "PipelineAttachUiModel.h"
+#include "CallLogFilter.h"
 #include "AppUiText.h"
 #include "CaptureChannelView.h"
 #include "ChartDataPipeline.h"
@@ -37,6 +38,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <string>
+#include <string_view>
 
 static std::string wtou(const std::wstring& w) {
     if (w.empty()) return {};
@@ -1485,6 +1487,35 @@ void AppUi::drawPipelinePage() {
         const auto& callLog = callView.entries;
         if (pipelineCallSelected_ >= (int)callLog.size())
             pipelineCallSelected_ = callLog.empty() ? -1 : (int)callLog.size() - 1;
+
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineCallFilter));
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(-1.0f);
+        const bool filterEdited = ImGui::InputTextWithHint(
+            "##pipelineCallFilter", wa::ui_text::get(wa::ui_text::kPipelineCallFilterHint),
+            pipelineCallFilter_, sizeof(pipelineCallFilter_));
+        const std::string_view filterView(pipelineCallFilter_);
+        const std::vector<size_t> visible =
+            wa::call_log_filter::matchingIndices(callLog, filterView);
+        if (filterEdited) {
+            if (visible.empty()) {
+                // Keep prior selection so Parameters still show the last pick.
+            } else {
+                bool selectedVisible = false;
+                for (size_t vi : visible) {
+                    if ((int)vi == pipelineCallSelected_) {
+                        selectedVisible = true;
+                        break;
+                    }
+                }
+                if (!selectedVisible) {
+                    pipelineCallSelected_ = (int)visible.front();
+                    pipelineCallScrollToSelected_ = true;
+                }
+            }
+        }
+
         if (callLog.empty()) {
             pipelineCallSelected_ = -1;
             ImGui::TextWrapped("%s", wa::ui_text::pipelineCallLogEmptyText(pipelineAttach_.attached(),
@@ -1498,7 +1529,9 @@ void AppUi::drawPipelinePage() {
             const float paramsW = inner - tableW;
 
             ImGui::BeginChild("pipelineCallTable", ImVec2(tableW, 0), false);
-            if (ImGui::BeginTable("pipelineCalls", 4,
+            if (visible.empty() && !filterView.empty()) {
+                ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineCallFilterHint));
+            } else if (ImGui::BeginTable("pipelineCalls", 4,
                                  ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
                                      ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingFixedFit |
                                      ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollX)) {
@@ -1511,19 +1544,22 @@ void AppUi::drawPipelinePage() {
                 ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColStream),
                                         ImGuiTableColumnFlags_WidthFixed, 64.f);
                 ImGui::TableHeadersRow();
-                for (size_t row = 0; row < callLog.size(); ++row) {
+                for (size_t vi = 0; vi < visible.size(); ++vi) {
+                    const size_t row = visible[vi];
                     const auto& call = callLog[row];
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
-                    std::string callName = call.iface;
-                    if (!call.iface.empty() && !call.method.empty())
-                        callName += "::";
-                    callName += call.method;
+                    const std::string callName = wa::call_log_filter::formatCallName(call);
                     const bool selected = (pipelineCallSelected_ == (int)row);
                     char label[256];
                     std::snprintf(label, sizeof(label), "%s###pcall%zu", callName.c_str(), row);
-                    if (ImGui::Selectable(label, selected, ImGuiSelectableFlags_SpanAllColumns))
+                    if (ImGui::Selectable(label, selected, ImGuiSelectableFlags_SpanAllColumns)) {
                         pipelineCallSelected_ = (int)row;
+                    }
+                    if (selected && pipelineCallScrollToSelected_) {
+                        ImGui::SetScrollHereY(0.25f);
+                        pipelineCallScrollToSelected_ = false;
+                    }
                     ImGui::TableSetColumnIndex(1);
                     ImGui::TextUnformatted(call.args.c_str());
                     ImGui::TableSetColumnIndex(2);
@@ -1538,6 +1574,9 @@ void AppUi::drawPipelinePage() {
             ImGui::SameLine();
             ImGui::BeginChild("pipelineCallParams", ImVec2(paramsW, 0), true);
             ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kPipelineCallParams));
+            // Dedicated scroll child: table ScrollY without outer_size was clipping rows.
+            ImGui::BeginChild("pipelineCallParamsBody", ImVec2(0, 0), false,
+                              ImGuiWindowFlags_AlwaysVerticalScrollbar);
             if (pipelineCallSelected_ < 0 || pipelineCallSelected_ >= (int)callLog.size()) {
                 ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineCallParamsSelectHint));
             } else {
@@ -1546,7 +1585,6 @@ void AppUi::drawPipelinePage() {
                     ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineCallParamsEmpty));
                 } else if (ImGui::BeginTable("callParams", 4,
                                             ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
-                                                ImGuiTableFlags_ScrollY |
                                                 ImGuiTableFlags_SizingStretchProp |
                                                 ImGuiTableFlags_Resizable)) {
                     ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColType));
@@ -1572,6 +1610,7 @@ void AppUi::drawPipelinePage() {
                     ImGui::EndTable();
                 }
             }
+            ImGui::EndChild();
             ImGui::EndChild();
         }
         ImGui::EndChild();

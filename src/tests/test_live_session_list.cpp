@@ -424,6 +424,9 @@ TEST(PipelineUiText, ExposesPipelineTabControls) {
     EXPECT_STREQ(wa::ui_text::kPipelineCallParamsSelectHint,
                  "Select a call log row to view parameters.");
     EXPECT_STREQ(wa::ui_text::kPipelineCallParamsEmpty, "No parameters for this call.");
+    EXPECT_STREQ(wa::ui_text::kPipelineCallFilter, "Filter");
+    EXPECT_STREQ(wa::ui_text::kPipelineCallFilterHint,
+                 "Fuzzy filter Call / Args...");
     EXPECT_STREQ(wa::ui_text::kPipelinePump, "Record pump metadata");
     EXPECT_STREQ(wa::ui_text::kPipelineXruns, "xruns");
 }

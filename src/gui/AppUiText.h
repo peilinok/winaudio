@@ -175,6 +175,8 @@ namespace wa::ui_text {
     WA_UI_TEXT(kPipelineCallParams, "Parameters", "参数") \
     WA_UI_TEXT(kPipelineCallParamsSelectHint, "Select a call log row to view parameters.", "选择一条调用记录以查看参数。") \
     WA_UI_TEXT(kPipelineCallParamsEmpty, "No parameters for this call.", "此调用无参数。") \
+    WA_UI_TEXT(kPipelineCallFilter, "Filter", "过滤") \
+    WA_UI_TEXT(kPipelineCallFilterHint, "Fuzzy filter Call / Args...", "模糊过滤 调用/参数...") \
     WA_UI_TEXT(kPipelinePump, "Record pump metadata", "记录 pump 元数据") \
     WA_UI_TEXT(kPipelineXruns, "xruns", "xruns") \
     WA_UI_TEXT(kRefreshDevices, "Refresh devices", "刷新设备") \
