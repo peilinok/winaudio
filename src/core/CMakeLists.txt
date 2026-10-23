@@ -30,6 +30,7 @@ add_library(WinAudioCore STATIC
     Elevate.cpp
     EtwInitialize.cpp
     HookedCall.cpp
+    CallLogStore.cpp
     OnDemandAttach.cpp
 )
 target_include_directories(WinAudioCore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

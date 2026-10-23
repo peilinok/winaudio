@@ -123,6 +123,12 @@ namespace wa::ui_text {
     WA_UI_TEXT(kPipelineEtwUnavailable, "ETW unavailable", "ETW 不可用") \
     WA_UI_TEXT(kPipelineEtwListening, "ETW listening", "ETW 监听中") \
     WA_UI_TEXT(kPipelineAttach, "Attach", "附加") \
+    WA_UI_TEXT(kPipelineDetach, "Detach", "分离") \
+    WA_UI_TEXT(kPipelineRecord, "Record calls", "录制调用") \
+    WA_UI_TEXT(kPipelineSaveCalls, "Save calls", "保存调用") \
+    WA_UI_TEXT(kPipelineColAttach, "Hook", "Hook") \
+    WA_UI_TEXT(kPipelineAttachDetached, "Detached", "未附加") \
+    WA_UI_TEXT(kPipelineAttachFailed, "Failed", "失败") \
     WA_UI_TEXT(kPipelineCallLog, "Call log", "调用日志") \
     WA_UI_TEXT(kPipelineAttached, "Attached", "已附加") \
     WA_UI_TEXT(kPipelineCallLogEmpty, \

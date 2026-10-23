@@ -52,6 +52,14 @@ using CapGetBufFn = HRESULT(STDMETHODCALLTYPE*)(IAudioCaptureClient*, BYTE**, UI
 using CapRelBufFn = HRESULT(STDMETHODCALLTYPE*)(IAudioCaptureClient*, UINT32);
 using RenGetBufFn = HRESULT(STDMETHODCALLTYPE*)(IAudioRenderClient*, UINT32, BYTE**);
 using RenRelBufFn = HRESULT(STDMETHODCALLTYPE*)(IAudioRenderClient*, UINT32, DWORD);
+using GetBufSizeFn = HRESULT(STDMETHODCALLTYPE*)(IAudioClient*, UINT32*);
+using StreamVolCountFn = HRESULT(STDMETHODCALLTYPE*)(IAudioStreamVolume*, UINT32*);
+using StreamVolSetFn = HRESULT(STDMETHODCALLTYPE*)(IAudioStreamVolume*, UINT32, float);
+using StreamVolGetFn = HRESULT(STDMETHODCALLTYPE*)(IAudioStreamVolume*, UINT32, float*);
+#if defined(__IAudioEffectsManager_INTERFACE_DEFINED__)
+using FxGetFn = HRESULT(STDMETHODCALLTYPE*)(IAudioEffectsManager*, AUDIO_EFFECT**, UINT32*);
+using FxSetFn = HRESULT(STDMETHODCALLTYPE*)(IAudioEffectsManager*, GUID, AUDIO_EFFECT_STATE);
+#endif
 
 ActivateFn g_activate = nullptr;
 GetDeviceFn g_getDevice = nullptr;
@@ -75,6 +83,14 @@ CapGetBufFn g_capGet = nullptr;
 CapRelBufFn g_capRel = nullptr;
 RenGetBufFn g_renGet = nullptr;
 RenRelBufFn g_renRel = nullptr;
+GetBufSizeFn g_getBufSize = nullptr;
+StreamVolCountFn g_streamVolCount = nullptr;
+StreamVolSetFn g_streamVolSet = nullptr;
+StreamVolGetFn g_streamVolGet = nullptr;
+#if defined(__IAudioEffectsManager_INTERFACE_DEFINED__)
+FxGetFn g_fxGet = nullptr;
+FxSetFn g_fxSet = nullptr;
+#endif
 
 void copyStr(char* dst, size_t n, const char* src) {
     if (!dst || n == 0) return;
@@ -95,7 +111,7 @@ int64_t nowMs() {
 }
 
 void emit(CallPod pod) {
-    if (!g_ring || g_quiet) return;
+    if (!g_ring || g_quiet || !g_ring->captureEnabled) return;
     pod.timeMs = nowMs();
     if (pod.pump) {
         if (!g_ring->pumpEnabled) return;
@@ -179,17 +195,17 @@ HRESULT STDMETHODCALLTYPE HookInitialize(IAudioClient* self, AUDCLNT_SHAREMODE s
     copyStr(p.method, sizeof(p.method), "Initialize");
     char wave[64] = {};
     formatWave(fmt, wave, sizeof(wave));
-    sprintf_s(p.args, "share=%s flags=0x%lX fmt=%s",
+    sprintf_s(p.args, "share=%s flags=0x%lX bufferMs=%lld periodMs=%lld fmt=%s",
               share == AUDCLNT_SHAREMODE_EXCLUSIVE ? "exclusive" : "shared",
-              static_cast<unsigned long>(flags), wave);
+              static_cast<unsigned long>(flags),
+              static_cast<long long>(dur / 10000),
+              static_cast<long long>(per / 10000), wave);
     p.hresult = static_cast<int32_t>(hr);
     p.hasExclusive = 1;
     p.exclusive = share == AUDCLNT_SHAREMODE_EXCLUSIVE ? 1 : 0;
     p.hasFormat = 1;
     copyStr(p.format, sizeof(p.format), wave);
     emit(p);
-    (void)per;
-    (void)dur;
     (void)session;
     return hr;
 }
@@ -214,7 +230,9 @@ HRESULT STDMETHODCALLTYPE HookReset(IAudioClient* self) {
 
 HRESULT STDMETHODCALLTYPE HookSetEventHandle(IAudioClient* self, HANDLE ev) {
     const HRESULT hr = g_setEvent ? g_setEvent(self, ev) : E_UNEXPECTED;
-    emitSimple(sid(self), "IAudioClient", "SetEventHandle", "", hr);
+    char args[48] = {};
+    sprintf_s(args, "handle=0x%p", ev);
+    emitSimple(sid(self), "IAudioClient", "SetEventHandle", args, hr);
     return hr;
 }
 
@@ -328,6 +346,59 @@ HRESULT STDMETHODCALLTYPE HookRenReleaseBuffer(IAudioRenderClient* self, UINT32 
     return hr;
 }
 
+HRESULT STDMETHODCALLTYPE HookGetBufferSize(IAudioClient* self, UINT32* frames) {
+    const HRESULT hr = g_getBufSize ? g_getBufSize(self, frames) : E_UNEXPECTED;
+    char args[48] = {};
+    if (SUCCEEDED(hr) && frames) sprintf_s(args, "frames=%u", *frames);
+    emitSimple(sid(self), "IAudioClient", "GetBufferSize", args, hr);
+    return hr;
+}
+
+HRESULT STDMETHODCALLTYPE HookStreamVolCount(IAudioStreamVolume* self, UINT32* count) {
+    const HRESULT hr = g_streamVolCount ? g_streamVolCount(self, count) : E_UNEXPECTED;
+    char args[48] = {};
+    if (SUCCEEDED(hr) && count) sprintf_s(args, "channels=%u", *count);
+    emitSimple(sid(self), "IAudioStreamVolume", "GetChannelCount", args, hr);
+    return hr;
+}
+
+HRESULT STDMETHODCALLTYPE HookStreamVolSet(IAudioStreamVolume* self, UINT32 index, float level) {
+    const HRESULT hr = g_streamVolSet ? g_streamVolSet(self, index, level) : E_UNEXPECTED;
+    char args[64] = {};
+    sprintf_s(args, "ch=%u level=%.3f", index, static_cast<double>(level));
+    emitSimple(sid(self), "IAudioStreamVolume", "SetChannelVolume", args, hr);
+    return hr;
+}
+
+HRESULT STDMETHODCALLTYPE HookStreamVolGet(IAudioStreamVolume* self, UINT32 index, float* level) {
+    const HRESULT hr = g_streamVolGet ? g_streamVolGet(self, index, level) : E_UNEXPECTED;
+    char args[64] = {};
+    if (SUCCEEDED(hr) && level)
+        sprintf_s(args, "ch=%u level=%.3f", index, static_cast<double>(*level));
+    else
+        sprintf_s(args, "ch=%u", index);
+    emitSimple(sid(self), "IAudioStreamVolume", "GetChannelVolume", args, hr);
+    return hr;
+}
+
+#if defined(__IAudioEffectsManager_INTERFACE_DEFINED__)
+HRESULT STDMETHODCALLTYPE HookFxGet(IAudioEffectsManager* self, AUDIO_EFFECT** effects, UINT32* n) {
+    const HRESULT hr = g_fxGet ? g_fxGet(self, effects, n) : E_UNEXPECTED;
+    char args[48] = {};
+    if (SUCCEEDED(hr) && n) sprintf_s(args, "count=%u", *n);
+    emitSimple(sid(self), "IAudioEffectsManager", "GetAudioEffects", args, hr);
+    return hr;
+}
+
+HRESULT STDMETHODCALLTYPE HookFxSet(IAudioEffectsManager* self, GUID id, AUDIO_EFFECT_STATE st) {
+    const HRESULT hr = g_fxSet ? g_fxSet(self, id, st) : E_UNEXPECTED;
+    char args[80] = {};
+    sprintf_s(args, "state=%s", st == AUDIO_EFFECT_STATE_ON ? "on" : "off");
+    emitSimple(sid(self), "IAudioEffectsManager", "SetAudioEffectState", args, hr);
+    return hr;
+}
+#endif
+
 void patchService(void* obj, REFIID iid) {
     if (!obj) return;
     using wa::hook_ipc::kSlotBufferGetBuffer;
@@ -353,6 +424,18 @@ void patchService(void* obj, REFIID iid) {
     } else if (iid == __uuidof(IAudioClock)) {
         patchSlot(obj, 3, reinterpret_cast<void*>(&HookClockFreq),
                   reinterpret_cast<void**>(&g_clockFreq));
+    } else if (iid == __uuidof(IAudioStreamVolume)) {
+        patchSlot(obj, 3, reinterpret_cast<void*>(&HookStreamVolCount),
+                  reinterpret_cast<void**>(&g_streamVolCount));
+        patchSlot(obj, 4, reinterpret_cast<void*>(&HookStreamVolSet),
+                  reinterpret_cast<void**>(&g_streamVolSet));
+        patchSlot(obj, 5, reinterpret_cast<void*>(&HookStreamVolGet),
+                  reinterpret_cast<void**>(&g_streamVolGet));
+#if defined(__IAudioEffectsManager_INTERFACE_DEFINED__)
+    } else if (iid == __uuidof(IAudioEffectsManager)) {
+        patchSlot(obj, 3, reinterpret_cast<void*>(&HookFxGet), reinterpret_cast<void**>(&g_fxGet));
+        patchSlot(obj, 4, reinterpret_cast<void*>(&HookFxSet), reinterpret_cast<void**>(&g_fxSet));
+#endif
     }
 }
 
@@ -420,6 +503,8 @@ void patchClient(void* obj) {
     using wa::hook_ipc::kSlotClientInitializeShared;
     patchSlot(obj, kSlotClientInitialize, reinterpret_cast<void*>(&HookInitialize),
               reinterpret_cast<void**>(&g_initialize));
+    patchSlot(obj, 4, reinterpret_cast<void*>(&HookGetBufferSize),
+              reinterpret_cast<void**>(&g_getBufSize));
     patchSlot(obj, kSlotClientStart, reinterpret_cast<void*>(&HookStart),
               reinterpret_cast<void**>(&g_start));
     patchSlot(obj, kSlotClientStop, reinterpret_cast<void*>(&HookStop),
@@ -533,6 +618,18 @@ void patchServicesFromClient(IAudioClient* client) {
         static_cast<IUnknown*>(svc)->Release();
         svc = nullptr;
     }
+    if (SUCCEEDED(client->GetService(__uuidof(IAudioStreamVolume), &svc)) && svc) {
+        patchService(svc, __uuidof(IAudioStreamVolume));
+        static_cast<IUnknown*>(svc)->Release();
+        svc = nullptr;
+    }
+#if defined(__IAudioEffectsManager_INTERFACE_DEFINED__)
+    if (SUCCEEDED(client->GetService(__uuidof(IAudioEffectsManager), &svc)) && svc) {
+        patchService(svc, __uuidof(IAudioEffectsManager));
+        static_cast<IUnknown*>(svc)->Release();
+        svc = nullptr;
+    }
+#endif
 }
 
 void tryActivate(IMMDevice* dev) {
@@ -631,7 +728,9 @@ DWORD WINAPI HookThread(LPVOID) {
         g_ring->writeIndex = 0;
         g_ring->installed = kInstallPending;
     }
-    g_ring->installed = install() ? kInstallOk : kInstallFailed;
+    const bool ok = install();
+    g_ring->installed = ok ? kInstallOk : kInstallFailed;
+    if (ok) g_ring->captureEnabled = 1;
     return 0;
 }
 
