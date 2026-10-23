@@ -10,13 +10,14 @@
 #include "FormatSpec.h"
 #include "MonitorEngine.h"
 #include "Capabilities.h"
+#include "AudioEffects.h"
 #include "Log.h"
 
 using namespace wa;
 
 static void usage() {
     std::printf(
-        "WinAudioCli list  [--render|--capture]\n"
+        "WinAudioCli list  [--render|--capture] [--effects]\n"
         "WinAudioCli capture --out <file.wav> [--device <id>] [--seconds N] [--loopback]\n"
         "                    [--pid N] [--exclude-tree] [--no-silent-render]\n"
         "                    [--backend wasapi-shared|wasapi-exclusive] [--format 48000/16/2]\n"
@@ -109,6 +110,7 @@ int wmain(int argc, wchar_t** argv) {
 
     if (cmd == L"list") {
         DataFlow flow = has(argc, argv, L"--capture") ? DataFlow::Capture : DataFlow::Render;
+        const bool withEffects = has(argc, argv, L"--effects");
         DeviceEnumerator de;
         std::vector<DeviceInfo> devs;
         Result r = de.enumerate(flow, devs);
@@ -129,6 +131,27 @@ int wmain(int argc, wchar_t** argv) {
                 }
             }
             std::printf("\n");
+            if (withEffects) {
+                // On-demand Shared probe (Initialize, no Start). Win11 build 22000+;
+                // Win10 / missing IAudioEffectsManager → empty list, not a hard error.
+                std::vector<StreamAudioEffect> effects;
+                Result er = probeStreamAudioEffects(flow, d.id, effects);
+                if (!er) {
+                    std::printf("     streamEffects=error (%s)\n", er.message.c_str());
+                } else if (effects.empty()) {
+                    std::printf("     streamEffects=(none)\n");
+                } else {
+                    std::printf("     streamEffects=");
+                    for (size_t i = 0; i < effects.size(); ++i) {
+                        const auto& e = effects[i];
+                        if (i) std::printf(";");
+                        std::printf("%s:%s%s", e.typeName.c_str(),
+                                    audioEffectStateName(e.state),
+                                    e.canSetState ? "+set" : "");
+                    }
+                    std::printf("\n");
+                }
+            }
         }
         return 0;
     }

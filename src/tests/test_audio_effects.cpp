@@ -1,0 +1,90 @@
+#include <gtest/gtest.h>
+#include "AudioEffects.h"
+
+using namespace wa;
+
+namespace {
+
+GUID makeGuid(unsigned long d1, unsigned short d2, unsigned short d3,
+              unsigned char b0, unsigned char b1, unsigned char b2, unsigned char b3,
+              unsigned char b4, unsigned char b5, unsigned char b6, unsigned char b7) {
+    GUID g{};
+    g.Data1 = d1;
+    g.Data2 = d2;
+    g.Data3 = d3;
+    g.Data4[0] = b0; g.Data4[1] = b1; g.Data4[2] = b2; g.Data4[3] = b3;
+    g.Data4[4] = b4; g.Data4[5] = b5; g.Data4[6] = b6; g.Data4[7] = b7;
+    return g;
+}
+
+}  // namespace
+
+TEST(AudioEffects, StateName) {
+    EXPECT_STREQ(audioEffectStateName(AudioEffectState::Unknown), "unknown");
+    EXPECT_STREQ(audioEffectStateName(AudioEffectState::Off), "off");
+    EXPECT_STREQ(audioEffectStateName(AudioEffectState::On), "on");
+}
+
+TEST(AudioEffects, StateFromWin32) {
+    EXPECT_EQ(audioEffectStateFromWin32(0), AudioEffectState::Off);
+    EXPECT_EQ(audioEffectStateFromWin32(1), AudioEffectState::On);
+    EXPECT_EQ(audioEffectStateFromWin32(2), AudioEffectState::Unknown);
+    EXPECT_EQ(audioEffectStateFromWin32(99), AudioEffectState::Unknown);
+}
+
+TEST(AudioEffects, TypeNameKnownGuids) {
+    // AUDIO_EFFECT_TYPE_BASS_BOOST
+    const GUID bass = makeGuid(0x6f64adc5, 0x8211, 0x11e2,
+                               0x8c, 0x70, 0x2c, 0x27, 0xd7, 0xf0, 0x01, 0xfa);
+    EXPECT_EQ(audioEffectTypeName(bass), "Bass Boost");
+
+    // AUDIO_EFFECT_TYPE_NOISE_SUPPRESSION
+    const GUID ns = makeGuid(0x6f64adbf, 0x8211, 0x11e2,
+                             0x8c, 0x70, 0x2c, 0x27, 0xd7, 0xf0, 0x01, 0xfa);
+    EXPECT_EQ(audioEffectTypeName(ns), "Noise Suppression");
+
+    // AUDIO_EFFECT_TYPE_DEEP_NOISE_SUPPRESSION
+    const GUID dns = makeGuid(0x6f64add0, 0x8211, 0x11e2,
+                              0x8c, 0x70, 0x2c, 0x27, 0xd7, 0xf0, 0x01, 0xfa);
+    EXPECT_EQ(audioEffectTypeName(dns), "Deep Noise Suppression");
+
+    // AUDIO_EFFECT_TYPE_ACOUSTIC_ECHO_CANCELLATION
+    const GUID aec = makeGuid(0x6f64adbe, 0x8211, 0x11e2,
+                              0x8c, 0x70, 0x2c, 0x27, 0xd7, 0xf0, 0x01, 0xfa);
+    EXPECT_EQ(audioEffectTypeName(aec), "Acoustic Echo Cancellation");
+}
+
+TEST(AudioEffects, TypeNameUnknownFallsBackToBracedGuid) {
+    const GUID unknown = makeGuid(0x11111111, 0x2222, 0x3333,
+                                  0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb);
+    const std::string name = audioEffectTypeName(unknown);
+    EXPECT_EQ(name, guidToBracedString(unknown));
+    EXPECT_FALSE(name.empty());
+    EXPECT_EQ(name.front(), '{');
+    EXPECT_EQ(name.back(), '}');
+}
+
+TEST(AudioEffects, StreamEffectDefaults) {
+    StreamAudioEffect e{};
+    EXPECT_TRUE(e.id.empty());
+    EXPECT_TRUE(e.typeName.empty());
+    EXPECT_FALSE(e.canSetState);
+    EXPECT_EQ(e.state, AudioEffectState::Unknown);
+}
+
+TEST(AudioEffects, ProbeDefaultDeviceSkipsGracefully) {
+    // Hardware / OS dependent: Win10 or missing manager yields Ok + empty;
+    // Win11 may return effects. Never fail the suite for absence.
+    std::vector<StreamAudioEffect> effects;
+    const Result r = probeStreamAudioEffects(DataFlow::Render, DeviceId{}, effects);
+    if (!r) {
+        GTEST_SKIP() << "probe unavailable: " << r.message;
+    }
+    // Ok path: list may be empty (Win10 / no FX) or populated (Win11+).
+    for (const auto& e : effects) {
+        EXPECT_FALSE(e.typeName.empty());
+        EXPECT_FALSE(e.id.empty());
+        EXPECT_TRUE(e.state == AudioEffectState::Off || e.state == AudioEffectState::On ||
+                    e.state == AudioEffectState::Unknown);
+    }
+}

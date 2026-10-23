@@ -24,6 +24,7 @@ add_library(WinAudioCore STATIC
     LiveSessionWatch.cpp
     EndpointGraphReader.cpp
     SharedProbe.cpp
+    AudioEffects.cpp
     EtwInitialize.cpp
     HookedCall.cpp
     OnDemandAttach.cpp

@@ -21,6 +21,7 @@
 #include "OnDemandAttach.h"
 #include "PipelineGraph.h"
 #include "SharedProbe.h"
+#include "AudioEffects.h"
 #include "Spectrogram.h"
 #include "WaveEnvelope.h"
 #include "HeatmapTexture.h"
@@ -214,6 +215,13 @@ private:
     wa::DeviceCapabilities capsCache_{};
     wa::DeviceCapabilities capsModal_{};
     const char*            capsModalContext_ = nullptr;
+
+    // On-demand IAudioEffectsManager probe cache (not filled by enumerate).
+    wa::DeviceId                        streamFxDeviceId_;
+    wa::DataFlow                        streamFxFlow_ = wa::DataFlow::Render;
+    std::vector<wa::StreamAudioEffect>  streamFxEffects_;
+    std::string                         streamFxError_;
+    bool                                streamFxHaveResult_ = false;
 
     wa::dump_ui::FolderPicker dumpPicker_;
     DumpPickKind              dumpPickKind_ = DumpPickKind::None;
