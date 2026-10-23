@@ -1,4 +1,6 @@
 #include "CallLogStore.h"
+#include "HookedCall.h"
+#include "Log.h"
 #include <cstdio>
 #include <fstream>
 #include <sstream>
@@ -124,6 +126,10 @@ std::string CallLogStore::defaultFileStem(uint32_t pid) {
 }
 
 std::string CallLogStore::formatHresult(int32_t hr) {
+    return wa::log::hrName(hr);
+}
+
+std::string CallLogStore::formatHresultHex(int32_t hr) {
     char buf[16];
     sprintf_s(buf, "0x%08X", static_cast<unsigned>(hr));
     return buf;
@@ -133,13 +139,26 @@ std::string CallLogStore::toJsonLine(const HookedCall& c) {
     std::ostringstream oss;
     oss << "{\"timeMs\":" << c.timeMs << ",\"iface\":\"" << jsonEscape(c.iface) << "\",\"method\":\""
         << jsonEscape(c.method) << "\",\"args\":\"" << jsonEscape(c.args) << "\",\"hr\":\""
-        << formatHresult(c.hresult) << "\",\"hresult\":" << c.hresult << ",\"streamId\":" << c.streamId
+        << jsonEscape(formatHresult(c.hresult)) << "\",\"hrHex\":\"" << formatHresultHex(c.hresult)
+        << "\",\"hresult\":" << c.hresult << ",\"streamId\":" << c.streamId
         << ",\"pump\":" << (c.pump ? "true" : "false") << ",\"xrun\":" << (c.xrun ? "true" : "false");
     if (c.category) oss << ",\"category\":\"" << jsonEscape(*c.category) << "\"";
     if (c.format) oss << ",\"format\":\"" << jsonEscape(*c.format) << "\"";
     if (c.exclusive) oss << ",\"exclusive\":" << (*c.exclusive ? "true" : "false");
     if (c.raw) oss << ",\"raw\":" << (*c.raw ? "true" : "false");
     if (c.matchFormat) oss << ",\"matchFormat\":" << (*c.matchFormat ? "true" : "false");
+    if (!c.parameters.empty()) {
+        oss << ",\"parameters\":[";
+        for (size_t i = 0; i < c.parameters.size(); ++i) {
+            const auto& a = c.parameters[i];
+            if (i) oss << ',';
+            oss << "{\"depth\":" << static_cast<unsigned>(a.depth) << ",\"dir\":\""
+                << callArgDirName(a.dir) << "\",\"type\":\"" << jsonEscape(a.type) << "\",\"name\":\""
+                << jsonEscape(a.name) << "\",\"pre\":\"" << jsonEscape(a.pre) << "\",\"post\":\""
+                << jsonEscape(a.post) << "\"}";
+        }
+        oss << ']';
+    }
     oss << "}";
     return oss.str();
 }

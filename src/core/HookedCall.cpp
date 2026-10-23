@@ -1,9 +1,38 @@
 #include "HookedCall.h"
+#include "HookedCallPod.h"
 #include <algorithm>
 #include <cstddef>
 #include <cstring>
 
 namespace wa {
+
+bool decodeCallArgBlob(const uint8_t* data, uint16_t len, std::vector<CallArg>& out) {
+    out.clear();
+    if (!data || len < 2) return false;
+    bool ok = hook_ipc::decodeArgBlob(data, len,
+        [&](uint8_t depth, uint8_t dir, const char* type, uint8_t tl, const char* name,
+            uint8_t nl, const char* pre, uint8_t pl, const char* post, uint8_t ql) {
+            CallArg a;
+            a.depth = depth;
+            a.dir = dir;
+            a.type.assign(type, type + tl);
+            a.name.assign(name, name + nl);
+            a.pre.assign(pre, pre + pl);
+            a.post.assign(post, post + ql);
+            out.push_back(std::move(a));
+        });
+    return ok && !out.empty();
+}
+
+const char* callArgDirName(uint8_t dir) {
+    switch (dir) {
+        case hook_ipc::kArgOut: return "out";
+        case hook_ipc::kArgInOut: return "inout";
+        case hook_ipc::kArgRet: return "return";
+        case hook_ipc::kArgIn:
+        default: return "in";
+    }
+}
 
 bool isPumpMethod(const std::string& method) {
     return method == "GetBuffer" || method == "ReleaseBuffer";

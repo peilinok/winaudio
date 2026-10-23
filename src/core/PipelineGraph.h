@@ -114,12 +114,24 @@ struct EtwInitializeHint {
     std::optional<std::string> format;
 };
 
+// One API Monitor-style Parameters row (Type | Name | Pre | Post).
+// depth>0 nests under the nearest shallower ancestor (e.g. WAVEFORMATEX fields).
+struct CallArg {
+    uint8_t depth = 0;
+    uint8_t dir = 0;  // hook_ipc::CallArgDir: in/out/inout/ret
+    std::string type;
+    std::string name;
+    std::string pre;
+    std::string post;
+};
+
 struct HookedCall {
     uint32_t streamId = 0;
     int64_t timeMs = 0;
     std::string iface;
     std::string method;
     std::string args;
+    std::vector<CallArg> parameters;
     int32_t hresult = 0;
     bool pump = false;
     bool xrun = false;
