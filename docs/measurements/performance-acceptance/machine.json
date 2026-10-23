@@ -1,0 +1,27 @@
+{
+    "cpu":  [
+                "Intel(R) Core(TM) i7-10875H CPU @ 2.30GHz"
+            ],
+    "gpu":  [
+                {
+                    "Name":  "OrayIddDriver Device",
+                    "DriverVersion":  "17.50.19.949",
+                    "CurrentRefreshRate":  null
+                },
+                {
+                    "Name":  "NVIDIA GeForce RTX 2060",
+                    "DriverVersion":  "31.0.15.1700",
+                    "CurrentRefreshRate":  59
+                }
+            ],
+    "physical_memory_bytes":  68621746176,
+    "windows":  {
+                    "Caption":  "Microsoft Windows 11 专业版",
+                    "Version":  "10.0.26200",
+                    "BuildNumber":  "26200"
+                },
+    "power_mode":  "电源方案 GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (平衡)",
+    "compiler":  "MSVC 19.51.36257.0, VS2026, Windows SDK 10.0.26100.0",
+    "base_commit":  "2483b0cbe7c07bfaba1e9f6d576a203aa03db3ee",
+    "build":  "Debug smoke; Release for acceptance"
+}

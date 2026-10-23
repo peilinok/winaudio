@@ -1,0 +1,539 @@
+; MSVC 19.51.36257.0 /O2 /FAs, no /GL; x86
+; Full listing SHA256: 0d7a6f0daa5cd3a25694ca2f2906a5c258a7771507b239c7af4160303c08b924
+; Instructions from the production translation unit; source comments omitted.
+
+?shouldEmit@?A0xc744a5b1@@YA_N_N@Z PROC			; `anonymous namespace'::shouldEmit, COMDAT
+	push	ebp
+	mov	ebp, esp
+	cmp	DWORD PTR ?g_ring@?A0xc744a5b1@@3PAURing@hook_ipc@wa@@A, 0 ; `anonymous namespace'::g_ring
+	je	SHORT $LN3@shouldEmit
+	mov	eax, DWORD PTR ?g_quiet@?A0xc744a5b1@@3JC ; `anonymous namespace'::g_quiet
+	test	eax, eax
+	jne	SHORT $LN3@shouldEmit
+	mov	eax, DWORD PTR ?g_ring@?A0xc744a5b1@@3PAURing@hook_ipc@wa@@A ; `anonymous namespace'::g_ring
+	mov	eax, DWORD PTR [eax+36]
+	test	eax, eax
+	je	SHORT $LN3@shouldEmit
+	cmp	BYTE PTR _pump$[ebp], 0
+	je	SHORT $LN4@shouldEmit
+	mov	eax, DWORD PTR ?g_ring@?A0xc744a5b1@@3PAURing@hook_ipc@wa@@A ; `anonymous namespace'::g_ring
+	mov	eax, DWORD PTR [eax+16]
+	test	eax, eax
+	je	SHORT $LN3@shouldEmit
+$LN4@shouldEmit:
+	mov	al, 1
+	pop	ebp
+	ret	0
+$LN3@shouldEmit:
+	xor	al, al
+	pop	ebp
+	ret	0
+?shouldEmit@?A0xc744a5b1@@YA_N_N@Z ENDP			; `anonymous namespace'::shouldEmit
+
+?emit@?A0xc744a5b1@@YAXUCallPod@hook_ipc@wa@@@Z PROC	; `anonymous namespace'::emit, COMDAT
+	push	ebp
+	mov	ebp, esp
+	sub	esp, 24					; 00000018H
+	mov	eax, DWORD PTR ___security_cookie
+	xor	eax, ebp
+	mov	DWORD PTR __$ArrayPad$[ebp], eax
+	cmp	DWORD PTR ?g_ring@?A0xc744a5b1@@3PAURing@hook_ipc@wa@@A, 0 ; `anonymous namespace'::g_ring
+	je	$LN1@emit
+	mov	eax, DWORD PTR ?g_quiet@?A0xc744a5b1@@3JC ; `anonymous namespace'::g_quiet
+	test	eax, eax
+	jne	$LN1@emit
+	mov	eax, DWORD PTR ?g_ring@?A0xc744a5b1@@3PAURing@hook_ipc@wa@@A ; `anonymous namespace'::g_ring
+	mov	eax, DWORD PTR [eax+36]
+	test	eax, eax
+	je	$LN1@emit
+	cmp	BYTE PTR _pod$[ebp+292], 0
+	je	SHORT $LN23@emit
+	mov	eax, DWORD PTR ?g_ring@?A0xc744a5b1@@3PAURing@hook_ipc@wa@@A ; `anonymous namespace'::g_ring
+	mov	eax, DWORD PTR [eax+16]
+	test	eax, eax
+	je	$LN1@emit
+$LN23@emit:
+	push	ebx
+	push	esi
+	push	edi
+	lea	eax, DWORD PTR _ft$1[ebp]
+	xorps	xmm0, xmm0
+	push	eax
+	movlpd	QWORD PTR _ft$1[ebp], xmm0
+	call	DWORD PTR __imp__GetSystemTimeAsFileTime@4
+	mov	ecx, DWORD PTR _ft$1[ebp]
+	mov	ebx, 948328779				; 3886594bH
+	mov	eax, ecx
+	mov	edi, 879609302				; 346dc5d6H
+	mul	ebx
+	mov	eax, ecx
+	mov	esi, edx
+	mul	edi
+	mov	edi, eax
+	mov	DWORD PTR tv317[ebp], edx
+	mov	eax, DWORD PTR _ft$1[ebp+4]
+	mul	ebx
+	mov	ebx, edx
+	mov	ecx, eax
+	mov	eax, DWORD PTR _ft$1[ebp+4]
+	mov	edx, 879609302				; 346dc5d6H
+	mul	edx
+	add	ecx, esi
+	mov	DWORD PTR tv343[ebp], eax
+	adc	ebx, 0
+	add	edi, ecx
+	mov	ecx, DWORD PTR tv317[ebp]
+	adc	ecx, 0
+	xor	eax, eax
+	add	ebx, ecx
+	mov	ecx, DWORD PTR tv343[ebp]
+	adc	eax, eax
+	add	ecx, ebx
+	adc	edx, eax
+	shrd	ecx, edx, 11
+	shr	edx, 11					; 0000000bH
+	add	ecx, -817260544				; cf499800H
+	mov	DWORD PTR _pod$[ebp+8], ecx
+	adc	edx, -2712				; fffff568H
+	cmp	BYTE PTR _pod$[ebp+292], 0
+	mov	DWORD PTR _pod$[ebp+12], edx
+	je	SHORT $LN3@emit
+	cmp	BYTE PTR _pod$[ebp+293], 0
+	je	SHORT $LN4@emit
+	mov	eax, DWORD PTR ?g_ring@?A0xc744a5b1@@3PAURing@hook_ipc@wa@@A ; `anonymous namespace'::g_ring
+	lock	 inc	 DWORD PTR [eax+24]
+$LN4@emit:
+	mov	eax, DWORD PTR ?g_ring@?A0xc744a5b1@@3PAURing@hook_ipc@wa@@A ; `anonymous namespace'::g_ring
+	mov	ecx, 1
+	lock	 xadd	 DWORD PTR [eax+20], ecx
+	inc	ecx
+	mov	edi, DWORD PTR ?g_ring@?A0xc744a5b1@@3PAURing@hook_ipc@wa@@A ; `anonymous namespace'::g_ring
+	lea	eax, DWORD PTR [ecx-1]
+	and	eax, 63					; 0000003fH
+	add	edi, 2130472				; 00208228H
+	jmp	SHORT $LN32@emit
+$LN3@emit:
+	mov	eax, DWORD PTR ?g_ring@?A0xc744a5b1@@3PAURing@hook_ipc@wa@@A ; `anonymous namespace'::g_ring
+	mov	ecx, 1
+	lock	 xadd	 DWORD PTR [eax+4], ecx
+	inc	ecx
+	mov	edi, DWORD PTR ?g_ring@?A0xc744a5b1@@3PAURing@hook_ipc@wa@@A ; `anonymous namespace'::g_ring
+	lea	eax, DWORD PTR [ecx-1]
+	and	eax, 2047				; 000007ffH
+	add	edi, 552				; 00000228H
+$LN32@emit:
+	imul	ecx, eax, 1040
+	lea	esi, DWORD PTR _pod$[ebp]
+	add	edi, ecx
+	mov	ecx, 260				; 00000104H
+	rep movsd
+	pop	edi
+	pop	esi
+	pop	ebx
+$LN1@emit:
+	mov	ecx, DWORD PTR __$ArrayPad$[ebp]
+	xor	ecx, ebp
+	call	@__security_check_cookie@4
+	mov	esp, ebp
+	pop	ebp
+	ret	0
+?emit@?A0xc744a5b1@@YAXUCallPod@hook_ipc@wa@@@Z ENDP	; `anonymous namespace'::emit
+
+?HookCapGetBuffer@?A0xc744a5b1@@YGJPAUIAudioCaptureClient@@PAPAEPAIPAKPA_K4@Z PROC ; `anonymous namespace'::HookCapGetBuffer, COMDAT
+	push	ebp
+	mov	ebp, esp
+	sub	esp, 1052				; 0000041cH
+	mov	eax, DWORD PTR ___security_cookie
+	xor	eax, ebp
+	mov	DWORD PTR __$ArrayPad$[ebp], eax
+	mov	eax, DWORD PTR _qpc$[ebp]
+	mov	ecx, DWORD PTR _self$[ebp]
+	mov	edx, DWORD PTR _data$[ebp]
+	push	ebx
+	mov	ebx, DWORD PTR _pos$[ebp]
+	push	esi
+	mov	esi, DWORD PTR _frames$[ebp]
+	mov	DWORD PTR _qpc$GSCopy$1$[ebp], eax
+	mov	eax, DWORD PTR ?g_capGet@?A0xc744a5b1@@3P6GJPAUIAudioCaptureClient@@PAPAEPAIPAKPA_K4@ZA ; `anonymous namespace'::g_capGet
+	mov	DWORD PTR _self$GSCopy$1$[ebp], ecx
+	push	edi
+	mov	edi, DWORD PTR _flags$[ebp]
+	test	eax, eax
+	je	SHORT $LN4@HookCapGet
+	push	DWORD PTR _qpc$GSCopy$1$[ebp]
+	push	ebx
+	push	edi
+	push	esi
+	push	edx
+	push	ecx
+	call	eax
+	mov	ebx, eax
+	jmp	SHORT $LN5@HookCapGet
+$LN4@HookCapGet:
+	mov	ebx, -2147418113			; 8000ffffH
+$LN5@HookCapGet:
+	cmp	DWORD PTR ?g_ring@?A0xc744a5b1@@3PAURing@hook_ipc@wa@@A, 0 ; `anonymous namespace'::g_ring
+	je	$LN14@HookCapGet
+	mov	eax, DWORD PTR ?g_quiet@?A0xc744a5b1@@3JC ; `anonymous namespace'::g_quiet
+	test	eax, eax
+	jne	$LN14@HookCapGet
+	mov	eax, DWORD PTR ?g_ring@?A0xc744a5b1@@3PAURing@hook_ipc@wa@@A ; `anonymous namespace'::g_ring
+	mov	eax, DWORD PTR [eax+36]
+	test	eax, eax
+	je	$LN14@HookCapGet
+	mov	eax, DWORD PTR ?g_ring@?A0xc744a5b1@@3PAURing@hook_ipc@wa@@A ; `anonymous namespace'::g_ring
+	mov	eax, DWORD PTR [eax+16]
+	test	eax, eax
+	je	$LN14@HookCapGet
+	push	288					; 00000120H
+	lea	eax, DWORD PTR _p$[ebp+4]
+	push	0
+	push	eax
+	call	_memset
+	push	747					; 000002ebH
+	lea	eax, DWORD PTR _p$[ebp+293]
+	push	0
+	push	eax
+	call	_memset
+	mov	eax, DWORD PTR _self$GSCopy$1$[ebp]
+	push	-1
+	push	OFFSET ??_C@_0BE@DBFAFHJN@IAudioCaptureClient@
+	mov	DWORD PTR _p$[ebp], eax
+	lea	eax, DWORD PTR _p$[ebp+16]
+	push	40					; 00000028H
+	push	eax
+	mov	BYTE PTR _p$[ebp+292], 1
+	call	_strncpy_s
+	push	-1
+	push	OFFSET ??_C@_09INKMBAHO@GetBuffer@
+	lea	eax, DWORD PTR _p$[ebp+56]
+	push	40					; 00000028H
+	push	eax
+	call	_strncpy_s
+	add	esp, 56					; 00000038H
+	test	ebx, ebx
+	js	SHORT $LN6@HookCapGet
+	test	esi, esi
+	je	SHORT $LN6@HookCapGet
+	mov	ecx, DWORD PTR [esi]
+	jmp	SHORT $LN7@HookCapGet
+$LN6@HookCapGet:
+	xor	ecx, ecx
+$LN7@HookCapGet:
+	test	edi, edi
+	je	SHORT $LN8@HookCapGet
+	mov	eax, DWORD PTR [edi]
+	jmp	SHORT $LN48@HookCapGet
+$LN8@HookCapGet:
+	xor	eax, eax
+$LN48@HookCapGet:
+	push	eax
+	push	ecx
+	mov	DWORD PTR _fl$1$[ebp], eax
+	lea	eax, DWORD PTR _p$[ebp+96]
+	push	OFFSET ??_C@_0BG@OPADICL@frames?$DN?$CFu?5flags?$DN0x?$CFlX@
+	push	eax
+	call	??$sprintf_s@$0MA@@@YAHAAY0MA@DPBDZZ	; sprintf_s<192>
+	add	esp, 16					; 00000010H
+	mov	DWORD PTR _p$[ebp+288], ebx
+	test	ebx, ebx
+	js	SHORT $LN10@HookCapGet
+	test	BYTE PTR _fl$1$[ebp], 1
+	mov	BYTE PTR _p$[ebp+293], 0
+	je	SHORT $LN11@HookCapGet
+$LN10@HookCapGet:
+	mov	BYTE PTR _p$[ebp+293], 1
+$LN11@HookCapGet:
+	sub	esp, 1040				; 00000410H
+	lea	esi, DWORD PTR _p$[ebp]
+	mov	ecx, 260				; 00000104H
+	mov	edi, esp
+	rep movsd
+	call	?emit@?A0xc744a5b1@@YAXUCallPod@hook_ipc@wa@@@Z ; `anonymous namespace'::emit
+	add	esp, 1040				; 00000410H
+$LN14@HookCapGet:
+	mov	ecx, DWORD PTR __$ArrayPad$[ebp]
+	mov	eax, ebx
+	pop	edi
+	pop	esi
+	xor	ecx, ebp
+	pop	ebx
+	call	@__security_check_cookie@4
+	mov	esp, ebp
+	pop	ebp
+	ret	24					; 00000018H
+?HookCapGetBuffer@?A0xc744a5b1@@YGJPAUIAudioCaptureClient@@PAPAEPAIPAKPA_K4@Z ENDP ; `anonymous namespace'::HookCapGetBuffer
+
+?HookCapReleaseBuffer@?A0xc744a5b1@@YGJPAUIAudioCaptureClient@@I@Z PROC ; `anonymous namespace'::HookCapReleaseBuffer, COMDAT
+	push	ebp
+	mov	ebp, esp
+	sub	esp, 1044				; 00000414H
+	mov	eax, DWORD PTR ___security_cookie
+	xor	eax, ebp
+	mov	DWORD PTR __$ArrayPad$[ebp], eax
+	mov	eax, DWORD PTR ?g_capRel@?A0xc744a5b1@@3P6GJPAUIAudioCaptureClient@@I@ZA ; `anonymous namespace'::g_capRel
+	push	ebx
+	push	esi
+	mov	esi, DWORD PTR _self$[ebp]
+	push	edi
+	mov	edi, DWORD PTR _frames$[ebp]
+	test	eax, eax
+	je	SHORT $LN4@HookCapRel
+	push	edi
+	push	esi
+	call	eax
+	mov	ebx, eax
+	jmp	SHORT $LN5@HookCapRel
+$LN4@HookCapRel:
+	mov	ebx, -2147418113			; 8000ffffH
+$LN5@HookCapRel:
+	cmp	DWORD PTR ?g_ring@?A0xc744a5b1@@3PAURing@hook_ipc@wa@@A, 0 ; `anonymous namespace'::g_ring
+	je	$LN8@HookCapRel
+	mov	eax, DWORD PTR ?g_quiet@?A0xc744a5b1@@3JC ; `anonymous namespace'::g_quiet
+	test	eax, eax
+	jne	$LN8@HookCapRel
+	mov	eax, DWORD PTR ?g_ring@?A0xc744a5b1@@3PAURing@hook_ipc@wa@@A ; `anonymous namespace'::g_ring
+	mov	eax, DWORD PTR [eax+36]
+	test	eax, eax
+	je	$LN8@HookCapRel
+	mov	eax, DWORD PTR ?g_ring@?A0xc744a5b1@@3PAURing@hook_ipc@wa@@A ; `anonymous namespace'::g_ring
+	mov	eax, DWORD PTR [eax+16]
+	test	eax, eax
+	je	$LN8@HookCapRel
+	push	288					; 00000120H
+	lea	eax, DWORD PTR _p$[ebp+4]
+	push	0
+	push	eax
+	call	_memset
+	push	747					; 000002ebH
+	lea	eax, DWORD PTR _p$[ebp+293]
+	push	0
+	push	eax
+	call	_memset
+	push	-1
+	push	OFFSET ??_C@_0BE@DBFAFHJN@IAudioCaptureClient@
+	lea	eax, DWORD PTR _p$[ebp+16]
+	mov	DWORD PTR _p$[ebp], esi
+	push	40					; 00000028H
+	push	eax
+	mov	BYTE PTR _p$[ebp+292], 1
+	call	_strncpy_s
+	push	-1
+	push	OFFSET ??_C@_0O@ELHHAFJI@ReleaseBuffer@
+	lea	eax, DWORD PTR _p$[ebp+56]
+	push	40					; 00000028H
+	push	eax
+	call	_strncpy_s
+	push	edi
+	lea	eax, DWORD PTR _p$[ebp+96]
+	push	OFFSET ??_C@_09GADNKINP@frames?$DN?$CFu@
+	push	eax
+	call	??$sprintf_s@$0MA@@@YAHAAY0MA@DPBDZZ	; sprintf_s<192>
+	add	esp, 68					; 00000044H
+	mov	DWORD PTR _p$[ebp+288], ebx
+	mov	eax, ebx
+	lea	esi, DWORD PTR _p$[ebp]
+	sub	esp, 1040				; 00000410H
+	shr	eax, 31					; 0000001fH
+	mov	BYTE PTR _p$[ebp+293], al
+	mov	ecx, 260				; 00000104H
+	mov	edi, esp
+	rep movsd
+	call	?emit@?A0xc744a5b1@@YAXUCallPod@hook_ipc@wa@@@Z ; `anonymous namespace'::emit
+	add	esp, 1040				; 00000410H
+$LN8@HookCapRel:
+	mov	ecx, DWORD PTR __$ArrayPad$[ebp]
+	mov	eax, ebx
+	pop	edi
+	pop	esi
+	xor	ecx, ebp
+	pop	ebx
+	call	@__security_check_cookie@4
+	mov	esp, ebp
+	pop	ebp
+	ret	8
+?HookCapReleaseBuffer@?A0xc744a5b1@@YGJPAUIAudioCaptureClient@@I@Z ENDP ; `anonymous namespace'::HookCapReleaseBuffer
+
+?HookRenGetBuffer@?A0xc744a5b1@@YGJPAUIAudioRenderClient@@IPAPAE@Z PROC ; `anonymous namespace'::HookRenGetBuffer, COMDAT
+	push	ebp
+	mov	ebp, esp
+	sub	esp, 1044				; 00000414H
+	mov	eax, DWORD PTR ___security_cookie
+	xor	eax, ebp
+	mov	DWORD PTR __$ArrayPad$[ebp], eax
+	mov	eax, DWORD PTR ?g_renGet@?A0xc744a5b1@@3P6GJPAUIAudioRenderClient@@IPAPAE@ZA ; `anonymous namespace'::g_renGet
+	mov	ecx, DWORD PTR _data$[ebp]
+	push	ebx
+	push	esi
+	mov	esi, DWORD PTR _self$[ebp]
+	push	edi
+	mov	edi, DWORD PTR _frames$[ebp]
+	test	eax, eax
+	je	SHORT $LN4@HookRenGet
+	push	ecx
+	push	edi
+	push	esi
+	call	eax
+	mov	ebx, eax
+	jmp	SHORT $LN5@HookRenGet
+$LN4@HookRenGet:
+	mov	ebx, -2147418113			; 8000ffffH
+$LN5@HookRenGet:
+	cmp	DWORD PTR ?g_ring@?A0xc744a5b1@@3PAURing@hook_ipc@wa@@A, 0 ; `anonymous namespace'::g_ring
+	je	$LN8@HookRenGet
+	mov	eax, DWORD PTR ?g_quiet@?A0xc744a5b1@@3JC ; `anonymous namespace'::g_quiet
+	test	eax, eax
+	jne	$LN8@HookRenGet
+	mov	eax, DWORD PTR ?g_ring@?A0xc744a5b1@@3PAURing@hook_ipc@wa@@A ; `anonymous namespace'::g_ring
+	mov	eax, DWORD PTR [eax+36]
+	test	eax, eax
+	je	$LN8@HookRenGet
+	mov	eax, DWORD PTR ?g_ring@?A0xc744a5b1@@3PAURing@hook_ipc@wa@@A ; `anonymous namespace'::g_ring
+	mov	eax, DWORD PTR [eax+16]
+	test	eax, eax
+	je	$LN8@HookRenGet
+	push	288					; 00000120H
+	lea	eax, DWORD PTR _p$[ebp+4]
+	push	0
+	push	eax
+	call	_memset
+	push	747					; 000002ebH
+	lea	eax, DWORD PTR _p$[ebp+293]
+	push	0
+	push	eax
+	call	_memset
+	push	-1
+	push	OFFSET ??_C@_0BD@BABBDBEI@IAudioRenderClient@
+	lea	eax, DWORD PTR _p$[ebp+16]
+	mov	DWORD PTR _p$[ebp], esi
+	push	40					; 00000028H
+	push	eax
+	mov	BYTE PTR _p$[ebp+292], 1
+	call	_strncpy_s
+	push	-1
+	push	OFFSET ??_C@_09INKMBAHO@GetBuffer@
+	lea	eax, DWORD PTR _p$[ebp+56]
+	push	40					; 00000028H
+	push	eax
+	call	_strncpy_s
+	push	edi
+	lea	eax, DWORD PTR _p$[ebp+96]
+	push	OFFSET ??_C@_09GADNKINP@frames?$DN?$CFu@
+	push	eax
+	call	??$sprintf_s@$0MA@@@YAHAAY0MA@DPBDZZ	; sprintf_s<192>
+	add	esp, 68					; 00000044H
+	mov	DWORD PTR _p$[ebp+288], ebx
+	mov	eax, ebx
+	lea	esi, DWORD PTR _p$[ebp]
+	sub	esp, 1040				; 00000410H
+	shr	eax, 31					; 0000001fH
+	mov	BYTE PTR _p$[ebp+293], al
+	mov	ecx, 260				; 00000104H
+	mov	edi, esp
+	rep movsd
+	call	?emit@?A0xc744a5b1@@YAXUCallPod@hook_ipc@wa@@@Z ; `anonymous namespace'::emit
+	add	esp, 1040				; 00000410H
+$LN8@HookRenGet:
+	mov	ecx, DWORD PTR __$ArrayPad$[ebp]
+	mov	eax, ebx
+	pop	edi
+	pop	esi
+	xor	ecx, ebp
+	pop	ebx
+	call	@__security_check_cookie@4
+	mov	esp, ebp
+	pop	ebp
+	ret	12					; 0000000cH
+?HookRenGetBuffer@?A0xc744a5b1@@YGJPAUIAudioRenderClient@@IPAPAE@Z ENDP ; `anonymous namespace'::HookRenGetBuffer
+
+?HookRenReleaseBuffer@?A0xc744a5b1@@YGJPAUIAudioRenderClient@@IK@Z PROC ; `anonymous namespace'::HookRenReleaseBuffer, COMDAT
+	push	ebp
+	mov	ebp, esp
+	sub	esp, 1044				; 00000414H
+	mov	eax, DWORD PTR ___security_cookie
+	xor	eax, ebp
+	mov	DWORD PTR __$ArrayPad$[ebp], eax
+	mov	eax, DWORD PTR ?g_renRel@?A0xc744a5b1@@3P6GJPAUIAudioRenderClient@@IK@ZA ; `anonymous namespace'::g_renRel
+	push	ebx
+	push	esi
+	mov	esi, DWORD PTR _self$[ebp]
+	push	edi
+	mov	edi, DWORD PTR _flags$[ebp]
+	test	eax, eax
+	je	SHORT $LN4@HookRenRel
+	push	edi
+	push	DWORD PTR _frames$[ebp]
+	push	esi
+	call	eax
+	mov	ebx, eax
+	jmp	SHORT $LN5@HookRenRel
+$LN4@HookRenRel:
+	mov	ebx, -2147418113			; 8000ffffH
+$LN5@HookRenRel:
+	cmp	DWORD PTR ?g_ring@?A0xc744a5b1@@3PAURing@hook_ipc@wa@@A, 0 ; `anonymous namespace'::g_ring
+	je	$LN8@HookRenRel
+	mov	eax, DWORD PTR ?g_quiet@?A0xc744a5b1@@3JC ; `anonymous namespace'::g_quiet
+	test	eax, eax
+	jne	$LN8@HookRenRel
+	mov	eax, DWORD PTR ?g_ring@?A0xc744a5b1@@3PAURing@hook_ipc@wa@@A ; `anonymous namespace'::g_ring
+	mov	eax, DWORD PTR [eax+36]
+	test	eax, eax
+	je	$LN8@HookRenRel
+	mov	eax, DWORD PTR ?g_ring@?A0xc744a5b1@@3PAURing@hook_ipc@wa@@A ; `anonymous namespace'::g_ring
+	mov	eax, DWORD PTR [eax+16]
+	test	eax, eax
+	je	$LN8@HookRenRel
+	push	288					; 00000120H
+	lea	eax, DWORD PTR _p$[ebp+4]
+	push	0
+	push	eax
+	call	_memset
+	push	747					; 000002ebH
+	lea	eax, DWORD PTR _p$[ebp+293]
+	push	0
+	push	eax
+	call	_memset
+	push	-1
+	push	OFFSET ??_C@_0BD@BABBDBEI@IAudioRenderClient@
+	lea	eax, DWORD PTR _p$[ebp+16]
+	mov	DWORD PTR _p$[ebp], esi
+	push	40					; 00000028H
+	push	eax
+	mov	BYTE PTR _p$[ebp+292], 1
+	call	_strncpy_s
+	push	-1
+	push	OFFSET ??_C@_0O@ELHHAFJI@ReleaseBuffer@
+	lea	eax, DWORD PTR _p$[ebp+56]
+	push	40					; 00000028H
+	push	eax
+	call	_strncpy_s
+	push	edi
+	push	DWORD PTR _frames$[ebp]
+	lea	eax, DWORD PTR _p$[ebp+96]
+	push	OFFSET ??_C@_0BG@OPADICL@frames?$DN?$CFu?5flags?$DN0x?$CFlX@
+	push	eax
+	call	??$sprintf_s@$0MA@@@YAHAAY0MA@DPBDZZ	; sprintf_s<192>
+	add	esp, 72					; 00000048H
+	mov	DWORD PTR _p$[ebp+288], ebx
+	mov	eax, ebx
+	lea	esi, DWORD PTR _p$[ebp]
+	sub	esp, 1040				; 00000410H
+	shr	eax, 31					; 0000001fH
+	mov	BYTE PTR _p$[ebp+293], al
+	mov	ecx, 260				; 00000104H
+	mov	edi, esp
+	rep movsd
+	call	?emit@?A0xc744a5b1@@YAXUCallPod@hook_ipc@wa@@@Z ; `anonymous namespace'::emit
+	add	esp, 1040				; 00000410H
+$LN8@HookRenRel:
+	mov	ecx, DWORD PTR __$ArrayPad$[ebp]
+	mov	eax, ebx
+	pop	edi
+	pop	esi
+	xor	ecx, ebp
+	pop	ebx
+	call	@__security_check_cookie@4
+	mov	esp, ebp
+	pop	ebp
+	ret	12					; 0000000cH
+?HookRenReleaseBuffer@?A0xc744a5b1@@YGJPAUIAudioRenderClient@@IK@Z ENDP ; `anonymous namespace'::HookRenReleaseBuffer

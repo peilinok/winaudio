@@ -1,0 +1,4 @@
+# Preserve the bytes used by the measurement artifact hashes on every checkout.
+hook-*.csv -text
+hook-audio-*.txt -text
+hook-codegen-*.txt -text

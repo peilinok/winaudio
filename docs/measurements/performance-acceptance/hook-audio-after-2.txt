@@ -1,0 +1,37 @@
+target=0 endpoint={0.0.0.00000000}.{46f4256f-bc60-4865-b5f3-4c6eef7ee966} sample_rate=48000 channels=2 bits=32 format_tag=0xFFFE
+target=1 endpoint={0.0.0.00000000}.{46f4256f-bc60-4865-b5f3-4c6eef7ee966} sample_rate=48000 channels=2 bits=32 format_tag=0xFFFE
+qpc_frequency=10000000; two fresh same-bitness targets; silent render + actual endpoint loopback
+phase=no-attach target=0 pid=3840 attached=0 control=0 pump=0 control_delta=0 pump_delta=0 capture_calls=0 render_calls=0
+phase=no-attach target=1 pid=12204 attached=0 control=0 pump=0 control_delta=0 pump_delta=0 capture_calls=0 render_calls=0
+loaded pid=3840 path=E:\WORK\vibecoding\winaudio\build\performance-vs18\bin\Release\WinAudioHook-5.dll
+loaded pid=12204 path=E:\WORK\vibecoding\winaudio\build\performance-vs18\bin\Release\WinAudioHook-5.dll
+phase=capture-off target=0 pid=3840 attached=1 control=0 pump=0 control_delta=0 pump_delta=0 capture_calls=0 render_calls=0
+phase=capture-off target=1 pid=12204 attached=1 control=0 pump=0 control_delta=0 pump_delta=0 capture_calls=0 render_calls=0
+phase=pump-off target=0 pid=3840 attached=1 control=78 pump=0 control_delta=78 pump_delta=0 capture_calls=0 render_calls=0
+phase=pump-off target=1 pid=12204 attached=1 control=78 pump=0 control_delta=78 pump_delta=0 capture_calls=0 render_calls=0
+phase=pump-on target=0 pid=3840 attached=1 control=78 pump=64 control_delta=78 pump_delta=3179 capture_calls=44 render_calls=20
+phase=pump-on target=1 pid=12204 attached=1 control=78 pump=64 control_delta=78 pump_delta=3179 capture_calls=44 render_calls=20
+phase=detached target=0 pid=3840 attached=0 control=0 pump=0 control_delta=0 pump_delta=0 capture_calls=0 render_calls=0
+phase=detached target=1 pid=12204 attached=0 control=0 pump=0 control_delta=0 pump_delta=0 capture_calls=0 render_calls=0
+loaded pid=3840 path=E:\WORK\vibecoding\winaudio\build\performance-vs18\bin\Release\WinAudioHook-5.dll
+loaded pid=12204 path=E:\WORK\vibecoding\winaudio\build\performance-vs18\bin\Release\WinAudioHook-5.dll
+phase=reattached target=0 pid=3840 attached=1 control=78 pump=64 control_delta=78 pump_delta=3204 capture_calls=44 render_calls=20
+phase=reattached target=1 pid=12204 attached=1 control=78 pump=64 control_delta=78 pump_delta=3204 capture_calls=44 render_calls=20
+phase=other-pid-detached target=0 pid=3840 attached=0 control=0 pump=0 control_delta=0 pump_delta=0 capture_calls=0 render_calls=0
+phase=other-pid-detached target=1 pid=12204 attached=1 control=78 pump=64 control_delta=78 pump_delta=3196 capture_calls=44 render_calls=20
+phase,target,callbacks,failures,discontinuities,captured_frames,nonzero_bytes,samples,overflow,p50_us,p95_us,p99_us
+no-attach,0,547,0,1,410400,0,547,0,18.600,52.300,73.300
+no-attach,1,542,0,1,407040,0,542,0,18.100,47.800,71.800
+capture-off,0,526,0,0,396960,0,526,0,20.300,53.700,70.100
+capture-off,1,526,0,0,396960,0,526,0,20.300,56.200,66.600
+pump-off,0,531,0,0,399840,0,531,0,20.600,57.700,72.900
+pump-off,1,531,0,0,399840,0,531,0,20.000,53.900,71.200
+pump-on,0,523,0,0,395040,0,523,0,26.800,63.500,79.900
+pump-on,1,523,0,0,395040,0,523,0,26.500,63.100,79.300
+detached,0,529,0,0,398880,0,529,0,20.200,56.600,210.200
+detached,1,529,0,0,398880,0,529,0,20.000,56.700,74.000
+reattached,0,528,0,0,397440,0,528,0,27.100,67.400,202.100
+reattached,1,528,0,0,397440,0,528,0,26.700,64.300,96.800
+other-pid-detached,0,526,0,0,396960,0,526,0,20.100,59.400,73.700
+other-pid-detached,1,526,0,0,396960,0,526,0,26.700,65.700,100.300
+result=PASS; inspect per-phase audio tails and startup discontinuities separately
