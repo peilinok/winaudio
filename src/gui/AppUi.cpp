@@ -1,4 +1,7 @@
 #include "AppUi.h"
+#include <functional>
+#include "EndpointEnhancements.h"
+#include "Elevate.h"
 #include "HeatmapRgba.h"
 #include "WaveEnvelope.h"
 #include "ApplicationLoopbackUiModel.h"
@@ -127,13 +130,62 @@ struct StreamFxUi {
     std::vector<wa::StreamAudioEffect>* effects = nullptr;
     std::string* error = nullptr;
     bool* haveResult = nullptr;
+    bool streamsActive = false;
+    std::function<void()> onEnhancementsChanged;
 };
+
+static void applyEndpointEnhancements(const wa::DeviceInfo& d, wa::DataFlow flow,
+                                           wa::EnhancementsState want, StreamFxUi& fx) {
+    if (fx.error) fx.error->clear();
+    if (fx.streamsActive) {
+        if (fx.error) *fx.error = wa::refuseEnhancementsWhileStreaming().message;
+        return;
+    }
+    wa::DeviceInfo after{};
+    wa::Result r = wa::setEndpointEnhancements(flow, d.id, want, &after);
+    if (!r && wa::resultIsAccessDenied(r)) {
+        const std::wstring cli = wa::siblingCliPath();
+        if (cli.empty()) {
+            if (fx.error) *fx.error = r.message + " (WinAudioCli.exe not found for elevation)";
+            return;
+        }
+        std::wstring params = L"enhancements set --no-elevate ";
+        params += (flow == wa::DataFlow::Capture) ? L"--capture " : L"--render ";
+        if (!d.id.empty()) {
+            params += L"--device \"";
+            params += d.id;
+            params += L"\" ";
+        }
+        params += (want == wa::EnhancementsState::Enabled) ? L"on" : L"off";
+        unsigned long exitCode = 1;
+        r = wa::runElevatedAndWait(cli, params, &exitCode);
+    }
+    if (!r) {
+        if (fx.error) *fx.error = r.message;
+        return;
+    }
+    if (fx.onEnhancementsChanged) fx.onEnhancementsChanged();
+}
 
 static void drawDeviceEnhancementsDetail(const wa::DeviceInfo& d, wa::DataFlow flow,
                                          StreamFxUi fx) {
     ImGui::TextDisabled("%s: %s",
         wa::ui_text::get(wa::ui_text::kEnhancementsLabel),
         wa::enhancementsStateName(d.enhancements));
+    if (fx.streamsActive) ImGui::BeginDisabled(true);
+    if (ImGui::SmallButton(wa::ui_text::id(wa::ui_text::kEnhancementsEnable)))
+        applyEndpointEnhancements(d, flow, wa::EnhancementsState::Enabled, fx);
+    ImGui::SameLine();
+    if (ImGui::SmallButton(wa::ui_text::id(wa::ui_text::kEnhancementsDisable)))
+        applyEndpointEnhancements(d, flow, wa::EnhancementsState::Disabled, fx);
+    if (fx.streamsActive) {
+        ImGui::EndDisabled();
+        ImGui::SetItemTooltip("%s",
+            wa::ui_text::get(wa::ui_text::kEnhancementsLockedStreaming));
+    }
+    if (fx.error && !fx.error->empty()) {
+        ImGui::TextColored(ImVec4(1.f, 0.4f, 0.4f, 1.f), "%s", fx.error->c_str());
+    }
     if (!d.enhancementOptions.empty()) {
         ImGui::TextDisabled("%s:", wa::ui_text::get(wa::ui_text::kEnhancementOptions));
         for (const auto& o : d.enhancementOptions) {
@@ -1843,9 +1895,20 @@ void AppUi::drawLeftPanel() {
         ImGui::OpenPopup(wa::ui_text::id(wa::ui_text::kDeviceCapabilities));
     }
 
+    const bool anyStreamActive = monitorStarted_ ||
+        [&]() {
+            for (const auto& t : loopbackTracks_.poll())
+                if (t.state == wa::StreamState::Running) return true;
+            for (const auto& t : appLoopbackTracks_.poll())
+                if (t.state == wa::StreamState::Running) return true;
+            for (const auto& t : renderTracks_.poll())
+                if (t.state == wa::StreamState::Running) return true;
+            return false;
+        }();
     StreamFxUi streamFx{
         &streamFxDeviceId_, &streamFxFlow_, &streamFxEffects_,
-        &streamFxError_, &streamFxHaveResult_};
+        &streamFxError_, &streamFxHaveResult_, anyStreamActive,
+        [this]() { refreshMonitorDevices(); }};
     auto deviceCombo = [&](const char* caption, const char* comboId,
                            const std::vector<wa::DeviceInfo>& devs, int& idx,
                            wa::DataFlow flow) {

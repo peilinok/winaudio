@@ -88,7 +88,7 @@ cd winaudio
 
 ## CLI 使用
 
-`WinAudioCli.exe <子命令> [参数]`，子命令：`list` / `caps` / `probe` / `capture` / `play` / `monitor` / `effects`。
+`WinAudioCli.exe <子命令> [参数]`，子命令：`list` / `caps` / `probe` / `capture` / `play` / `monitor` / `effects` / `enhancements`。
 
 ### list — 枚举设备
 
@@ -107,6 +107,14 @@ WinAudioCli effects set [--capture|--render] [--device <id>] <effect> on|off
 ```
 
 短暂打开 Shared 流（Initialize，**不 Start**），在 `canSetState` 为 true 时调用 `IAudioEffectsManager::SetAudioEffectState`，然后重新列出效果。`<effect>` 可以是带花括号的 GUID、已知类型名（如 `"Noise Suppression"`），或 kebab/下划线 slug（如 `noise-suppression`）。在 Windows 10、接口不可用、未知效果或只读（`canSetState=false`）时干净失败。默认 flow 为 render。
+
+### enhancements set — 端点 SysFx 总开关
+
+```powershell
+WinAudioCli enhancements set [--capture|--render] [--device <id>] on|off
+```
+
+向端点属性存储写入 `PKEY_AudioEndpoint_Disable_SysFx`（`on` → 0 / 开启增强，`off` → 1 / 关闭增强），然后重新读取 `DeviceInfo.enhancements`。**必须在本进程启动任何采集/播放流之前设置**（否则报错：`start stream 前才能改`）。写入常需管理员权限；遇到 `ACCESS_DENIED` 时 CLI 会自动提权重新启动（UAC 提示）。`--no-elevate` 可跳过提权（供提权子进程与 GUI 助手使用）。默认 flow 为 render。
 
 ### caps — 设备能力
 

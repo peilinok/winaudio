@@ -88,7 +88,7 @@ The **PID** input and the **Exclude** checkbox (unchecked by default) belong to 
 
 ## CLI use
 
-`WinAudioCli.exe <subcommand> [options]`. Subcommands: `list` / `caps` / `probe` / `capture` / `play` / `monitor` / `effects`.
+`WinAudioCli.exe <subcommand> [options]`. Subcommands: `list` / `caps` / `probe` / `capture` / `play` / `monitor` / `effects` / `enhancements`.
 
 ### list — enumerate devices
 
@@ -107,6 +107,14 @@ WinAudioCli effects set [--capture|--render] [--device <id>] <effect> on|off
 ```
 
 Opens a short Shared stream (Initialize, **no Start**), calls `IAudioEffectsManager::SetAudioEffectState` when `canSetState` is true, then re-lists effects. `<effect>` may be a braced GUID, a known type name (`"Noise Suppression"`), or a kebab/underscore slug (`noise-suppression`). Fails cleanly on Windows 10, missing manager, unknown effect, or read-only (`canSetState=false`) effects. Default flow is render.
+
+### enhancements set — endpoint SysFx master switch
+
+```powershell
+WinAudioCli enhancements set [--capture|--render] [--device <id>] on|off
+```
+
+Writes `PKEY_AudioEndpoint_Disable_SysFx` on the endpoint property store (`on` → 0 / enabled, `off` → 1 / disabled), then re-reads `DeviceInfo.enhancements`. **Only allowed before a capture/render stream is started** in this process (error: `start stream 前才能改`). Writing often needs Administrator rights; on `ACCESS_DENIED` the CLI auto-relaunches itself elevated (UAC prompt). Pass `--no-elevate` to skip the relaunch (used by the elevated child and by the GUI helper). Default flow is render.
 
 ### caps — device capabilities
 

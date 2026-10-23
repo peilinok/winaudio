@@ -191,6 +191,12 @@ namespace wa::ui_text {
     WA_UI_TEXT(kEnhancementsOffShort, "FX off", "增强关") \
     WA_UI_TEXT(kEnhancementsUnknownShort, "FX ?", "增强未知") \
     WA_UI_TEXT(kEnhancementsLabel, "Enhancements", "音频增强") \
+    WA_UI_TEXT(kEnhancementsEnable, "Enable FX", "开启增强") \
+    WA_UI_TEXT(kEnhancementsDisable, "Disable FX", "关闭增强") \
+    WA_UI_TEXT(kEnhancementsLockedStreaming, \
+        "Stop all streams before changing endpoint enhancements.", \
+        "请先停止全部流，再改音频增强。") \
+    WA_UI_TEXT(kEnhancementsSetFailed, "Enhancements set failed", "设置音频增强失败") \
     WA_UI_TEXT(kEnhancementOptions, "Enhancement options", "增强选项") \
     WA_UI_TEXT(kStreamEffects, "Stream effects", "流效果") \
     WA_UI_TEXT(kProbeStreamEffects, "Probe stream effects", "探测流效果") \
