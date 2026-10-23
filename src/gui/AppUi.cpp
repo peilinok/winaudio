@@ -397,6 +397,7 @@ void AppUi::refreshPipelineSessions() {
         pipelineSessions_.clear();
         pipelineSelected_ = -1;
         pipelineNodes_.clear();
+        rebuildPipelineProcessTree();
         logLines_.push_back("pipeline refresh failed: " + r.message);
         return;
     }
@@ -423,7 +424,24 @@ void AppUi::refreshPipelineSessions() {
     }
     if (pipelineSelected_ < 0)
         pipelineProbes_.clear();
+    if (!pipelineAudioOnly_) refreshPipelineProcesses();
+    rebuildPipelineProcessTree();
     rebuildPipelineGraph();
+}
+
+void AppUi::refreshPipelineProcesses() {
+    pipelineProcessesTick_ = GetTickCount64();
+    std::vector<wa::UserProcessInfo> procs;
+    // Failure keeps the previous list; inaccessible processes are skipped inside.
+    if (wa::enumerateUserProcesses(procs)) {
+        pipelineProcesses_ = std::move(procs);
+        rebuildPipelineProcessTree();
+    }
+}
+
+void AppUi::rebuildPipelineProcessTree() {
+    const uint32_t hidePid = pipelineShowSelf_ ? 0u : static_cast<uint32_t>(GetCurrentProcessId());
+    pipelineTree_ = wa::buildProcessTree(pipelineProcesses_, pipelineSessions_, pipelineAudioOnly_, hidePid);
 }
 
 void AppUi::rebuildPipelineGraph() {
@@ -1312,6 +1330,11 @@ void AppUi::drawPipelinePage() {
         ImGui::SameLine();
         if (ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kPipelineShowSelf), &pipelineShowSelf_))
             refreshPipelineSessions();
+        ImGui::SameLine();
+        if (ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kPipelineAudioOnly), &pipelineAudioOnly_)) {
+            if (!pipelineAudioOnly_) refreshPipelineProcesses();
+            rebuildPipelineProcessTree();
+        }
         const wa::EtwWatchStatus etwStatus = pipelineEtw_.status();
         if (etwStatus == wa::EtwWatchStatus::Unavailable) {
             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.90f, 0.55f, 0.55f, 1.f));
@@ -1360,17 +1383,46 @@ void AppUi::drawPipelinePage() {
             }
         }
 
-        if (pipelineSessions_.empty()) {
+        // Process list has no change notification; re-snapshot it every 2 s in "all" mode.
+        if (!pipelineAudioOnly_ && GetTickCount64() - pipelineProcessesTick_ >= 2000ull)
+            refreshPipelineProcesses();
+
+        // Switching to another PID stops an attach on a different PID (same as before).
+        const auto switchPipelinePid = [this](uint32_t pid) {
+            pipelineProbes_.clear();
+            if (pipelineAttach_.pid() != 0 && pipelineAttach_.pid() != pid) {
+                if (!pipelineAttachSessionKey_.empty()) {
+                    pipelineAttachUi_[pipelineAttachSessionKey_] = wa::PipelineAttachUiState::Detached;
+                    pipelineAttachFailBanner_.erase(pipelineAttachSessionKey_);
+                }
+                pipelineAttach_.setPumpEnabled(false);
+                pipelineAttach_.setCaptureEnabled(false);
+                pipelineAttach_.stop();
+                pipelineCalls_.clear();
+                pipelineCallSelected_ = -1;
+                pipelineAttachBanner_.clear();
+                pipelineAttachFailPid_ = 0;
+                pipelineAttachSessionKey_.clear();
+            }
+        };
+        const auto hookText = [](wa::PipelineAttachUiState st) {
+            if (st == wa::PipelineAttachUiState::Attached)
+                return wa::ui_text::get(wa::ui_text::kPipelineAttached);
+            if (st == wa::PipelineAttachUiState::Failed)
+                return wa::ui_text::get(wa::ui_text::kPipelineAttachFailed);
+            return wa::ui_text::get(wa::ui_text::kPipelineAttachDetached);
+        };
+
+        if (pipelineTree_.empty()) {
             ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineEmpty));
-        } else if (ImGui::BeginTable("pipelineSessions", 8,
+        } else if (ImGui::BeginTable("pipelineProcesses", 7,
                                      ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
                                          ImGuiTableFlags_ScrollY | ImGuiTableFlags_ScrollX |
                                          ImGuiTableFlags_Resizable | ImGuiTableFlags_SizingFixedFit,
                                      ImVec2(0, ImGui::GetContentRegionAvail().y))) {
-            ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColFlow),
-                                    ImGuiTableColumnFlags_WidthFixed, 70.f);
+            ImGui::TableSetupScrollFreeze(0, 1);
             ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColProcess),
-                                    ImGuiTableColumnFlags_WidthFixed, 180.f);
+                                    ImGuiTableColumnFlags_WidthFixed, 210.f);
             ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kApplicationLoopbackPidLabel),
                                     ImGuiTableColumnFlags_WidthFixed, 64.f);
             ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColDevice),
@@ -1384,70 +1436,83 @@ void AppUi::drawPipelinePage() {
             ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColAttach),
                                     ImGuiTableColumnFlags_WidthFixed, 72.f);
             ImGui::TableHeadersRow();
-            for (int i = 0; i < (int)pipelineSessions_.size(); ++i) {
-                const auto& s = pipelineSessions_[(size_t)i];
-                const std::string tip = wa::ui_text::formatLiveSessionTooltip(s);
+            // Process row that owns audio sessions: muted blue. Active session row: green.
+            const ImU32 audioProcessBg = IM_COL32(48, 72, 112, 120);
+            const ImU32 activeSessionBg = IM_COL32(40, 120, 64, 150);
+            for (const wa::ProcessTreeRow& p : pipelineTree_) {
+                const bool hasAudio = !p.sessions.empty();
                 ImGui::TableNextRow();
+                if (hasAudio) ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, audioProcessBg);
                 ImGui::TableSetColumnIndex(0);
-                const bool selected = (i == pipelineSelected_);
-                char label[64];
-                std::snprintf(label, sizeof(label), "%s###ps%d",
-                              s.flow == wa::PipelineFlow::Capture ? wa::ui_text::get(wa::ui_text::kPipelineFlowCapture)
-                                                                 : wa::ui_text::get(wa::ui_text::kPipelineFlowRender),
-                              i);
-                if (ImGui::Selectable(label, selected, ImGuiSelectableFlags_SpanAllColumns)) {
-                    if (pipelineSelected_ != i) {
-                        pipelineProbes_.clear();
-                        if (pipelineAttach_.pid() != 0 && pipelineAttach_.pid() != s.processId) {
-                            if (!pipelineAttachSessionKey_.empty()) {
-                                pipelineAttachUi_[pipelineAttachSessionKey_] =
-                                    wa::PipelineAttachUiState::Detached;
-                                pipelineAttachFailBanner_.erase(pipelineAttachSessionKey_);
-                            }
-                            pipelineAttach_.setPumpEnabled(false);
-                            pipelineAttach_.setCaptureEnabled(false);
-                            pipelineAttach_.stop();
-                            pipelineCalls_.clear();
-                            pipelineCallSelected_ = -1;
-                            pipelineAttachBanner_.clear();
-                            pipelineAttachFailPid_ = 0;
-                            pipelineAttachSessionKey_.clear();
-                        }
-                    }
-                    pipelineSelected_ = i;
-                    wa::pipeline_attach_ui::copyLiveSessionPidToBuffer(
-                        pipelineSessions_, i, pipelineAttachPid_, sizeof(pipelineAttachPid_));
+                const bool procSelected = pipelineSelected_ < 0 && pipelineSelectedPid_ == p.pid;
+                ImGuiTreeNodeFlags tf = ImGuiTreeNodeFlags_SpanAllColumns;
+                if (!hasAudio) tf |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+                if (procSelected) tf |= ImGuiTreeNodeFlags_Selected;
+                // Sessions start collapsed; ImGui keeps the open state per PID.
+                const bool open = ImGui::TreeNodeEx(
+                    reinterpret_cast<void*>(static_cast<intptr_t>(p.pid)), tf, "%s", p.name.c_str());
+                if (ImGui::IsItemClicked()) {
+                    if (!procSelected) switchPipelinePid(p.pid);
+                    pipelineSelected_ = -1;
+                    pipelineSelectedPid_ = p.pid;
+                    std::snprintf(pipelineAttachPid_, sizeof(pipelineAttachPid_), "%u", p.pid);
                     rebuildPipelineGraph();
                 }
-                ImGui::SetItemTooltip("%s", tip.c_str());
+                ImGui::SetItemTooltip("%s (PID %u)", p.name.c_str(), p.pid);
                 ImGui::TableSetColumnIndex(1);
-                ImGui::TextUnformatted(s.processName.c_str());
-                ImGui::SetItemTooltip("%s", tip.c_str());
+                ImGui::Text("%u", p.pid);
                 ImGui::TableSetColumnIndex(2);
-                ImGui::Text("%u", s.processId);
-                ImGui::SetItemTooltip("%s", tip.c_str());
-                ImGui::TableSetColumnIndex(3);
-                ImGui::TextUnformatted(s.deviceName.c_str());
-                ImGui::SetItemTooltip("%s", tip.c_str());
-                ImGui::TableSetColumnIndex(4);
-                ImGui::Text("%.2f", static_cast<double>(s.sessionVolume));
-                ImGui::SetItemTooltip("%s", tip.c_str());
+                if (hasAudio)
+                    ImGui::Text(wa::ui_text::get(wa::ui_text::kPipelineSessionCountFmt),
+                                static_cast<int>(p.sessions.size()));
                 ImGui::TableSetColumnIndex(5);
-                ImGui::TextUnformatted(s.sessionMute ? wa::ui_text::get(wa::ui_text::kPipelineMuteYes)
-                                                     : wa::ui_text::get(wa::ui_text::kPipelineMuteNo));
-                ImGui::SetItemTooltip("%s", tip.c_str());
+                if (p.hasActiveSession) ImGui::TextUnformatted("Active");
                 ImGui::TableSetColumnIndex(6);
-                ImGui::TextUnformatted(s.state.c_str());
-                ImGui::SetItemTooltip("%s", tip.c_str());
-                ImGui::TableSetColumnIndex(7);
-                const wa::PipelineAttachUiState st = pipelineAttachUiFor(s);
-                const char* stText = wa::ui_text::get(wa::ui_text::kPipelineAttachDetached);
-                if (st == wa::PipelineAttachUiState::Attached)
-                    stText = wa::ui_text::get(wa::ui_text::kPipelineAttached);
-                else if (st == wa::PipelineAttachUiState::Failed)
-                    stText = wa::ui_text::get(wa::ui_text::kPipelineAttachFailed);
-                ImGui::TextUnformatted(stText);
-                ImGui::SetItemTooltip("%s", tip.c_str());
+                ImGui::TextUnformatted(hookText(wa::pipeline_attach_ui::statusForPid(
+                    p.pid, pipelineAttach_.attached(), pipelineAttach_.pid(), pipelineAttachFailPid_,
+                    !pipelineAttachBanner_.empty())));
+                if (!open || !hasAudio) continue;
+
+                for (const int i : p.sessions) {
+                    if (i < 0 || i >= (int)pipelineSessions_.size()) continue;
+                    const auto& s = pipelineSessions_[(size_t)i];
+                    const std::string tip = wa::ui_text::formatLiveSessionTooltip(s);
+                    ImGui::TableNextRow();
+                    if (s.state == "Active")
+                        ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, activeSessionBg);
+                    ImGui::TableSetColumnIndex(0);
+                    const bool selected = (i == pipelineSelected_);
+                    char label[64];
+                    std::snprintf(label, sizeof(label), "%s###ps%d",
+                                  s.flow == wa::PipelineFlow::Capture
+                                      ? wa::ui_text::get(wa::ui_text::kPipelineFlowCapture)
+                                      : wa::ui_text::get(wa::ui_text::kPipelineFlowRender),
+                                  i);
+                    if (ImGui::Selectable(label, selected, ImGuiSelectableFlags_SpanAllColumns)) {
+                        if (pipelineSelected_ != i) switchPipelinePid(s.processId);
+                        pipelineSelected_ = i;
+                        pipelineSelectedPid_ = s.processId;
+                        wa::pipeline_attach_ui::copyLiveSessionPidToBuffer(
+                            pipelineSessions_, i, pipelineAttachPid_, sizeof(pipelineAttachPid_));
+                        rebuildPipelineGraph();
+                    }
+                    ImGui::SetItemTooltip("%s", tip.c_str());
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("%u", s.processId);
+                    ImGui::TableSetColumnIndex(2);
+                    ImGui::TextUnformatted(s.deviceName.c_str());
+                    ImGui::SetItemTooltip("%s", tip.c_str());
+                    ImGui::TableSetColumnIndex(3);
+                    ImGui::Text("%.2f", static_cast<double>(s.sessionVolume));
+                    ImGui::TableSetColumnIndex(4);
+                    ImGui::TextUnformatted(s.sessionMute ? wa::ui_text::get(wa::ui_text::kPipelineMuteYes)
+                                                         : wa::ui_text::get(wa::ui_text::kPipelineMuteNo));
+                    ImGui::TableSetColumnIndex(5);
+                    ImGui::TextUnformatted(s.state.c_str());
+                    ImGui::TableSetColumnIndex(6);
+                    ImGui::TextUnformatted(hookText(pipelineAttachUiFor(s)));
+                }
+                ImGui::TreePop();
             }
             ImGui::EndTable();
         }

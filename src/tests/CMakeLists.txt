@@ -38,6 +38,7 @@ add_executable(WinAudioTests
     test_hooked_call.cpp
     test_call_log_store.cpp
     test_call_log_filter.cpp
+    test_user_process_tree.cpp
     test_call_arg_blob.cpp
     test_runtime_fault.cpp
     test_on_demand_attach.cpp
