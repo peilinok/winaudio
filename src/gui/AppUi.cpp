@@ -1491,12 +1491,21 @@ void AppUi::drawPipelinePage() {
                                                                           pipelinePump_));
         } else {
             const float callAvailX = ImGui::GetContentRegionAvail().x;
-            // Keep Parameters panel dominant; shrink Call/Args so the right pane is not clipped.
-            float paramsW = std::clamp(callAvailX * 0.48f, 340.f, 560.f);
-            if (callAvailX < 800.f) paramsW = std::max(280.f, callAvailX * 0.50f);
-            // Cap params so the left table keeps a usable minimum width.
-            paramsW = std::min(paramsW, std::max(280.f, callAvailX - 240.f - ImGui::GetStyle().ItemSpacing.x));
-            const float tableW = std::max(220.f, callAvailX - paramsW - ImGui::GetStyle().ItemSpacing.x);
+            const float splitGap = ImGui::GetStyle().ItemSpacing.x;
+            // Parameters grows with the window; cap the Call table so it cannot dominate when maximized.
+            // Fixed Call/Args/HR/Stream columns only need ~430px content width.
+            constexpr float kCallTableCap = 460.f;
+            constexpr float kCallTableMin = 260.f;
+            float paramsW = std::max(callAvailX * 0.58f, 420.f);
+            float tableW = callAvailX - paramsW - splitGap;
+            if (tableW > kCallTableCap) {
+                tableW = kCallTableCap;
+                paramsW = callAvailX - tableW - splitGap;
+            }
+            if (tableW < kCallTableMin) {
+                tableW = std::min(kCallTableMin, callAvailX * 0.38f);
+                paramsW = std::max(240.f, callAvailX - tableW - splitGap);
+            }
 
             ImGui::BeginChild("pipelineCallTable", ImVec2(tableW, 0), false);
             if (ImGui::BeginTable("pipelineCalls", 4,
