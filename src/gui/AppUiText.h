@@ -127,6 +127,8 @@ namespace wa::ui_text {
     WA_UI_TEXT(kPipelineEtwListening, "ETW listening", "ETW 监听中") \
     WA_UI_TEXT(kPipelineAttach, "Attach", "附加") \
     WA_UI_TEXT(kPipelineDetach, "Detach", "分离") \
+    WA_UI_TEXT(kPipelineDetachAll, "Detach all", "全部分离") \
+    WA_UI_TEXT(kPipelineAttachedPids, "Attached PIDs", "已附加 PID") \
     WA_UI_TEXT(kPipelineRecord, "Record calls", "录制调用") \
     WA_UI_TEXT(kPipelineSaveCalls, "Save calls", "保存调用") \
     WA_UI_TEXT(kPipelineColAttach, "Hook", "Hook") \
@@ -167,6 +169,7 @@ namespace wa::ui_text {
     WA_UI_TEXT(kPipelineNoDebug, "Attach failed: missing debug rights", "附加失败：缺少调试权限") \
     WA_UI_TEXT(kPipelineCallColIface, "Iface", "接口") \
     WA_UI_TEXT(kPipelineCallColMethod, "Method", "方法") \
+    WA_UI_TEXT(kPipelineCallColPid, "PID", "PID") \
     WA_UI_TEXT(kPipelineCallColCall, "Call", "调用") \
     WA_UI_TEXT(kPipelineCallColArgs, "Args", "参数") \
     WA_UI_TEXT(kPipelineCallColHr, "HR", "HR") \

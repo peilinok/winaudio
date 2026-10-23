@@ -388,6 +388,9 @@ TEST(PipelineUiText, ExposesPipelineTabControls) {
                  wa::ui_text::kPipelineEtwListening);
     EXPECT_STREQ(wa::ui_text::kPipelineAttach, "Attach");
     EXPECT_STREQ(wa::ui_text::kPipelineDetach, "Detach");
+    EXPECT_STREQ(wa::ui_text::kPipelineDetachAll, "Detach all");
+    EXPECT_STREQ(wa::ui_text::kPipelineAttachedPids, "Attached PIDs");
+    EXPECT_STREQ(wa::ui_text::kPipelineCallColPid, "PID");
     EXPECT_STREQ(wa::ui_text::kPipelineRecord, "Record calls");
     EXPECT_STREQ(wa::ui_text::kPipelineSaveCalls, "Save calls");
     EXPECT_STREQ(wa::ui_text::kPipelineColAttach, "Hook");

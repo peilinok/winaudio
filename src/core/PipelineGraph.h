@@ -126,6 +126,7 @@ struct CallArg {
 };
 
 struct HookedCall {
+    uint32_t pid = 0;  // source process; 0 = unknown / legacy
     uint32_t streamId = 0;
     int64_t timeMs = 0;
     std::string iface;

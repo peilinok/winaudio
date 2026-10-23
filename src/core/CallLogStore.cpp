@@ -137,7 +137,7 @@ std::string CallLogStore::formatHresultHex(int32_t hr) {
 
 std::string CallLogStore::toJsonLine(const HookedCall& c) {
     std::ostringstream oss;
-    oss << "{\"timeMs\":" << c.timeMs << ",\"iface\":\"" << jsonEscape(c.iface) << "\",\"method\":\""
+    oss << "{\"timeMs\":" << c.timeMs << ",\"pid\":" << c.pid << ",\"iface\":\"" << jsonEscape(c.iface) << "\",\"method\":\""
         << jsonEscape(c.method) << "\",\"args\":\"" << jsonEscape(c.args) << "\",\"hr\":\""
         << jsonEscape(formatHresult(c.hresult)) << "\",\"hrHex\":\"" << formatHresultHex(c.hresult)
         << "\",\"hresult\":" << c.hresult << ",\"streamId\":" << c.streamId
@@ -164,12 +164,12 @@ std::string CallLogStore::toJsonLine(const HookedCall& c) {
 }
 
 std::string CallLogStore::toCsvHeader() {
-    return "timeMs,iface,method,args,hr,hresult,streamId,pump,xrun";
+    return "timeMs,pid,iface,method,args,hr,hresult,streamId,pump,xrun";
 }
 
 std::string CallLogStore::toCsvLine(const HookedCall& c) {
     std::ostringstream oss;
-    oss << c.timeMs << ',' << csvEscape(c.iface) << ',' << csvEscape(c.method) << ','
+    oss << c.timeMs << ',' << c.pid << ',' << csvEscape(c.iface) << ',' << csvEscape(c.method) << ','
         << csvEscape(c.args) << ',' << formatHresult(c.hresult) << ',' << c.hresult << ','
         << c.streamId << ',' << (c.pump ? 1 : 0) << ',' << (c.xrun ? 1 : 0);
     return oss.str();

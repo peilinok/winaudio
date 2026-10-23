@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include "AudioSessionEnumerator.h"
 #include "CallLogStore.h"
@@ -23,28 +24,42 @@ inline bool parseAttachPid(const char* text, uint32_t& pidOut) {
     return parseApplicationLoopbackPid(text, pidOut);
 }
 
-inline bool canAttach(uint32_t pid, bool currentlyAttached) {
-    return pid != 0 && !currentlyAttached;
+// Attach is allowed when the typed PID is nonzero and not already hooked.
+inline bool canAttach(uint32_t pid, bool thisPidAlreadyAttached) {
+    return pid != 0 && !thisPidAlreadyAttached;
 }
 
-// Status for the typed PID, including when that process is not in the Live session list.
-inline PipelineAttachUiState statusForPid(uint32_t pid, bool attached, uint32_t attachedPid,
-                                          uint32_t failedPid, bool hasFailBanner) {
+// Detach (single) is enabled when the typed PID is attached or has a fail banner.
+inline bool canDetachPid(uint32_t pid, const std::unordered_set<uint32_t>& attached,
+                         const std::unordered_map<uint32_t, std::string>& failByPid) {
+    if (pid == 0) return false;
+    if (attached.find(pid) != attached.end()) return true;
+    return failByPid.find(pid) != failByPid.end();
+}
+
+inline bool canDetachAll(const std::unordered_set<uint32_t>& attached,
+                         const std::unordered_map<uint32_t, std::string>& failByPid) {
+    return !attached.empty() || !failByPid.empty();
+}
+
+// Status for a process PID against the multi-attach set and per-PID fail map.
+inline PipelineAttachUiState statusForPid(uint32_t pid,
+                                          const std::unordered_set<uint32_t>& attached,
+                                          const std::unordered_map<uint32_t, std::string>& failByPid) {
     if (pid == 0) return PipelineAttachUiState::Detached;
-    if (attached && attachedPid == pid) return PipelineAttachUiState::Attached;
-    if (hasFailBanner && failedPid == pid) return PipelineAttachUiState::Failed;
+    if (attached.find(pid) != attached.end()) return PipelineAttachUiState::Attached;
+    if (failByPid.find(pid) != failByPid.end()) return PipelineAttachUiState::Failed;
     return PipelineAttachUiState::Detached;
 }
 
-// Hook column for a Live session row: Attached/Failed follow the attach PID, not only
-// the session-instance key (so PID-only attach still paints matching rows).
+// Hook column for a Live session row: Attached/Failed follow the process PID.
 inline PipelineAttachUiState hookStatusForRow(
-    const LiveSessionView& row, bool attached, uint32_t attachedPid,
-    uint32_t failedPid, bool hasFailBanner,
+    const LiveSessionView& row, const std::unordered_set<uint32_t>& attached,
+    const std::unordered_map<uint32_t, std::string>& failByPid,
     const std::unordered_map<std::string, PipelineAttachUiState>& uiBySessionKey) {
-    if (attached && attachedPid != 0 && attachedPid == row.processId)
+    if (attached.find(row.processId) != attached.end())
         return PipelineAttachUiState::Attached;
-    if (hasFailBanner && failedPid != 0 && failedPid == row.processId)
+    if (failByPid.find(row.processId) != failByPid.end())
         return PipelineAttachUiState::Failed;
     const std::string key = liveSessionAttachKey(row);
     const auto it = uiBySessionKey.find(key);
@@ -66,6 +81,16 @@ inline bool sessionHintForPid(const std::vector<LiveSessionView>& rows, int sele
     flowOut = row.flow;
     sessionKeyOut = liveSessionAttachKey(row);
     return true;
+}
+
+inline std::string formatAttachedPids(const std::vector<uint32_t>& pids) {
+    if (pids.empty()) return {};
+    std::string out;
+    for (size_t i = 0; i < pids.size(); ++i) {
+        if (i) out += ", ";
+        out += std::to_string(pids[i]);
+    }
+    return out;
 }
 
 }  // namespace wa::pipeline_attach_ui
