@@ -61,6 +61,29 @@ inline EnhancementsState enhancementsStateFromSysFxUlVal(uint32_t ulVal) {
     return ulVal == 0 ? EnhancementsState::Enabled : EnhancementsState::Disabled;
 }
 
+// Map EnhancementsState to ENDPOINT_SYSFX_* for writes. Unknown is not writable.
+inline bool enhancementsStateToSysFxUlVal(EnhancementsState s, uint32_t& out) {
+    if (s == EnhancementsState::Enabled) { out = 0; return true; }   // ENDPOINT_SYSFX_ENABLED
+    if (s == EnhancementsState::Disabled) { out = 1; return true; }  // ENDPOINT_SYSFX_DISABLED
+    return false;
+}
+
+// Parse "on" / "off" (case-insensitive). Unknown if neither.
+inline EnhancementsState enhancementsStateFromName(const std::string& name) {
+    if (name.size() == 2 &&
+        (name[0] == 'o' || name[0] == 'O') &&
+        (name[1] == 'n' || name[1] == 'N')) {
+        return EnhancementsState::Enabled;
+    }
+    if (name.size() == 3 &&
+        (name[0] == 'o' || name[0] == 'O') &&
+        (name[1] == 'f' || name[1] == 'F') &&
+        (name[2] == 'f' || name[2] == 'F')) {
+        return EnhancementsState::Disabled;
+    }
+    return EnhancementsState::Unknown;
+}
+
 // Discoverable enhancement descriptor (APO slot CLSID, etc.). Empty list is normal
 // when the endpoint publishes no FX property keys; not an error.
 struct EnhancementOption {

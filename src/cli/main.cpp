@@ -11,6 +11,8 @@
 #include "MonitorEngine.h"
 #include "Capabilities.h"
 #include "AudioEffects.h"
+#include "EndpointEnhancements.h"
+#include "Elevate.h"
 #include "Log.h"
 
 using namespace wa;
@@ -41,7 +43,11 @@ static void usage() {
         "WinAudioCli caps  [--device <id>] [--render|--capture]\n"
         "WinAudioCli effects set [--capture|--render] [--device <id>] <effect> on|off\n"
         "  effects set: Shared Initialize + SetAudioEffectState (Win11 build 22000+).\n"
-        "  <effect> is a braced GUID, type name, or kebab slug (e.g. noise-suppression).\n");
+        "  <effect> is a braced GUID, type name, or kebab slug (e.g. noise-suppression).\n"
+        "WinAudioCli enhancements set [--capture|--render] [--device <id>] on|off\n"
+        "  enhancements set: write PKEY_AudioEndpoint_Disable_SysFx (0=on, 1=off).\n"
+        "  Must run before any capture/render stream is started in this process.\n"
+        "  ACCESS_DENIED auto-relaunches elevated (UAC); pass --no-elevate to skip.\n");
 }
 
 static const char* stateStr(wa::StreamState st) {
@@ -402,6 +408,108 @@ int wmain(int argc, wchar_t** argv) {
             }
             std::printf("\n");
         }
+        return 0;
+    }
+
+
+    if (cmd == L"enhancements") {
+        if (argc < 3 || std::wcscmp(argv[2], L"set") != 0) {
+            usage();
+            return 1;
+        }
+        DataFlow flow = has(argc, argv, L"--capture") ? DataFlow::Capture : DataFlow::Render;
+        if (has(argc, argv, L"--capture") && has(argc, argv, L"--render")) {
+            std::printf("enhancements set: use only one of --capture / --render\n");
+            return 2;
+        }
+        DeviceId device = arg(argc, argv, L"--device");
+        const bool noElevate = has(argc, argv, L"--no-elevate");
+
+        std::vector<std::wstring> pos;
+        for (int i = 3; i < argc; ++i) {
+            if (argv[i][0] == L'-' && argv[i][1] == L'-') {
+                if (std::wcscmp(argv[i], L"--device") == 0) {
+                    if (i + 1 < argc) ++i;
+                    continue;
+                }
+                if (std::wcscmp(argv[i], L"--capture") == 0 ||
+                    std::wcscmp(argv[i], L"--render") == 0 ||
+                    std::wcscmp(argv[i], L"--no-elevate") == 0) {
+                    continue;
+                }
+                if (std::wcscmp(argv[i], L"--log-file") == 0 ||
+                    std::wcscmp(argv[i], L"--log-level") == 0) {
+                    if (i + 1 < argc) ++i;
+                    continue;
+                }
+                std::printf("enhancements set: unknown flag %ls\n", argv[i]);
+                return 2;
+            }
+            pos.push_back(argv[i]);
+        }
+        if (pos.size() != 1) {
+            std::printf("enhancements set: need on|off\n");
+            return 2;
+        }
+        const std::string stateTok = narrow(pos[0]);
+        const EnhancementsState st = enhancementsStateFromName(stateTok);
+        if (st == EnhancementsState::Unknown) {
+            std::printf("enhancements set: state must be on or off (got %s)\n", stateTok.c_str());
+            return 2;
+        }
+
+        DeviceInfo after{};
+        Result r = setEndpointEnhancements(flow, device, st, &after);
+        if (!r && resultIsAccessDenied(r) && !noElevate && !processIsElevated()) {
+            // Rebuild params for an elevated self-relaunch; --no-elevate prevents a loop.
+            std::wstring params = L"enhancements set --no-elevate ";
+            params += (flow == DataFlow::Capture) ? L"--capture " : L"--render ";
+            if (!device.empty()) {
+                params += L"--device \"";
+                params += device;
+                params += L"\" ";
+            }
+            params += pos[0];
+            wchar_t self[MAX_PATH] = {};
+            const DWORD n = GetModuleFileNameW(nullptr, self, MAX_PATH);
+            if (n == 0 || n >= MAX_PATH) {
+                std::printf("enhancements set failed: %s (and cannot self-elevate)\n",
+                            r.message.c_str());
+                return 2;
+            }
+            std::printf("enhancements set: ACCESS_DENIED — requesting elevation...\n");
+            unsigned long exitCode = 1;
+            Result er = runElevatedAndWait(self, params, &exitCode);
+            if (!er) {
+                std::printf("enhancements set elevation failed: %s\n", er.message.c_str());
+                return 2;
+            }
+            // Child already printed success/failure; refresh for parent display.
+            DeviceEnumerator de;
+            if (device.empty()) {
+                de.defaultDevice(flow, after);
+            } else {
+                std::vector<DeviceInfo> all;
+                if (de.enumerate(flow, all)) {
+                    for (auto& d : all) {
+                        if (d.id == device) { after = std::move(d); break; }
+                    }
+                }
+            }
+            std::printf("enhancements set ok (elevated): %s (%s)\n",
+                        enhancementsStateName(st),
+                        flow == DataFlow::Capture ? "capture" : "render");
+            std::printf("enhancements=%s\n", enhancementsStateName(after.enhancements));
+            return 0;
+        }
+        if (!r) {
+            std::printf("enhancements set failed: %s\n", r.message.c_str());
+            return 2;
+        }
+        std::printf("enhancements set ok: %s (%s)\n",
+                    enhancementsStateName(st),
+                    flow == DataFlow::Capture ? "capture" : "render");
+        std::printf("enhancements=%s\n", enhancementsStateName(after.enhancements));
         return 0;
     }
 

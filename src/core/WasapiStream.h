@@ -97,6 +97,7 @@ private:
     std::condition_variable readyCv_;
     bool                    ready_ = false;
     Result                  startResult_ = Result::Ok();
+    bool                    countedInGate_ = false; // EndpointEnhancements stream gate
 };
 
 class WasapiCaptureStream : public WasapiStream {

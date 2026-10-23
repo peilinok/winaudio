@@ -25,10 +25,12 @@ add_library(WinAudioCore STATIC
     EndpointGraphReader.cpp
     SharedProbe.cpp
     AudioEffects.cpp
+    EndpointEnhancements.cpp
+    Elevate.cpp
     EtwInitialize.cpp
     HookedCall.cpp
     OnDemandAttach.cpp
 )
 target_include_directories(WinAudioCore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(WinAudioCore PUBLIC ole32 oleaut32 mmdevapi tdh advapi32 spdlog)
+target_link_libraries(WinAudioCore PUBLIC ole32 oleaut32 mmdevapi tdh advapi32 shell32 spdlog)
 wa_set_project_warnings(WinAudioCore)

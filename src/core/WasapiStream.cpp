@@ -6,6 +6,7 @@
 #include <cstring>
 #include "Log.h"
 #include "AudioFormatStr.h"
+#include "EndpointEnhancements.h"
 
 namespace wa {
 
@@ -142,7 +143,14 @@ Result WasapiStream::start() {
         readyCv_.wait(lk, [this] { return ready_; });
         r = startResult_;
     }
-    if (!r) stop();
+    if (!r) {
+        stop();
+        return r;
+    }
+    if (!countedInGate_) {
+        noteAppStreamStarted();
+        countedInGate_ = true;
+    }
     return r;
 }
 
@@ -150,6 +158,10 @@ void WasapiStream::stop() {
     running_.store(false);
     if (hEvent_) SetEvent(static_cast<HANDLE>(hEvent_));
     if (thread_.joinable()) thread_.join();
+    if (countedInGate_) {
+        noteAppStreamStopped();
+        countedInGate_ = false;
+    }
 }
 
 void WasapiStream::close() {
@@ -593,3 +605,4 @@ void WasapiSilentRenderStream::runLoop() {
 }
 
 } // namespace wa
+
