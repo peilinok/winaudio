@@ -88,7 +88,7 @@ The **PID** input and the **Exclude** checkbox (unchecked by default) belong to 
 
 ### Pipeline (Live session API monitor)
 
-Pick a Live session, **Attach** to inject `WinAudioHook.dll` (same bitness), and watch Core Audio / WASAPI COM calls with parameters and HRESULT in the Call log. **Detach** stops capture (quiet + unmap) without needing a process restart. Optional **Record calls** / **Save calls** writes JSONL under `%LOCALAPPDATA%\\WinAudio\\pipeline-calls`. Pump GetBuffer/ReleaseBuffer metadata stays opt-in. Not a full API Monitor: closed COM set only, no stack walks, no cross-bitness inject.
+Type a **PID** (or select a Live session to fill it) and **Attach** to inject `WinAudioHook.dll` (same bitness) - no Live session is required. Watch Core Audio / WASAPI COM calls with parameters and HRESULT in the Call log. Hook status and the line under the PID box show Attached / Failed / Detached for that PID even when it is not in the list. **Detach** stops capture (quiet + unmap) without needing a process restart. Optional **Record calls** / **Save calls** writes JSONL under `%LOCALAPPDATA%\\WinAudio\\pipeline-calls`. Pump GetBuffer/ReleaseBuffer metadata stays opt-in. Not a full API Monitor: closed COM set only, no stack walks, no cross-bitness inject.
 
 
 ## CLI use
