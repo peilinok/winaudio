@@ -1253,293 +1253,304 @@ void AppUi::drawPipelinePage() {
 
     const float logH = logRegionHeight();
     const float availY = ImGui::GetContentRegionAvail().y;
-    const float topHeight = std::max(120.0f, availY - logH - ImGui::GetStyle().ItemSpacing.y);
+    const float gap = ImGui::GetStyle().ItemSpacing.y;
+    const float contentH = std::max(120.0f, availY - logH - gap);
 
-    ImGui::BeginChild("pipelineTop", ImVec2(0, topHeight), false);
-    const float availX = ImGui::GetContentRegionAvail().x;
-    float leftW = std::clamp(availX * 0.40f, 520.f, 720.f);
-    if (availX < 980.f) leftW = std::max(420.f, availX * 0.42f);
-    ImGui::BeginChild("pipelineLeft", ImVec2(leftW, 0), true);
-    ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kPipelineSessions));
-    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineRefresh)))
-        refreshPipelineSessions();
-    ImGui::SameLine();
-    const bool canProbe = pipelineSelected_ >= 0 && !pipelineProbing_;
-    if (!canProbe) ImGui::BeginDisabled();
-    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineProbe)))
-        runPipelineProbe();
-    if (!canProbe) ImGui::EndDisabled();
-    ImGui::SameLine();
-    ImGui::AlignTextToFramePadding();
-    ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kApplicationLoopbackPidLabel));
-    ImGui::SameLine();
-    ImGui::SetNextItemWidth(88.0f);
-    ImGui::InputText("##pipelineAttachPid", pipelineAttachPid_, sizeof(pipelineAttachPid_));
-    ImGui::SameLine();
-    uint32_t boxPid = 0;
-    const bool boxPidOk = wa::pipeline_attach_ui::parseAttachPid(pipelineAttachPid_, boxPid);
-    const bool canAttach =
-        wa::pipeline_attach_ui::canAttach(boxPidOk ? boxPid : 0u, pipelineAttach_.attached());
-    if (!canAttach) ImGui::BeginDisabled();
-    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineAttach)))
-        runPipelineAttach();
-    if (!canAttach) ImGui::EndDisabled();
-    ImGui::SameLine();
-    const bool canDetach = pipelineAttach_.attached() || pipelineAttach_.pid() != 0 ||
-                           !pipelineAttachSessionKey_.empty() || pipelineAttachFailPid_ != 0 ||
-                           !pipelineAttachBanner_.empty();
-    if (!canDetach) ImGui::BeginDisabled();
-    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineDetach)))
-        runPipelineDetach();
-    if (!canDetach) ImGui::EndDisabled();
-    ImGui::SameLine();
-    if (ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kPipelineShowSelf), &pipelineShowSelf_))
-        refreshPipelineSessions();
-    const wa::EtwWatchStatus etwStatus = pipelineEtw_.status();
-    if (etwStatus == wa::EtwWatchStatus::Unavailable) {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.90f, 0.55f, 0.55f, 1.f));
-        ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineEtwUnavailable));
-        ImGui::PopStyleColor();
-    } else if (etwStatus == wa::EtwWatchStatus::Listening) {
-        ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineEtwListening));
-    }
-    if (ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kPipelinePump), &pipelinePump_)) {
-        if (pipelineAttach_.attached())
-            pipelineAttach_.setPumpEnabled(pipelinePump_);
-    }
-    ImGui::SameLine();
-    if (ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kPipelineRecord), &pipelineRecord_)) {
-        pipelineCallStore_.setRecording(pipelineRecord_);
-        if (pipelineRecord_) {
-            pipelineCallStore_.clear();
-            if (!pipelineCalls_.empty()) pipelineCallStore_.append(pipelineCalls_);
-        }
-    }
-    ImGui::SameLine();
-    const bool canSave = pipelineCallStore_.size() > 0 || !pipelineCalls_.empty();
-    if (!canSave) ImGui::BeginDisabled();
-    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineSaveCalls)))
-        savePipelineCallLog();
-    if (!canSave) ImGui::EndDisabled();
-    if (pipelineRecord_)
-        ImGui::Text("recording: %zu", pipelineCallStore_.size());
+    // Three full-width rows: sessions/controls | Call Log (primary) | graph.
+    ImGui::BeginChild("pipelineContent", ImVec2(0, contentH), false);
     {
-        uint32_t statusPid = 0;
-        wa::pipeline_attach_ui::parseAttachPid(pipelineAttachPid_, statusPid);
-        const wa::PipelineAttachUiState boxSt = wa::pipeline_attach_ui::statusForPid(
-            statusPid, pipelineAttach_.attached(), pipelineAttach_.pid(), pipelineAttachFailPid_,
-            !pipelineAttachBanner_.empty());
-        if (boxSt == wa::PipelineAttachUiState::Attached) {
-            ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineAttached));
-        } else if (boxSt == wa::PipelineAttachUiState::Failed || !pipelineAttachBanner_.empty()) {
+        const float rowAvail = ImGui::GetContentRegionAvail().y;
+        float topRowH = std::clamp(rowAvail * 0.30f, 180.0f, 280.0f);
+        float bottomRowH = std::clamp(rowAvail * 0.22f, 110.0f, 200.0f);
+        float midRowH = rowAvail - topRowH - bottomRowH - gap * 2.0f;
+        if (midRowH < 160.0f) {
+            const float deficit = 160.0f - midRowH;
+            const float takeTop = std::min(deficit * 0.55f, std::max(0.0f, topRowH - 160.0f));
+            const float takeBot = std::min(deficit - takeTop, std::max(0.0f, bottomRowH - 100.0f));
+            topRowH -= takeTop;
+            bottomRowH -= takeBot;
+            midRowH = rowAvail - topRowH - bottomRowH - gap * 2.0f;
+            midRowH = std::max(120.0f, midRowH);
+        }
+
+        ImGui::BeginChild("pipelineTop", ImVec2(0, topRowH), true);
+        ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kPipelineSessions));
+        if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineRefresh)))
+            refreshPipelineSessions();
+        ImGui::SameLine();
+        const bool canProbe = pipelineSelected_ >= 0 && !pipelineProbing_;
+        if (!canProbe) ImGui::BeginDisabled();
+        if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineProbe)))
+            runPipelineProbe();
+        if (!canProbe) ImGui::EndDisabled();
+        ImGui::SameLine();
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kApplicationLoopbackPidLabel));
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(88.0f);
+        ImGui::InputText("##pipelineAttachPid", pipelineAttachPid_, sizeof(pipelineAttachPid_));
+        ImGui::SameLine();
+        uint32_t boxPid = 0;
+        const bool boxPidOk = wa::pipeline_attach_ui::parseAttachPid(pipelineAttachPid_, boxPid);
+        const bool canAttach =
+            wa::pipeline_attach_ui::canAttach(boxPidOk ? boxPid : 0u, pipelineAttach_.attached());
+        if (!canAttach) ImGui::BeginDisabled();
+        if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineAttach)))
+            runPipelineAttach();
+        if (!canAttach) ImGui::EndDisabled();
+        ImGui::SameLine();
+        const bool canDetach = pipelineAttach_.attached() || pipelineAttach_.pid() != 0 ||
+                               !pipelineAttachSessionKey_.empty() || pipelineAttachFailPid_ != 0 ||
+                               !pipelineAttachBanner_.empty();
+        if (!canDetach) ImGui::BeginDisabled();
+        if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineDetach)))
+            runPipelineDetach();
+        if (!canDetach) ImGui::EndDisabled();
+        ImGui::SameLine();
+        if (ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kPipelineShowSelf), &pipelineShowSelf_))
+            refreshPipelineSessions();
+        const wa::EtwWatchStatus etwStatus = pipelineEtw_.status();
+        if (etwStatus == wa::EtwWatchStatus::Unavailable) {
             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.90f, 0.55f, 0.55f, 1.f));
-            if (boxSt == wa::PipelineAttachUiState::Failed)
-                ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineAttachFailed));
-            if (!pipelineAttachBanner_.empty())
-                ImGui::TextWrapped("%s", pipelineAttachBanner_.c_str());
+            ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineEtwUnavailable));
             ImGui::PopStyleColor();
-        } else if (statusPid != 0) {
-            ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineAttachDetached));
+        } else if (etwStatus == wa::EtwWatchStatus::Listening) {
+            ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineEtwListening));
         }
-    }
-
-    if (pipelineSessions_.empty()) {
-        ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineEmpty));
-    } else if (ImGui::BeginTable("pipelineSessions", 8,
-                                 ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
-                                     ImGuiTableFlags_ScrollY | ImGuiTableFlags_ScrollX |
-                                     ImGuiTableFlags_Resizable | ImGuiTableFlags_SizingFixedFit,
-                                 ImVec2(0, ImGui::GetContentRegionAvail().y))) {
-        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColFlow),
-                                ImGuiTableColumnFlags_WidthFixed, 70.f);
-        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColProcess),
-                                ImGuiTableColumnFlags_WidthFixed, 180.f);
-        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kApplicationLoopbackPidLabel),
-                                ImGuiTableColumnFlags_WidthFixed, 64.f);
-        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColDevice),
-                                ImGuiTableColumnFlags_WidthFixed, 240.f);
-        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColVol),
-                                ImGuiTableColumnFlags_WidthFixed, 48.f);
-        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColMute),
-                                ImGuiTableColumnFlags_WidthFixed, 48.f);
-        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColState),
-                                ImGuiTableColumnFlags_WidthFixed, 72.f);
-        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColAttach),
-                                ImGuiTableColumnFlags_WidthFixed, 72.f);
-        ImGui::TableHeadersRow();
-        for (int i = 0; i < (int)pipelineSessions_.size(); ++i) {
-            const auto& s = pipelineSessions_[(size_t)i];
-            const std::string tip = wa::ui_text::formatLiveSessionTooltip(s);
-            ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0);
-            const bool selected = (i == pipelineSelected_);
-            char label[64];
-            std::snprintf(label, sizeof(label), "%s###ps%d",
-                          s.flow == wa::PipelineFlow::Capture ? wa::ui_text::get(wa::ui_text::kPipelineFlowCapture)
-                                                             : wa::ui_text::get(wa::ui_text::kPipelineFlowRender),
-                          i);
-            if (ImGui::Selectable(label, selected, ImGuiSelectableFlags_SpanAllColumns)) {
-                if (pipelineSelected_ != i) {
-                    pipelineProbes_.clear();
-                    if (pipelineAttach_.pid() != 0 && pipelineAttach_.pid() != s.processId) {
-                        if (!pipelineAttachSessionKey_.empty()) {
-                            pipelineAttachUi_[pipelineAttachSessionKey_] =
-                                wa::PipelineAttachUiState::Detached;
-                            pipelineAttachFailBanner_.erase(pipelineAttachSessionKey_);
-                        }
-                        pipelineAttach_.setPumpEnabled(false);
-                        pipelineAttach_.setCaptureEnabled(false);
-                        pipelineAttach_.stop();
-                        pipelineCalls_.clear();
-                        pipelineAttachBanner_.clear();
-                        pipelineAttachFailPid_ = 0;
-                        pipelineAttachSessionKey_.clear();
-                    }
-                }
-                pipelineSelected_ = i;
-                wa::pipeline_attach_ui::copyLiveSessionPidToBuffer(
-                    pipelineSessions_, i, pipelineAttachPid_, sizeof(pipelineAttachPid_));
-                rebuildPipelineGraph();
+        if (ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kPipelinePump), &pipelinePump_)) {
+            if (pipelineAttach_.attached())
+                pipelineAttach_.setPumpEnabled(pipelinePump_);
+        }
+        ImGui::SameLine();
+        if (ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kPipelineRecord), &pipelineRecord_)) {
+            pipelineCallStore_.setRecording(pipelineRecord_);
+            if (pipelineRecord_) {
+                pipelineCallStore_.clear();
+                if (!pipelineCalls_.empty()) pipelineCallStore_.append(pipelineCalls_);
             }
-            ImGui::SetItemTooltip("%s", tip.c_str());
-            ImGui::TableSetColumnIndex(1);
-            ImGui::TextUnformatted(s.processName.c_str());
-            ImGui::SetItemTooltip("%s", tip.c_str());
-            ImGui::TableSetColumnIndex(2);
-            ImGui::Text("%u", s.processId);
-            ImGui::SetItemTooltip("%s", tip.c_str());
-            ImGui::TableSetColumnIndex(3);
-            ImGui::TextUnformatted(s.deviceName.c_str());
-            ImGui::SetItemTooltip("%s", tip.c_str());
-            ImGui::TableSetColumnIndex(4);
-            ImGui::Text("%.2f", static_cast<double>(s.sessionVolume));
-            ImGui::SetItemTooltip("%s", tip.c_str());
-            ImGui::TableSetColumnIndex(5);
-            ImGui::TextUnformatted(s.sessionMute ? wa::ui_text::get(wa::ui_text::kPipelineMuteYes)
-                                                 : wa::ui_text::get(wa::ui_text::kPipelineMuteNo));
-            ImGui::SetItemTooltip("%s", tip.c_str());
-            ImGui::TableSetColumnIndex(6);
-            ImGui::TextUnformatted(s.state.c_str());
-            ImGui::SetItemTooltip("%s", tip.c_str());
-            ImGui::TableSetColumnIndex(7);
-            const wa::PipelineAttachUiState st = pipelineAttachUiFor(s);
-            const char* stText = wa::ui_text::get(wa::ui_text::kPipelineAttachDetached);
-            if (st == wa::PipelineAttachUiState::Attached)
-                stText = wa::ui_text::get(wa::ui_text::kPipelineAttached);
-            else if (st == wa::PipelineAttachUiState::Failed)
-                stText = wa::ui_text::get(wa::ui_text::kPipelineAttachFailed);
-            ImGui::TextUnformatted(stText);
-            ImGui::SetItemTooltip("%s", tip.c_str());
         }
-        ImGui::EndTable();
-    }
-    ImGui::EndChild();
-
-    ImGui::SameLine();
-    const float rest = ImGui::GetContentRegionAvail().x;
-    const float graphW = std::max(240.0f, rest * 0.55f);
-    ImGui::BeginChild("pipelineGraph", ImVec2(graphW, 0), true);
-    ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kPipelineGraph));
-    if (pipelineSelected_ < 0) {
-        ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineSelectHint));
-    } else {
-        for (const auto& n : pipelineNodes_) {
-            ImGui::PushStyleColor(ImGuiCol_Text, kindColor(n.kind));
-            ImGui::Text("%s [%s]", n.title.c_str(), wa::observationKindName(n.kind));
-            ImGui::PopStyleColor();
-            for (const auto& p : n.params) {
-                ImGui::PushStyleColor(ImGuiCol_Text, kindColor(p.kind));
-                ImGui::BulletText("%s: %s [%s]", p.key.c_str(), p.value.c_str(),
-                                  wa::observationKindName(p.kind));
+        ImGui::SameLine();
+        const bool canSave = pipelineCallStore_.size() > 0 || !pipelineCalls_.empty();
+        if (!canSave) ImGui::BeginDisabled();
+        if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineSaveCalls)))
+            savePipelineCallLog();
+        if (!canSave) ImGui::EndDisabled();
+        if (pipelineRecord_)
+            ImGui::Text("recording: %zu", pipelineCallStore_.size());
+        {
+            uint32_t statusPid = 0;
+            wa::pipeline_attach_ui::parseAttachPid(pipelineAttachPid_, statusPid);
+            const wa::PipelineAttachUiState boxSt = wa::pipeline_attach_ui::statusForPid(
+                statusPid, pipelineAttach_.attached(), pipelineAttach_.pid(), pipelineAttachFailPid_,
+                !pipelineAttachBanner_.empty());
+            if (boxSt == wa::PipelineAttachUiState::Attached) {
+                ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineAttached));
+            } else if (boxSt == wa::PipelineAttachUiState::Failed || !pipelineAttachBanner_.empty()) {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.90f, 0.55f, 0.55f, 1.f));
+                if (boxSt == wa::PipelineAttachUiState::Failed)
+                    ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineAttachFailed));
+                if (!pipelineAttachBanner_.empty())
+                    ImGui::TextWrapped("%s", pipelineAttachBanner_.c_str());
                 ImGui::PopStyleColor();
+            } else if (statusPid != 0) {
+                ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineAttachDetached));
             }
-            ImGui::Spacing();
         }
-    }
-    ImGui::EndChild();
 
-    ImGui::SameLine();
-    ImGui::BeginChild("pipelineCallLog", ImVec2(0, 0), true);
-    ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kPipelineCallLog));
-    std::vector<wa::HookedCall> callSrc = pipelineCalls_;
-    if (pipelinePump_ && pipelineAttach_.attached()) {
-        auto pump = pipelineAttach_.pumpRing();
-        callSrc.insert(callSrc.end(), pump.begin(), pump.end());
-        ImGui::Text("%s: %u", wa::ui_text::get(wa::ui_text::kPipelineXruns), pipelineAttach_.pumpXruns());
-    }
-    const auto callView = wa::shapeCallLog(callSrc, pipelinePump_);
-    const auto& callLog = callView.entries;
-    if (callLog.empty()) {
-        ImGui::TextWrapped("%s", wa::ui_text::pipelineCallLogEmptyText(pipelineAttach_.attached(),
-                                                                      pipelinePump_));
-    } else if (ImGui::BeginTable("pipelineCalls", 5,
-                                 ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
-                                     ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp)) {
-        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColIface));
-        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColMethod));
-        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColArgs));
-        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColHr), ImGuiTableColumnFlags_WidthFixed, 96.f);
-        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColStream),
-                                ImGuiTableColumnFlags_WidthFixed, 70.f);
-        ImGui::TableHeadersRow();
-        for (size_t row = 0; row < callLog.size(); ++row) {
-            const auto& c = callLog[row];
-            ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0);
-            ImGui::TextUnformatted(c.iface.c_str());
-            ImGui::TableSetColumnIndex(1);
-            const bool hasParams = !c.parameters.empty();
-            bool open = false;
-            if (hasParams) {
-                ImGui::PushID(static_cast<int>(row));
-                open = ImGui::TreeNodeEx("method", ImGuiTreeNodeFlags_SpanAvailWidth |
-                                                       ImGuiTreeNodeFlags_NoTreePushOnOpen,
-                                         "%s", c.method.c_str());
-                ImGui::PopID();
-            } else {
-                ImGui::TextUnformatted(c.method.c_str());
-            }
-            ImGui::TableSetColumnIndex(2);
-            ImGui::TextUnformatted(c.args.c_str());
-            ImGui::TableSetColumnIndex(3);
-            ImGui::TextUnformatted(wa::CallLogStore::formatHresult(c.hresult).c_str());
-            ImGui::TableSetColumnIndex(4);
-            ImGui::Text("%u", c.streamId);
-            if (open && hasParams) {
+        if (pipelineSessions_.empty()) {
+            ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineEmpty));
+        } else if (ImGui::BeginTable("pipelineSessions", 8,
+                                     ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
+                                         ImGuiTableFlags_ScrollY | ImGuiTableFlags_ScrollX |
+                                         ImGuiTableFlags_Resizable | ImGuiTableFlags_SizingFixedFit,
+                                     ImVec2(0, ImGui::GetContentRegionAvail().y))) {
+            ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColFlow),
+                                    ImGuiTableColumnFlags_WidthFixed, 70.f);
+            ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColProcess),
+                                    ImGuiTableColumnFlags_WidthFixed, 180.f);
+            ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kApplicationLoopbackPidLabel),
+                                    ImGuiTableColumnFlags_WidthFixed, 64.f);
+            ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColDevice),
+                                    ImGuiTableColumnFlags_WidthFixed, 240.f);
+            ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColVol),
+                                    ImGuiTableColumnFlags_WidthFixed, 48.f);
+            ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColMute),
+                                    ImGuiTableColumnFlags_WidthFixed, 48.f);
+            ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColState),
+                                    ImGuiTableColumnFlags_WidthFixed, 72.f);
+            ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineColAttach),
+                                    ImGuiTableColumnFlags_WidthFixed, 72.f);
+            ImGui::TableHeadersRow();
+            for (int i = 0; i < (int)pipelineSessions_.size(); ++i) {
+                const auto& s = pipelineSessions_[(size_t)i];
+                const std::string tip = wa::ui_text::formatLiveSessionTooltip(s);
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
-                ImGui::Indent(12.f);
-                if (ImGui::BeginTable("callParams", 4,
-                                      ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
-                                          ImGuiTableFlags_SizingStretchProp)) {
-                    ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColType));
-                    ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColName));
-                    ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColPre));
-                    ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColPost));
-                    ImGui::TableHeadersRow();
-                    for (const auto& a : c.parameters) {
-                        ImGui::TableNextRow();
-                        ImGui::TableSetColumnIndex(0);
-                        ImGui::TextUnformatted(a.type.c_str());
-                        ImGui::TableSetColumnIndex(1);
-                        if (a.depth > 0) {
-                            ImGui::Text("%*s%s", static_cast<int>(a.depth) * 2, "", a.name.c_str());
-                        } else {
-                            ImGui::TextUnformatted(a.name.c_str());
+                const bool selected = (i == pipelineSelected_);
+                char label[64];
+                std::snprintf(label, sizeof(label), "%s###ps%d",
+                              s.flow == wa::PipelineFlow::Capture ? wa::ui_text::get(wa::ui_text::kPipelineFlowCapture)
+                                                                 : wa::ui_text::get(wa::ui_text::kPipelineFlowRender),
+                              i);
+                if (ImGui::Selectable(label, selected, ImGuiSelectableFlags_SpanAllColumns)) {
+                    if (pipelineSelected_ != i) {
+                        pipelineProbes_.clear();
+                        if (pipelineAttach_.pid() != 0 && pipelineAttach_.pid() != s.processId) {
+                            if (!pipelineAttachSessionKey_.empty()) {
+                                pipelineAttachUi_[pipelineAttachSessionKey_] =
+                                    wa::PipelineAttachUiState::Detached;
+                                pipelineAttachFailBanner_.erase(pipelineAttachSessionKey_);
+                            }
+                            pipelineAttach_.setPumpEnabled(false);
+                            pipelineAttach_.setCaptureEnabled(false);
+                            pipelineAttach_.stop();
+                            pipelineCalls_.clear();
+                            pipelineAttachBanner_.clear();
+                            pipelineAttachFailPid_ = 0;
+                            pipelineAttachSessionKey_.clear();
                         }
-                        ImGui::TableSetColumnIndex(2);
-                        ImGui::TextWrapped("%s", a.pre.c_str());
-                        ImGui::TableSetColumnIndex(3);
-                        ImGui::TextWrapped("%s", a.post.c_str());
                     }
-                    ImGui::EndTable();
+                    pipelineSelected_ = i;
+                    wa::pipeline_attach_ui::copyLiveSessionPidToBuffer(
+                        pipelineSessions_, i, pipelineAttachPid_, sizeof(pipelineAttachPid_));
+                    rebuildPipelineGraph();
                 }
-                ImGui::Unindent(12.f);
+                ImGui::SetItemTooltip("%s", tip.c_str());
+                ImGui::TableSetColumnIndex(1);
+                ImGui::TextUnformatted(s.processName.c_str());
+                ImGui::SetItemTooltip("%s", tip.c_str());
+                ImGui::TableSetColumnIndex(2);
+                ImGui::Text("%u", s.processId);
+                ImGui::SetItemTooltip("%s", tip.c_str());
+                ImGui::TableSetColumnIndex(3);
+                ImGui::TextUnformatted(s.deviceName.c_str());
+                ImGui::SetItemTooltip("%s", tip.c_str());
+                ImGui::TableSetColumnIndex(4);
+                ImGui::Text("%.2f", static_cast<double>(s.sessionVolume));
+                ImGui::SetItemTooltip("%s", tip.c_str());
+                ImGui::TableSetColumnIndex(5);
+                ImGui::TextUnformatted(s.sessionMute ? wa::ui_text::get(wa::ui_text::kPipelineMuteYes)
+                                                     : wa::ui_text::get(wa::ui_text::kPipelineMuteNo));
+                ImGui::SetItemTooltip("%s", tip.c_str());
+                ImGui::TableSetColumnIndex(6);
+                ImGui::TextUnformatted(s.state.c_str());
+                ImGui::SetItemTooltip("%s", tip.c_str());
+                ImGui::TableSetColumnIndex(7);
+                const wa::PipelineAttachUiState st = pipelineAttachUiFor(s);
+                const char* stText = wa::ui_text::get(wa::ui_text::kPipelineAttachDetached);
+                if (st == wa::PipelineAttachUiState::Attached)
+                    stText = wa::ui_text::get(wa::ui_text::kPipelineAttached);
+                else if (st == wa::PipelineAttachUiState::Failed)
+                    stText = wa::ui_text::get(wa::ui_text::kPipelineAttachFailed);
+                ImGui::TextUnformatted(stText);
+                ImGui::SetItemTooltip("%s", tip.c_str());
+            }
+            ImGui::EndTable();
+        }
+        ImGui::EndChild();
+
+        ImGui::BeginChild("pipelineCallLog", ImVec2(0, midRowH), true);
+        ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kPipelineCallLog));
+        std::vector<wa::HookedCall> callSrc = pipelineCalls_;
+        if (pipelinePump_ && pipelineAttach_.attached()) {
+            auto pump = pipelineAttach_.pumpRing();
+            callSrc.insert(callSrc.end(), pump.begin(), pump.end());
+            ImGui::Text("%s: %u", wa::ui_text::get(wa::ui_text::kPipelineXruns), pipelineAttach_.pumpXruns());
+        }
+        const auto callView = wa::shapeCallLog(callSrc, pipelinePump_);
+        const auto& callLog = callView.entries;
+        if (callLog.empty()) {
+            ImGui::TextWrapped("%s", wa::ui_text::pipelineCallLogEmptyText(pipelineAttach_.attached(),
+                                                                          pipelinePump_));
+        } else if (ImGui::BeginTable("pipelineCalls", 5,
+                                     ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
+                                         ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp)) {
+            ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColIface));
+            ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColMethod));
+            ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColArgs));
+            ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColHr), ImGuiTableColumnFlags_WidthFixed, 96.f);
+            ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColStream),
+                                    ImGuiTableColumnFlags_WidthFixed, 70.f);
+            ImGui::TableHeadersRow();
+            for (size_t row = 0; row < callLog.size(); ++row) {
+                const auto& c = callLog[row];
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::TextUnformatted(c.iface.c_str());
+                ImGui::TableSetColumnIndex(1);
+                const bool hasParams = !c.parameters.empty();
+                bool open = false;
+                if (hasParams) {
+                    ImGui::PushID(static_cast<int>(row));
+                    open = ImGui::TreeNodeEx("method", ImGuiTreeNodeFlags_SpanAvailWidth |
+                                                           ImGuiTreeNodeFlags_NoTreePushOnOpen,
+                                             "%s", c.method.c_str());
+                    ImGui::PopID();
+                } else {
+                    ImGui::TextUnformatted(c.method.c_str());
+                }
+                ImGui::TableSetColumnIndex(2);
+                ImGui::TextUnformatted(c.args.c_str());
+                ImGui::TableSetColumnIndex(3);
+                ImGui::TextUnformatted(wa::CallLogStore::formatHresult(c.hresult).c_str());
+                ImGui::TableSetColumnIndex(4);
+                ImGui::Text("%u", c.streamId);
+                if (open && hasParams) {
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::Indent(12.f);
+                    if (ImGui::BeginTable("callParams", 4,
+                                          ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
+                                              ImGuiTableFlags_SizingStretchProp)) {
+                        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColType));
+                        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColName));
+                        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColPre));
+                        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColPost));
+                        ImGui::TableHeadersRow();
+                        for (const auto& a : c.parameters) {
+                            ImGui::TableNextRow();
+                            ImGui::TableSetColumnIndex(0);
+                            ImGui::TextUnformatted(a.type.c_str());
+                            ImGui::TableSetColumnIndex(1);
+                            if (a.depth > 0) {
+                                ImGui::Text("%*s%s", static_cast<int>(a.depth) * 2, "", a.name.c_str());
+                            } else {
+                                ImGui::TextUnformatted(a.name.c_str());
+                            }
+                            ImGui::TableSetColumnIndex(2);
+                            ImGui::TextWrapped("%s", a.pre.c_str());
+                            ImGui::TableSetColumnIndex(3);
+                            ImGui::TextWrapped("%s", a.post.c_str());
+                        }
+                        ImGui::EndTable();
+                    }
+                    ImGui::Unindent(12.f);
+                }
+            }
+            ImGui::EndTable();
+        }
+        ImGui::EndChild();
+
+        ImGui::BeginChild("pipelineGraph", ImVec2(0, 0), true);
+        ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kPipelineGraph));
+        if (pipelineSelected_ < 0) {
+            ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineSelectHint));
+        } else {
+            for (const auto& n : pipelineNodes_) {
+                ImGui::PushStyleColor(ImGuiCol_Text, kindColor(n.kind));
+                ImGui::Text("%s [%s]", n.title.c_str(), wa::observationKindName(n.kind));
+                ImGui::PopStyleColor();
+                for (const auto& p : n.params) {
+                    ImGui::PushStyleColor(ImGuiCol_Text, kindColor(p.kind));
+                    ImGui::BulletText("%s: %s [%s]", p.key.c_str(), p.value.c_str(),
+                                      wa::observationKindName(p.kind));
+                    ImGui::PopStyleColor();
+                }
+                ImGui::Spacing();
             }
         }
-        ImGui::EndTable();
+        ImGui::EndChild();
     }
-    ImGui::EndChild();
     ImGui::EndChild();
 
     drawLogRegion("pipelineLogRegion", "pipelineLog");
