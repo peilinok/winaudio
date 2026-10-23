@@ -114,7 +114,9 @@ WinAudioCli effects set [--capture|--render] [--device <id>] <effect> on|off
 WinAudioCli enhancements set [--capture|--render] [--device <id>] on|off
 ```
 
-向端点属性存储写入 `PKEY_AudioEndpoint_Disable_SysFx`（`on` → 0 / 开启增强，`off` → 1 / 关闭增强），然后重新读取 `DeviceInfo.enhancements`。**必须在本进程启动任何采集/播放流之前设置**（否则报错：`start stream 前才能改`）。写入常需管理员权限；遇到 `ACCESS_DENIED` 时 CLI 会自动提权重新启动（UAC 提示）。`--no-elevate` 可跳过提权（供提权子进程与 GUI 助手使用）。默认 flow 为 render。
+通过未文档化的 `IPolicyConfig` 写入 `PKEY_AudioEndpoint_Disable_SysFx`（`on` → 0 / 开启增强，`off` → 1 / 关闭增强）到 **两处**属性库：特效库（`FxProperties`，与「声音」CPL / Win11 设置里的增强开关一致）以及端点属性库（`IMMDevice::OpenPropertyStore` 可见），然后重新读取 `DeviceInfo.enhancements`（优先读 Fx 库）。**必须在本进程启动任何采集/播放流之前设置**（否则报错：`start stream 前才能改`）。写入常需管理员权限；遇到 `ACCESS_DENIED` 时 CLI 会自动提权重新启动（UAC 提示）。`--no-elevate` 可跳过提权（供提权子进程与 GUI 助手使用）。默认 flow 为 render。
+
+**怎样才能听出差别：** 仅翻转属性不会重建其它进程里已打开的 Shared 流 APO 图（Chrome、播放器等）。声音 CPL 点「应用」通常会触发重建；执行 `enhancements set` 后请停止再开始播放（或重启 WinAudio 流），音频引擎才会按新的 SysFx 状态挂载/卸下 APO。空间音效以及 INF SysFx 以外的 OEM/硬件 DSP 不受此开关影响。
 
 ### caps — 设备能力
 
