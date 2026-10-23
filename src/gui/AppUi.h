@@ -4,6 +4,7 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include "AudioSessionEnumerator.h"
 #include "CaptureTrackList.h"
@@ -22,6 +23,7 @@
 #include "CallLogStore.h"
 #include "PipelineSplit.h"
 #include "OnDemandAttach.h"
+#include "PipelineAttachSet.h"
 #include "PipelineGraph.h"
 #include "SharedProbe.h"
 #include "UserProcessEnumerator.h"
@@ -85,8 +87,10 @@ private:
     void runPipelineProbe();
     void runPipelineAttach();
     void runPipelineDetach();
+    void runPipelineDetachAll();
     void savePipelineCallLog();
     wa::PipelineAttachUiState pipelineAttachUiFor(const wa::LiveSessionView& row) const;
+    std::unordered_set<uint32_t> pipelineAttachedPidSet() const;
     void setPipelineAttachUi(const wa::LiveSessionView& row, wa::PipelineAttachUiState state,
                              const std::string& banner = {});
     void drawMonitorPage();
@@ -220,7 +224,7 @@ private:
     bool pipelineEtwStarted_ = false;
     wa::EndpointSnapshot pipelineEndpoint_;
     wa::EtwInitializeHint pipelineEtwHint_{};
-    wa::OnDemandAttach pipelineAttach_;
+    wa::PipelineAttachSet pipelineAttaches_;
     std::vector<wa::HookedCall> pipelineCalls_;
     int pipelineCallSelected_ = -1;
     char pipelineCallFilter_[128] = "";
@@ -231,13 +235,12 @@ private:
     float pipelineSessionsFrac_ = wa::pipeline_split::kDefaultSessionsFrac;    // Live sessions | graph
     float pipelineCallTableFrac_ = wa::pipeline_split::kDefaultCallTableFrac;  // Call table | Parameters (~4:6)
     float pipelineTopRowFrac_ = wa::pipeline_split::kDefaultTopRowFrac;        // Top row | Call Log
-    std::string pipelineAttachBanner_;
     char pipelineAttachPid_[32] = "";
-    uint32_t pipelineAttachFailPid_ = 0;
+    // Per-PID attach failure message (bitness / debug rights / inject).
+    std::unordered_map<uint32_t, std::string> pipelineAttachFailByPid_;
     bool pipelinePump_ = false;
     bool pipelineRecord_ = false;
     wa::CallLogStore pipelineCallStore_;
-    std::string pipelineAttachSessionKey_;
     std::unordered_map<std::string, wa::PipelineAttachUiState> pipelineAttachUi_;
     std::unordered_map<std::string, std::string> pipelineAttachFailBanner_;
 
