@@ -8,6 +8,7 @@
 #include "ApplicationLoopbackUiModel.h"
 #include "PipelineAttachUiModel.h"
 #include "CallLogFilter.h"
+#include "PipelineSplit.h"
 #include "AppUiText.h"
 #include "CaptureChannelView.h"
 #include "ChartDataPipeline.h"
@@ -1287,20 +1288,17 @@ void AppUi::drawPipelinePage() {
     ImGui::BeginChild("pipelineContent", ImVec2(0, contentH), false);
     {
         const float rowAvail = ImGui::GetContentRegionAvail().y;
-        // Prefer a taller sessions|graph band; Call Log stays readable but shorter.
-        float topRowH = std::clamp(rowAvail * 0.52f, 220.0f, 420.0f);
-        float callRowH = rowAvail - topRowH - gap;
-        if (callRowH < 150.0f) {
-            const float deficit = 150.0f - callRowH;
-            topRowH = std::max(180.0f, topRowH - deficit);
-            callRowH = std::max(120.0f, rowAvail - topRowH - gap);
-        }
+        const float vSplitPx = wa::pipeline_split::kSplitterPx;
+        // Top row | Call Log: draggable vertical split (default ~52% top).
+        const float usableY = (std::max)(1.0f, rowAvail - vSplitPx);
+        float topRowH = wa::pipeline_split::firstPaneSize(usableY, pipelineTopRowFrac_, 180.0f, 120.0f);
 
         ImGui::BeginChild("pipelineTopRow", ImVec2(0, topRowH), false);
         const float availX = ImGui::GetContentRegionAvail().x;
-        // Prefer a wider Live sessions list; keep the graph readable but narrower.
-        float leftW = std::clamp(availX * 0.68f, 560.f, 1200.f);
-        if (availX < 980.f) leftW = std::max(480.f, availX * 0.72f);
+        const float hSplitPx = wa::pipeline_split::kSplitterPx;
+        const float usableX = (std::max)(1.0f, availX - hSplitPx);
+        // Live sessions | graph: draggable; default ~68% sessions.
+        float leftW = wa::pipeline_split::firstPaneSize(usableX, pipelineSessionsFrac_, 280.0f, 180.0f);
         ImGui::BeginChild("pipelineLeft", ImVec2(leftW, 0), true);
         ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kPipelineSessions));
         if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineRefresh)))
@@ -1590,7 +1588,23 @@ void AppUi::drawPipelinePage() {
         }
         ImGui::EndChild();
 
-        ImGui::SameLine();
+        ImGui::SameLine(0.0f, 0.0f);
+        {
+            const float splitH = ImGui::GetContentRegionAvail().y;
+            ImGui::InvisibleButton("##pipelineSessionsGraphSplit",
+                                   ImVec2(hSplitPx, (std::max)(1.0f, splitH)));
+            if (ImGui::IsItemHovered() || ImGui::IsItemActive())
+                ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+            if (ImGui::IsItemActive()) {
+                pipelineSessionsFrac_ = wa::pipeline_split::nudgeFrac(
+                    pipelineSessionsFrac_, ImGui::GetIO().MouseDelta.x, usableX, 0.25f, 0.85f);
+            }
+            const ImVec2 smn = ImGui::GetItemRectMin(), smx = ImGui::GetItemRectMax();
+            ImGui::GetWindowDrawList()->AddLine(
+                ImVec2((smn.x + smx.x) * 0.5f, smn.y), ImVec2((smn.x + smx.x) * 0.5f, smx.y),
+                ImGui::GetColorU32(ImGuiCol_Separator), 1.0f);
+        }
+        ImGui::SameLine(0.0f, 0.0f);
         ImGui::BeginChild("pipelineGraph", ImVec2(0, 0), true);
         ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kPipelineGraph));
         if (pipelineSelected_ < 0) {
@@ -1612,6 +1626,22 @@ void AppUi::drawPipelinePage() {
         ImGui::EndChild();
         ImGui::EndChild();
 
+        {
+            ImGui::InvisibleButton("##pipelineTopCallSplit",
+                                   ImVec2((std::max)(1.0f, ImGui::GetContentRegionAvail().x), vSplitPx));
+            if (ImGui::IsItemHovered() || ImGui::IsItemActive())
+                ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
+            if (ImGui::IsItemActive()) {
+                pipelineTopRowFrac_ = wa::pipeline_split::nudgeFrac(
+                    pipelineTopRowFrac_, ImGui::GetIO().MouseDelta.y, usableY, 0.25f, 0.80f);
+            }
+            const ImVec2 smn = ImGui::GetItemRectMin(), smx = ImGui::GetItemRectMax();
+            ImGui::GetWindowDrawList()->AddLine(
+                ImVec2(smn.x, (smn.y + smx.y) * 0.5f), ImVec2(smx.x, (smn.y + smx.y) * 0.5f),
+                ImGui::GetColorU32(ImGuiCol_Separator), 1.0f);
+        }
+
+        const float callRowH = (std::max)(80.0f, ImGui::GetContentRegionAvail().y);
         ImGui::BeginChild("pipelineCallLog", ImVec2(0, callRowH), true);
         ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kPipelineCallLog));
         std::vector<wa::HookedCall> callSrc = pipelineCalls_;
@@ -1707,11 +1737,12 @@ void AppUi::drawPipelinePage() {
                                                                           pipelinePump_));
         } else {
             const float callAvailX = ImGui::GetContentRegionAvail().x;
-            const float splitGap = ImGui::GetStyle().ItemSpacing.x;
-            // Call list : Parameters ~= 4:6 at any window width (including maximized).
-            const float inner = std::max(1.f, callAvailX - splitGap);
-            const float tableW = inner * 0.40f;
-            const float paramsW = inner - tableW;
+            const float callHSplit = wa::pipeline_split::kSplitterPx;
+            // Call list : Parameters ~= 4:6 default; draggable.
+            const float callUsableX = (std::max)(1.f, callAvailX - callHSplit);
+            const float tableW = wa::pipeline_split::firstPaneSize(
+                callUsableX, pipelineCallTableFrac_, 160.f, 200.f);
+            const float paramsW = callUsableX - tableW;
 
             ImGui::BeginChild("pipelineCallTable", ImVec2(tableW, 0), false);
             if (visible.empty() && anyFilterActive) {
@@ -1756,7 +1787,24 @@ void AppUi::drawPipelinePage() {
             }
             ImGui::EndChild();
 
-            ImGui::SameLine();
+            ImGui::SameLine(0.0f, 0.0f);
+            {
+                const float splitH = ImGui::GetContentRegionAvail().y;
+                ImGui::InvisibleButton("##pipelineCallParamsSplit",
+                                       ImVec2(callHSplit, (std::max)(1.0f, splitH)));
+                if (ImGui::IsItemHovered() || ImGui::IsItemActive())
+                    ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+                if (ImGui::IsItemActive()) {
+                    pipelineCallTableFrac_ = wa::pipeline_split::nudgeFrac(
+                        pipelineCallTableFrac_, ImGui::GetIO().MouseDelta.x, callUsableX, 0.20f,
+                        0.80f);
+                }
+                const ImVec2 smn = ImGui::GetItemRectMin(), smx = ImGui::GetItemRectMax();
+                ImGui::GetWindowDrawList()->AddLine(
+                    ImVec2((smn.x + smx.x) * 0.5f, smn.y), ImVec2((smn.x + smx.x) * 0.5f, smx.y),
+                    ImGui::GetColorU32(ImGuiCol_Separator), 1.0f);
+            }
+            ImGui::SameLine(0.0f, 0.0f);
             ImGui::BeginChild("pipelineCallParams", ImVec2(paramsW, 0), true);
             ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kPipelineCallParams));
             // Dedicated scroll child: table ScrollY without outer_size was clipping rows.

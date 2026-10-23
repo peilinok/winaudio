@@ -20,6 +20,7 @@
 #include "LiveSessionWatch.h"
 #include "MonitorEngine.h"
 #include "CallLogStore.h"
+#include "PipelineSplit.h"
 #include "OnDemandAttach.h"
 #include "PipelineGraph.h"
 #include "SharedProbe.h"
@@ -226,6 +227,10 @@ private:
     char pipelineCallIfaceFilter_[96] = "";  // empty => all ifaces
     bool pipelineCallFailuresOnly_ = false;
     bool pipelineCallScrollToSelected_ = false;
+    // Pipeline draggable split fractions (in-session; defaults match prior fixed layout).
+    float pipelineSessionsFrac_ = wa::pipeline_split::kDefaultSessionsFrac;    // Live sessions | graph
+    float pipelineCallTableFrac_ = wa::pipeline_split::kDefaultCallTableFrac;  // Call table | Parameters (~4:6)
+    float pipelineTopRowFrac_ = wa::pipeline_split::kDefaultTopRowFrac;        // Top row | Call Log
     std::string pipelineAttachBanner_;
     char pipelineAttachPid_[32] = "";
     uint32_t pipelineAttachFailPid_ = 0;
