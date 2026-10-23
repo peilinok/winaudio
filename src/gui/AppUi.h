@@ -207,6 +207,8 @@ private:
     wa::OnDemandAttach pipelineAttach_;
     std::vector<wa::HookedCall> pipelineCalls_;
     std::string pipelineAttachBanner_;
+    char pipelineAttachPid_[32] = "";
+    uint32_t pipelineAttachFailPid_ = 0;
     bool pipelinePump_ = false;
     bool pipelineRecord_ = false;
     wa::CallLogStore pipelineCallStore_;

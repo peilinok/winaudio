@@ -6,6 +6,7 @@
 #include "HeatmapRgba.h"
 #include "WaveEnvelope.h"
 #include "ApplicationLoopbackUiModel.h"
+#include "PipelineAttachUiModel.h"
 #include "AppUiText.h"
 #include "CaptureChannelView.h"
 #include "ChartDataPipeline.h"
@@ -407,16 +408,13 @@ void AppUi::refreshPipelineSessions() {
         pipelineSelected_ = restored.index;
         // Restore miss: stop On-demand attach. A later reappearance stays on-demand.
         if (restored.detach) {
+            // Attach is by PID and may outlive the Live session row (attach before
+            // the process has a session, or after it ends). Keep the hook; only drop
+            // session-key bookkeeping so Hook column falls back to PID match.
             if (!pipelineAttachSessionKey_.empty()) {
-                pipelineAttachUi_[pipelineAttachSessionKey_] = wa::PipelineAttachUiState::Detached;
                 pipelineAttachFailBanner_.erase(pipelineAttachSessionKey_);
+                pipelineAttachSessionKey_.clear();
             }
-            pipelineAttach_.setPumpEnabled(false);
-            pipelineAttach_.setCaptureEnabled(false);
-            pipelineAttach_.stop();
-            pipelineCalls_.clear();
-            pipelineAttachBanner_.clear();
-            pipelineAttachSessionKey_.clear();
         }
     } else {
         pipelineSelected_ = -1;
@@ -498,13 +496,9 @@ void AppUi::runPipelineProbe() {
 }
 
 wa::PipelineAttachUiState AppUi::pipelineAttachUiFor(const wa::LiveSessionView& row) const {
-    const std::string key = wa::liveSessionAttachKey(row);
-    if (pipelineAttach_.attached() && pipelineAttach_.pid() == row.processId &&
-        pipelineAttachSessionKey_ == key)
-        return wa::PipelineAttachUiState::Attached;
-    const auto it = pipelineAttachUi_.find(key);
-    if (it != pipelineAttachUi_.end()) return it->second;
-    return wa::PipelineAttachUiState::Detached;
+    return wa::pipeline_attach_ui::hookStatusForRow(
+        row, pipelineAttach_.attached(), pipelineAttach_.pid(), pipelineAttachFailPid_,
+        !pipelineAttachBanner_.empty(), pipelineAttachUi_);
 }
 
 void AppUi::setPipelineAttachUi(const wa::LiveSessionView& row, wa::PipelineAttachUiState state,
@@ -518,36 +512,58 @@ void AppUi::setPipelineAttachUi(const wa::LiveSessionView& row, wa::PipelineAtta
 }
 
 void AppUi::runPipelineAttach() {
-    if (pipelineSelected_ < 0 || pipelineSelected_ >= (int)pipelineSessions_.size())
+    uint32_t pid = 0;
+    if (!wa::pipeline_attach_ui::parseAttachPid(pipelineAttachPid_, pid)) {
+        pipelineAttachBanner_ = wa::attachBlockText(wa::AttachBlock::PidZero);
+        pipelineAttachFailPid_ = 0;
+        pipelineAttachSessionKey_.clear();
+        logLines_.push_back("pipeline attach failed: " + pipelineAttachBanner_);
+        applyPipelineJoin();
         return;
-    const auto& session = pipelineSessions_[(size_t)pipelineSelected_];
-    const uint32_t pid = session.processId;
+    }
+    std::string deviceId;
+    wa::PipelineFlow flow = wa::PipelineFlow::Capture;
+    std::string sessionKey;
+    const bool haveSession = wa::pipeline_attach_ui::sessionHintForPid(
+        pipelineSessions_, pipelineSelected_, pid, deviceId, flow, sessionKey);
     pipelineCalls_.clear();
-    wa::Result r = pipelineAttach_.start(pid, session.deviceId, session.flow);
+    wa::Result r = pipelineAttach_.start(pid, deviceId, flow);
     if (!r) {
         pipelineAttachBanner_ = r.message;
-        setPipelineAttachUi(session, wa::PipelineAttachUiState::Failed, r.message);
+        pipelineAttachFailPid_ = pid;
+        if (haveSession) {
+            const auto& session = pipelineSessions_[(size_t)pipelineSelected_];
+            setPipelineAttachUi(session, wa::PipelineAttachUiState::Failed, r.message);
+        }
         pipelineAttachSessionKey_.clear();
         logLines_.push_back("pipeline attach failed: " + r.message);
         applyPipelineJoin();
         return;
     }
     pipelineAttachBanner_.clear();
-    pipelineAttachSessionKey_ = wa::liveSessionAttachKey(session);
-    setPipelineAttachUi(session, wa::PipelineAttachUiState::Attached);
+    pipelineAttachFailPid_ = 0;
+    pipelineAttachSessionKey_ = sessionKey;
+    if (haveSession) {
+        const auto& session = pipelineSessions_[(size_t)pipelineSelected_];
+        setPipelineAttachUi(session, wa::PipelineAttachUiState::Attached);
+    }
     pipelineAttach_.setPumpEnabled(pipelinePump_);
     logLines_.push_back("pipeline attached pid=" + std::to_string(pid));
     applyPipelineJoin();
 }
 
 void AppUi::runPipelineDetach() {
-    if (pipelineAttach_.pid() == 0 && pipelineAttachBanner_.empty() && pipelineAttachSessionKey_.empty())
+    uint32_t boxPid = 0;
+    wa::pipeline_attach_ui::parseAttachPid(pipelineAttachPid_, boxPid);
+    if (pipelineAttach_.pid() == 0 && pipelineAttachBanner_.empty() &&
+        pipelineAttachSessionKey_.empty() && pipelineAttachFailPid_ == 0 && boxPid == 0)
         return;
-    uint32_t pid = pipelineAttach_.pid();
+    uint32_t pid = pipelineAttach_.pid() != 0 ? pipelineAttach_.pid()
+                  : (pipelineAttachFailPid_ != 0 ? pipelineAttachFailPid_ : boxPid);
     if (pipelineSelected_ >= 0 && pipelineSelected_ < (int)pipelineSessions_.size()) {
         const auto& session = pipelineSessions_[(size_t)pipelineSelected_];
         setPipelineAttachUi(session, wa::PipelineAttachUiState::Detached);
-        pid = session.processId;
+        if (pid == 0) pid = session.processId;
     } else if (!pipelineAttachSessionKey_.empty()) {
         pipelineAttachUi_[pipelineAttachSessionKey_] = wa::PipelineAttachUiState::Detached;
         pipelineAttachFailBanner_.erase(pipelineAttachSessionKey_);
@@ -556,6 +572,7 @@ void AppUi::runPipelineDetach() {
     pipelineAttach_.setCaptureEnabled(false);
     pipelineAttach_.stop();
     pipelineAttachBanner_.clear();
+    pipelineAttachFailPid_ = 0;
     pipelineAttachSessionKey_.clear();
     logLines_.push_back("pipeline detached pid=" + std::to_string(pid));
     applyPipelineJoin();
@@ -1253,14 +1270,24 @@ void AppUi::drawPipelinePage() {
         runPipelineProbe();
     if (!canProbe) ImGui::EndDisabled();
     ImGui::SameLine();
-    const bool canAttach = pipelineSelected_ >= 0 && !pipelineAttach_.attached();
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kApplicationLoopbackPidLabel));
+    ImGui::SameLine();
+    ImGui::SetNextItemWidth(88.0f);
+    ImGui::InputText("##pipelineAttachPid", pipelineAttachPid_, sizeof(pipelineAttachPid_));
+    ImGui::SameLine();
+    uint32_t boxPid = 0;
+    const bool boxPidOk = wa::pipeline_attach_ui::parseAttachPid(pipelineAttachPid_, boxPid);
+    const bool canAttach =
+        wa::pipeline_attach_ui::canAttach(boxPidOk ? boxPid : 0u, pipelineAttach_.attached());
     if (!canAttach) ImGui::BeginDisabled();
     if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineAttach)))
         runPipelineAttach();
     if (!canAttach) ImGui::EndDisabled();
     ImGui::SameLine();
     const bool canDetach = pipelineAttach_.attached() || pipelineAttach_.pid() != 0 ||
-                           !pipelineAttachSessionKey_.empty();
+                           !pipelineAttachSessionKey_.empty() || pipelineAttachFailPid_ != 0 ||
+                           !pipelineAttachBanner_.empty();
     if (!canDetach) ImGui::BeginDisabled();
     if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineDetach)))
         runPipelineDetach();
@@ -1296,12 +1323,24 @@ void AppUi::drawPipelinePage() {
     if (!canSave) ImGui::EndDisabled();
     if (pipelineRecord_)
         ImGui::Text("recording: %zu", pipelineCallStore_.size());
-    if (pipelineAttach_.attached()) {
-        ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineAttached));
-    } else if (!pipelineAttachBanner_.empty()) {
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.90f, 0.55f, 0.55f, 1.f));
-        ImGui::TextWrapped("%s", pipelineAttachBanner_.c_str());
-        ImGui::PopStyleColor();
+    {
+        uint32_t statusPid = 0;
+        wa::pipeline_attach_ui::parseAttachPid(pipelineAttachPid_, statusPid);
+        const wa::PipelineAttachUiState boxSt = wa::pipeline_attach_ui::statusForPid(
+            statusPid, pipelineAttach_.attached(), pipelineAttach_.pid(), pipelineAttachFailPid_,
+            !pipelineAttachBanner_.empty());
+        if (boxSt == wa::PipelineAttachUiState::Attached) {
+            ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineAttached));
+        } else if (boxSt == wa::PipelineAttachUiState::Failed || !pipelineAttachBanner_.empty()) {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.90f, 0.55f, 0.55f, 1.f));
+            if (boxSt == wa::PipelineAttachUiState::Failed)
+                ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineAttachFailed));
+            if (!pipelineAttachBanner_.empty())
+                ImGui::TextWrapped("%s", pipelineAttachBanner_.c_str());
+            ImGui::PopStyleColor();
+        } else if (statusPid != 0) {
+            ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineAttachDetached));
+        }
     }
 
     if (pipelineSessions_.empty()) {
@@ -1353,10 +1392,13 @@ void AppUi::drawPipelinePage() {
                         pipelineAttach_.stop();
                         pipelineCalls_.clear();
                         pipelineAttachBanner_.clear();
+                        pipelineAttachFailPid_ = 0;
                         pipelineAttachSessionKey_.clear();
                     }
                 }
                 pipelineSelected_ = i;
+                wa::pipeline_attach_ui::copyLiveSessionPidToBuffer(
+                    pipelineSessions_, i, pipelineAttachPid_, sizeof(pipelineAttachPid_));
                 rebuildPipelineGraph();
             }
             ImGui::SetItemTooltip("%s", tip.c_str());
