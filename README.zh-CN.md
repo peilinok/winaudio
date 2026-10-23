@@ -88,7 +88,7 @@ cd winaudio
 
 ## CLI 使用
 
-`WinAudioCli.exe <子命令> [参数]`，子命令：`list` / `caps` / `probe` / `capture` / `play` / `monitor`。
+`WinAudioCli.exe <子命令> [参数]`，子命令：`list` / `caps` / `probe` / `capture` / `play` / `monitor` / `effects`。
 
 ### list — 枚举设备
 
@@ -99,6 +99,14 @@ WinAudioCli list [--render|--capture] [--effects]
 默认列出 render 设备。`*` 标记系统默认设备，同时打印混音格式、设备 id（供 `--device` / `--cap` 使用），以及端点增强状态（`enhancements=on|off|unknown`，若有则附带 APO CLSID 槽位）。
 
 `--effects` 会再对每个设备短暂打开 Shared 流（Initialize，**不 Start**），通过 `IAudioEffectsManager` 打印流级效果（`类型:on|off[+set]`）。需要 **Windows 11 build 22000+**；在 Windows 10 或接口不可用时输出 `streamEffects=(none)`。不加 `--effects` 的枚举不会打开音频流。
+
+### effects set — 配置流效果
+
+```powershell
+WinAudioCli effects set [--capture|--render] [--device <id>] <effect> on|off
+```
+
+短暂打开 Shared 流（Initialize，**不 Start**），在 `canSetState` 为 true 时调用 `IAudioEffectsManager::SetAudioEffectState`，然后重新列出效果。`<effect>` 可以是带花括号的 GUID、已知类型名（如 `"Noise Suppression"`），或 kebab/下划线 slug（如 `noise-suppression`）。在 Windows 10、接口不可用、未知效果或只读（`canSetState=false`）时干净失败。默认 flow 为 render。
 
 ### caps — 设备能力
 

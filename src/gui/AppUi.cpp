@@ -162,10 +162,37 @@ static void drawDeviceEnhancementsDetail(const wa::DeviceInfo& d, wa::DataFlow f
         } else if (fx.effects->empty()) {
             ImGui::TextDisabled("%s", wa::ui_text::get(wa::ui_text::kStreamEffectsNone));
         } else {
-            for (const auto& e : *fx.effects) {
-                ImGui::BulletText("%s [%s]%s", e.typeName.c_str(),
-                    wa::audioEffectStateName(e.state),
-                    e.canSetState ? " (settable)" : "");
+            for (size_t ei = 0; ei < fx.effects->size(); ++ei) {
+                auto& e = (*fx.effects)[ei];
+                ImGui::BulletText("%s [%s]", e.typeName.c_str(),
+                    wa::audioEffectStateName(e.state));
+                if (!e.canSetState) continue;
+                ImGui::SameLine();
+                char onId[96], offId[96];
+                std::snprintf(onId, sizeof onId, "%s###fxOn%zu",
+                    wa::ui_text::get(wa::ui_text::kStreamEffectOn), ei);
+                std::snprintf(offId, sizeof offId, "%s###fxOff%zu",
+                    wa::ui_text::get(wa::ui_text::kStreamEffectOff), ei);
+                // Copy id: setStreamAudioEffect may replace *fx.effects.
+                const std::string effectId = e.id;
+                bool mutated = false;
+                auto applySet = [&](wa::AudioEffectState next) {
+                    fx.error->clear();
+                    wa::Result sr = wa::setStreamAudioEffect(
+                        flow, d.id, effectId, next, fx.effects);
+                    if (!sr) {
+                        *fx.error = sr.message;
+                    } else {
+                        *fx.haveResult = true;
+                        *fx.deviceId = d.id;
+                        *fx.flow = flow;
+                        mutated = true;
+                    }
+                };
+                if (ImGui::SmallButton(onId)) applySet(wa::AudioEffectState::On);
+                ImGui::SameLine();
+                if (ImGui::SmallButton(offId)) applySet(wa::AudioEffectState::Off);
+                if (mutated) break;
             }
         }
     } else {
