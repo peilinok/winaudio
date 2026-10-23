@@ -416,9 +416,14 @@ TEST(PipelineUiText, ExposesPipelineTabControls) {
     EXPECT_STREQ(wa::attachBlockText(wa::AttachBlock::None), wa::ui_text::kPipelineAttached);
     EXPECT_STREQ(wa::ui_text::kPipelineCallColIface, "Iface");
     EXPECT_STREQ(wa::ui_text::kPipelineCallColMethod, "Method");
+    EXPECT_STREQ(wa::ui_text::kPipelineCallColCall, "Call");
     EXPECT_STREQ(wa::ui_text::kPipelineCallColArgs, "Args");
     EXPECT_STREQ(wa::ui_text::kPipelineCallColHr, "HR");
     EXPECT_STREQ(wa::ui_text::kPipelineCallColStream, "Stream");
+    EXPECT_STREQ(wa::ui_text::kPipelineCallParams, "Parameters");
+    EXPECT_STREQ(wa::ui_text::kPipelineCallParamsSelectHint,
+                 "Select a call log row to view parameters.");
+    EXPECT_STREQ(wa::ui_text::kPipelineCallParamsEmpty, "No parameters for this call.");
     EXPECT_STREQ(wa::ui_text::kPipelinePump, "Record pump metadata");
     EXPECT_STREQ(wa::ui_text::kPipelineXruns, "xruns");
 }

@@ -527,6 +527,7 @@ void AppUi::runPipelineAttach() {
     const bool haveSession = wa::pipeline_attach_ui::sessionHintForPid(
         pipelineSessions_, pipelineSelected_, pid, deviceId, flow, sessionKey);
     pipelineCalls_.clear();
+    pipelineCallSelected_ = -1;
     wa::Result r = pipelineAttach_.start(pid, deviceId, flow);
     if (!r) {
         pipelineAttachBanner_ = r.message;
@@ -1404,6 +1405,7 @@ void AppUi::drawPipelinePage() {
                             pipelineAttach_.setCaptureEnabled(false);
                             pipelineAttach_.stop();
                             pipelineCalls_.clear();
+                            pipelineCallSelected_ = -1;
                             pipelineAttachBanner_.clear();
                             pipelineAttachFailPid_ = 0;
                             pipelineAttachSessionKey_.clear();
@@ -1480,75 +1482,92 @@ void AppUi::drawPipelinePage() {
         }
         const auto callView = wa::shapeCallLog(callSrc, pipelinePump_);
         const auto& callLog = callView.entries;
+        if (pipelineCallSelected_ >= (int)callLog.size())
+            pipelineCallSelected_ = callLog.empty() ? -1 : (int)callLog.size() - 1;
         if (callLog.empty()) {
+            pipelineCallSelected_ = -1;
             ImGui::TextWrapped("%s", wa::ui_text::pipelineCallLogEmptyText(pipelineAttach_.attached(),
                                                                           pipelinePump_));
-        } else if (ImGui::BeginTable("pipelineCalls", 5,
-                                     ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
-                                         ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp)) {
-            ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColIface));
-            ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColMethod));
-            ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColArgs));
-            ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColHr), ImGuiTableColumnFlags_WidthFixed, 96.f);
-            ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColStream),
-                                    ImGuiTableColumnFlags_WidthFixed, 70.f);
-            ImGui::TableHeadersRow();
-            for (size_t row = 0; row < callLog.size(); ++row) {
-                const auto& c = callLog[row];
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::TextUnformatted(c.iface.c_str());
-                ImGui::TableSetColumnIndex(1);
-                const bool hasParams = !c.parameters.empty();
-                bool open = false;
-                if (hasParams) {
-                    ImGui::PushID(static_cast<int>(row));
-                    open = ImGui::TreeNodeEx("method", ImGuiTreeNodeFlags_SpanAvailWidth |
-                                                           ImGuiTreeNodeFlags_NoTreePushOnOpen,
-                                             "%s", c.method.c_str());
-                    ImGui::PopID();
-                } else {
-                    ImGui::TextUnformatted(c.method.c_str());
-                }
-                ImGui::TableSetColumnIndex(2);
-                ImGui::TextUnformatted(c.args.c_str());
-                ImGui::TableSetColumnIndex(3);
-                ImGui::TextUnformatted(wa::CallLogStore::formatHresult(c.hresult).c_str());
-                ImGui::TableSetColumnIndex(4);
-                ImGui::Text("%u", c.streamId);
-                if (open && hasParams) {
+        } else {
+            const float callAvailX = ImGui::GetContentRegionAvail().x;
+            float paramsW = std::clamp(callAvailX * 0.36f, 280.f, 420.f);
+            if (callAvailX < 720.f) paramsW = std::max(220.f, callAvailX * 0.40f);
+            const float tableW = std::max(240.f, callAvailX - paramsW - ImGui::GetStyle().ItemSpacing.x);
+
+            ImGui::BeginChild("pipelineCallTable", ImVec2(tableW, 0), false);
+            if (ImGui::BeginTable("pipelineCalls", 4,
+                                 ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
+                                     ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp |
+                                     ImGuiTableFlags_Resizable)) {
+                ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColCall));
+                ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColArgs));
+                ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColHr),
+                                        ImGuiTableColumnFlags_WidthFixed, 96.f);
+                ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColStream),
+                                        ImGuiTableColumnFlags_WidthFixed, 70.f);
+                ImGui::TableHeadersRow();
+                for (size_t row = 0; row < callLog.size(); ++row) {
+                    const auto& call = callLog[row];
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
-                    ImGui::Indent(12.f);
-                    if (ImGui::BeginTable("callParams", 4,
-                                          ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
-                                              ImGuiTableFlags_SizingStretchProp)) {
-                        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColType));
-                        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColName));
-                        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColPre));
-                        ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColPost));
-                        ImGui::TableHeadersRow();
-                        for (const auto& a : c.parameters) {
-                            ImGui::TableNextRow();
-                            ImGui::TableSetColumnIndex(0);
-                            ImGui::TextUnformatted(a.type.c_str());
-                            ImGui::TableSetColumnIndex(1);
-                            if (a.depth > 0) {
-                                ImGui::Text("%*s%s", static_cast<int>(a.depth) * 2, "", a.name.c_str());
-                            } else {
-                                ImGui::TextUnformatted(a.name.c_str());
-                            }
-                            ImGui::TableSetColumnIndex(2);
-                            ImGui::TextWrapped("%s", a.pre.c_str());
-                            ImGui::TableSetColumnIndex(3);
-                            ImGui::TextWrapped("%s", a.post.c_str());
+                    std::string callName = call.iface;
+                    if (!call.iface.empty() && !call.method.empty())
+                        callName += "::";
+                    callName += call.method;
+                    const bool selected = (pipelineCallSelected_ == (int)row);
+                    char label[256];
+                    std::snprintf(label, sizeof(label), "%s###pcall%zu", callName.c_str(), row);
+                    if (ImGui::Selectable(label, selected, ImGuiSelectableFlags_SpanAllColumns))
+                        pipelineCallSelected_ = (int)row;
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::TextUnformatted(call.args.c_str());
+                    ImGui::TableSetColumnIndex(2);
+                    ImGui::TextUnformatted(wa::CallLogStore::formatHresult(call.hresult).c_str());
+                    ImGui::TableSetColumnIndex(3);
+                    ImGui::Text("%u", call.streamId);
+                }
+                ImGui::EndTable();
+            }
+            ImGui::EndChild();
+
+            ImGui::SameLine();
+            ImGui::BeginChild("pipelineCallParams", ImVec2(0, 0), true);
+            ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kPipelineCallParams));
+            if (pipelineCallSelected_ < 0 || pipelineCallSelected_ >= (int)callLog.size()) {
+                ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineCallParamsSelectHint));
+            } else {
+                const auto& sel = callLog[(size_t)pipelineCallSelected_];
+                if (sel.parameters.empty()) {
+                    ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineCallParamsEmpty));
+                } else if (ImGui::BeginTable("callParams", 4,
+                                            ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
+                                                ImGuiTableFlags_ScrollY |
+                                                ImGuiTableFlags_SizingStretchProp |
+                                                ImGuiTableFlags_Resizable)) {
+                    ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColType));
+                    ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColName));
+                    ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColPre));
+                    ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColPost));
+                    ImGui::TableHeadersRow();
+                    for (const auto& a : sel.parameters) {
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextUnformatted(a.type.c_str());
+                        ImGui::TableSetColumnIndex(1);
+                        if (a.depth > 0) {
+                            ImGui::Text("%*s%s", static_cast<int>(a.depth) * 2, "", a.name.c_str());
+                        } else {
+                            ImGui::TextUnformatted(a.name.c_str());
                         }
-                        ImGui::EndTable();
+                        ImGui::TableSetColumnIndex(2);
+                        ImGui::TextWrapped("%s", a.pre.c_str());
+                        ImGui::TableSetColumnIndex(3);
+                        ImGui::TextWrapped("%s", a.post.c_str());
                     }
-                    ImGui::Unindent(12.f);
+                    ImGui::EndTable();
                 }
             }
-            ImGui::EndTable();
+            ImGui::EndChild();
         }
         ImGui::EndChild();
     }
