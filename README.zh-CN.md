@@ -88,7 +88,7 @@ cd winaudio
 
 ### Pipeline（Live 会话 API 监控）
 
-选择 Live 会话后 **附加 (Attach)** 注入 `WinAudioHook.dll`（需同位数），在调用日志中查看 Core Audio / WASAPI COM 调用、关键参数与 HRESULT。**分离 (Detach)** 会安静停止采集并解除共享映射。可选 **录制调用 / 保存调用**，JSONL 默认写到 `%LOCALAPPDATA%\\WinAudio\\pipeline-calls`。GetBuffer/ReleaseBuffer 的 pump 元数据仍默认关闭。这不是完整 API Monitor：仅封闭 COM 集合，无调用栈、无跨位数注入。
+在 **PID** 框输入目标进程（或点选 Live 会话自动填入）后点 **附加 (Attach)** 注入 `WinAudioHook.dll`（需同位数）；**不要求**该进程已有 Live 会话。在调用日志中查看 Core Audio / WASAPI COM 调用、参数与 HRESULT。Hook 列与 PID 框下方状态对应该 PID 显示已附加 / 失败 / 未附加（即使不在会话列表中）。**分离 (Detach)** 会安静停止采集并解除映射。可选 **录制调用 / 保存调用**，JSONL 默认写入 `%LOCALAPPDATA%\\WinAudio\\pipeline-calls`。GetBuffer/ReleaseBuffer 的 pump 元数据默认关闭。这不是完整 API Monitor：仅闭合 COM 集合、无调用栈、无跨位数注入。
 
 
 ## CLI 使用
