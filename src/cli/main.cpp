@@ -38,7 +38,10 @@ static void usage() {
         "  each --track needs --out; source is --pid [--exclude-tree] or --loopback or endpoint.\n"
         "  --format and --no-silent-render are per Capture Track; --seconds and --backend once.\n"
         "  --pid and --loopback cannot be combined in one --track segment.\n"
-        "WinAudioCli caps  [--device <id>] [--render|--capture]\n");
+        "WinAudioCli caps  [--device <id>] [--render|--capture]\n"
+        "WinAudioCli effects set [--capture|--render] [--device <id>] <effect> on|off\n"
+        "  effects set: Shared Initialize + SetAudioEffectState (Win11 build 22000+).\n"
+        "  <effect> is a braced GUID, type name, or kebab slug (e.g. noise-suppression).\n");
 }
 
 static const char* stateStr(wa::StreamState st) {
@@ -324,6 +327,81 @@ int wmain(int argc, wchar_t** argv) {
             return 2;
         }
         std::printf("\ndone\n");
+        return 0;
+    }
+
+    if (cmd == L"effects") {
+        if (argc < 3 || std::wcscmp(argv[2], L"set") != 0) {
+            usage();
+            return 1;
+        }
+        // Positional: <effect> on|off after flags. Default flow = render.
+        DataFlow flow = has(argc, argv, L"--capture") ? DataFlow::Capture : DataFlow::Render;
+        if (has(argc, argv, L"--capture") && has(argc, argv, L"--render")) {
+            std::printf("effects set: use only one of --capture / --render\n");
+            return 2;
+        }
+        DeviceId device = arg(argc, argv, L"--device");
+
+        // Collect non-flag positionals after "effects set".
+        std::vector<std::wstring> pos;
+        for (int i = 3; i < argc; ++i) {
+            if (argv[i][0] == L'-' && argv[i][1] == L'-') {
+                // Skip flag and its value when present.
+                if (std::wcscmp(argv[i], L"--device") == 0) {
+                    if (i + 1 < argc) ++i;
+                    continue;
+                }
+                if (std::wcscmp(argv[i], L"--capture") == 0 ||
+                    std::wcscmp(argv[i], L"--render") == 0 ||
+                    std::wcscmp(argv[i], L"--log-file") == 0 ||
+                    std::wcscmp(argv[i], L"--log-level") == 0) {
+                    if ((std::wcscmp(argv[i], L"--log-file") == 0 ||
+                         std::wcscmp(argv[i], L"--log-level") == 0) &&
+                        i + 1 < argc) {
+                        ++i;
+                    }
+                    continue;
+                }
+                std::printf("effects set: unknown flag %ls\n", argv[i]);
+                return 2;
+            }
+            pos.push_back(argv[i]);
+        }
+        if (pos.size() != 2) {
+            std::printf("effects set: need <effect> on|off\n");
+            return 2;
+        }
+        const std::string effectTok = narrow(pos[0]);
+        const std::string stateTok = narrow(pos[1]);
+        const AudioEffectState st = audioEffectStateFromName(stateTok);
+        if (st == AudioEffectState::Unknown) {
+            std::printf("effects set: state must be on or off (got %s)\n", stateTok.c_str());
+            return 2;
+        }
+
+        std::vector<StreamAudioEffect> after;
+        Result r = setStreamAudioEffect(flow, device, effectTok, st, &after);
+        if (!r) {
+            std::printf("effects set failed: %s\n", r.message.c_str());
+            return 2;
+        }
+        std::printf("effects set ok: %s -> %s (%s)\n",
+                    effectTok.c_str(), audioEffectStateName(st),
+                    flow == DataFlow::Capture ? "capture" : "render");
+        if (after.empty()) {
+            std::printf("streamEffects=(none)\n");
+        } else {
+            std::printf("streamEffects=");
+            for (size_t i = 0; i < after.size(); ++i) {
+                const auto& e = after[i];
+                if (i) std::printf(";");
+                std::printf("%s:%s%s", e.typeName.c_str(),
+                            audioEffectStateName(e.state),
+                            e.canSetState ? "+set" : "");
+            }
+            std::printf("\n");
+        }
         return 0;
     }
 
