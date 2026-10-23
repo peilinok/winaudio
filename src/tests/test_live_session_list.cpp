@@ -427,6 +427,8 @@ TEST(PipelineUiText, ExposesPipelineTabControls) {
     EXPECT_STREQ(wa::ui_text::kPipelineCallFilter, "Filter");
     EXPECT_STREQ(wa::ui_text::kPipelineCallFilterHint,
                  "Fuzzy filter Call / Args...");
+    EXPECT_STREQ(wa::ui_text::kPipelineCallIfaceAll, "All");
+    EXPECT_STREQ(wa::ui_text::kPipelineCallFailuresOnly, "Failures only");
     EXPECT_STREQ(wa::ui_text::kPipelinePump, "Record pump metadata");
     EXPECT_STREQ(wa::ui_text::kPipelineXruns, "xruns");
 }

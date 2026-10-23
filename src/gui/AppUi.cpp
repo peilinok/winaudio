@@ -1628,13 +1628,61 @@ void AppUi::drawPipelinePage() {
         ImGui::AlignTextToFramePadding();
         ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineCallFilter));
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(-1.0f);
-        const bool filterEdited = ImGui::InputTextWithHint(
+        const float filterRowAvail = ImGui::GetContentRegionAvail().x;
+        const float failuresW = ImGui::CalcTextSize(wa::ui_text::get(wa::ui_text::kPipelineCallFailuresOnly)).x
+                                + ImGui::GetFrameHeight() + ImGui::GetStyle().ItemInnerSpacing.x
+                                + ImGui::GetStyle().ItemSpacing.x * 2.f;
+        const float ifaceLabelW = ImGui::CalcTextSize(wa::ui_text::get(wa::ui_text::kPipelineCallColIface)).x
+                                  + ImGui::GetStyle().ItemSpacing.x;
+        const float ifaceComboW = 160.f;
+        const float textFilterW = (std::max)(80.f, filterRowAvail - failuresW - ifaceLabelW - ifaceComboW
+                                                                   - ImGui::GetStyle().ItemSpacing.x * 2.f);
+        ImGui::SetNextItemWidth(textFilterW);
+        bool filterEdited = ImGui::InputTextWithHint(
             "##pipelineCallFilter", wa::ui_text::get(wa::ui_text::kPipelineCallFilterHint),
             pipelineCallFilter_, sizeof(pipelineCallFilter_));
-        const std::string_view filterView(pipelineCallFilter_);
+
+        ImGui::SameLine();
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineCallColIface));
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(ifaceComboW);
+        const auto ifaceChoices = wa::call_log_filter::uniqueIfaces(callLog);
+        const char* ifacePreview = pipelineCallIfaceFilter_[0]
+                                       ? pipelineCallIfaceFilter_
+                                       : wa::ui_text::get(wa::ui_text::kPipelineCallIfaceAll);
+        if (ImGui::BeginCombo("##pipelineCallIface", ifacePreview)) {
+            const bool allSelected = pipelineCallIfaceFilter_[0] == '\0';
+            if (ImGui::Selectable(wa::ui_text::get(wa::ui_text::kPipelineCallIfaceAll), allSelected)) {
+                pipelineCallIfaceFilter_[0] = '\0';
+                filterEdited = true;
+            }
+            for (const auto& iface : ifaceChoices) {
+                const bool sel = wa::call_log_filter::asciiEqualsIgnoreCase(iface, pipelineCallIfaceFilter_);
+                if (ImGui::Selectable(iface.c_str(), sel)) {
+                    std::snprintf(pipelineCallIfaceFilter_, sizeof(pipelineCallIfaceFilter_), "%s",
+                                  iface.c_str());
+                    filterEdited = true;
+                }
+                if (sel) ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Checkbox(wa::ui_text::get(wa::ui_text::kPipelineCallFailuresOnly),
+                            &pipelineCallFailuresOnly_)) {
+            filterEdited = true;
+        }
+
+        wa::call_log_filter::FilterOpts filterOpts;
+        filterOpts.text = pipelineCallFilter_;
+        filterOpts.iface = pipelineCallIfaceFilter_;
+        filterOpts.failuresOnly = pipelineCallFailuresOnly_;
         const std::vector<size_t> visible =
-            wa::call_log_filter::matchingIndices(callLog, filterView);
+            wa::call_log_filter::matchingIndices(callLog, filterOpts);
+        const bool anyFilterActive = filterOpts.text.size() > 0 || filterOpts.iface.size() > 0
+                                     || filterOpts.failuresOnly;
         if (filterEdited) {
             if (visible.empty()) {
                 // Keep prior selection so Parameters still show the last pick.
@@ -1666,7 +1714,7 @@ void AppUi::drawPipelinePage() {
             const float paramsW = inner - tableW;
 
             ImGui::BeginChild("pipelineCallTable", ImVec2(tableW, 0), false);
-            if (visible.empty() && !filterView.empty()) {
+            if (visible.empty() && anyFilterActive) {
                 ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineCallFilterHint));
             } else if (ImGui::BeginTable("pipelineCalls", 4,
                                  ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |

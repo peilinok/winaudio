@@ -223,6 +223,8 @@ private:
     std::vector<wa::HookedCall> pipelineCalls_;
     int pipelineCallSelected_ = -1;
     char pipelineCallFilter_[128] = "";
+    char pipelineCallIfaceFilter_[96] = "";  // empty => all ifaces
+    bool pipelineCallFailuresOnly_ = false;
     bool pipelineCallScrollToSelected_ = false;
     std::string pipelineAttachBanner_;
     char pipelineAttachPid_[32] = "";
