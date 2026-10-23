@@ -471,6 +471,7 @@ void AppUi::applyLiveSessionCellPatches() {
 
 void AppUi::applyPipelineJoin() {
     pipelineNodes_.clear();
+    pipelineJoinStatus_ = {};
     if (pipelineSelected_ < 0 || pipelineSelected_ >= (int)pipelineSessions_.size())
         return;
     const wa::LiveSessionView& session = pipelineSessions_[(size_t)pipelineSelected_];
@@ -479,8 +480,12 @@ void AppUi::applyPipelineJoin() {
         etw = wa::matchEtwInitialize(session, pipelineEtw_.snapshot(), wa::etwNowMs());
     pipelineEtwHint_ = etw;
     const auto hooked = wa::shapeCallLog(pipelineCalls_, false);
+    const std::vector<wa::HookedCall> sessionHooked =
+        wa::filterHookedCallsForSession(hooked.entries, session.processId);
+    pipelineJoinStatus_ =
+        wa::makePipelineJoinStatus(etw, pipelineProbes_, hooked.entries, sessionHooked);
     pipelineNodes_ = wa::assemblePipeline(session, pipelineEndpoint_, etw, pipelineProbes_,
-                                          hooked.entries);
+                                          sessionHooked);
 }
 
 void AppUi::runPipelineProbe() {
@@ -1608,6 +1613,47 @@ void AppUi::drawPipelinePage() {
         if (pipelineSelected_ < 0) {
             ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineSelectHint));
         } else {
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.75f, 0.75f, 0.78f, 1.f));
+            ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineKindLegend));
+            ImGui::PopStyleColor();
+            {
+                const char* initBanner = wa::ui_text::get(wa::ui_text::kPipelineInitSourceNone);
+                ImVec4 initColor(0.90f, 0.55f, 0.55f, 1.f);
+                if (pipelineJoinStatus_.initializeSource == wa::InitializeFieldSource::Etw) {
+                    initBanner = wa::ui_text::get(wa::ui_text::kPipelineInitSourceEtw);
+                    initColor = ImVec4(0.50f, 0.75f, 0.95f, 1.f);
+                } else if (pipelineJoinStatus_.initializeSource ==
+                           wa::InitializeFieldSource::Hooked) {
+                    initBanner = wa::ui_text::get(wa::ui_text::kPipelineInitSourceHooked);
+                    initColor = ImVec4(0.45f, 0.90f, 0.55f, 1.f);
+                }
+                ImGui::PushStyleColor(ImGuiCol_Text, initColor);
+                ImGui::TextWrapped("%s", initBanner);
+                ImGui::PopStyleColor();
+            }
+            if (pipelineJoinStatus_.probesPresent) {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.85f, 0.35f, 1.f));
+                ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineProbeBanner));
+                ImGui::PopStyleColor();
+            }
+            if (pipelineJoinStatus_.hookedStreamCount > 1) {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.95f, 0.85f, 0.35f, 1.f));
+                ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineMultiStreamBanner));
+                ImGui::PopStyleColor();
+                if (pipelineJoinStatus_.primaryStreamId != 0)
+                    ImGui::Text(wa::ui_text::get(wa::ui_text::kPipelinePrimaryStreamFmt),
+                                pipelineJoinStatus_.primaryStreamId);
+            } else if (pipelineJoinStatus_.initializeSource == wa::InitializeFieldSource::Hooked &&
+                       pipelineJoinStatus_.primaryStreamId != 0) {
+                ImGui::Text(wa::ui_text::get(wa::ui_text::kPipelinePrimaryStreamFmt),
+                            pipelineJoinStatus_.primaryStreamId);
+            }
+            if (pipelineJoinStatus_.otherPidCalls > 0) {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.50f, 0.75f, 0.95f, 1.f));
+                ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineOtherPidBanner));
+                ImGui::PopStyleColor();
+            }
+            ImGui::Spacing();
             for (const auto& n : pipelineNodes_) {
                 ImGui::PushStyleColor(ImGuiCol_Text, kindColor(n.kind));
                 ImGui::Text("%s [%s]", n.title.c_str(), wa::observationKindName(n.kind));

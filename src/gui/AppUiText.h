@@ -125,6 +125,30 @@ namespace wa::ui_text {
     WA_UI_TEXT(kPipelineProbe, "Probe this device", "探测此设备") \
     WA_UI_TEXT(kPipelineEtwUnavailable, "ETW unavailable", "ETW 不可用") \
     WA_UI_TEXT(kPipelineEtwListening, "ETW listening", "ETW 监听中") \
+        WA_UI_TEXT(kPipelineKindLegend, \
+        "Kinds: Observed = measured fact; Probed = Shared probe on this endpoint (not the target APO); " \
+        "Inferred / Skipped / Unknown = reconstruction limits.", \
+        "图例：Observed=实测；Probed=本端点 Shared 探针（不是目标进程 APO）；" \
+        "Inferred/Skipped/Unknown=重建边界。") \
+    WA_UI_TEXT(kPipelineInitSourceNone, \
+        "Initialize fields: none yet (category / RAW / format stay Unknown until ETW match or Attach).", \
+        "Initialize 字段：尚无（category/RAW/格式在 ETW 命中或挂接前保持 Unknown）。") \
+    WA_UI_TEXT(kPipelineInitSourceEtw, \
+        "Initialize fields: ETW match (Observed). Attach to override with Hooked-stream facts.", \
+        "Initialize 字段：来自 ETW 命中（Observed）。挂接后以 Hooked 流事实覆盖。") \
+    WA_UI_TEXT(kPipelineInitSourceHooked, \
+        "Initialize fields: Hooked stream (Observed); overrides any prior ETW match for this PID.", \
+        "Initialize 字段：来自 Hooked 流（Observed）；覆盖本 PID 上先前的 ETW 命中。") \
+    WA_UI_TEXT(kPipelineProbeBanner, \
+        "Shared probe effects are Probed (advertised on this endpoint), not the target app's APO instances.", \
+        "Shared 探针效果为 Probed（本端点广告能力），不是目标应用的 APO 实例。") \
+    WA_UI_TEXT(kPipelineMultiStreamBanner, \
+        "Multiple Hooked streams for this PID; graph Initialize uses the latest stream.", \
+        "本 PID 有多路 Hooked 流；处理图 Initialize 使用最新一路。") \
+    WA_UI_TEXT(kPipelineOtherPidBanner, \
+        "Call log also has other attached PIDs; the graph joins only the selected Live session PID.", \
+        "调用日志含其他已挂接 PID；处理图只合并所选 Live 会话的 PID。") \
+    WA_UI_TEXT(kPipelinePrimaryStreamFmt, "Primary Hooked stream id: %u", "主 Hooked 流 id：%u") \
     WA_UI_TEXT(kPipelineAttach, "Attach", "附加") \
     WA_UI_TEXT(kPipelineDetach, "Detach", "分离") \
     WA_UI_TEXT(kPipelineDetachAll, "Detach all", "全部分离") \

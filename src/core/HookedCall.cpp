@@ -76,23 +76,61 @@ CallLogView shapeCallLog(const std::vector<HookedCall>& in, bool pumpEnabled, si
     return view;
 }
 
-EtwInitializeHint extractHookedInitialize(const std::vector<HookedCall>& calls) {
-    EtwInitializeHint h;
+namespace {
+
+bool isInitializeLike(const HookedCall& c) {
+    return c.method == "Initialize" || c.method == "InitializeSharedAudioStream";
+}
+
+bool isInitializeContributor(const HookedCall& c) {
+    if (c.pump || isPumpMethod(c.method)) return false;
+    return isInitializeLike(c) || c.method == "SetClientProperties";
+}
+
+void applyContributor(EtwInitializeHint& h, const HookedCall& c) {
+    h.present = true;
+    if (c.category) h.category = c.category;
+    if (c.raw) h.raw = c.raw;
+    if (c.matchFormat) h.matchFormat = c.matchFormat;
+    if (c.exclusive) h.exclusive = c.exclusive;
+    if (isInitializeLike(c)) h.hresult = c.hresult;
+    if (c.format) h.format = c.format;
+}
+
+}  // namespace
+
+HookedInitializeExtract extractHookedInitializeDetailed(const std::vector<HookedCall>& calls) {
+    HookedInitializeExtract out;
+    const HookedCall* latestInit = nullptr;
+    std::vector<uint32_t> streamIds;
+    bool anyZeroInit = false;
     for (const auto& c : calls) {
         if (c.pump || isPumpMethod(c.method)) continue;
-        if (c.method != "Initialize" && c.method != "SetClientProperties" &&
-            c.method != "InitializeSharedAudioStream")
+        if (!isInitializeLike(c)) continue;
+        if (!latestInit || c.timeMs >= latestInit->timeMs) latestInit = &c;
+        if (c.streamId == 0) {
+            anyZeroInit = true;
             continue;
-        h.present = true;
-        if (c.category) h.category = c.category;
-        if (c.raw) h.raw = c.raw;
-        if (c.matchFormat) h.matchFormat = c.matchFormat;
-        if (c.exclusive) h.exclusive = c.exclusive;
-        if (c.method == "Initialize" || c.method == "InitializeSharedAudioStream")
-            h.hresult = c.hresult;
-        if (c.format) h.format = c.format;
+        }
+        if (std::find(streamIds.begin(), streamIds.end(), c.streamId) == streamIds.end())
+            streamIds.push_back(c.streamId);
     }
-    return h;
+    out.streamCount = streamIds.size() + (anyZeroInit ? 1u : 0u);
+    if (out.streamCount == 0 && latestInit) out.streamCount = 1;
+    if (!latestInit) return out;
+
+    out.primaryStreamId = latestInit->streamId;
+    for (const auto& c : calls) {
+        if (!isInitializeContributor(c)) continue;
+        // Non-zero primary: only that stream. Zero primary: legacy last-wins across all.
+        if (out.primaryStreamId != 0 && c.streamId != out.primaryStreamId) continue;
+        applyContributor(out.hint, c);
+    }
+    return out;
+}
+
+EtwInitializeHint extractHookedInitialize(const std::vector<HookedCall>& calls) {
+    return extractHookedInitializeDetailed(calls).hint;
 }
 
 EtwInitializeHint mergeInitializeHint(const EtwInitializeHint& etw,
@@ -107,6 +145,49 @@ EtwInitializeHint mergeInitializeHint(const EtwInitializeHint& etw,
     if (hooked.hresult) out.hresult = hooked.hresult;
     if (hooked.format) out.format = hooked.format;
     return out;
+}
+
+std::vector<HookedCall> filterHookedCallsForSession(const std::vector<HookedCall>& calls,
+                                                    uint32_t sessionPid) {
+    std::vector<HookedCall> out;
+    out.reserve(calls.size());
+    for (const auto& c : calls) {
+        if (c.pid == 0 || c.pid == sessionPid) out.push_back(c);
+    }
+    return out;
+}
+
+PipelineJoinStatus makePipelineJoinStatus(const EtwInitializeHint& etw,
+                                          const std::vector<ProbeSlice>& probes,
+                                          const std::vector<HookedCall>& allCalls,
+                                          const std::vector<HookedCall>& sessionCalls) {
+    PipelineJoinStatus st;
+    st.etwMatched = etw.present;
+    st.probesPresent = !probes.empty();
+    st.otherPidCalls =
+        allCalls.size() >= sessionCalls.size() ? allCalls.size() - sessionCalls.size() : 0;
+    for (const auto& c : sessionCalls) {
+        if (!c.pump && !isPumpMethod(c.method)) ++st.sessionControlCalls;
+    }
+    const HookedInitializeExtract extracted = extractHookedInitializeDetailed(sessionCalls);
+    st.hookedStreamCount = extracted.streamCount;
+    st.primaryStreamId = extracted.primaryStreamId;
+    if (extracted.hint.present)
+        st.initializeSource = InitializeFieldSource::Hooked;
+    else if (etw.present)
+        st.initializeSource = InitializeFieldSource::Etw;
+    else
+        st.initializeSource = InitializeFieldSource::None;
+    return st;
+}
+
+const char* initializeFieldSourceName(InitializeFieldSource src) {
+    switch (src) {
+        case InitializeFieldSource::None: return "none";
+        case InitializeFieldSource::Etw: return "etw";
+        case InitializeFieldSource::Hooked: return "hooked";
+    }
+    return "none";
 }
 
 }  // namespace wa

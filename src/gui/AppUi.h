@@ -25,6 +25,7 @@
 #include "OnDemandAttach.h"
 #include "PipelineAttachSet.h"
 #include "PipelineGraph.h"
+#include "HookedCall.h"
 #include "SharedProbe.h"
 #include "UserProcessEnumerator.h"
 #include "AudioEffects.h"
@@ -224,6 +225,7 @@ private:
     bool pipelineEtwStarted_ = false;
     wa::EndpointSnapshot pipelineEndpoint_;
     wa::EtwInitializeHint pipelineEtwHint_{};
+    wa::PipelineJoinStatus pipelineJoinStatus_{};
     wa::PipelineAttachSet pipelineAttaches_;
     std::vector<wa::HookedCall> pipelineCalls_;
     int pipelineCallSelected_ = -1;

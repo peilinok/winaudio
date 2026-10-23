@@ -234,3 +234,117 @@ TEST(CallLog, EnabledPumpStillStripsPcm) {
         EXPECT_EQ(c.args.find("pcm="), std::string::npos);
     }
 }
+
+TEST(CallLog, FilterHookedCallsKeepsSessionPidAndLegacyZero) {
+    HookedCall a = initCall();
+    a.pid = 4242;
+    a.args = "a";
+    HookedCall b = initCall();
+    b.pid = 99;
+    b.args = "b";
+    HookedCall legacy = initCall();
+    legacy.pid = 0;
+    legacy.args = "legacy";
+    const auto kept = filterHookedCallsForSession({a, b, legacy}, 4242);
+    ASSERT_EQ(kept.size(), 2u);
+    EXPECT_EQ(kept[0].args, "a");
+    EXPECT_EQ(kept[1].args, "legacy");
+}
+
+TEST(CallLog, ExtractHookedInitializeUsesLatestStreamOnly) {
+    HookedCall older = initCall();
+    older.streamId = 1;
+    older.timeMs = 10;
+    older.category = std::string("Media");
+    older.format = std::string("44100/16/2");
+    older.raw = false;
+
+    HookedCall newer = initCall();
+    newer.streamId = 2;
+    newer.timeMs = 20;
+    newer.category = std::string("Communications");
+    newer.format = std::string("48000/32f/2");
+    newer.raw = true;
+
+    // Stale SetClientProperties on stream 1 must not bleed into stream 2.
+    HookedCall staleProps = initCall();
+    staleProps.method = "SetClientProperties";
+    staleProps.streamId = 1;
+    staleProps.timeMs = 25;
+    staleProps.category = std::string("Alerts");
+    staleProps.format.reset();
+    staleProps.raw.reset();
+
+    const auto ex = extractHookedInitializeDetailed({older, newer, staleProps});
+    EXPECT_EQ(ex.streamCount, 2u);
+    EXPECT_EQ(ex.primaryStreamId, 2u);
+    ASSERT_TRUE(ex.hint.present);
+    ASSERT_TRUE(ex.hint.category.has_value());
+    EXPECT_EQ(*ex.hint.category, "Communications");
+    ASSERT_TRUE(ex.hint.format.has_value());
+    EXPECT_EQ(*ex.hint.format, "48000/32f/2");
+    ASSERT_TRUE(ex.hint.raw.has_value());
+    EXPECT_TRUE(*ex.hint.raw);
+}
+
+TEST(CallLog, OtherPidInitializeDoesNotOverrideSelectedSessionGraph) {
+    EtwInitializeHint etw;
+    etw.present = true;
+    etw.category = std::string("Media");
+
+    HookedCall foreign = initCall();
+    foreign.pid = 99;
+    foreign.category = std::string("Communications");
+    foreign.raw = true;
+    foreign.format = std::string("96000/32f/2");
+
+    const auto sessionCalls = filterHookedCallsForSession({foreign}, 4242);
+    EXPECT_TRUE(sessionCalls.empty());
+    const auto nodes = assemblePipeline(chromeCap(), {}, etw, {}, sessionCalls);
+    const auto* mfx = findNode(nodes, "mfx");
+    ASSERT_NE(mfx, nullptr);
+    EXPECT_TRUE(hasParam(*mfx, "category", "Media", ObservationKind::Observed));
+    const auto* sfx = findNode(nodes, "sfx");
+    ASSERT_NE(sfx, nullptr);
+    EXPECT_NE(sfx->kind, ObservationKind::Skipped);
+}
+
+TEST(CallLog, JoinStatusReportsProbeHookedAndOtherPid) {
+    EtwInitializeHint etw;
+    etw.present = true;
+    etw.category = std::string("Media");
+
+    ProbeSlice probe;
+    probe.label = "Default";
+    AdvertisedEffect fx;
+    fx.typeName = "Noise Suppression";
+    probe.effects.push_back(fx);
+
+    HookedCall local = initCall();
+    local.pid = 4242;
+    local.streamId = 7;
+    local.category = std::string("Communications");
+
+    HookedCall other = initCall();
+    other.pid = 99;
+    other.streamId = 8;
+
+    const auto all = std::vector<HookedCall>{local, other};
+    const auto session = filterHookedCallsForSession(all, 4242);
+    const auto st = makePipelineJoinStatus(etw, {probe}, all, session);
+    EXPECT_EQ(st.initializeSource, InitializeFieldSource::Hooked);
+    EXPECT_TRUE(st.etwMatched);
+    EXPECT_TRUE(st.probesPresent);
+    EXPECT_EQ(st.hookedStreamCount, 1u);
+    EXPECT_EQ(st.primaryStreamId, 7u);
+    EXPECT_EQ(st.otherPidCalls, 1u);
+    EXPECT_STREQ(initializeFieldSourceName(st.initializeSource), "hooked");
+}
+
+TEST(CallLog, JoinStatusEtwWhenNoHookedInitialize) {
+    EtwInitializeHint etw;
+    etw.present = true;
+    const auto st = makePipelineJoinStatus(etw, {}, {}, {});
+    EXPECT_EQ(st.initializeSource, InitializeFieldSource::Etw);
+    EXPECT_STREQ(initializeFieldSourceName(st.initializeSource), "etw");
+}
