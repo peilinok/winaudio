@@ -1,4 +1,5 @@
 #include "SharedProbe.h"
+#include "AudioEffects.h"
 #include "AudioFormatStr.h"
 #include "ComUtil.h"
 #include "Log.h"
@@ -6,47 +7,9 @@
 #include "WasapiStream.h"
 #include <audioclient.h>
 #include <mmdeviceapi.h>
-#include <ksmedia.h>
-#include <cstring>
 
 namespace wa {
 namespace {
-
-std::string guidToName(const GUID& id) {
-    struct Row { GUID g; const char* name; };
-    static const Row kRows[] = {
-        {AUDIO_EFFECT_TYPE_ACOUSTIC_ECHO_CANCELLATION, "Acoustic Echo Cancellation"},
-        {AUDIO_EFFECT_TYPE_NOISE_SUPPRESSION, "Noise Suppression"},
-        {AUDIO_EFFECT_TYPE_AUTOMATIC_GAIN_CONTROL, "Automatic Gain Control"},
-        {AUDIO_EFFECT_TYPE_BEAMFORMING, "Beam Forming"},
-        {AUDIO_EFFECT_TYPE_CONSTANT_TONE_REMOVAL, "Constant Tone Removal"},
-        {AUDIO_EFFECT_TYPE_EQUALIZER, "Equalizer"},
-        {AUDIO_EFFECT_TYPE_LOUDNESS_EQUALIZER, "Loudness Equalizer"},
-        {AUDIO_EFFECT_TYPE_BASS_BOOST, "Bass Boost"},
-        {AUDIO_EFFECT_TYPE_VIRTUAL_SURROUND, "Virtual Surround"},
-        {AUDIO_EFFECT_TYPE_VIRTUAL_HEADPHONES, "Virtual Headphones"},
-        {AUDIO_EFFECT_TYPE_SPEAKER_FILL, "Speaker Fill"},
-        {AUDIO_EFFECT_TYPE_ROOM_CORRECTION, "Room Correction"},
-        {AUDIO_EFFECT_TYPE_BASS_MANAGEMENT, "Bass Management"},
-        {AUDIO_EFFECT_TYPE_ENVIRONMENTAL_EFFECTS, "Environmental Effects"},
-        {AUDIO_EFFECT_TYPE_SPEAKER_PROTECTION, "Speaker Protection"},
-        {AUDIO_EFFECT_TYPE_SPEAKER_COMPENSATION, "Speaker Compensation"},
-        {AUDIO_EFFECT_TYPE_DYNAMIC_RANGE_COMPRESSION, "Dynamic Range Compression"},
-#ifdef AUDIO_EFFECT_TYPE_DEEP_NOISE_SUPPRESSION
-        {AUDIO_EFFECT_TYPE_DEEP_NOISE_SUPPRESSION, "Deep Noise Suppression"},
-#endif
-    };
-    for (const auto& row : kRows) {
-        if (InlineIsEqualGUID(row.g, id)) return row.name;
-    }
-    wchar_t w[64] = {};
-    const int n = StringFromGUID2(id, w, 64);
-    if (n <= 1) return "Unknown effect";
-    std::string s;
-    s.reserve(static_cast<size_t>(n));
-    for (int i = 0; i < n - 1; ++i) s += static_cast<char>(w[i]);
-    return s;
-}
 
 class WasapiSharedProbeHost : public SharedProbeHost {
 public:
@@ -125,35 +88,16 @@ public:
     Result readEffects(std::vector<AdvertisedEffect>& out) override {
         out.clear();
         if (!client_) return Result::Fail(-1, "SharedProbe: client not open");
-
-        ComPtr<IAudioEffectsManager> fx;
-        HRESULT hr = client_->GetService(__uuidof(IAudioEffectsManager),
-                                         reinterpret_cast<void**>(fx.GetAddressOf()));
-        WA_LOG(wa::log::Level::Debug, "SharedProbe", "GetService(IAudioEffectsManager)", "",
-               wa::log::hrName(hr));
-        if (FAILED(hr) || !fx) {
-            WA_LOG(wa::log::Level::Warn, "SharedProbe", "GetService(IAudioEffectsManager)", "",
-                   wa::log::hrName(FAILED(hr) ? hr : E_NOINTERFACE));
-            return Result::Ok();
-        }
-
-        AUDIO_EFFECT* effects = nullptr;
-        UINT32 n = 0;
-        hr = fx->GetAudioEffects(&effects, &n);
-        WA_LOG(wa::log::Level::Debug, "SharedProbe", "GetAudioEffects",
-               "n=" + std::to_string(n), wa::log::hrName(hr));
-        if (FAILED(hr)) {
-            WA_LOG(wa::log::Level::Warn, "SharedProbe", "GetAudioEffects", "", wa::log::hrName(hr));
-            return Result::Ok();
-        }
-        for (UINT32 i = 0; i < n; ++i) {
+        std::vector<StreamAudioEffect> effects;
+        Result r = readAudioEffectsFromClient(client_.Get(), effects);
+        if (!r) return r;
+        for (const auto& e : effects) {
             AdvertisedEffect a;
-            a.typeName = guidToName(effects[i].id);
-            a.on = effects[i].state == AUDIO_EFFECT_STATE_ON;
-            a.canSetState = effects[i].canSetState != FALSE;
+            a.typeName = e.typeName;
+            a.on = e.state == AudioEffectState::On;
+            a.canSetState = e.canSetState;
             out.push_back(std::move(a));
         }
-        CoTaskMemFree(effects);
         return Result::Ok();
     }
 
