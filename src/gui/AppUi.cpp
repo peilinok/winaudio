@@ -1,6 +1,7 @@
 #include "AppUi.h"
 #include <functional>
 #include "EndpointEnhancements.h"
+#include "DeviceEnumerator.h"
 #include "Elevate.h"
 #include "HeatmapRgba.h"
 #include "WaveEnvelope.h"
@@ -134,6 +135,22 @@ struct StreamFxUi {
     std::function<void()> onEnhancementsChanged;
 };
 
+static wa::DeviceInfo findDeviceAfterSet(wa::DataFlow flow, const wa::DeviceId& id) {
+    wa::ComInitGuard com;
+    wa::DeviceEnumerator de;
+    if (id.empty()) {
+        wa::DeviceInfo def{};
+        de.defaultDevice(flow, def);
+        return def;
+    }
+    std::vector<wa::DeviceInfo> all;
+    if (!de.enumerate(flow, all)) return {};
+    for (auto& x : all) {
+        if (x.id == id) return x;
+    }
+    return {};
+}
+
 static void applyEndpointEnhancements(const wa::DeviceInfo& d, wa::DataFlow flow,
                                            wa::EnhancementsState want, StreamFxUi& fx) {
     if (fx.error) fx.error->clear();
@@ -159,16 +176,30 @@ static void applyEndpointEnhancements(const wa::DeviceInfo& d, wa::DataFlow flow
         params += (want == wa::EnhancementsState::Enabled) ? L"on" : L"off";
         unsigned long exitCode = 1;
         r = wa::runElevatedAndWait(cli, params, &exitCode);
+        if (r) after = findDeviceAfterSet(flow, d.id);
     }
     if (!r) {
         if (fx.error) *fx.error = r.message;
         return;
+    }
+    // Surface mismatch if write returned ok but re-read still shows the old SysFx state.
+    if (after.enhancements != wa::EnhancementsState::Unknown && after.enhancements != want) {
+        if (fx.error) {
+            *fx.error = std::string("Enhancements write ok but device still reports ")
+                + wa::enhancementsStateName(after.enhancements)
+                + " (want " + wa::enhancementsStateName(want) + "; mix "
+                + std::to_string(after.mixFormat.sampleRate) + "/"
+                + std::to_string(after.mixFormat.channels) + "ch)";
+        }
     }
     if (fx.onEnhancementsChanged) fx.onEnhancementsChanged();
 }
 
 static void drawDeviceEnhancementsDetail(const wa::DeviceInfo& d, wa::DataFlow flow,
                                          StreamFxUi fx) {
+    // Capture + Render both draw Enable/Disable/Probe with the same ui_text::id()
+    // labels; PushID(flow) keeps ImGui IDs unique so Render clicks are not eaten.
+    ImGui::PushID(flow == wa::DataFlow::Capture ? "capEpFx" : "renEpFx");
     ImGui::TextDisabled("%s: %s",
         wa::ui_text::get(wa::ui_text::kEnhancementsLabel),
         wa::enhancementsStateName(d.enhancements));
@@ -221,10 +252,11 @@ static void drawDeviceEnhancementsDetail(const wa::DeviceInfo& d, wa::DataFlow f
                 if (!e.canSetState) continue;
                 ImGui::SameLine();
                 char onId[96], offId[96];
-                std::snprintf(onId, sizeof onId, "%s###fxOn%zu",
-                    wa::ui_text::get(wa::ui_text::kStreamEffectOn), ei);
-                std::snprintf(offId, sizeof offId, "%s###fxOff%zu",
-                    wa::ui_text::get(wa::ui_text::kStreamEffectOff), ei);
+                const char* flowTag = (flow == wa::DataFlow::Capture) ? "c" : "r";
+                std::snprintf(onId, sizeof onId, "%s###fxOn%s%zu",
+                    wa::ui_text::get(wa::ui_text::kStreamEffectOn), flowTag, ei);
+                std::snprintf(offId, sizeof offId, "%s###fxOff%s%zu",
+                    wa::ui_text::get(wa::ui_text::kStreamEffectOff), flowTag, ei);
                 // Copy id: setStreamAudioEffect may replace *fx.effects.
                 const std::string effectId = e.id;
                 bool mutated = false;
@@ -250,6 +282,7 @@ static void drawDeviceEnhancementsDetail(const wa::DeviceInfo& d, wa::DataFlow f
     } else {
         ImGui::TextDisabled("%s", wa::ui_text::get(wa::ui_text::kStreamEffectsHint));
     }
+    ImGui::PopID();
 }
 
 } // namespace
