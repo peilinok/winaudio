@@ -192,6 +192,8 @@ TEST_F(GuiLanguageText, ChineseReturnsFilledSlotAndFallsBackWhenMissing) {
     EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kEnhancementsOnShort), "增强开");
     EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kEnhancementsOffShort), "增强关");
     EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kEnhancementsLabel), "音频增强");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kStreamEffects), "流效果");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kProbeStreamEffects), "探测流效果");
     EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kLogEmpty), "（空）");
     EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kMmsysCplFailed), "mmsys.cpl：ShellExecute 失败");
     EXPECT_EQ(wa::ui_text::get(wa::ui_text::kApply), wa::ui_text::get(wa::ui_text::kApply));
@@ -226,6 +228,8 @@ TEST_F(GuiLanguageText, SharedLabelsExistForLaterPages) {
     EXPECT_STREQ(wa::ui_text::kEnhancementsOffShort, "FX off");
     EXPECT_STREQ(wa::ui_text::kEnhancementsLabel, "Enhancements");
     EXPECT_STREQ(wa::ui_text::kEnhancementOptions, "Enhancement options");
+    EXPECT_STREQ(wa::ui_text::kStreamEffects, "Stream effects");
+    EXPECT_STREQ(wa::ui_text::kProbeStreamEffects, "Probe stream effects");
     EXPECT_STREQ(wa::ui_text::kStatus, "Status");
     EXPECT_STREQ(wa::ui_text::kStart, "Start");
     EXPECT_STREQ(wa::ui_text::kStop, "Stop");

@@ -121,14 +121,52 @@ static std::string devicePickerLabel(const wa::DeviceInfo& d, bool starredPrevie
     return std::string(mark) + wtou(d.name) + deviceEnhancementsSuffix(d);
 }
 
-static void drawDeviceEnhancementsDetail(const wa::DeviceInfo& d) {
+struct StreamFxUi {
+    wa::DeviceId* deviceId = nullptr;
+    wa::DataFlow* flow = nullptr;
+    std::vector<wa::StreamAudioEffect>* effects = nullptr;
+    std::string* error = nullptr;
+    bool* haveResult = nullptr;
+};
+
+static void drawDeviceEnhancementsDetail(const wa::DeviceInfo& d, wa::DataFlow flow,
+                                         StreamFxUi fx) {
     ImGui::TextDisabled("%s: %s",
         wa::ui_text::get(wa::ui_text::kEnhancementsLabel),
         wa::enhancementsStateName(d.enhancements));
-    if (d.enhancementOptions.empty()) return;
-    ImGui::TextDisabled("%s:", wa::ui_text::get(wa::ui_text::kEnhancementOptions));
-    for (const auto& o : d.enhancementOptions) {
-        ImGui::BulletText("%s (%s): %s", o.name.c_str(), o.id.c_str(), o.value.c_str());
+    if (!d.enhancementOptions.empty()) {
+        ImGui::TextDisabled("%s:", wa::ui_text::get(wa::ui_text::kEnhancementOptions));
+        for (const auto& o : d.enhancementOptions) {
+            ImGui::BulletText("%s (%s): %s", o.name.c_str(), o.id.c_str(), o.value.c_str());
+        }
+    }
+
+    // Stream effects require an open Shared client (Initialize, no Start). On demand only.
+    if (ImGui::SmallButton(wa::ui_text::id(wa::ui_text::kProbeStreamEffects))) {
+        *fx.deviceId = d.id;
+        *fx.flow = flow;
+        *fx.haveResult = true;
+        fx.effects->clear();
+        fx.error->clear();
+        wa::Result r = wa::probeStreamAudioEffects(flow, d.id, *fx.effects);
+        if (!r) *fx.error = r.message;
+    }
+    ImGui::SameLine();
+    ImGui::TextDisabled("%s", wa::ui_text::get(wa::ui_text::kStreamEffectsNeedWin11));
+
+    if (*fx.haveResult && *fx.deviceId == d.id && *fx.flow == flow) {
+        ImGui::TextDisabled("%s:", wa::ui_text::get(wa::ui_text::kStreamEffects));
+        if (!fx.error->empty()) {
+            ImGui::TextColored(ImVec4(1.f, 0.4f, 0.4f, 1.f), "%s", fx.error->c_str());
+        } else if (fx.effects->empty()) {
+            ImGui::TextDisabled("%s", wa::ui_text::get(wa::ui_text::kStreamEffectsNone));
+        } else {
+            for (const auto& e : *fx.effects) {
+                ImGui::BulletText("%s [%s]%s", e.typeName.c_str(),
+                    wa::audioEffectStateName(e.state),
+                    e.canSetState ? " (settable)" : "");
+            }
+        }
     }
 }
 
@@ -1775,8 +1813,12 @@ void AppUi::drawLeftPanel() {
         ImGui::OpenPopup(wa::ui_text::id(wa::ui_text::kDeviceCapabilities));
     }
 
+    StreamFxUi streamFx{
+        &streamFxDeviceId_, &streamFxFlow_, &streamFxEffects_,
+        &streamFxError_, &streamFxHaveResult_};
     auto deviceCombo = [&](const char* caption, const char* comboId,
-                           const std::vector<wa::DeviceInfo>& devs, int& idx) {
+                           const std::vector<wa::DeviceInfo>& devs, int& idx,
+                           wa::DataFlow flow) {
         ImGui::TextUnformatted(wa::ui_text::get(caption));
         std::string preview = wa::ui_text::get(wa::ui_text::kNoDevices);
         if (!devs.empty() && idx >= 0 && idx < (int)devs.size())
@@ -1791,10 +1833,12 @@ void AppUi::drawLeftPanel() {
             ImGui::EndCombo();
         }
         if (!devs.empty() && idx >= 0 && idx < (int)devs.size())
-            drawDeviceEnhancementsDetail(devs[(size_t)idx]);
+            drawDeviceEnhancementsDetail(devs[(size_t)idx], flow, streamFx);
     };
-    deviceCombo(wa::ui_text::kCaptureDevice, "##capdev", capDevices_, capDevIdx_);
-    deviceCombo(wa::ui_text::kRenderDevice,  "##rendev", renderDevices_, renderDevIdx_);
+    deviceCombo(wa::ui_text::kCaptureDevice, "##capdev", capDevices_, capDevIdx_,
+                wa::DataFlow::Capture);
+    deviceCombo(wa::ui_text::kRenderDevice,  "##rendev", renderDevices_, renderDevIdx_,
+                wa::DataFlow::Render);
     drawAdvancedModal();
     drawCapsModal();
 
