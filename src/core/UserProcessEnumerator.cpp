@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <cctype>
 #include <map>
-#include <memory>
+#include <unordered_set>
 
 namespace wa {
 namespace {
@@ -19,7 +19,6 @@ std::string wideToUtf8(const wchar_t* w) {
     return s;
 }
 
-// Token user SID bytes for a process, or empty when it cannot be read.
 std::vector<unsigned char> tokenUserSid(HANDLE process) {
     std::vector<unsigned char> sid;
     HANDLE token = nullptr;
@@ -45,6 +44,14 @@ std::string lowerAscii(const std::string& s) {
     std::string r = s;
     for (char& ch : r) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
     return r;
+}
+
+bool processRankLess(const ProcessTreeRow& a, const ProcessTreeRow& b) {
+    if (a.hasActiveSession != b.hasActiveSession) return a.hasActiveSession;
+    const bool aa = !a.sessions.empty();
+    const bool ba = !b.sessions.empty();
+    if (aa != ba) return aa;
+    return a.pid < b.pid;
 }
 
 }  // namespace
@@ -76,6 +83,7 @@ Result enumerateUserProcesses(std::vector<UserProcessInfo>& out) {
         if (sid != selfSid) continue;
         UserProcessInfo info;
         info.pid = static_cast<uint32_t>(pid);
+        info.parentPid = static_cast<uint32_t>(pe.th32ParentProcessID);
         info.name = wideToUtf8(pe.szExeFile);
         if (info.name.empty()) info.name = "pid-" + std::to_string(pid);
         out.push_back(std::move(info));
@@ -87,6 +95,9 @@ Result enumerateUserProcesses(std::vector<UserProcessInfo>& out) {
 std::vector<ProcessTreeRow> buildProcessTree(const std::vector<UserProcessInfo>& processes,
                                              const std::vector<LiveSessionView>& sessions,
                                              bool audioOnly, uint32_t hidePid) {
+    std::map<uint32_t, uint32_t> parentByPid;
+    for (const UserProcessInfo& p : processes) parentByPid[p.pid] = p.parentPid;
+
     std::map<uint32_t, ProcessTreeRow> byPid;
     for (int i = 0; i < static_cast<int>(sessions.size()); ++i) {
         const LiveSessionView& s = sessions[static_cast<size_t>(i)];
@@ -96,12 +107,15 @@ std::vector<ProcessTreeRow> buildProcessTree(const std::vector<UserProcessInfo>&
         if (row.name.empty()) row.name = s.processName;
         row.sessions.push_back(i);
         if (s.state == "Active") row.hasActiveSession = true;
+        auto pit = parentByPid.find(s.processId);
+        if (pit != parentByPid.end()) row.parentPid = pit->second;
     }
     if (!audioOnly) {
         for (const UserProcessInfo& p : processes) {
             if (p.pid == 0 || (hidePid != 0 && p.pid == hidePid)) continue;
             ProcessTreeRow& row = byPid[p.pid];
             row.pid = p.pid;
+            row.parentPid = p.parentPid;
             if (row.name.empty()) row.name = p.name;
         }
     }
@@ -120,9 +134,32 @@ std::vector<ProcessTreeRow> buildProcessTree(const std::vector<UserProcessInfo>&
     return rows;
 }
 
+uint32_t pickNameGroupRootPid(const std::vector<ProcessTreeRow>& processes) {
+    if (processes.empty()) return 0;
+    std::unordered_set<uint32_t> inGroup;
+    inGroup.reserve(processes.size() * 2);
+    for (const ProcessTreeRow& p : processes) inGroup.insert(p.pid);
+
+    std::vector<const ProcessTreeRow*> roots;
+    for (const ProcessTreeRow& p : processes) {
+        if (p.parentPid == 0 || inGroup.find(p.parentPid) == inGroup.end())
+            roots.push_back(&p);
+    }
+    const std::vector<const ProcessTreeRow*>* pool = &roots;
+    std::vector<const ProcessTreeRow*> all;
+    if (roots.empty()) {
+        all.reserve(processes.size());
+        for (const ProcessTreeRow& p : processes) all.push_back(&p);
+        pool = &all;
+    }
+    const ProcessTreeRow* best = (*pool)[0];
+    for (size_t i = 1; i < pool->size(); ++i) {
+        if (processRankLess(*(*pool)[i], *best)) best = (*pool)[i];
+    }
+    return best->pid;
+}
 
 std::vector<ProcessNameGroup> groupProcessTreeByName(std::vector<ProcessTreeRow> rows) {
-    // Stable bucket by lower-case name, preserving first-seen display casing.
     std::vector<ProcessNameGroup> groups;
     std::map<std::string, size_t> indexByKey;
     for (ProcessTreeRow& row : rows) {
@@ -139,13 +176,7 @@ std::vector<ProcessNameGroup> groupProcessTreeByName(std::vector<ProcessTreeRow>
         }
     }
     for (ProcessNameGroup& g : groups) {
-        std::stable_sort(g.processes.begin(), g.processes.end(),
-                         [](const ProcessTreeRow& a, const ProcessTreeRow& b) {
-                             const bool aa = !a.sessions.empty();
-                             const bool ba = !b.sessions.empty();
-                             if (aa != ba) return aa;
-                             return a.pid < b.pid;
-                         });
+        std::stable_sort(g.processes.begin(), g.processes.end(), processRankLess);
         g.hasAudio = false;
         g.hasActiveSession = false;
         g.sessionCount = 0;
@@ -154,15 +185,77 @@ std::vector<ProcessNameGroup> groupProcessTreeByName(std::vector<ProcessTreeRow>
             if (p.hasActiveSession) g.hasActiveSession = true;
             g.sessionCount += static_cast<int>(p.sessions.size());
         }
+        g.rootPid = pickNameGroupRootPid(g.processes);
     }
     std::stable_sort(groups.begin(), groups.end(), [](const ProcessNameGroup& a, const ProcessNameGroup& b) {
         if (a.hasAudio != b.hasAudio) return a.hasAudio;
         const std::string an = lowerAscii(a.name);
         const std::string bn = lowerAscii(b.name);
         if (an != bn) return an < bn;
-        return a.name < b.name;
+        return a.rootPid < b.rootPid;
     });
     return groups;
+}
+
+void sortProcessNameGroups(std::vector<ProcessNameGroup>& groups, int col, bool ascending) {
+    const auto nameKey = [](const ProcessNameGroup& g) { return lowerAscii(g.name); };
+    const auto pidKey = [](const ProcessNameGroup& g) {
+        return g.processes.size() == 1 ? g.processes[0].pid : g.rootPid;
+    };
+    const auto stateKey = [](const ProcessNameGroup& g) {
+        // Lower sorts first when ascending; Active should lead when descending is false
+        // with a custom compare — use rank 0=Active, 1=audio, 2=other.
+        if (g.hasActiveSession) return 0;
+        if (g.hasAudio) return 1;
+        return 2;
+    };
+
+    auto less = [&](const ProcessNameGroup& a, const ProcessNameGroup& b) {
+        int cmp = 0;
+        if (col == 1) {
+            if (pidKey(a) < pidKey(b)) cmp = -1;
+            else if (pidKey(a) > pidKey(b)) cmp = 1;
+        } else if (col == 5) {
+            if (stateKey(a) < stateKey(b)) cmp = -1;
+            else if (stateKey(a) > stateKey(b)) cmp = 1;
+        } else {
+            const std::string an = nameKey(a), bn = nameKey(b);
+            if (an < bn) cmp = -1;
+            else if (an > bn) cmp = 1;
+        }
+        if (cmp == 0) {
+            if (pidKey(a) < pidKey(b)) cmp = -1;
+            else if (pidKey(a) > pidKey(b)) cmp = 1;
+        }
+        return ascending ? (cmp < 0) : (cmp > 0);
+    };
+    std::stable_sort(groups.begin(), groups.end(), less);
+
+    for (ProcessNameGroup& g : groups) {
+        if (col == 1) {
+            std::stable_sort(g.processes.begin(), g.processes.end(),
+                             [&](const ProcessTreeRow& a, const ProcessTreeRow& b) {
+                                 return ascending ? (a.pid < b.pid) : (a.pid > b.pid);
+                             });
+        } else if (col == 5) {
+            std::stable_sort(g.processes.begin(), g.processes.end(),
+                             [&](const ProcessTreeRow& a, const ProcessTreeRow& b) {
+                                 const auto rank = [](const ProcessTreeRow& r) {
+                                     if (r.hasActiveSession) return 0;
+                                     if (!r.sessions.empty()) return 1;
+                                     return 2;
+                                 };
+                                 const int ra = rank(a), rb = rank(b);
+                                 if (ra != rb) return ascending ? (ra < rb) : (ra > rb);
+                                 return ascending ? (a.pid < b.pid) : (a.pid > b.pid);
+                             });
+        } else {
+            std::stable_sort(g.processes.begin(), g.processes.end(),
+                             [&](const ProcessTreeRow& a, const ProcessTreeRow& b) {
+                                 return ascending ? (a.pid < b.pid) : (a.pid > b.pid);
+                             });
+        }
+    }
 }
 
 }  // namespace wa

@@ -77,6 +77,7 @@ private:
     void refreshPipelineSessions();
     void refreshPipelineProcesses();
     void rebuildPipelineProcessTree();
+    void applyPipelineProcessSort();
     void rebuildPipelineGraph();
     void applyPipelineJoin();
     void applyLiveSessionCellPatches();
@@ -206,6 +207,10 @@ private:
     uint32_t pipelineSelectedPid_ = 0;
     std::vector<wa::UserProcessInfo> pipelineProcesses_;
     std::vector<wa::ProcessNameGroup> pipelineTree_;
+    // 0=Process name, 1=PID, 5=State. Applied after each tree rebuild.
+    int pipelineProcessSortCol_ = 0;
+    bool pipelineProcessSortAsc_ = true;
+
     unsigned long long pipelineProcessesTick_ = 0;
     std::vector<wa::PipelineNode> pipelineNodes_;
     std::vector<wa::ProbeSlice> pipelineProbes_;
