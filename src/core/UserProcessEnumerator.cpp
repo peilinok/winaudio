@@ -120,4 +120,49 @@ std::vector<ProcessTreeRow> buildProcessTree(const std::vector<UserProcessInfo>&
     return rows;
 }
 
+
+std::vector<ProcessNameGroup> groupProcessTreeByName(std::vector<ProcessTreeRow> rows) {
+    // Stable bucket by lower-case name, preserving first-seen display casing.
+    std::vector<ProcessNameGroup> groups;
+    std::map<std::string, size_t> indexByKey;
+    for (ProcessTreeRow& row : rows) {
+        const std::string key = lowerAscii(row.name);
+        auto it = indexByKey.find(key);
+        if (it == indexByKey.end()) {
+            indexByKey.emplace(key, groups.size());
+            ProcessNameGroup g;
+            g.name = row.name;
+            g.processes.push_back(std::move(row));
+            groups.push_back(std::move(g));
+        } else {
+            groups[it->second].processes.push_back(std::move(row));
+        }
+    }
+    for (ProcessNameGroup& g : groups) {
+        std::stable_sort(g.processes.begin(), g.processes.end(),
+                         [](const ProcessTreeRow& a, const ProcessTreeRow& b) {
+                             const bool aa = !a.sessions.empty();
+                             const bool ba = !b.sessions.empty();
+                             if (aa != ba) return aa;
+                             return a.pid < b.pid;
+                         });
+        g.hasAudio = false;
+        g.hasActiveSession = false;
+        g.sessionCount = 0;
+        for (const ProcessTreeRow& p : g.processes) {
+            if (!p.sessions.empty()) g.hasAudio = true;
+            if (p.hasActiveSession) g.hasActiveSession = true;
+            g.sessionCount += static_cast<int>(p.sessions.size());
+        }
+    }
+    std::stable_sort(groups.begin(), groups.end(), [](const ProcessNameGroup& a, const ProcessNameGroup& b) {
+        if (a.hasAudio != b.hasAudio) return a.hasAudio;
+        const std::string an = lowerAscii(a.name);
+        const std::string bn = lowerAscii(b.name);
+        if (an != bn) return an < bn;
+        return a.name < b.name;
+    });
+    return groups;
+}
+
 }  // namespace wa

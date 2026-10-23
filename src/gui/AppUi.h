@@ -205,7 +205,7 @@ private:
     // PID of the selected process row (or of the selected session row).
     uint32_t pipelineSelectedPid_ = 0;
     std::vector<wa::UserProcessInfo> pipelineProcesses_;
-    std::vector<wa::ProcessTreeRow> pipelineTree_;
+    std::vector<wa::ProcessNameGroup> pipelineTree_;
     unsigned long long pipelineProcessesTick_ = 0;
     std::vector<wa::PipelineNode> pipelineNodes_;
     std::vector<wa::ProbeSlice> pipelineProbes_;

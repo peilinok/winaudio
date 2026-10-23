@@ -114,6 +114,7 @@ namespace wa::ui_text {
     WA_UI_TEXT(kPipelineShowSelf, "Show this process", "显示本进程") \
     WA_UI_TEXT(kPipelineAudioOnly, "Audio sessions only", "仅显示有音频会话的进程") \
     WA_UI_TEXT(kPipelineSessionCountFmt, "%d session(s)", "%d 个会话") \
+    WA_UI_TEXT(kPipelineProcessCountFmt, "%d process(es)", "%d 个进程") \
     WA_UI_TEXT(kPipelineEmpty, \
         "No Live sessions. Start capture or playback in another app, then Refresh.", \
         "没有 Live 会话。请在其他应用中开始采集或播放，然后刷新。") \
