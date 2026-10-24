@@ -307,14 +307,18 @@ bool PerformanceFixture::filterEdited() {
 
 void PerformanceFixture::scrollCalls() {
     if (!scrollPending) return;
-    const float target = (std::min)(tableTarget, ImGui::GetScrollMaxY());
+    // Freeze the requested position on the first draw. A growing history must
+    // not turn one scroll operation into an endless chase of the new bottom.
+    tableTarget = (std::min)(tableTarget, ImGui::GetScrollMaxY());
+    const float target = tableTarget;
     if (std::abs(ImGui::GetScrollY() - target) <= 1.f) scrollPending = false;
     else ImGui::SetScrollY(target);
 }
 
 void PerformanceFixture::scrollParameters() {
     if (!paramsPending) return;
-    const float target = (std::min)(paramsTarget, ImGui::GetScrollMaxY());
+    paramsTarget = (std::min)(paramsTarget, ImGui::GetScrollMaxY());
+    const float target = paramsTarget;
     if (std::abs(ImGui::GetScrollY() - target) <= 1.f) paramsPending = false;
     else ImGui::SetScrollY(target);
 }
