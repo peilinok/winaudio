@@ -107,7 +107,8 @@ def summarize(path, warmup_seconds=0, duration_seconds=None, phases=None):
         key = (meta['scene'], stage)
         if key not in groups:
             groups[key] = dict(scene=key[0], stage=key[1], frames=[], intervals=[],
-                               operations=[], slices=defaultdict(list), work=defaultdict(int), work_frames=[])
+                               operations=[], operations_by_target=defaultdict(list),
+                               slices=defaultdict(list), work=defaultdict(int), work_frames=[])
         group = groups[key]
         group['frames'].append(frame)
         interval = int(meta['interval_ticks'])
@@ -117,7 +118,9 @@ def summarize(path, warmup_seconds=0, duration_seconds=None, phases=None):
             record = slices[frame].get(name)
             group['slices'][name].append(1000 * int(record['ticks']) / frequency if record else 0)
         for record in operations[frame]:
-            group['operations'].append(1000 * (int(record['end']) - int(record['start'])) / frequency)
+            latency = 1000 * (int(record['end']) - int(record['start'])) / frequency
+            group['operations'].append(latency)
+            group['operations_by_target'][record['target']].append(latency)
         frame_work = defaultdict(int)
         for record in work[frame]:
             key = '{}:{}:{}:{}'.format(record['metric'], record['source'],
@@ -137,6 +140,8 @@ def summarize(path, warmup_seconds=0, duration_seconds=None, phases=None):
                            last_frame=group['frames'][-1], main_thread_ms=main,
                            frame_interval_ms=distribution(group['intervals']),
                            operation_response_ms=response, slices_ms=stats, work=dict(group['work']),
+                           operations_by_target_ms={target: distribution(values)
+                                                    for target, values in group['operations_by_target'].items()},
                            work_per_frame={key: distribution([f.get(key, 0) for f in group['work_frames']])
                                            for key in group['work']},
                            frame_budget_met=main['p95'] <= 8 and main['p99'] <= 16,

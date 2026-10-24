@@ -6,6 +6,27 @@ from summarize import nearest_rank, summarize
 
 
 class FrameSummaryTest(unittest.TestCase):
+    def test_slow_save_is_not_hidden_by_frequent_fast_operations(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'probe.txt'
+            lines = []
+            for frame in range(1, 101):
+                start = frame * 1000
+                target, latency = ('save', 250) if frame == 100 else ('select', 10)
+                lines.append('slice=main-thread N=1 ticks=5 qpc_freq=1000 frame={}\n'.format(frame))
+                lines.append('kind=frame schema=2 frame={} start={} interval_ticks=1000 qpc_freq=1000 '
+                             'scene=Pipeline stage=a valid_mask=16 lost_slices=0 lost_operations=0 '
+                             'lost_work=0 lost_frames=0 pending_operations=0\n'.format(frame, start))
+                lines.append('kind=operation frame={} id={} target={} start={} end={} ticks={} '
+                             'qpc_freq=1000\n'.format(frame, frame, target, start + 5 - latency,
+                                                     start + 5, latency))
+            source.write_text(''.join(lines), encoding='utf-8')
+            group = summarize(source)['groups'][0]
+            self.assertEqual(group['operation_response_ms']['p95'], 10)
+            self.assertEqual(group['operations_by_target_ms']['save'],
+                             dict(n=1, p50=250, p95=250, p99=250, maximum=250))
+            self.assertEqual(group['operations_by_target_ms']['select']['n'], 99)
+
     def test_work_distribution_sums_hits_and_keeps_idle_frames(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / 'probe.txt'
