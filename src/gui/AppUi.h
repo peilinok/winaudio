@@ -45,7 +45,13 @@ public:
     void loadLogRegionPrefs();
     void loadProductionPhrases();
 private:
+#ifdef WA_PERFORMANCE_FIXTURE
+    friend class PerformanceFixture;
+#endif
     struct VisualState {
+        wa::TrackId probeSource = 0;
+        int probeDirection = 0;
+        int probeDrawDirection = 0;
         std::vector<float> capWave, renderWave;
         std::vector<std::vector<float>> capChannelWaves;
         uint32_t waveSr = 0;

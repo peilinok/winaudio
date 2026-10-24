@@ -10,7 +10,7 @@ from pathlib import Path
 SLICES = ['heatmap-submit', 'waveform-envelope', 'log-drain', 'present',
           'main-thread', 'ui-build', 'dx11-submit', 'probe-io', 'chart-refresh',
           'fft', 'heatmap-fill', 'heatmap-upload', 'call-receive', 'call-sort',
-          'call-match', 'call-rows', 'graph-hint', 'export-start']
+          'call-match', 'call-rows', 'graph-hint', 'export-start', 'spec-history']
 
 
 def nearest_rank(values, percentile):
@@ -107,7 +107,7 @@ def summarize(path, warmup_seconds=0, duration_seconds=None, phases=None):
         key = (meta['scene'], stage)
         if key not in groups:
             groups[key] = dict(scene=key[0], stage=key[1], frames=[], intervals=[],
-                               operations=[], slices=defaultdict(list), work=defaultdict(int))
+                               operations=[], slices=defaultdict(list), work=defaultdict(int), work_frames=[])
         group = groups[key]
         group['frames'].append(frame)
         interval = int(meta['interval_ticks'])
@@ -118,10 +118,13 @@ def summarize(path, warmup_seconds=0, duration_seconds=None, phases=None):
             group['slices'][name].append(1000 * int(record['ticks']) / frequency if record else 0)
         for record in operations[frame]:
             group['operations'].append(1000 * (int(record['end']) - int(record['start'])) / frequency)
+        frame_work = defaultdict(int)
         for record in work[frame]:
             key = '{}:{}:{}:{}'.format(record['metric'], record['source'],
                                        record['direction'], record['channel'])
             group['work'][key] += int(record['value'])
+            frame_work[key] += int(record['value'])
+        group['work_frames'].append(frame_work)
     if not groups:
         raise ValueError('no samples in selected interval')
     output = []
@@ -134,6 +137,8 @@ def summarize(path, warmup_seconds=0, duration_seconds=None, phases=None):
                            last_frame=group['frames'][-1], main_thread_ms=main,
                            frame_interval_ms=distribution(group['intervals']),
                            operation_response_ms=response, slices_ms=stats, work=dict(group['work']),
+                           work_per_frame={key: distribution([f.get(key, 0) for f in group['work_frames']])
+                                           for key in group['work']},
                            frame_budget_met=main['p95'] <= 8 and main['p99'] <= 16,
                            operation_budget_met=response['p95'] <= 100 if response['n'] else None))
     return dict(source=str(Path(path).resolve()), sha256=hashlib.sha256(data).hexdigest(),

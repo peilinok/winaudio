@@ -8,6 +8,8 @@
 
 namespace wa {
 
+class FrameProbe;
+
 // Parameters for one Chart Data Pipeline refresh (one stream side).
 struct ChartRefreshParams {
     const ScopeReader* reader = nullptr;
@@ -16,6 +18,9 @@ struct ChartRefreshParams {
     size_t             fftWin = 2048;
     size_t             fftHop = 1024;
     size_t             maxCatchup = 8;
+    FrameProbe*        probe = nullptr;     // GUI-only observation; null while disabled
+    uint64_t           source = 0;
+    int                direction = 0;
 };
 
 // External buffers owned by VisualState (or tests). Mono vs multi-channel:

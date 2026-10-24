@@ -294,6 +294,7 @@ const char* FrameProbe::sliceName(FrameSlice slice) {
     case FrameSlice::CallRows: return "call-rows";
     case FrameSlice::GraphHint: return "graph-hint";
     case FrameSlice::ExportStart: return "export-start";
+    case FrameSlice::SpecHistory: return "spec-history";
     case FrameSlice::Count: break;
     }
     return "unknown";

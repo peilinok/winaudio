@@ -25,7 +25,8 @@ enum class FrameSlice : int {
     CallRows = 15,
     GraphHint = 16,
     ExportStart = 17,
-    Count = 18,
+    SpecHistory = 18,
+    Count = 19,
 };
 
 // Fixed slots for one main-window frame. Off by default.
@@ -106,7 +107,7 @@ private:
     uint64_t frameInterval_ = 0;
     std::array<Operation, 16> pendingOperations_{}, operations_{};
     size_t pendingOperationCount_ = 0, operationCount_ = 0;
-    std::array<Work, 256> work_{};
+    std::array<Work, 2048> work_{};
     size_t workCount_ = 0;
     uint64_t inputTick_ = 0, nextOperationId_ = 0;
     uint64_t pendingPageId_ = 0;
@@ -124,15 +125,16 @@ private:
 // Closes the bracket on every exit. While the probe is disabled both calls return immediately.
 class FrameBracket {
 public:
-    FrameBracket(FrameProbe& probe, FrameSlice slice) : probe_(probe), slice_(slice) {
-        probe_.begin(slice_);
+    FrameBracket(FrameProbe& probe, FrameSlice slice) : FrameBracket(&probe, slice) {}
+    FrameBracket(FrameProbe* probe, FrameSlice slice) : probe_(probe), slice_(slice) {
+        if (probe_) probe_->begin(slice_);
     }
-    ~FrameBracket() { probe_.end(slice_); }
+    ~FrameBracket() { if (probe_) probe_->end(slice_); }
     FrameBracket(const FrameBracket&) = delete;
     FrameBracket& operator=(const FrameBracket&) = delete;
 
 private:
-    FrameProbe& probe_;
+    FrameProbe* probe_;
     FrameSlice slice_;
 };
 

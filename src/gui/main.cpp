@@ -8,6 +8,9 @@
 // - Introduction, links and more at the top of imgui.cpp
 
 #include "AppUi.h"
+#ifdef WA_PERFORMANCE_FIXTURE
+#include "PerformanceFixture.h"
+#endif
 #include "GuiGpu.h"
 #include "Log.h"
 #include "imgui.h"
@@ -147,6 +150,9 @@ int main(int, char**)
     }
     ui.loadLogRegionPrefs();
     ui.loadProductionPhrases();
+#ifdef WA_PERFORMANCE_FIXTURE
+    const bool fixtureReady = PerformanceFixture::start(ui);
+#endif
 
     // Append records after Present. Failure leaves the probe off. Not wa::log:
     // a log line would be counted by the next frame's log-drain slice.
@@ -168,6 +174,9 @@ int main(int, char**)
 
     // Main loop
     bool done = false;
+#ifdef WA_PERFORMANCE_FIXTURE
+    done = !fixtureReady;
+#endif
     while (!done)
     {
         // Poll and handle messages (inputs, window resize, etc.)
@@ -204,6 +213,9 @@ int main(int, char**)
         }
 
         // Start the Dear ImGui frame
+#ifdef WA_PERFORMANCE_FIXTURE
+        if (!PerformanceFixture::advance(ui)) break;
+#endif
         ui.frameProbe().beginFrame();
         ImGui_ImplDX11_NewFrame();
         ImGui_ImplWin32_NewFrame();
@@ -279,7 +291,11 @@ int main(int, char**)
     ::DestroyWindow(hwnd);
     ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
 
+#ifdef WA_PERFORMANCE_FIXTURE
+    return fixtureReady ? 0 : 2;
+#else
     return 0;
+#endif
 }
 
 // Helper functions

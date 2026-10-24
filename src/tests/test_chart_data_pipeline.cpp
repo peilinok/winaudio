@@ -7,6 +7,7 @@
 #include "ChartDataPipeline.h"
 #include "FakeScopeReader.h"
 #include "Spectrogram.h"
+#include "FrameProbe.h"
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -44,6 +45,61 @@ ChartBuffers makeMonoBuffers(std::vector<float>& wave, std::vector<float>& specW
 }
 
 } // namespace
+
+TEST(ChartDataPipeline, WorkRecordsDistinguishSnapshotMoveAndUnchangedReuse) {
+    FakeScopeReader reader(1);
+    fillRamp(reader, 8);
+    std::vector<float> wave(8);
+    uint64_t filled = 0;
+    ChartBuffers buffers;
+    buffers.wave = wave.data();
+    buffers.waveN = 8;
+    buffers.waveSr = 48000;
+    buffers.waveFilledThrough = &filled;
+    FrameProbe probe;
+    probe.setEnabled(true);
+    ChartRefreshParams params;
+    params.reader = &reader;
+    params.streamActive = true;
+    params.probe = &probe;
+    params.source = 17;
+    params.direction = 1;
+    const auto total = [&](const char* metric) {
+        uint64_t value = 0;
+        for (size_t i = 0; i < probe.workCount(); ++i) {
+            char line[512];
+            EXPECT_GT(probe.formatWork(i, line, sizeof(line)), 0);
+            const std::string item(line);
+            EXPECT_NE(item.find("source=17 direction=1 channel=0"), std::string::npos);
+            if (item.find(std::string("metric=") + metric + " ") != std::string::npos) {
+                const size_t begin = item.find("value=");
+                value += std::stoull(item.substr(begin + 6));
+            }
+        }
+        return value;
+    };
+    probe.beginFrame();
+    ASSERT_TRUE(refreshCharts(params, buffers).haveWave);
+    EXPECT_EQ(total("wave-request-samples"), 8u);
+    EXPECT_EQ(total("wave-move-bytes"), 0u);
+    EXPECT_EQ(total("wave-copy-bytes"), 32u);
+    probe.endFrame();
+    const float tail[] = {8, 9};
+    reader.pushMono(tail, 2);
+    probe.beginFrame();
+    ASSERT_TRUE(refreshCharts(params, buffers).haveWave);
+    EXPECT_EQ(total("wave-request-samples"), 2u);
+    EXPECT_EQ(total("wave-move-bytes"), 24u);
+    EXPECT_EQ(total("wave-copy-bytes"), 8u);
+    EXPECT_FLOAT_EQ(wave.back(), 9.f);
+    probe.endFrame();
+    probe.beginFrame();
+    ASSERT_TRUE(refreshCharts(params, buffers).haveWave);
+    EXPECT_EQ(total("wave-request-samples"), 0u);
+    EXPECT_EQ(total("wave-move-bytes"), 0u);
+    EXPECT_EQ(total("wave-copy-bytes"), 0u);
+    probe.endFrame();
+}
 
 TEST(ChartDataPipeline, FrozenDoesNotAdvanceCursorOrWave) {
     FakeScopeReader r(1);

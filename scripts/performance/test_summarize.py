@@ -6,6 +6,24 @@ from summarize import nearest_rank, summarize
 
 
 class FrameSummaryTest(unittest.TestCase):
+    def test_work_distribution_sums_hits_and_keeps_idle_frames(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'probe.txt'
+            lines = []
+            for frame in range(1, 4):
+                lines.append('slice=main-thread N=1 ticks=5 qpc_freq=1000 frame={}\n'.format(frame))
+                lines.append('kind=frame schema=2 frame={} start={} interval_ticks=10 qpc_freq=1000 '
+                             'scene=Render stage=a valid_mask=16 lost_slices=0 lost_operations=0 '
+                             'lost_work=0 lost_frames=0 pending_operations=0\n'.format(frame, 100 + frame * 10))
+            lines.extend(['kind=work frame=1 metric=upload value=4 source=2 direction=1 channel=0\n',
+                          'kind=work frame=1 metric=upload value=8 source=2 direction=1 channel=0\n',
+                          'kind=work frame=2 metric=upload value=3 source=2 direction=1 channel=0\n'])
+            source.write_text(''.join(lines), encoding='utf-8')
+            group = summarize(source)['groups'][0]
+            self.assertEqual(group['work']['upload:2:1:0'], 15)
+            self.assertEqual(group['work_per_frame']['upload:2:1:0'],
+                             dict(n=3, p50=3, p95=12, p99=12, maximum=12))
+
     def test_nearest_rank_and_separate_stages(self):
         self.assertEqual(nearest_rank([10, 40, 20, 30], 0.5), 20)
         self.assertEqual(nearest_rank([10, 40, 20, 30], 0.95), 40)

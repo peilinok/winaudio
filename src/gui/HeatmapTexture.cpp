@@ -1,5 +1,6 @@
 #include "HeatmapTexture.h"
 #include "GuiGpu.h"
+#include "FrameProbe.h"
 #include <d3d11.h>
 
 namespace wa {
@@ -68,18 +69,37 @@ void HeatmapTexture::upload() {
 }
 
 bool HeatmapTexture::ensure(const float* values, int rows, int cols, uint64_t revision,
-                            float scaleMin, float scaleMax, const uint32_t* lut256) {
+                            float scaleMin, float scaleMax, const uint32_t* lut256,
+                            FrameProbe* probe, uint64_t source, int direction, int channel) {
+    const auto note = [&](const char* metric, uint64_t value) {
+        if (probe) probe->addWork(metric, value, source, direction, channel);
+    };
     if (!values || !lut256 || rows <= 0 || cols <= 0) return false;
 
-    if (srv_ && rows_ == rows && cols_ == cols && haveRevision_ && revision_ == revision)
+    if (srv_ && rows_ == rows && cols_ == cols && haveRevision_ && revision_ == revision) {
+        note("heatmap-skip", 1);
         return true;  // dirty skip: unchanged spectrogram
-
-    if (!srv_ || rows_ != rows || cols_ != cols) {
-        if (!createTexture(rows, cols)) return false;
     }
 
-    fillHeatmapRgba(values, rows, cols, scaleMin, scaleMax, lut256, rgba_.data());
-    upload();
+    if (!srv_ || rows_ != rows || cols_ != cols) {
+        if (tex_ || srv_) note("heatmap-release", 1);
+        if (!createTexture(rows, cols)) return false;
+        note("heatmap-create", 1);
+    }
+
+    {
+        FrameBracket fill(probe, FrameSlice::HeatmapFill);
+        fillHeatmapRgba(values, rows, cols, scaleMin, scaleMax, lut256, rgba_.data());
+    }
+    note("heatmap-pixels", static_cast<uint64_t>(rows) * static_cast<uint64_t>(cols));
+    {
+        FrameBracket submit(probe, FrameSlice::HeatmapUpload);
+        if (guiDeviceContext() && tex_ && !rgba_.empty()) {
+            upload();
+            note("heatmap-uploads", 1);
+            note("heatmap-upload-bytes", rgba_.size() * sizeof(uint32_t));
+        }
+    }
     revision_ = revision;
     haveRevision_ = true;
     return true;

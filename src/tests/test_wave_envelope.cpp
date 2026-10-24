@@ -147,3 +147,27 @@ TEST(WaveEnvelope, EightChannelFullHistoryTiming) {
     EXPECT_LT(pyrNs, 2'000'000.0);
 #endif
 }
+TEST(WaveEnvelope, WorkSeparatesRebuildFromReusedQueriesAndExactScan) {
+    std::vector<float> wave(256, 0.f);
+    wave[17] = 0.8f;
+    wa::MinMaxPyramid pyramid;
+    float x[4]{}, low[4]{}, high[4]{};
+    wa::WaveEnvelopeWork first;
+    ASSERT_TRUE(wa::fillWaveEnvelope(wave.data(), 256, 0, 255, 2, 1.0 / 48000,
+        &pyramid, 1, x, low, high, &first));
+    EXPECT_EQ(first.rebuildSamples, 256u);
+    EXPECT_EQ(first.blockQueries, 4u);
+    EXPECT_EQ(first.exactSamples, 0u);
+    EXPECT_EQ(first.columns, 2u);
+    wa::WaveEnvelopeWork reused;
+    ASSERT_TRUE(wa::fillWaveEnvelope(wave.data(), 256, 0, 255, 2, 1.0 / 48000,
+        &pyramid, 1, x, low, high, &reused));
+    EXPECT_EQ(reused.rebuildSamples, 0u);
+    EXPECT_EQ(reused.blockQueries, 4u);
+    wa::WaveEnvelopeWork exact;
+    ASSERT_TRUE(wa::fillWaveEnvelope(wave.data(), 256, 0, 15, 4, 1.0 / 48000,
+        &pyramid, 1, x, low, high, &exact));
+    EXPECT_EQ(exact.exactSamples, 16u);
+    EXPECT_EQ(exact.rebuildSamples, 0u);
+    EXPECT_EQ(exact.columns, 4u);
+}

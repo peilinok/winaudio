@@ -1,4 +1,7 @@
 #include "AppUi.h"
+#ifdef WA_PERFORMANCE_FIXTURE
+#include "PerformanceFixture.h"
+#endif
 #include <functional>
 #include "EndpointEnhancements.h"
 #include "DeviceEnumerator.h"
@@ -1094,7 +1097,13 @@ void AppUi::draw() {
             drawApplicationLoopbackPage();
             ImGui::EndTabItem();
         }
-        pageOpen = ImGui::BeginTabItem(wa::ui_text::id(wa::ui_text::kRenderTab));
+        pageOpen = ImGui::BeginTabItem(wa::ui_text::id(wa::ui_text::kRenderTab), nullptr,
+#ifdef WA_PERFORMANCE_FIXTURE
+                                      ImGuiTabItemFlags_SetSelected
+#else
+                                      ImGuiTabItemFlags_None
+#endif
+        );
         frameProbe_.pageState("Render", ImGui::IsItemClicked(), pageOpen);
         if (pageOpen) {
             drawRenderPage();
@@ -1194,6 +1203,7 @@ void AppUi::drawStackedCaptureTrackHosts(wa::CaptureTrackList& list,
         if (t.state == wa::StreamState::Error && !t.message.empty())
             cap += "  [" + t.message + "]";
         wa::TrackScopeReader reader(list, t.id);
+        vs->probeSource = t.id;
         drawChartHost(nullptr, statusFromTrack(t), *vs, wa::chart_host::Mode::CaptureOnly,
                       cap.c_str(), nullptr, &reader);
         ImGui::PopID();
@@ -2024,6 +2034,9 @@ void AppUi::drawRenderPage() {
     ImGui::SameLine();
 
     ImGui::BeginChild("renderTracks", ImVec2(0, 0), true);
+#ifdef WA_PERFORMANCE_FIXTURE
+    PerformanceFixture::scrollCharts(*this);
+#endif
     const auto tracks = renderTracks_.poll();
     for (size_t i = 0; i < renderViz_.size();) {
         bool live = false;
@@ -2102,6 +2115,8 @@ void AppUi::drawRenderPage() {
                 chartStatus.sampleRate = shown.sampleRate;
                 chartStatus.captureChannels = t.chartChannels;
                 wa::RenderTrackScopeReader reader(renderTracks_, t.id);
+                vs->probeSource = t.id;
+                vs->probeDirection = 1;
                 drawChartHost(nullptr, chartStatus, *vs, wa::chart_host::Mode::CaptureOnly,
                               nullptr, nullptr, &reader);
             }
@@ -3069,6 +3084,8 @@ void AppUi::drawSpectrogramPanel(VisualState& viz, const char* plotId, wa::Spect
         }
     ImPlot::PushColormap(waSpectroColormap());   // Plasma-like, transparent at silence (grid shows)
     if (ImPlot::BeginPlot(plotId, ImVec2(-1, height))) {
+        const int channel = slot == kSlotRenSpectro ? 0 : slot - kSlotCapSpectroBase;
+        frameProbe_.addWork("visible-spec-plots", 1, viz.probeSource, viz.probeDrawDirection, channel);
         // Y locked while the plot area was hovered last frame -> in-plot wheel/drag act on X only;
         // hover the Y ruler (plot-area hover = false -> unlocked) to zoom/pan the frequency axis.
         // Audition-style: no time labels here (the waveform above carries the top time ruler);
@@ -3109,13 +3126,16 @@ void AppUi::drawSpectrogramPanel(VisualState& viz, const char* plotId, wa::Spect
                 if (!heatmapTex_[slot])
                     heatmapTex_[slot] = std::make_unique<wa::HeatmapTexture>();
                 if (heatmapTex_[slot]->ensure(spec->data(), spec->rows(), spec->cols(),
-                                              spec->revision(), -96.f, 0.f, lut)) {
+                                              spec->revision(), -96.f, 0.f, lut,
+                                              frameProbe_.enabled() ? &frameProbe_ : nullptr,
+                                              viz.probeSource, viz.probeDrawDirection, channel)) {
                     ImPlot::PlotImage("##hm", heatmapTex_[slot]->textureId(),
                                       ImPlotPoint(0, loL), ImPlotPoint(histSec, hiL));
                     drew = true;
                 }
             }
             if (!drew) {
+                frameProbe_.addWork("heatmap-fallback", 1, viz.probeSource, viz.probeDrawDirection, channel);
                 ImPlot::PlotHeatmap("##hm", spec->data(), spec->rows(), spec->cols(), -96.0, 0.0,
                                     nullptr, ImPlotPoint(0, loL), ImPlotPoint(histSec, hiL));
             }
@@ -3136,6 +3156,11 @@ void AppUi::drawWaveformPanel(VisualState& viz, const char* plotId, const float*
                               uint32_t sr, bool haveData, float height, int slot,
                               wa::MinMaxPyramid* pyr) {
     if (!ImPlot::BeginPlot(plotId, ImVec2(-1, height))) return;
+    const int channel = slot == kSlotRenWave ? 0 : slot - kSlotCapWaveBase;
+    const auto note = [&](const char* metric, uint64_t value) {
+        frameProbe_.addWork(metric, value, viz.probeSource, viz.probeDrawDirection, channel);
+    };
+    note("visible-wave-plots", 1);
     // Y locked while the plot area was hovered last frame -> in-plot wheel/drag act on X only;
     // zoom amplitude via the Y ruler. X tick labels hidden: the spectrogram below shows the time.
     // Audition-style: time ruler on TOP of the waveform, dB ruler on the RIGHT.
@@ -3165,6 +3190,7 @@ void AppUi::drawWaveformPanel(VisualState& viz, const char* plotId, const float*
             float pw = ImPlot::GetPlotSize().x;
             if (pw < 1.0f) pw = 1.0f;
             if (visN <= (int)(2.0f * pw)) {
+                note("wave-raw-samples", static_cast<uint64_t>(visN));
                 viz.envMax.resize((size_t)visN);                     // scratch: warped raw samples
                 for (int i = 0; i < visN; ++i) viz.envMax[(size_t)i] = dbWarp(wave[iLo + i]);
                 ImPlot::SetNextLineStyle(kWaveColor);
@@ -3172,12 +3198,18 @@ void AppUi::drawWaveformPanel(VisualState& viz, const char* plotId, const float*
             } else {
                 const int cols = (int)pw;
                 viz.envX.resize((size_t)cols); viz.envMin.resize((size_t)cols); viz.envMax.resize((size_t)cols);
+                wa::WaveEnvelopeWork work;
                 {
                     // Resize stays outside: it can allocate. The bracket times the min/max fill only.
                     wa::FrameBracket envelope(frameProbe_, wa::FrameSlice::Envelope);
                     wa::fillWaveEnvelope(wave, n, iLo, iHi, cols, invSr, pyr, viz.waveEpoch,
-                                         viz.envX.data(), viz.envMin.data(), viz.envMax.data());
+                                         viz.envX.data(), viz.envMin.data(), viz.envMax.data(),
+                                         frameProbe_.enabled() ? &work : nullptr);
                 }
+                note("wave-block-rebuild-samples", work.rebuildSamples);
+                note("wave-exact-samples", work.exactSamples);
+                note("wave-block-queries", work.blockQueries);
+                note("wave-envelope-columns", work.columns);
                 // Translucent body (FillAlpha multiplies color.w) + opaque min/max outline.
                 ImPlot::SetNextFillStyle(kWaveColor, kWaveEnvFillAlpha);
                 ImPlot::PlotShaded("##wave", viz.envX.data(), viz.envMin.data(), viz.envMax.data(), cols);
@@ -3208,6 +3240,10 @@ void AppUi::drawComboPanel(wa::ScopeReader& reader, const wa::MonitorStatus& sta
 
     // Chart Data Pipeline: hop-aligned spectrum + latest wave history; freeze gated inside.
     wa::ChartRefreshParams refreshParams;
+    viz.probeDrawDirection = renderSide ? 1 : viz.probeDirection;
+    refreshParams.probe = frameProbe_.enabled() ? &frameProbe_ : nullptr;
+    refreshParams.source = viz.probeSource;
+    refreshParams.direction = viz.probeDrawDirection;
     refreshParams.reader = &reader;
     refreshParams.frozen = viz.chartsFrozen;
     // Live: require overall (+ render when render-side). Frozen: still "active" so haveWave
@@ -3245,6 +3281,9 @@ void AppUi::drawComboPanel(wa::ScopeReader& reader, const wa::MonitorStatus& sta
         if (!viz.chartsFrozen && refreshed.haveWave)
             ++viz.waveEpoch;
 
+#ifdef WA_PERFORMANCE_FIXTURE
+        PerformanceFixture::chartPosition(viz.probeSource, false);
+#endif
         for (uint32_t ch = 0; ch < shownChannels; ++ch) {
             std::vector<float>& wave = viz.capChannelWaves[(size_t)ch];
             char title[64];
@@ -3268,6 +3307,9 @@ void AppUi::drawComboPanel(wa::ScopeReader& reader, const wa::MonitorStatus& sta
 
         const uint32_t hz = (sr > 0) ? sr : 48000u;
         const double histSec = (double)(kSpecCols * kFftHop) / (double)hz;
+#ifdef WA_PERFORMANCE_FIXTURE
+        PerformanceFixture::chartPosition(viz.probeSource, true);
+#endif
         for (uint32_t ch = 0; ch < shownChannels; ++ch) {
             char title[64];
             std::snprintf(title, sizeof(title),

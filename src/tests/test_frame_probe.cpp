@@ -92,7 +92,7 @@ TEST(FrameProbe, WorkOverflowAndUnclosedSlicesAreReported) {
     wa::FrameProbe probe;
     probe.setEnabled(true);
     probe.beginFrame();
-    for (unsigned i = 0; i < 257; ++i) probe.addWork("rows", 1);
+    for (unsigned i = 0; i < 2049; ++i) probe.addWork("rows", 1);
     probe.begin(wa::FrameSlice::Ui);
     probe.begin(wa::FrameSlice::Ui);
     probe.end(wa::FrameSlice::Ui);
@@ -101,7 +101,7 @@ TEST(FrameProbe, WorkOverflowAndUnclosedSlicesAreReported) {
     ASSERT_GT(probe.formatFrame(line, sizeof(line)), 0);
     EXPECT_NE(std::strstr(line, "lost_slices=1"), nullptr);
     EXPECT_NE(std::strstr(line, "lost_work=1"), nullptr);
-    EXPECT_EQ(probe.workCount(), 256u);
+    EXPECT_EQ(probe.workCount(), 2048u);
 }
 
 TEST(FrameProbe, UnclosedFinalSliceCannotBeReportedAsNoWork) {
