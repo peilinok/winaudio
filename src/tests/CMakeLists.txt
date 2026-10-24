@@ -81,6 +81,8 @@ wa_set_project_warnings(WinAudioTests)
 
 include(GoogleTest)
 gtest_discover_tests(WinAudioTests)
+set_property(DIRECTORY APPEND PROPERTY TEST_INCLUDE_FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/WavDumpTestTimeouts.cmake")
 
 # Compile the real hook entry points in an executable without automatic DLL
 # installation. Kept independent of WinAudioCore for both x64 and x86 checks.

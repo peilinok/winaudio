@@ -1,0 +1,89 @@
+﻿-- Selecting Windows SDK version 10.0.26100.0 to target Windows 10.0.26200.
+-- Configuring done (0.0s)
+-- Generating done (0.1s)
+-- Build files have been written to: C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/.scratch/wav-dump-legacy-replay/build
+适用于 .NET Framework MSBuild 版本 18.10.1-1.26427.6+3cd27c13e
+
+  1>Checking Build System
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/.scratch/wav-dump-legacy-replay/CMakeLists.txt
+  WavSink.cpp
+  test_legacy.cpp
+  RingBuffer.cpp
+  正在生成代码...
+  WavLegacyReplay.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-legacy-replay\build\Debug\WavLegacyReplay.exe
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/.scratch/wav-dump-legacy-replay/CMakeLists.txt
+Running main() from C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSinkLifecycle.StopWaitsForAdmittedPushAndKeepsItsBytes:WavSinkLifecycle.EmptyRingDoesNotFinalizeBeforeLastPublication:WavSinkLifecycle.OldSnapshotCannotWriteIntoRestartedFile
+[==========] Running 3 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 3 tests from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.StopWaitsForAdmittedPushAndKeepsItsBytes
+C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-legacy-replay\test_legacy.cpp(215): error: Value of: s.closeEntered
+  Actual: true
+Expected: false
+file closed while an admitted push was paused
+
+C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-legacy-replay\test_legacy.cpp(156): error: Expected equality of these values:
+  reader.read(back.data(), back.size() * sizeof(int16_t))
+    Which is: 0
+  back.size() * sizeof(int16_t)
+    Which is: 8
+
+C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-legacy-replay\test_legacy.cpp(157): error: Expected equality of these values:
+  back
+    Which is: { 0, 0, 0, 0 }
+  expected
+    Which is: { 11, -22, 33, -44 }
+
+[  FAILED  ] WavSinkLifecycle.StopWaitsForAdmittedPushAndKeepsItsBytes (26 ms)
+[ RUN      ] WavSinkLifecycle.EmptyRingDoesNotFinalizeBeforeLastPublication
+C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-legacy-replay\test_legacy.cpp(215): error: Value of: s.closeEntered
+  Actual: true
+Expected: false
+file closed while an admitted push was paused
+
+C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-legacy-replay\test_legacy.cpp(156): error: Expected equality of these values:
+  reader.read(back.data(), back.size() * sizeof(int16_t))
+    Which is: 0
+  back.size() * sizeof(int16_t)
+    Which is: 8
+
+C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-legacy-replay\test_legacy.cpp(157): error: Expected equality of these values:
+  back
+    Which is: { 0, 0, 0, 0 }
+  expected
+    Which is: { 11, -22, 33, -44 }
+
+[  FAILED  ] WavSinkLifecycle.EmptyRingDoesNotFinalizeBeforeLastPublication (30 ms)
+[ RUN      ] WavSinkLifecycle.OldSnapshotCannotWriteIntoRestartedFile
+C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-legacy-replay\test_legacy.cpp(257): error: Expected equality of these values:
+  accepted
+    Which is: 4
+  0u
+    Which is: 0
+
+C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-legacy-replay\test_legacy.cpp(157): error: Expected equality of these values:
+  back
+    Which is: { 111, -111, 222, -222 }
+  expected
+    Which is: { 222, -222, 333, -333 }
+
+C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-legacy-replay\test_legacy.cpp(159): error: Expected equality of these values:
+  reader.read(&extra, 1)
+    Which is: 1
+  0u
+    Which is: 0
+
+[  FAILED  ] WavSinkLifecycle.OldSnapshotCannotWriteIntoRestartedFile (61 ms)
+[----------] 3 tests from WavSinkLifecycle (119 ms total)
+
+[----------] Global test environment tear-down
+[==========] 3 tests from 1 test suite ran. (119 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 3 tests, listed below:
+[  FAILED  ] WavSinkLifecycle.StopWaitsForAdmittedPushAndKeepsItsBytes
+[  FAILED  ] WavSinkLifecycle.EmptyRingDoesNotFinalizeBeforeLastPublication
+[  FAILED  ] WavSinkLifecycle.OldSnapshotCannotWriteIntoRestartedFile
+
+ 3 FAILED TESTS
+Confirmed: the original sink fails the deterministic lifecycle regressions.

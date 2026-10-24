@@ -1,0 +1,20 @@
+﻿<AdditionalOptions>%(AdditionalOptions) /utf-8</AdditionalOptions>
+<ConformanceMode>true</ConformanceMode>
+<SDLCheck>true</SDLCheck>
+<WarningLevel>Level4</WarningLevel>
+<AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+<AdditionalOptions>%(AdditionalOptions) /utf-8</AdditionalOptions>
+<ConformanceMode>true</ConformanceMode>
+<SDLCheck>true</SDLCheck>
+<WarningLevel>Level4</WarningLevel>
+<AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+<AdditionalOptions>%(AdditionalOptions) /utf-8</AdditionalOptions>
+<ConformanceMode>true</ConformanceMode>
+<SDLCheck>true</SDLCheck>
+<WarningLevel>Level4</WarningLevel>
+<AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>
+<AdditionalOptions>%(AdditionalOptions) /utf-8</AdditionalOptions>
+<ConformanceMode>true</ConformanceMode>
+<SDLCheck>true</SDLCheck>
+<WarningLevel>Level4</WarningLevel>
+<AdditionalOptions>%(AdditionalOptions) /machine:x64</AdditionalOptions>

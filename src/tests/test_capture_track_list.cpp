@@ -3,6 +3,7 @@
 #endif
 #include <windows.h>
 #include <gtest/gtest.h>
+#include <gtest/gtest-spi.h>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -697,6 +698,11 @@ struct SlowOutputGate {
     }
 };
 
+struct SlowOutputRelease {
+    SlowOutputGate& gate;
+    ~SlowOutputRelease() { gate.release(); }
+};
+
 class SlowOutput : public WavSinkOutput {
 public:
     explicit SlowOutput(SlowOutputGate& gate) : gate_(gate) {}
@@ -856,6 +862,7 @@ TEST(CaptureTrackList, SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing) {
     ListRig rig;
     SlowOutputGate gate;
     CaptureTrackList list(rig.factory(), {}, [&] { return std::make_unique<SlowOutput>(gate); });
+    SlowOutputRelease release{gate}; // Release before list teardown on an early assertion.
     TrackId id = 0, sibling = 0;
     ASSERT_TRUE(list.create({}, &id));
     ASSERT_TRUE(list.create({}, &sibling));
@@ -893,6 +900,7 @@ TEST(CaptureTrackList, OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix)
     SlowOutputGate gate;
     gate.blockWrite = true;
     CaptureTrackList list(rig.factory(), {}, [&] { return std::make_unique<SlowOutput>(gate); });
+    SlowOutputRelease release{gate};
     TrackId id = 0, sibling = 0;
     ASSERT_TRUE(list.create({}, &id));
     ASSERT_TRUE(list.create({}, &sibling));
@@ -926,5 +934,31 @@ TEST(CaptureTrackList, OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix)
     EXPECT_EQ(reader.read(&extra, sizeof(extra)), 0u);
     reader.close();
     list.destroyAll();
+    DeleteFileW(path.c_str());
+}
+
+static void failAfterStartingSlowDump(const std::wstring& path, bool blockWrite) {
+    ListRig rig;
+    SlowOutputGate gate;
+    gate.blockWrite = blockWrite;
+    CaptureTrackList list(rig.factory(), {}, [&] { return std::make_unique<SlowOutput>(gate); });
+    SlowOutputRelease release{gate};
+    CaptureTrackCreate spec;
+    spec.wavPath = path;
+    TrackId id = 0;
+    ASSERT_TRUE(list.create(spec, &id));
+    if (blockWrite) {
+        const std::vector<int16_t> pcm(256u * 1024u / 2u, 123);
+        rig.caps[0]->pushPcm(pcm.data(), pcm.size() * 2);
+        ASSERT_TRUE(gate.waitEntered());
+    }
+    FAIL() << "injected early assertion";
+}
+
+TEST(CaptureTrackList, SlowDumpFatalAssertionDoesNotBlockTrackTeardown) {
+    static const auto path = tempWav(L"early_assertion");
+    EXPECT_FATAL_FAILURE(failAfterStartingSlowDump(path, false), "injected early assertion");
+    DeleteFileW(path.c_str());
+    EXPECT_FATAL_FAILURE(failAfterStartingSlowDump(path, true), "injected early assertion");
     DeleteFileW(path.c_str());
 }

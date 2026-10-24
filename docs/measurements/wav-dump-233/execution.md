@@ -153,3 +153,23 @@ py -3 docs/measurements/wav-dump-233/replay-legacy.py --core-build build-233
 - 业务固定提交 abf5aff 的 Standards/Spec 静态审查已由总控报告各 0 条问题；后续覆盖与文档需增量复审。
 - 建立 PR、核对最终远端 head、完成完整 CI 与外部审批后按规则 squash；不得借 owner bypass 绕过所需的独立 approving review。
 - #234 仍依赖 #233；本票未实施 Monitor 自动 render 停用、来源格式快照或 GUI 收尾迁移。
+
+### Standards 增量修复：慢输出测试的失败清理
+
+- 审查定位：SlowDumpClose 在启动 Dump 后的 ASSERT 提前返回时，原局部变量按 list → gate 顺序析构；list 的 writer close 等待尚未释放的 gate，测试会永久等待。
+- 新增 `SlowDumpFatalAssertionDoesNotBlockTrackTeardown`，通过 gtest EXPECT_FATAL_FAILURE 在真实 TrackList/SlowOutput seam 中注入提前断言，分别覆盖 close 阻塞与 write 阻塞。
+- 红测在无 RAII 守卫的真实实现中被 CTest 自动 `Timeout 30.02 sec`：[故障清理红测](artifacts/red-review-cleanup-bounded.txt)。首次超时接线曾使用在 CTest 中不生效的 if(TEST) 判断，该次故障进程手动结束；随后改为检查 discovery 生成的 WinAudioTests_TESTS 名单，JSON 确认超时后才取得这里的自动超时红测，不把首次手动结束表述为自动超时。
+- 最小修复：声明于 TrackList 之后的 SlowOutputRelease 作用域守卫，在提前返回时先释放门，再让 TrackList 完成 pump/writer 回收；正常交错仍显式在原边界 release。两个受影响慢输出测试及故障回归均使用守卫。
+- 只给这三个生产 CTest 注册 30 秒上限，专用 target 继续沿用已有 30 秒上限；没有扩大其他生产测试的超时配置。[实际注册属性](artifacts/review-cleanup-timeouts.txt)。
+- 仅构建 Debug 的两个受影响测试 target，再运行六个受影响生产/专用 CTest，6/6 通过（5.68 秒）：[绿测](artifacts/green-review-cleanup.txt)。没有修改业务源码，也没有追加全量本地回归。
+
+```powershell
+cmake --build build-233 --config Debug --target WinAudioTests WinAudioWavLifecycleTests -j 4
+ctest --test-dir build-233 -C Debug -R '^(WavLifecycle\.)?CaptureTrackList\.(SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing|OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix|SlowDumpFatalAssertionDoesNotBlockTrackTeardown)$' --output-on-failure
+```
+
+### Standards 增量修复：原始实现重放 helper 编译规则
+
+- replay-legacy.py 生成的临时 target 现 include 仓库 cmake/CompilerWarnings.cmake，并调用 wa_set_project_warnings；覆盖 /W4、/permissive-、/utf-8、/sdl，没有另设一套规则。
+- 重放构建无新增编译警告；原始三个确定性交错仍全部预期失败，脚本按预期退出 0：[重放结果](artifacts/replay-review-warnings.txt)、[生成项目编译属性](artifacts/replay-warning-flags.txt)。
+- 这两项审查修复不改变业务提交 abf5aff 的生产代码。上述四配置 102/102、58/58 是修复前固定业务与覆盖快照的记录；新增故障清理用例本轮只跑所述六项直接回归，最终完整 CI 由总控继续。

@@ -1,0 +1,17 @@
+﻿Test project C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/build-233
+    Start 178: CaptureTrackList.SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing
+1/6 Test #178: CaptureTrackList.SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing ....................   Passed    0.13 sec
+    Start 179: CaptureTrackList.OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix
+2/6 Test #179: CaptureTrackList.OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix ................   Passed    2.66 sec
+    Start 180: CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown
+3/6 Test #180: CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown .........................   Passed    0.11 sec
+    Start 657: WavLifecycle.CaptureTrackList.SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing
+4/6 Test #657: WavLifecycle.CaptureTrackList.SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing .......   Passed    0.14 sec
+    Start 658: WavLifecycle.CaptureTrackList.OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix
+5/6 Test #658: WavLifecycle.CaptureTrackList.OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix ...   Passed    2.49 sec
+    Start 659: WavLifecycle.CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown
+6/6 Test #659: WavLifecycle.CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown ............   Passed    0.09 sec
+
+100% tests passed out of 6
+
+Total Test time (real) =   5.68 sec

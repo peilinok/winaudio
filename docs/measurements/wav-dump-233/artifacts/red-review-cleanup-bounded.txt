@@ -1,0 +1,24 @@
+﻿Test project C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/build-233
+    Start 180: CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown
+1/1 Test #180: CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown ...***Timeout  30.02 sec
+Running main() from C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown
+
+
+0% tests passed, 1 tests failed out of 1
+
+Total Test time (real) =  30.06 sec
+
+The following tests FAILED:
+	180 - CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown (Timeout)
+ctest : Errors while running CTest
+所在位置 行:8 字符: 1
++ ctest --test-dir build-233 -C Debug -R '^CaptureTrackList.SlowDumpFat ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Errors while running CTest:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
