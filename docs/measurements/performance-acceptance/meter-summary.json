@@ -1,7 +1,7 @@
 [
   {
     "mode": "off",
-    "process_sha256": "926018175979b261fe7ffd7410b1586bdc6a07f6c5d1adf8ee43f7d0397c3c36",
+    "process_sha256": "68ac4c2283cf27252b12472bd8d7e0e854dec405ee7e347036814b1ce8107163",
     "sample_count": 60,
     "seconds": 60.64855899999999,
     "process_cpu_ms_per_second": 46.37373164958463,
@@ -13,11 +13,12 @@
       "maximum": 139.377639812498
     },
     "private_bytes_min": 82968576,
-    "private_bytes_max": 83144704
+    "private_bytes_max": 83144704,
+    "original_process_sha256": "926018175979b261fe7ffd7410b1586bdc6a07f6c5d1adf8ee43f7d0397c3c36"
   },
   {
     "mode": "buffered",
-    "process_sha256": "0d7e0f4ba46e7cdcd17c3096f79e4bb2f394507586b8eda9c15d85c393034d78",
+    "process_sha256": "aefe414af2d8535f469b4c280154cd335079b3231fe50cfec4548c2f0caa3e28",
     "sample_count": 60,
     "seconds": 60.65847099999999,
     "process_cpu_ms_per_second": 51.00276925872399,
@@ -198,11 +199,12 @@
       ],
       "run_complete": true,
       "pending_operations_at_end": 0
-    }
+    },
+    "original_process_sha256": "0d7e0f4ba46e7cdcd17c3096f79e4bb2f394507586b8eda9c15d85c393034d78"
   },
   {
     "mode": "flush",
-    "process_sha256": "ee51bedbb8b578922e8eabca141e39dcd2529349ef394d4c2011ee257c2dcf7f",
+    "process_sha256": "63f956151ae7a2cdd084bacdfbeb03bb97ff744a8845eaf5ea626e536a7d9989",
     "sample_count": 60,
     "seconds": 60.6461867,
     "process_cpu_ms_per_second": 50.75545829825439,
@@ -383,6 +385,7 @@
       ],
       "run_complete": true,
       "pending_operations_at_end": 0
-    }
+    },
+    "original_process_sha256": "ee51bedbb8b578922e8eabca141e39dcd2529349ef394d4c2011ee257c2dcf7f"
   }
 ]

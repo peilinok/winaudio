@@ -1,4 +1,4 @@
-﻿"mode","sample","elapsed_s","cpu_ms","cpu_ms_per_s","private_bytes","working_set","warmup"
+"mode","sample","elapsed_s","cpu_ms","cpu_ms_per_s","private_bytes","working_set","warmup"
 "off","0","0.0511051","1296.875","0","83140608","81010688","True"
 "off","1","1.0660915","1328.125","30.7885898766722","83140608","81010688","True"
 "off","2","2.0787493","1406.25","77.1484700952286","83140608","81010688","True"

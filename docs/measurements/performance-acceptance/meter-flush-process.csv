@@ -1,4 +1,4 @@
-﻿"mode","sample","elapsed_s","cpu_ms","cpu_ms_per_s","private_bytes","working_set","warmup"
+"mode","sample","elapsed_s","cpu_ms","cpu_ms_per_s","private_bytes","working_set","warmup"
 "flush","0","0.05006","968.75","0","84463616","81055744","True"
 "flush","1","1.0682413","1062.5","92.0759397172193","84463616","81055744","True"
 "flush","2","2.0803237","1125","61.753865100312","84463616","81055744","True"

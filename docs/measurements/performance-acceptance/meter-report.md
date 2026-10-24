@@ -22,6 +22,8 @@
 
 `meter-manifest.json` 登记入库文件 SHA256；三份 `.txt.gz` 无损保存原始字节及 raw_sha256。`gui-meter-smoke.json`、`meter-summary.json` 和进程 CSV 提供派生统计。可用 Python 标准库 `gzip.decompress` 解压后，按 README 的 `summarize.py --require-complete` 命令复核。
 
+进程 CSV 入库时仅规范为 UTF-8／LF；数值不变，汇总 process_sha256 对应入库字节，original_process_sha256 对应 build 内原始 UTF-8 BOM／CRLF 字节。压缩原始帧日志不作换行转换。
+
 三模式分别设置 `WINAUDIO_FRAME_PROBE=0`、`WINAUDIO_FRAME_PROBE=1` 且 `WINAUDIO_FRAME_PROBE_FLUSH=0`、`WINAUDIO_FRAME_PROBE=1` 且 `WINAUDIO_FRAME_PROBE_FLUSH=1`，用不同 `WINAUDIO_FRAME_PROBE_PATH`，正常启动／关闭同一 Release。启用模式用 `--warmup-seconds 30 --duration-seconds 60 --require-complete` 汇总。外部运行 `sample-process.ps1 -ProcessId <本次PID> -Mode <模式> -OutputPath <CSV>`，最后 `summarize_meter.py <目录> --output <JSON>`。
 
 关闭模式不推算零帧耗时；探针默认关闭且不取时由已通过的确定性测试证明。本票完成本地计量链路验收，图表／Inspector 预算和远端 CI 另列。
