@@ -122,7 +122,11 @@ int main(int, char**)
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     // WinAudio: UI (owns both engine and monitor engine)
+#ifdef WA_PERFORMANCE_FIXTURE
+    static AppUi ui(PerformanceFixture::exportWriter());
+#else
     static AppUi ui;
+#endif
     ui.setMainWindow(hwnd);
 
     // WinAudio: logging — file (winaudio.log, exe dir) + GUI panel via callback sink.

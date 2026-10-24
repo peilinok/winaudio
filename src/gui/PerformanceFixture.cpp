@@ -15,6 +15,7 @@
 #include <cstring>
 #include <iterator>
 #include <sstream>
+#include <thread>
 
 namespace {
 std::chrono::steady_clock::time_point started;
@@ -36,6 +37,43 @@ uint64_t submittedAfter = 0;
 LARGE_INTEGER origin{}, frequency{};
 bool due = false;
 int warmupAction = -1;
+
+// Delays only the export worker, exercising the real GUI lifecycle without disk faults.
+class ControlledExportWriter : public wa::CallLogWriter {
+public:
+    explicit ControlledExportWriter(bool fail) : fail_(fail) {}
+    wa::Result open(const std::wstring&) override {
+        first_ = true;
+        WA_LOG(wa::log::Level::Info, "PerformanceFixture", "export-test-open", "controlled writer", "no real file");
+        return wa::Result::Ok();
+    }
+    wa::Result write(std::string_view) override {
+        if (first_) {
+            first_ = false;
+            WA_LOG(wa::log::Level::Info, "PerformanceFixture", "export-test-write",
+                   fail_ ? "fail after 60 seconds" : "return after 60 seconds", "worker only; no real file");
+            std::this_thread::sleep_for(std::chrono::seconds(60));
+            if (fail_) return wa::Result::Fail(E_FAIL, "controlled export write failure (test only)");
+        }
+        return wa::Result::Ok();
+    }
+    wa::Result flush() override { return wa::Result::Ok(); }
+    wa::Result close() override { return wa::Result::Ok(); }
+    wa::Result publish() override {
+        WA_LOG(wa::log::Level::Info, "PerformanceFixture", "export-test-publish", "simulated", "no real file");
+        return wa::Result::Ok();
+    }
+    wa::Result cleanup() override { return wa::Result::Ok(); }
+private:
+    bool fail_, first_ = true;
+};
+}
+
+std::shared_ptr<wa::CallLogWriter> PerformanceFixture::exportWriter() {
+    const char* mode = std::getenv("WINAUDIO_PERF_EXPORT_TEST");
+    if (mode && (std::strcmp(mode, "wait") == 0 || std::strcmp(mode, "fail") == 0))
+        return std::make_shared<ControlledExportWriter>(std::strcmp(mode, "fail") == 0);
+    return {};
 }
 
 bool PerformanceFixture::start(AppUi& ui) {

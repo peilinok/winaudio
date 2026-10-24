@@ -1,10 +1,13 @@
 #pragma once
 #include <cstdint>
+#include <memory>
 class AppUi;
+namespace wa { class CallLogWriter; }
 
 // Only linked into the explicitly built performance executable.
 class PerformanceFixture {
 public:
+    static std::shared_ptr<wa::CallLogWriter> exportWriter();
     static bool start(AppUi& ui);
     static bool advance(AppUi& ui);
     static void scrollCharts(AppUi& ui);
