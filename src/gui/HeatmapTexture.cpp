@@ -36,6 +36,9 @@ long createHeatmapResources(ID3D11Device* device, int rows, int cols,
 namespace wa {
 
 void HeatmapTexture::release() {
+    if (resourceCounted_ && probe_)
+        probe_->addWork("heatmap-release", 1, source_, direction_, channel_);
+    resourceCounted_ = false;
     if (srv_ || tex_) WA_LOG(log::Level::Debug, "Heatmap", "release", "", "");
     if (srv_) {
         srv_->Release();
@@ -87,6 +90,12 @@ void HeatmapTexture::upload() {
 bool HeatmapTexture::ensure(const float* values, int rows, int cols, uint64_t revision,
                             float scaleMin, float scaleMax, const uint32_t* lut256,
                             FrameProbe* probe, uint64_t source, int direction, int channel) {
+    if (probe) {
+        probe_ = probe;
+        source_ = source;
+        direction_ = direction;
+        channel_ = channel;
+    }
     const auto note = [&](const char* metric, uint64_t value) {
         if (probe) probe->addWork(metric, value, source, direction, channel);
     };
@@ -100,9 +109,9 @@ bool HeatmapTexture::ensure(const float* values, int rows, int cols, uint64_t re
     }
 
     if (!srv_ || device_ != guiDevice() || rows_ != rows || cols_ != cols) {
-        if (tex_ || srv_) note("heatmap-release", 1);
         if (!createTexture(rows, cols)) return false;
         note("heatmap-create", 1);
+        resourceCounted_ = true;
     }
 
     {

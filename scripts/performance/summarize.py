@@ -96,10 +96,11 @@ def summarize(path, warmup_seconds=0, duration_seconds=None, phases=None):
                     int(record['qpc_freq']) != frequency):
                 raise ValueError('operation response does not match the submitted frame')
         elapsed = (int(meta['start']) - first_tick) / frequency - warmup_seconds
-        if elapsed < 0 or (duration_seconds is not None and elapsed >= duration_seconds):
-            continue
         stage = meta['stage']
-        if phases:
+        teardown = stage == 'teardown'
+        if not teardown and (elapsed < 0 or (duration_seconds is not None and elapsed >= duration_seconds)):
+            continue
+        if phases and not teardown:
             phase = int(elapsed // 30)
             if phase >= len(phases):
                 continue
@@ -144,7 +145,8 @@ def summarize(path, warmup_seconds=0, duration_seconds=None, phases=None):
                                                     for target, values in group['operations_by_target'].items()},
                            work_per_frame={key: distribution([f.get(key, 0) for f in group['work_frames']])
                                            for key in group['work']},
-                           frame_budget_met=main['p95'] <= 8 and main['p99'] <= 16,
+                           frame_budget_met=(main['p95'] <= 8 and main['p99'] <= 16)
+                           if group['stage'] != 'teardown' else None,
                            operation_budget_met=response['p95'] <= 100 if response['n'] else None))
     return dict(source=str(Path(path).resolve()), sha256=hashlib.sha256(data).hexdigest(),
                 run_count=len(runs), selected_run=len(runs), groups=output,
@@ -171,8 +173,10 @@ def main():
         print(text)
     if (args.require_complete or args.require_budget) and not result['run_complete']:
         raise SystemExit(2)
-    if args.require_budget and any(not g['frame_budget_met'] for g in result['groups']):
-        raise SystemExit(2)
+    if args.require_budget:
+        budgets = [g['frame_budget_met'] for g in result['groups'] if g['frame_budget_met'] is not None]
+        if not budgets or not all(budgets):
+            raise SystemExit(2)
 
 
 if __name__ == '__main__':

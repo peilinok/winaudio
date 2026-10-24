@@ -1,4 +1,6 @@
 import tempfile
+import subprocess
+import sys
 import unittest
 from pathlib import Path
 
@@ -6,6 +8,41 @@ from summarize import nearest_rank, summarize
 
 
 class FrameSummaryTest(unittest.TestCase):
+    def test_teardown_is_retained_outside_window_and_excluded_from_budget(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / 'probe.txt'
+            source.write_text(
+                'slice=main-thread N=1 ticks=5 qpc_freq=1000 frame=1\n'
+                'kind=frame schema=2 frame=1 start=100 interval_ticks=0 qpc_freq=1000 '
+                'scene=Render stage=running valid_mask=16 lost_slices=0 lost_operations=0 '
+                'lost_work=0 lost_frames=0 pending_operations=0\n'
+                'slice=main-thread N=1 ticks=500 qpc_freq=1000 frame=2\n'
+                'kind=frame schema=2 frame=2 start=200100 interval_ticks=200000 qpc_freq=1000 '
+                'scene=Render stage=teardown valid_mask=16 lost_slices=0 lost_operations=0 '
+                'lost_work=0 lost_frames=0 pending_operations=0\n'
+                'kind=work frame=2 metric=heatmap-release value=1 source=42 direction=0 channel=3\n'
+                '# End frame probe frame=2 complete=1\n', encoding='utf-8')
+            self.assertEqual(summarize(source, duration_seconds=300, phases=['p'] * 8)
+                             ['groups'][-1]['stage'], 'teardown')
+            for phases in (None, ['first', 'second']):
+                with self.subTest(phases=phases):
+                    result = summarize(source, duration_seconds=120, phases=phases)
+                    self.assertEqual(len(result['groups']), 2)
+                    running, teardown = result['groups']
+                    self.assertTrue(running['frame_budget_met'])
+                    self.assertEqual(teardown['stage'], 'teardown')
+                    self.assertIsNone(teardown['frame_budget_met'])
+                    self.assertEqual(teardown['main_thread_ms']['p95'], 500)
+                    self.assertEqual(teardown['work']['heatmap-release:42:0:3'], 1)
+                    command = [sys.executable, str(Path(__file__).with_name('summarize.py')),
+                               str(source), '--warmup-seconds', '0', '--duration-seconds', '120',
+                               '--require-budget']
+                    if phases:
+                        command.extend(['--phases', ','.join(phases)])
+                    self.assertEqual(subprocess.run(command, stdout=subprocess.PIPE).returncode, 0)
+                    command[command.index('--warmup-seconds') + 1] = '30'
+                    self.assertEqual(subprocess.run(command, stdout=subprocess.PIPE).returncode, 2)
+
     def test_slow_save_is_not_hidden_by_frequent_fast_operations(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / 'probe.txt'

@@ -267,17 +267,25 @@ int main(int, char**)
         }
     }
 
+    // Keep shutdown resource work separate from rendered workload frames.
+    ui.frameProbe().setStage("teardown");
+    ui.frameProbe().beginFrame();
+    ui.stopAll();
+    ui.releaseGpu();  // previous draw consumed its SRVs; device is still alive
+    ui.frameProbe().endFrame();
     if (frameProbeLog) {
-        std::fprintf(frameProbeLog, "# End frame probe frame=%llu complete=1\n",
-                     static_cast<unsigned long long>(ui.frameProbe().frameNumber()));
-        if (std::fclose(frameProbeLog) != 0)
+        bool ok = writeFrameProbeRecords(frameProbeLog, ui.frameProbe());
+        char metadata[1536];
+        const int n = ui.frameProbe().formatFrame(metadata, sizeof(metadata));
+        if (n <= 0 || std::fwrite(metadata, 1, static_cast<size_t>(n), frameProbeLog) != static_cast<size_t>(n))
+            ok = false;
+        std::fprintf(frameProbeLog, "# End frame probe frame=%llu complete=%d\n",
+                     static_cast<unsigned long long>(ui.frameProbe().frameNumber()), ok ? 1 : 0);
+        if (std::fclose(frameProbeLog) != 0 || !ok)
             WA_LOG(wa::log::Level::Warn, "FrameProbe", "close", "records", "failed; measurement incomplete");
         frameProbeLog = nullptr;
     }
 
-    // Join engines and the Live session watch before the window is destroyed.
-    ui.stopAll();
-    ui.releaseGpu();  // drop heatmap textures before the D3D device goes away
     wa::log::shutdown();   // flush + stop the logging pump before teardown
 
     // Cleanup

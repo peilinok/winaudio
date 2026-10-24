@@ -166,11 +166,11 @@ TEST_F(HeatmapTextureTest, ReplacementClearResizeAndReleasePreserveSiblingConten
 }
 
 TEST_F(HeatmapTextureTest, OffscreenHopsUploadOnlyTheFinalHistoryAndThenSkip) {
+    wa::FrameProbe probe;
     wa::SpectrogramVisual visual;
     visual.reset(history(-96));
     // No GPU resource is requested during the CPU-only offscreen updates.
     for (int i = 0; i < 8; ++i) visual.get()->pushColumn(std::vector<float>(3, 0));
-    wa::FrameProbe probe;
     probe.setEnabled(true);
     probe.beginFrame();
     ASSERT_NE(visual.ensure(lut.data(), &probe), nullptr);
@@ -183,6 +183,40 @@ TEST_F(HeatmapTextureTest, OffscreenHopsUploadOnlyTheFinalHistoryAndThenSkip) {
     EXPECT_EQ(workTotal(probe, "heatmap-uploads"), 0u);
     EXPECT_EQ(workTotal(probe, "heatmap-pixels"), 0u);
     EXPECT_EQ(workTotal(probe, "heatmap-skip"), 1u);
+    probe.endFrame();
+}
+
+TEST_F(HeatmapTextureTest, LifecycleReleasesRetainTheirFrameAndSourceIdentity) {
+    wa::FrameProbe probe;
+    probe.setEnabled(true);
+    probe.beginFrame();
+    wa::SpectrogramVisual replaced, hidden;
+    replaced.reset(history(0));
+    hidden.reset(history(-96));
+    ASSERT_NE(replaced.ensure(lut.data(), &probe, 101, 0, 2), nullptr);
+    ASSERT_NE(hidden.ensure(lut.data(), &probe, 202, 1, 0), nullptr);
+    probe.endFrame();
+
+    probe.beginFrame();
+    replaced.reset(history(-96));
+    hidden.releaseGpu();
+    hidden.releaseGpu();  // idempotent: a released owner is not counted twice
+    EXPECT_EQ(workTotal(probe, "heatmap-release"), 2u);
+    std::string records;
+    char line[512];
+    for (size_t i = 0; i < probe.workCount(); ++i) {
+        const int n = probe.formatWork(i, line, sizeof(line));
+        if (n > 0) records.append(line, static_cast<size_t>(n));
+    }
+    EXPECT_NE(records.find("metric=heatmap-release value=1 source=101 direction=0 channel=2"), std::string::npos);
+    EXPECT_NE(records.find("metric=heatmap-release value=1 source=202 direction=1 channel=0"), std::string::npos);
+    EXPECT_EQ(workTotal(probe, "heatmap-create"), 0u);
+    {
+        wa::SpectrogramVisual removed;
+        removed.reset(history(0));
+        ASSERT_NE(removed.ensure(lut.data(), &probe, 303, 0, 1), nullptr);
+    }
+    EXPECT_EQ(workTotal(probe, "heatmap-release"), 3u);
     probe.endFrame();
 }
 
