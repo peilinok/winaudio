@@ -1,0 +1,7113 @@
+{
+  "source": "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\charts-before\\charts-2-3\\frames.txt",
+  "sha256": "ff5b7cda44ce6eb5ee9543d3161b66f5e115727ba77d29a0762f86d6ddf812a8",
+  "run_count": 1,
+  "selected_run": 1,
+  "groups": [
+    {
+      "scene": "Monitor",
+      "stage": "warmup",
+      "frame_count": 1,
+      "first_frame": 1,
+      "last_frame": 1,
+      "main_thread_ms": {
+        "n": 1,
+        "p50": 114.6597,
+        "p95": 114.6597,
+        "p99": 114.6597,
+        "maximum": 114.6597
+      },
+      "frame_interval_ms": {
+        "n": 0,
+        "p50": null,
+        "p95": null,
+        "p99": null,
+        "maximum": null
+      },
+      "operation_response_ms": {
+        "n": 0,
+        "p50": null,
+        "p95": null,
+        "p99": null,
+        "maximum": null
+      },
+      "slices_ms": {
+        "heatmap-submit": {
+          "n": 1,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "waveform-envelope": {
+          "n": 1,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "log-drain": {
+          "n": 1,
+          "p50": 0.0045,
+          "p95": 0.0045,
+          "p99": 0.0045,
+          "maximum": 0.0045
+        },
+        "present": {
+          "n": 1,
+          "p50": 5.0046,
+          "p95": 5.0046,
+          "p99": 5.0046,
+          "maximum": 5.0046
+        },
+        "main-thread": {
+          "n": 1,
+          "p50": 114.6597,
+          "p95": 114.6597,
+          "p99": 114.6597,
+          "maximum": 114.6597
+        },
+        "ui-build": {
+          "n": 1,
+          "p50": 70.6751,
+          "p95": 70.6751,
+          "p99": 70.6751,
+          "maximum": 70.6751
+        },
+        "dx11-submit": {
+          "n": 1,
+          "p50": 0.412,
+          "p95": 0.412,
+          "p99": 0.412,
+          "maximum": 0.412
+        },
+        "probe-io": {
+          "n": 1,
+          "p50": 0.0203,
+          "p95": 0.0203,
+          "p99": 0.0203,
+          "maximum": 0.0203
+        },
+        "chart-refresh": {
+          "n": 1,
+          "p50": 0.0,
+          "p95": 0.0,
+          "p99": 0.0,
+          "maximum": 0.0
+        },
+        "fft": {
+          "n": 1,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "heatmap-fill": {
+          "n": 1,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "heatmap-upload": {
+          "n": 1,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "call-receive": {
+          "n": 1,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "call-sort": {
+          "n": 1,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "call-match": {
+          "n": 1,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "call-rows": {
+          "n": 1,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "graph-hint": {
+          "n": 1,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "export-start": {
+          "n": 1,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "spec-history": {
+          "n": 1,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        }
+      },
+      "work": {
+        "visible-wave-plots:0:0:0": 1,
+        "visible-spec-plots:0:0:0": 1,
+        "visible-wave-plots:0:1:0": 1
+      },
+      "work_per_frame": {
+        "visible-wave-plots:0:0:0": {
+          "n": 1,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "visible-spec-plots:0:0:0": {
+          "n": 1,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "visible-wave-plots:0:1:0": {
+          "n": 1,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        }
+      },
+      "frame_budget_met": false,
+      "operation_budget_met": null
+    },
+    {
+      "scene": "Render",
+      "stage": "warmup",
+      "frame_count": 1497,
+      "first_frame": 2,
+      "last_frame": 1498,
+      "main_thread_ms": {
+        "n": 1497,
+        "p50": 5.5835,
+        "p95": 40.1019,
+        "p99": 69.5818,
+        "maximum": 632.8847
+      },
+      "frame_interval_ms": {
+        "n": 1497,
+        "p50": 16.7685,
+        "p95": 40.6235,
+        "p99": 70.2431,
+        "maximum": 640.8337
+      },
+      "operation_response_ms": {
+        "n": 0,
+        "p50": null,
+        "p95": null,
+        "p99": null,
+        "maximum": null
+      },
+      "slices_ms": {
+        "heatmap-submit": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "waveform-envelope": {
+          "n": 1497,
+          "p50": 1.5286,
+          "p95": 1.7254,
+          "p99": 1.8631,
+          "maximum": 4.2199
+        },
+        "log-drain": {
+          "n": 1497,
+          "p50": 0.0003,
+          "p95": 0.0006,
+          "p99": 0.0009,
+          "maximum": 0.0805
+        },
+        "present": {
+          "n": 1497,
+          "p50": 10.8666,
+          "p95": 12.0022,
+          "p99": 12.4014,
+          "maximum": 13.5873
+        },
+        "main-thread": {
+          "n": 1497,
+          "p50": 5.5835,
+          "p95": 40.1019,
+          "p99": 69.5818,
+          "maximum": 632.8847
+        },
+        "ui-build": {
+          "n": 1497,
+          "p50": 5.4606,
+          "p95": 39.9886,
+          "p99": 69.4678,
+          "maximum": 632.1958
+        },
+        "dx11-submit": {
+          "n": 1497,
+          "p50": 0.0917,
+          "p95": 0.138,
+          "p99": 0.1817,
+          "maximum": 0.6659
+        },
+        "probe-io": {
+          "n": 1497,
+          "p50": 0.0664,
+          "p95": 0.1349,
+          "p99": 2.0399,
+          "maximum": 3.5845
+        },
+        "chart-refresh": {
+          "n": 1497,
+          "p50": 3.5568,
+          "p95": 37.9258,
+          "p99": 67.021,
+          "maximum": 78.4981
+        },
+        "fft": {
+          "n": 1497,
+          "p50": 0.6506,
+          "p95": 1.3544,
+          "p99": 2.1017,
+          "maximum": 5.2767
+        },
+        "heatmap-fill": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "heatmap-upload": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "call-receive": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "call-sort": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "call-match": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "call-rows": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "graph-hint": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "export-start": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "spec-history": {
+          "n": 1497,
+          "p50": 0.2892,
+          "p95": 0.5684,
+          "p99": 0.746,
+          "maximum": 1.362
+        }
+      },
+      "work": {
+        "wave-zero-bytes:1:1:0": 366579840,
+        "wave-request-samples:1:1:0": 63152160,
+        "wave-copy-bytes:1:1:0": 252604800,
+        "wave-zero-bytes:1:1:1": 366579840,
+        "wave-request-samples:1:1:1": 63152160,
+        "wave-copy-bytes:1:1:1": 252606720,
+        "wave-zero-bytes:1:1:2": 366579840,
+        "wave-request-samples:1:1:2": 63152160,
+        "wave-copy-bytes:1:1:2": 252608640,
+        "wave-zero-bytes:1:1:3": 366579840,
+        "wave-request-samples:1:1:3": 63152160,
+        "wave-copy-bytes:1:1:3": 251957760,
+        "wave-zero-bytes:1:1:4": 366579840,
+        "wave-request-samples:1:1:4": 63152160,
+        "wave-copy-bytes:1:1:4": 252606720,
+        "wave-zero-bytes:1:1:5": 366579840,
+        "wave-request-samples:1:1:5": 63152160,
+        "wave-copy-bytes:1:1:5": 252604800,
+        "wave-zero-bytes:1:1:6": 366579840,
+        "wave-request-samples:1:1:6": 63152160,
+        "wave-copy-bytes:1:1:6": 252330240,
+        "wave-zero-bytes:1:1:7": 366579840,
+        "wave-request-samples:1:1:7": 63152160,
+        "wave-copy-bytes:1:1:7": 252604800,
+        "fft-request-samples:1:1:0": 2822144,
+        "fft-request-samples:1:1:1": 2811904,
+        "fft-request-samples:1:1:2": 2811904,
+        "fft-request-samples:1:1:3": 2809856,
+        "fft-request-samples:1:1:4": 2805760,
+        "fft-request-samples:1:1:5": 2805760,
+        "fft-request-samples:1:1:6": 2799616,
+        "fft-request-samples:1:1:7": 2799616,
+        "spec-hops:1:1:0": 1367,
+        "spec-move-bytes:1:1:0": 335254016,
+        "spec-hops:1:1:1": 1367,
+        "spec-move-bytes:1:1:1": 335254016,
+        "spec-hops:1:1:2": 1367,
+        "spec-move-bytes:1:1:2": 335254016,
+        "spec-hops:1:1:3": 1367,
+        "spec-move-bytes:1:1:3": 335254016,
+        "spec-hops:1:1:4": 1367,
+        "spec-move-bytes:1:1:4": 335254016,
+        "spec-hops:1:1:5": 1367,
+        "spec-move-bytes:1:1:5": 335254016,
+        "spec-hops:1:1:6": 1367,
+        "spec-move-bytes:1:1:6": 335254016,
+        "spec-hops:1:1:7": 1367,
+        "spec-move-bytes:1:1:7": 335254016,
+        "visible-wave-plots:1:1:0": 1497,
+        "wave-block-rebuild-samples:1:1:0": 735805440,
+        "wave-exact-samples:1:1:0": 0,
+        "wave-block-queries:1:1:0": 12712432,
+        "wave-envelope-columns:1:1:0": 1236536,
+        "visible-wave-plots:1:1:1": 1497,
+        "wave-block-rebuild-samples:1:1:1": 735805440,
+        "wave-exact-samples:1:1:1": 0,
+        "wave-block-queries:1:1:1": 12712432,
+        "wave-envelope-columns:1:1:1": 1236536,
+        "wave-zero-bytes:2:1:0": 366873600,
+        "wave-request-samples:2:1:0": 63076320,
+        "wave-copy-bytes:2:1:0": 251360640,
+        "wave-zero-bytes:2:1:1": 366873600,
+        "wave-request-samples:2:1:1": 63076320,
+        "wave-copy-bytes:2:1:1": 252305280,
+        "wave-zero-bytes:2:1:2": 366873600,
+        "wave-request-samples:2:1:2": 63076320,
+        "wave-copy-bytes:2:1:2": 251806080,
+        "wave-zero-bytes:2:1:3": 366873600,
+        "wave-request-samples:2:1:3": 63076320,
+        "wave-copy-bytes:2:1:3": 252305280,
+        "wave-zero-bytes:2:1:4": 366873600,
+        "wave-request-samples:2:1:4": 63076320,
+        "wave-copy-bytes:2:1:4": 252299520,
+        "wave-zero-bytes:2:1:5": 366873600,
+        "wave-request-samples:2:1:5": 63076320,
+        "wave-copy-bytes:2:1:5": 252305280,
+        "wave-zero-bytes:2:1:6": 366873600,
+        "wave-request-samples:2:1:6": 63076320,
+        "wave-copy-bytes:2:1:6": 251352960,
+        "wave-zero-bytes:2:1:7": 366873600,
+        "wave-request-samples:2:1:7": 63076320,
+        "wave-copy-bytes:2:1:7": 251272320,
+        "fft-request-samples:2:1:0": 2822144,
+        "fft-request-samples:2:1:1": 2816000,
+        "fft-request-samples:2:1:2": 2813952,
+        "fft-request-samples:2:1:3": 2813952,
+        "fft-request-samples:2:1:4": 2811904,
+        "fft-request-samples:2:1:5": 2809856,
+        "fft-request-samples:2:1:6": 2809856,
+        "fft-request-samples:2:1:7": 2809856,
+        "spec-hops:2:1:0": 1372,
+        "spec-move-bytes:2:1:0": 336480256,
+        "spec-hops:2:1:1": 1372,
+        "spec-move-bytes:2:1:1": 336480256,
+        "spec-hops:2:1:2": 1372,
+        "spec-move-bytes:2:1:2": 336480256,
+        "spec-hops:2:1:3": 1372,
+        "spec-move-bytes:2:1:3": 336480256,
+        "spec-hops:2:1:4": 1372,
+        "spec-move-bytes:2:1:4": 336480256,
+        "spec-hops:2:1:5": 1372,
+        "spec-move-bytes:2:1:5": 336480256,
+        "spec-hops:2:1:6": 1372,
+        "spec-move-bytes:2:1:6": 336480256,
+        "spec-hops:2:1:7": 1372,
+        "spec-move-bytes:2:1:7": 336480256,
+        "visible-wave-plots:1:1:2": 1495,
+        "wave-block-rebuild-samples:1:1:2": 734822400,
+        "wave-exact-samples:1:1:2": 0,
+        "wave-block-queries:1:1:2": 12695540,
+        "wave-envelope-columns:1:1:2": 1234870,
+        "visible-wave-plots:1:1:3": 1495,
+        "wave-block-rebuild-samples:1:1:3": 734822400,
+        "wave-exact-samples:1:1:3": 0,
+        "wave-block-queries:1:1:3": 12695540,
+        "wave-envelope-columns:1:1:3": 1234870,
+        "wave-move-bytes:1:1:0": 2324033280,
+        "wave-move-bytes:1:1:1": 2324033280,
+        "wave-move-bytes:1:1:2": 2324033280,
+        "wave-move-bytes:1:1:3": 2324033280,
+        "wave-move-bytes:1:1:4": 2324033280,
+        "wave-move-bytes:1:1:5": 2324033280,
+        "wave-move-bytes:1:1:6": 2324033280,
+        "wave-move-bytes:1:1:7": 2324033280,
+        "wave-move-bytes:2:1:0": 2324042880,
+        "wave-move-bytes:2:1:1": 2324042880,
+        "wave-move-bytes:2:1:2": 2324042880,
+        "wave-move-bytes:2:1:3": 2324042880,
+        "wave-move-bytes:2:1:4": 2324042880,
+        "wave-move-bytes:2:1:5": 2324042880,
+        "wave-move-bytes:2:1:6": 2324042880,
+        "wave-move-bytes:2:1:7": 2324042880
+      },
+      "work_per_frame": {
+        "wave-zero-bytes:1:1:0": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 1582080,
+          "p99": 1774080,
+          "maximum": 1818240
+        },
+        "wave-request-samples:1:1:0": {
+          "n": 1497,
+          "p50": 960,
+          "p95": 290400,
+          "p99": 439200,
+          "maximum": 489120
+        },
+        "wave-copy-bytes:1:1:0": {
+          "n": 1497,
+          "p50": 3840,
+          "p95": 1161600,
+          "p99": 1756800,
+          "maximum": 1956480
+        },
+        "wave-zero-bytes:1:1:1": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 1582080,
+          "p99": 1774080,
+          "maximum": 1818240
+        },
+        "wave-request-samples:1:1:1": {
+          "n": 1497,
+          "p50": 960,
+          "p95": 290400,
+          "p99": 439200,
+          "maximum": 489120
+        },
+        "wave-copy-bytes:1:1:1": {
+          "n": 1497,
+          "p50": 3840,
+          "p95": 1161600,
+          "p99": 1756800,
+          "maximum": 1956480
+        },
+        "wave-zero-bytes:1:1:2": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 1582080,
+          "p99": 1774080,
+          "maximum": 1818240
+        },
+        "wave-request-samples:1:1:2": {
+          "n": 1497,
+          "p50": 960,
+          "p95": 290400,
+          "p99": 439200,
+          "maximum": 489120
+        },
+        "wave-copy-bytes:1:1:2": {
+          "n": 1497,
+          "p50": 3840,
+          "p95": 1161600,
+          "p99": 1756800,
+          "maximum": 1956480
+        },
+        "wave-zero-bytes:1:1:3": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 1582080,
+          "p99": 1774080,
+          "maximum": 1818240
+        },
+        "wave-request-samples:1:1:3": {
+          "n": 1497,
+          "p50": 960,
+          "p95": 290400,
+          "p99": 439200,
+          "maximum": 489120
+        },
+        "wave-copy-bytes:1:1:3": {
+          "n": 1497,
+          "p50": 3840,
+          "p95": 1161600,
+          "p99": 1756800,
+          "maximum": 1956480
+        },
+        "wave-zero-bytes:1:1:4": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 1582080,
+          "p99": 1774080,
+          "maximum": 1818240
+        },
+        "wave-request-samples:1:1:4": {
+          "n": 1497,
+          "p50": 960,
+          "p95": 290400,
+          "p99": 439200,
+          "maximum": 489120
+        },
+        "wave-copy-bytes:1:1:4": {
+          "n": 1497,
+          "p50": 3840,
+          "p95": 1161600,
+          "p99": 1756800,
+          "maximum": 1956480
+        },
+        "wave-zero-bytes:1:1:5": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 1582080,
+          "p99": 1774080,
+          "maximum": 1818240
+        },
+        "wave-request-samples:1:1:5": {
+          "n": 1497,
+          "p50": 960,
+          "p95": 290400,
+          "p99": 439200,
+          "maximum": 489120
+        },
+        "wave-copy-bytes:1:1:5": {
+          "n": 1497,
+          "p50": 3840,
+          "p95": 1161600,
+          "p99": 1756800,
+          "maximum": 1956480
+        },
+        "wave-zero-bytes:1:1:6": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 1582080,
+          "p99": 1774080,
+          "maximum": 1818240
+        },
+        "wave-request-samples:1:1:6": {
+          "n": 1497,
+          "p50": 960,
+          "p95": 290400,
+          "p99": 439200,
+          "maximum": 489120
+        },
+        "wave-copy-bytes:1:1:6": {
+          "n": 1497,
+          "p50": 3840,
+          "p95": 1161600,
+          "p99": 1756800,
+          "maximum": 1956480
+        },
+        "wave-zero-bytes:1:1:7": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 1582080,
+          "p99": 1774080,
+          "maximum": 1818240
+        },
+        "wave-request-samples:1:1:7": {
+          "n": 1497,
+          "p50": 960,
+          "p95": 290400,
+          "p99": 439200,
+          "maximum": 489120
+        },
+        "wave-copy-bytes:1:1:7": {
+          "n": 1497,
+          "p50": 3840,
+          "p95": 1161600,
+          "p99": 1756800,
+          "maximum": 1956480
+        },
+        "fft-request-samples:1:1:0": {
+          "n": 1497,
+          "p50": 2048,
+          "p95": 4096,
+          "p99": 6144,
+          "maximum": 16384
+        },
+        "fft-request-samples:1:1:1": {
+          "n": 1497,
+          "p50": 2048,
+          "p95": 4096,
+          "p99": 6144,
+          "maximum": 16384
+        },
+        "fft-request-samples:1:1:2": {
+          "n": 1497,
+          "p50": 2048,
+          "p95": 4096,
+          "p99": 6144,
+          "maximum": 16384
+        },
+        "fft-request-samples:1:1:3": {
+          "n": 1497,
+          "p50": 2048,
+          "p95": 4096,
+          "p99": 6144,
+          "maximum": 16384
+        },
+        "fft-request-samples:1:1:4": {
+          "n": 1497,
+          "p50": 2048,
+          "p95": 4096,
+          "p99": 6144,
+          "maximum": 16384
+        },
+        "fft-request-samples:1:1:5": {
+          "n": 1497,
+          "p50": 2048,
+          "p95": 4096,
+          "p99": 6144,
+          "maximum": 16384
+        },
+        "fft-request-samples:1:1:6": {
+          "n": 1497,
+          "p50": 2048,
+          "p95": 4096,
+          "p99": 6144,
+          "maximum": 16384
+        },
+        "fft-request-samples:1:1:7": {
+          "n": 1497,
+          "p50": 2048,
+          "p95": 4096,
+          "p99": 6144,
+          "maximum": 16384
+        },
+        "spec-hops:1:1:0": {
+          "n": 1497,
+          "p50": 1,
+          "p95": 2,
+          "p99": 3,
+          "maximum": 8
+        },
+        "spec-move-bytes:1:1:0": {
+          "n": 1497,
+          "p50": 245248,
+          "p95": 490496,
+          "p99": 735744,
+          "maximum": 1961984
+        },
+        "spec-hops:1:1:1": {
+          "n": 1497,
+          "p50": 1,
+          "p95": 2,
+          "p99": 3,
+          "maximum": 8
+        },
+        "spec-move-bytes:1:1:1": {
+          "n": 1497,
+          "p50": 245248,
+          "p95": 490496,
+          "p99": 735744,
+          "maximum": 1961984
+        },
+        "spec-hops:1:1:2": {
+          "n": 1497,
+          "p50": 1,
+          "p95": 2,
+          "p99": 3,
+          "maximum": 8
+        },
+        "spec-move-bytes:1:1:2": {
+          "n": 1497,
+          "p50": 245248,
+          "p95": 490496,
+          "p99": 735744,
+          "maximum": 1961984
+        },
+        "spec-hops:1:1:3": {
+          "n": 1497,
+          "p50": 1,
+          "p95": 2,
+          "p99": 3,
+          "maximum": 8
+        },
+        "spec-move-bytes:1:1:3": {
+          "n": 1497,
+          "p50": 245248,
+          "p95": 490496,
+          "p99": 735744,
+          "maximum": 1961984
+        },
+        "spec-hops:1:1:4": {
+          "n": 1497,
+          "p50": 1,
+          "p95": 2,
+          "p99": 3,
+          "maximum": 8
+        },
+        "spec-move-bytes:1:1:4": {
+          "n": 1497,
+          "p50": 245248,
+          "p95": 490496,
+          "p99": 735744,
+          "maximum": 1961984
+        },
+        "spec-hops:1:1:5": {
+          "n": 1497,
+          "p50": 1,
+          "p95": 2,
+          "p99": 3,
+          "maximum": 8
+        },
+        "spec-move-bytes:1:1:5": {
+          "n": 1497,
+          "p50": 245248,
+          "p95": 490496,
+          "p99": 735744,
+          "maximum": 1961984
+        },
+        "spec-hops:1:1:6": {
+          "n": 1497,
+          "p50": 1,
+          "p95": 2,
+          "p99": 3,
+          "maximum": 8
+        },
+        "spec-move-bytes:1:1:6": {
+          "n": 1497,
+          "p50": 245248,
+          "p95": 490496,
+          "p99": 735744,
+          "maximum": 1961984
+        },
+        "spec-hops:1:1:7": {
+          "n": 1497,
+          "p50": 1,
+          "p95": 2,
+          "p99": 3,
+          "maximum": 8
+        },
+        "spec-move-bytes:1:1:7": {
+          "n": 1497,
+          "p50": 245248,
+          "p95": 490496,
+          "p99": 735744,
+          "maximum": 1961984
+        },
+        "visible-wave-plots:1:1:0": {
+          "n": 1497,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "wave-block-rebuild-samples:1:1:0": {
+          "n": 1497,
+          "p50": 491520,
+          "p95": 491520,
+          "p99": 491520,
+          "maximum": 491520
+        },
+        "wave-exact-samples:1:1:0": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "wave-block-queries:1:1:0": {
+          "n": 1497,
+          "p50": 8492,
+          "p95": 8492,
+          "p99": 8492,
+          "maximum": 8492
+        },
+        "wave-envelope-columns:1:1:0": {
+          "n": 1497,
+          "p50": 826,
+          "p95": 826,
+          "p99": 826,
+          "maximum": 840
+        },
+        "visible-wave-plots:1:1:1": {
+          "n": 1497,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "wave-block-rebuild-samples:1:1:1": {
+          "n": 1497,
+          "p50": 491520,
+          "p95": 491520,
+          "p99": 491520,
+          "maximum": 491520
+        },
+        "wave-exact-samples:1:1:1": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "wave-block-queries:1:1:1": {
+          "n": 1497,
+          "p50": 8492,
+          "p95": 8492,
+          "p99": 8492,
+          "maximum": 8492
+        },
+        "wave-envelope-columns:1:1:1": {
+          "n": 1497,
+          "p50": 826,
+          "p95": 826,
+          "p99": 826,
+          "maximum": 840
+        },
+        "wave-zero-bytes:2:1:0": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 1584000,
+          "p99": 1776000,
+          "maximum": 1820160
+        },
+        "wave-request-samples:2:1:0": {
+          "n": 1497,
+          "p50": 960,
+          "p95": 290400,
+          "p99": 439680,
+          "maximum": 490560
+        },
+        "wave-copy-bytes:2:1:0": {
+          "n": 1497,
+          "p50": 3840,
+          "p95": 1161600,
+          "p99": 1758720,
+          "maximum": 1962240
+        },
+        "wave-zero-bytes:2:1:1": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 1584000,
+          "p99": 1776000,
+          "maximum": 1820160
+        },
+        "wave-request-samples:2:1:1": {
+          "n": 1497,
+          "p50": 960,
+          "p95": 290400,
+          "p99": 439680,
+          "maximum": 490560
+        },
+        "wave-copy-bytes:2:1:1": {
+          "n": 1497,
+          "p50": 3840,
+          "p95": 1161600,
+          "p99": 1758720,
+          "maximum": 1962240
+        },
+        "wave-zero-bytes:2:1:2": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 1584000,
+          "p99": 1776000,
+          "maximum": 1820160
+        },
+        "wave-request-samples:2:1:2": {
+          "n": 1497,
+          "p50": 960,
+          "p95": 290400,
+          "p99": 439680,
+          "maximum": 490560
+        },
+        "wave-copy-bytes:2:1:2": {
+          "n": 1497,
+          "p50": 3840,
+          "p95": 1161600,
+          "p99": 1758720,
+          "maximum": 1962240
+        },
+        "wave-zero-bytes:2:1:3": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 1584000,
+          "p99": 1776000,
+          "maximum": 1820160
+        },
+        "wave-request-samples:2:1:3": {
+          "n": 1497,
+          "p50": 960,
+          "p95": 290400,
+          "p99": 439680,
+          "maximum": 490560
+        },
+        "wave-copy-bytes:2:1:3": {
+          "n": 1497,
+          "p50": 3840,
+          "p95": 1161600,
+          "p99": 1758720,
+          "maximum": 1962240
+        },
+        "wave-zero-bytes:2:1:4": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 1584000,
+          "p99": 1776000,
+          "maximum": 1820160
+        },
+        "wave-request-samples:2:1:4": {
+          "n": 1497,
+          "p50": 960,
+          "p95": 290400,
+          "p99": 439680,
+          "maximum": 490560
+        },
+        "wave-copy-bytes:2:1:4": {
+          "n": 1497,
+          "p50": 3840,
+          "p95": 1161600,
+          "p99": 1758720,
+          "maximum": 1962240
+        },
+        "wave-zero-bytes:2:1:5": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 1584000,
+          "p99": 1776000,
+          "maximum": 1820160
+        },
+        "wave-request-samples:2:1:5": {
+          "n": 1497,
+          "p50": 960,
+          "p95": 290400,
+          "p99": 439680,
+          "maximum": 490560
+        },
+        "wave-copy-bytes:2:1:5": {
+          "n": 1497,
+          "p50": 3840,
+          "p95": 1161600,
+          "p99": 1758720,
+          "maximum": 1962240
+        },
+        "wave-zero-bytes:2:1:6": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 1584000,
+          "p99": 1776000,
+          "maximum": 1820160
+        },
+        "wave-request-samples:2:1:6": {
+          "n": 1497,
+          "p50": 960,
+          "p95": 290400,
+          "p99": 439680,
+          "maximum": 490560
+        },
+        "wave-copy-bytes:2:1:6": {
+          "n": 1497,
+          "p50": 3840,
+          "p95": 1161600,
+          "p99": 1758720,
+          "maximum": 1962240
+        },
+        "wave-zero-bytes:2:1:7": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 1584000,
+          "p99": 1776000,
+          "maximum": 1820160
+        },
+        "wave-request-samples:2:1:7": {
+          "n": 1497,
+          "p50": 960,
+          "p95": 290400,
+          "p99": 439680,
+          "maximum": 490560
+        },
+        "wave-copy-bytes:2:1:7": {
+          "n": 1497,
+          "p50": 3840,
+          "p95": 1161600,
+          "p99": 1758720,
+          "maximum": 1962240
+        },
+        "fft-request-samples:2:1:0": {
+          "n": 1497,
+          "p50": 2048,
+          "p95": 4096,
+          "p99": 6144,
+          "maximum": 16384
+        },
+        "fft-request-samples:2:1:1": {
+          "n": 1497,
+          "p50": 2048,
+          "p95": 4096,
+          "p99": 6144,
+          "maximum": 16384
+        },
+        "fft-request-samples:2:1:2": {
+          "n": 1497,
+          "p50": 2048,
+          "p95": 4096,
+          "p99": 6144,
+          "maximum": 16384
+        },
+        "fft-request-samples:2:1:3": {
+          "n": 1497,
+          "p50": 2048,
+          "p95": 4096,
+          "p99": 6144,
+          "maximum": 16384
+        },
+        "fft-request-samples:2:1:4": {
+          "n": 1497,
+          "p50": 2048,
+          "p95": 4096,
+          "p99": 6144,
+          "maximum": 16384
+        },
+        "fft-request-samples:2:1:5": {
+          "n": 1497,
+          "p50": 2048,
+          "p95": 4096,
+          "p99": 6144,
+          "maximum": 16384
+        },
+        "fft-request-samples:2:1:6": {
+          "n": 1497,
+          "p50": 2048,
+          "p95": 4096,
+          "p99": 6144,
+          "maximum": 16384
+        },
+        "fft-request-samples:2:1:7": {
+          "n": 1497,
+          "p50": 2048,
+          "p95": 4096,
+          "p99": 6144,
+          "maximum": 16384
+        },
+        "spec-hops:2:1:0": {
+          "n": 1497,
+          "p50": 1,
+          "p95": 2,
+          "p99": 3,
+          "maximum": 8
+        },
+        "spec-move-bytes:2:1:0": {
+          "n": 1497,
+          "p50": 245248,
+          "p95": 490496,
+          "p99": 735744,
+          "maximum": 1961984
+        },
+        "spec-hops:2:1:1": {
+          "n": 1497,
+          "p50": 1,
+          "p95": 2,
+          "p99": 3,
+          "maximum": 8
+        },
+        "spec-move-bytes:2:1:1": {
+          "n": 1497,
+          "p50": 245248,
+          "p95": 490496,
+          "p99": 735744,
+          "maximum": 1961984
+        },
+        "spec-hops:2:1:2": {
+          "n": 1497,
+          "p50": 1,
+          "p95": 2,
+          "p99": 3,
+          "maximum": 8
+        },
+        "spec-move-bytes:2:1:2": {
+          "n": 1497,
+          "p50": 245248,
+          "p95": 490496,
+          "p99": 735744,
+          "maximum": 1961984
+        },
+        "spec-hops:2:1:3": {
+          "n": 1497,
+          "p50": 1,
+          "p95": 2,
+          "p99": 3,
+          "maximum": 8
+        },
+        "spec-move-bytes:2:1:3": {
+          "n": 1497,
+          "p50": 245248,
+          "p95": 490496,
+          "p99": 735744,
+          "maximum": 1961984
+        },
+        "spec-hops:2:1:4": {
+          "n": 1497,
+          "p50": 1,
+          "p95": 2,
+          "p99": 3,
+          "maximum": 8
+        },
+        "spec-move-bytes:2:1:4": {
+          "n": 1497,
+          "p50": 245248,
+          "p95": 490496,
+          "p99": 735744,
+          "maximum": 1961984
+        },
+        "spec-hops:2:1:5": {
+          "n": 1497,
+          "p50": 1,
+          "p95": 2,
+          "p99": 3,
+          "maximum": 8
+        },
+        "spec-move-bytes:2:1:5": {
+          "n": 1497,
+          "p50": 245248,
+          "p95": 490496,
+          "p99": 735744,
+          "maximum": 1961984
+        },
+        "spec-hops:2:1:6": {
+          "n": 1497,
+          "p50": 1,
+          "p95": 2,
+          "p99": 3,
+          "maximum": 8
+        },
+        "spec-move-bytes:2:1:6": {
+          "n": 1497,
+          "p50": 245248,
+          "p95": 490496,
+          "p99": 735744,
+          "maximum": 1961984
+        },
+        "spec-hops:2:1:7": {
+          "n": 1497,
+          "p50": 1,
+          "p95": 2,
+          "p99": 3,
+          "maximum": 8
+        },
+        "spec-move-bytes:2:1:7": {
+          "n": 1497,
+          "p50": 245248,
+          "p95": 490496,
+          "p99": 735744,
+          "maximum": 1961984
+        },
+        "visible-wave-plots:1:1:2": {
+          "n": 1497,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "wave-block-rebuild-samples:1:1:2": {
+          "n": 1497,
+          "p50": 491520,
+          "p95": 491520,
+          "p99": 491520,
+          "maximum": 491520
+        },
+        "wave-exact-samples:1:1:2": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "wave-block-queries:1:1:2": {
+          "n": 1497,
+          "p50": 8492,
+          "p95": 8492,
+          "p99": 8492,
+          "maximum": 8492
+        },
+        "wave-envelope-columns:1:1:2": {
+          "n": 1497,
+          "p50": 826,
+          "p95": 826,
+          "p99": 826,
+          "maximum": 826
+        },
+        "visible-wave-plots:1:1:3": {
+          "n": 1497,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "wave-block-rebuild-samples:1:1:3": {
+          "n": 1497,
+          "p50": 491520,
+          "p95": 491520,
+          "p99": 491520,
+          "maximum": 491520
+        },
+        "wave-exact-samples:1:1:3": {
+          "n": 1497,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "wave-block-queries:1:1:3": {
+          "n": 1497,
+          "p50": 8492,
+          "p95": 8492,
+          "p99": 8492,
+          "maximum": 8492
+        },
+        "wave-envelope-columns:1:1:3": {
+          "n": 1497,
+          "p50": 826,
+          "p95": 826,
+          "p99": 826,
+          "maximum": 826
+        },
+        "wave-move-bytes:1:1:0": {
+          "n": 1497,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-move-bytes:1:1:1": {
+          "n": 1497,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-move-bytes:1:1:2": {
+          "n": 1497,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-move-bytes:1:1:3": {
+          "n": 1497,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-move-bytes:1:1:4": {
+          "n": 1497,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-move-bytes:1:1:5": {
+          "n": 1497,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-move-bytes:1:1:6": {
+          "n": 1497,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-move-bytes:1:1:7": {
+          "n": 1497,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-move-bytes:2:1:0": {
+          "n": 1497,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-move-bytes:2:1:1": {
+          "n": 1497,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-move-bytes:2:1:2": {
+          "n": 1497,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-move-bytes:2:1:3": {
+          "n": 1497,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-move-bytes:2:1:4": {
+          "n": 1497,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-move-bytes:2:1:5": {
+          "n": 1497,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-move-bytes:2:1:6": {
+          "n": 1497,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-move-bytes:2:1:7": {
+          "n": 1497,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        }
+      },
+      "frame_budget_met": false,
+      "operation_budget_met": null
+    },
+    {
+      "scene": "Render",
+      "stage": "track1-wave",
+      "frame_count": 1799,
+      "first_frame": 1499,
+      "last_frame": 3297,
+      "main_thread_ms": {
+        "n": 1799,
+        "p50": 5.4822,
+        "p95": 6.2932,
+        "p99": 6.9562,
+        "maximum": 8.5235
+      },
+      "frame_interval_ms": {
+        "n": 1799,
+        "p50": 16.6901,
+        "p95": 17.4054,
+        "p99": 18.2791,
+        "maximum": 19.4206
+      },
+      "operation_response_ms": {
+        "n": 0,
+        "p50": null,
+        "p95": null,
+        "p99": null,
+        "maximum": null
+      },
+      "slices_ms": {
+        "heatmap-submit": {
+          "n": 1799,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "waveform-envelope": {
+          "n": 1799,
+          "p50": 1.5258,
+          "p95": 1.766,
+          "p99": 1.9662,
+          "maximum": 3.6686
+        },
+        "log-drain": {
+          "n": 1799,
+          "p50": 0.0003,
+          "p95": 0.0006,
+          "p99": 0.0008,
+          "maximum": 0.0558
+        },
+        "present": {
+          "n": 1799,
+          "p50": 11.0381,
+          "p95": 12.0044,
+          "p99": 12.4588,
+          "maximum": 13.2092
+        },
+        "main-thread": {
+          "n": 1799,
+          "p50": 5.4822,
+          "p95": 6.2932,
+          "p99": 6.9562,
+          "maximum": 8.5235
+        },
+        "ui-build": {
+          "n": 1799,
+          "p50": 5.3627,
+          "p95": 6.1504,
+          "p99": 6.8112,
+          "maximum": 8.3614
+        },
+        "dx11-submit": {
+          "n": 1799,
+          "p50": 0.0905,
+          "p95": 0.1455,
+          "p99": 0.1849,
+          "maximum": 0.436
+        },
+        "probe-io": {
+          "n": 1799,
+          "p50": 0.0662,
+          "p95": 0.1397,
+          "p99": 1.9903,
+          "maximum": 2.7312
+        },
+        "chart-refresh": {
+          "n": 1799,
+          "p50": 3.4722,
+          "p95": 4.0595,
+          "p99": 4.4867,
+          "maximum": 5.2981
+        },
+        "fft": {
+          "n": 1799,
+          "p50": 0.6423,
+          "p95": 0.7745,
+          "p99": 0.8779,
+          "maximum": 1.8307
+        },
+        "heatmap-fill": {
+          "n": 1799,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "heatmap-upload": {
+          "n": 1799,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "call-receive": {
+          "n": 1799,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "call-sort": {
+          "n": 1799,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "call-match": {
+          "n": 1799,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "call-rows": {
+          "n": 1799,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "graph-hint": {
+          "n": 1799,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "export-start": {
+          "n": 1799,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "spec-history": {
+          "n": 1799,
+          "p50": 0.2865,
+          "p95": 0.3583,
+          "p99": 0.4331,
+          "maximum": 0.8726
+        }
+      },
+      "work": {
+        "wave-move-bytes:1:1:0": 3531216000,
+        "wave-request-samples:1:1:0": 1440480,
+        "wave-copy-bytes:1:1:0": 5758080,
+        "wave-move-bytes:1:1:1": 3531216000,
+        "wave-request-samples:1:1:1": 1440480,
+        "wave-copy-bytes:1:1:1": 5760000,
+        "wave-move-bytes:1:1:2": 3531216000,
+        "wave-request-samples:1:1:2": 1440480,
+        "wave-copy-bytes:1:1:2": 5761920,
+        "wave-move-bytes:1:1:3": 3531216000,
+        "wave-request-samples:1:1:3": 1440480,
+        "wave-copy-bytes:1:1:3": 5761920,
+        "wave-move-bytes:1:1:4": 3531216000,
+        "wave-request-samples:1:1:4": 1440480,
+        "wave-copy-bytes:1:1:4": 5760000,
+        "wave-move-bytes:1:1:5": 3531216000,
+        "wave-request-samples:1:1:5": 1440480,
+        "wave-copy-bytes:1:1:5": 5760000,
+        "wave-move-bytes:1:1:6": 3531216000,
+        "wave-request-samples:1:1:6": 1440480,
+        "wave-copy-bytes:1:1:6": 5758080,
+        "wave-move-bytes:1:1:7": 3531216000,
+        "wave-request-samples:1:1:7": 1440480,
+        "wave-copy-bytes:1:1:7": 5760000,
+        "fft-request-samples:1:1:0": 2881536,
+        "fft-request-samples:1:1:1": 2881536,
+        "fft-request-samples:1:1:2": 2879488,
+        "fft-request-samples:1:1:3": 2877440,
+        "fft-request-samples:1:1:4": 2875392,
+        "fft-request-samples:1:1:5": 2873344,
+        "fft-request-samples:1:1:6": 2873344,
+        "fft-request-samples:1:1:7": 2873344,
+        "spec-hops:1:1:0": 1400,
+        "spec-move-bytes:1:1:0": 343347200,
+        "spec-hops:1:1:1": 1400,
+        "spec-move-bytes:1:1:1": 343347200,
+        "spec-hops:1:1:2": 1400,
+        "spec-move-bytes:1:1:2": 343347200,
+        "spec-hops:1:1:3": 1400,
+        "spec-move-bytes:1:1:3": 343347200,
+        "spec-hops:1:1:4": 1400,
+        "spec-move-bytes:1:1:4": 343347200,
+        "spec-hops:1:1:5": 1400,
+        "spec-move-bytes:1:1:5": 343347200,
+        "spec-hops:1:1:6": 1400,
+        "spec-move-bytes:1:1:6": 343347200,
+        "spec-hops:1:1:7": 1400,
+        "spec-move-bytes:1:1:7": 343347200,
+        "visible-wave-plots:1:1:0": 1799,
+        "wave-block-rebuild-samples:1:1:0": 884244480,
+        "wave-exact-samples:1:1:0": 0,
+        "wave-block-queries:1:1:0": 15277108,
+        "wave-envelope-columns:1:1:0": 1485974,
+        "visible-wave-plots:1:1:1": 1799,
+        "wave-block-rebuild-samples:1:1:1": 884244480,
+        "wave-exact-samples:1:1:1": 0,
+        "wave-block-queries:1:1:1": 15277108,
+        "wave-envelope-columns:1:1:1": 1485974,
+        "visible-wave-plots:1:1:2": 1799,
+        "wave-block-rebuild-samples:1:1:2": 884244480,
+        "wave-exact-samples:1:1:2": 0,
+        "wave-block-queries:1:1:2": 15277108,
+        "wave-envelope-columns:1:1:2": 1485974,
+        "visible-wave-plots:1:1:3": 1799,
+        "wave-block-rebuild-samples:1:1:3": 884244480,
+        "wave-exact-samples:1:1:3": 0,
+        "wave-block-queries:1:1:3": 15277108,
+        "wave-envelope-columns:1:1:3": 1485974,
+        "wave-move-bytes:2:1:0": 3531216000,
+        "wave-request-samples:2:1:0": 1440480,
+        "wave-copy-bytes:2:1:0": 5758080,
+        "wave-move-bytes:2:1:1": 3531216000,
+        "wave-request-samples:2:1:1": 1440480,
+        "wave-copy-bytes:2:1:1": 5758080,
+        "wave-move-bytes:2:1:2": 3531216000,
+        "wave-request-samples:2:1:2": 1440480,
+        "wave-copy-bytes:2:1:2": 5756160,
+        "wave-move-bytes:2:1:3": 3531216000,
+        "wave-request-samples:2:1:3": 1440480,
+        "wave-copy-bytes:2:1:3": 5760000,
+        "wave-move-bytes:2:1:4": 3531216000,
+        "wave-request-samples:2:1:4": 1440480,
+        "wave-copy-bytes:2:1:4": 5756160,
+        "wave-move-bytes:2:1:5": 3531216000,
+        "wave-request-samples:2:1:5": 1440480,
+        "wave-copy-bytes:2:1:5": 5756160,
+        "wave-move-bytes:2:1:6": 3531216000,
+        "wave-request-samples:2:1:6": 1440480,
+        "wave-copy-bytes:2:1:6": 5760000,
+        "wave-move-bytes:2:1:7": 3531216000,
+        "wave-request-samples:2:1:7": 1440480,
+        "wave-copy-bytes:2:1:7": 5756160,
+        "fft-request-samples:2:1:0": 2881536,
+        "fft-request-samples:2:1:1": 2875392,
+        "fft-request-samples:2:1:2": 2875392,
+        "fft-request-samples:2:1:3": 2875392,
+        "fft-request-samples:2:1:4": 2875392,
+        "fft-request-samples:2:1:5": 2875392,
+        "fft-request-samples:2:1:6": 2875392,
+        "fft-request-samples:2:1:7": 2873344,
+        "spec-hops:2:1:0": 1403,
+        "spec-move-bytes:2:1:0": 344082944,
+        "spec-hops:2:1:1": 1403,
+        "spec-move-bytes:2:1:1": 344082944,
+        "spec-hops:2:1:2": 1403,
+        "spec-move-bytes:2:1:2": 344082944,
+        "spec-hops:2:1:3": 1403,
+        "spec-move-bytes:2:1:3": 344082944,
+        "spec-hops:2:1:4": 1403,
+        "spec-move-bytes:2:1:4": 344082944,
+        "spec-hops:2:1:5": 1403,
+        "spec-move-bytes:2:1:5": 344082944,
+        "spec-hops:2:1:6": 1403,
+        "spec-move-bytes:2:1:6": 344082944,
+        "spec-hops:2:1:7": 1403,
+        "spec-move-bytes:2:1:7": 344082944
+      },
+      "work_per_frame": {
+        "wave-move-bytes:1:1:0": {
+          "n": 1799,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:0": {
+          "n": 1799,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:0": {
+          "n": 1799,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:1:1:1": {
+          "n": 1799,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:1": {
+          "n": 1799,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:1": {
+          "n": 1799,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:1:1:2": {
+          "n": 1799,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:2": {
+          "n": 1799,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:2": {
+          "n": 1799,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:1:1:3": {
+          "n": 1799,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:3": {
+          "n": 1799,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:3": {
+          "n": 1799,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:1:1:4": {
+          "n": 1799,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:4": {
+          "n": 1799,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:4": {
+          "n": 1799,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:1:1:5": {
+          "n": 1799,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:5": {
+          "n": 1799,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:5": {
+          "n": 1799,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:1:1:6": {
+          "n": 1799,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:6": {
+          "n": 1799,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:6": {
+          "n": 1799,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:1:1:7": {
+          "n": 1799,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:7": {
+          "n": 1799,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:7": {
+          "n": 1799,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "fft-request-samples:1:1:0": {
+          "n": 1799,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:1": {
+          "n": 1799,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:2": {
+          "n": 1799,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:3": {
+          "n": 1799,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:4": {
+          "n": 1799,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:5": {
+          "n": 1799,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:6": {
+          "n": 1799,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:7": {
+          "n": 1799,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "spec-hops:1:1:0": {
+          "n": 1799,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:0": {
+          "n": 1799,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:1": {
+          "n": 1799,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:1": {
+          "n": 1799,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:2": {
+          "n": 1799,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:2": {
+          "n": 1799,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:3": {
+          "n": 1799,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:3": {
+          "n": 1799,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:4": {
+          "n": 1799,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:4": {
+          "n": 1799,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:5": {
+          "n": 1799,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:5": {
+          "n": 1799,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:6": {
+          "n": 1799,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:6": {
+          "n": 1799,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:7": {
+          "n": 1799,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:7": {
+          "n": 1799,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "visible-wave-plots:1:1:0": {
+          "n": 1799,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "wave-block-rebuild-samples:1:1:0": {
+          "n": 1799,
+          "p50": 491520,
+          "p95": 491520,
+          "p99": 491520,
+          "maximum": 491520
+        },
+        "wave-exact-samples:1:1:0": {
+          "n": 1799,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "wave-block-queries:1:1:0": {
+          "n": 1799,
+          "p50": 8492,
+          "p95": 8492,
+          "p99": 8492,
+          "maximum": 8492
+        },
+        "wave-envelope-columns:1:1:0": {
+          "n": 1799,
+          "p50": 826,
+          "p95": 826,
+          "p99": 826,
+          "maximum": 826
+        },
+        "visible-wave-plots:1:1:1": {
+          "n": 1799,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "wave-block-rebuild-samples:1:1:1": {
+          "n": 1799,
+          "p50": 491520,
+          "p95": 491520,
+          "p99": 491520,
+          "maximum": 491520
+        },
+        "wave-exact-samples:1:1:1": {
+          "n": 1799,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "wave-block-queries:1:1:1": {
+          "n": 1799,
+          "p50": 8492,
+          "p95": 8492,
+          "p99": 8492,
+          "maximum": 8492
+        },
+        "wave-envelope-columns:1:1:1": {
+          "n": 1799,
+          "p50": 826,
+          "p95": 826,
+          "p99": 826,
+          "maximum": 826
+        },
+        "visible-wave-plots:1:1:2": {
+          "n": 1799,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "wave-block-rebuild-samples:1:1:2": {
+          "n": 1799,
+          "p50": 491520,
+          "p95": 491520,
+          "p99": 491520,
+          "maximum": 491520
+        },
+        "wave-exact-samples:1:1:2": {
+          "n": 1799,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "wave-block-queries:1:1:2": {
+          "n": 1799,
+          "p50": 8492,
+          "p95": 8492,
+          "p99": 8492,
+          "maximum": 8492
+        },
+        "wave-envelope-columns:1:1:2": {
+          "n": 1799,
+          "p50": 826,
+          "p95": 826,
+          "p99": 826,
+          "maximum": 826
+        },
+        "visible-wave-plots:1:1:3": {
+          "n": 1799,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "wave-block-rebuild-samples:1:1:3": {
+          "n": 1799,
+          "p50": 491520,
+          "p95": 491520,
+          "p99": 491520,
+          "maximum": 491520
+        },
+        "wave-exact-samples:1:1:3": {
+          "n": 1799,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "wave-block-queries:1:1:3": {
+          "n": 1799,
+          "p50": 8492,
+          "p95": 8492,
+          "p99": 8492,
+          "maximum": 8492
+        },
+        "wave-envelope-columns:1:1:3": {
+          "n": 1799,
+          "p50": 826,
+          "p95": 826,
+          "p99": 826,
+          "maximum": 826
+        },
+        "wave-move-bytes:2:1:0": {
+          "n": 1799,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:0": {
+          "n": 1799,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 1440
+        },
+        "wave-copy-bytes:2:1:0": {
+          "n": 1799,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 5760
+        },
+        "wave-move-bytes:2:1:1": {
+          "n": 1799,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:1": {
+          "n": 1799,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 1440
+        },
+        "wave-copy-bytes:2:1:1": {
+          "n": 1799,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 5760
+        },
+        "wave-move-bytes:2:1:2": {
+          "n": 1799,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:2": {
+          "n": 1799,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 1440
+        },
+        "wave-copy-bytes:2:1:2": {
+          "n": 1799,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 5760
+        },
+        "wave-move-bytes:2:1:3": {
+          "n": 1799,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:3": {
+          "n": 1799,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 1440
+        },
+        "wave-copy-bytes:2:1:3": {
+          "n": 1799,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 5760
+        },
+        "wave-move-bytes:2:1:4": {
+          "n": 1799,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:4": {
+          "n": 1799,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 1440
+        },
+        "wave-copy-bytes:2:1:4": {
+          "n": 1799,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 5760
+        },
+        "wave-move-bytes:2:1:5": {
+          "n": 1799,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:5": {
+          "n": 1799,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 1440
+        },
+        "wave-copy-bytes:2:1:5": {
+          "n": 1799,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 5760
+        },
+        "wave-move-bytes:2:1:6": {
+          "n": 1799,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:6": {
+          "n": 1799,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 1440
+        },
+        "wave-copy-bytes:2:1:6": {
+          "n": 1799,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 5760
+        },
+        "wave-move-bytes:2:1:7": {
+          "n": 1799,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:7": {
+          "n": 1799,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 1440
+        },
+        "wave-copy-bytes:2:1:7": {
+          "n": 1799,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 5760
+        },
+        "fft-request-samples:2:1:0": {
+          "n": 1799,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:2:1:1": {
+          "n": 1799,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:2:1:2": {
+          "n": 1799,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:2:1:3": {
+          "n": 1799,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:2:1:4": {
+          "n": 1799,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:2:1:5": {
+          "n": 1799,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:2:1:6": {
+          "n": 1799,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:2:1:7": {
+          "n": 1799,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "spec-hops:2:1:0": {
+          "n": 1799,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:0": {
+          "n": 1799,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:2:1:1": {
+          "n": 1799,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:1": {
+          "n": 1799,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:2:1:2": {
+          "n": 1799,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:2": {
+          "n": 1799,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:2:1:3": {
+          "n": 1799,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:3": {
+          "n": 1799,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:2:1:4": {
+          "n": 1799,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:4": {
+          "n": 1799,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:2:1:5": {
+          "n": 1799,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:5": {
+          "n": 1799,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:2:1:6": {
+          "n": 1799,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:6": {
+          "n": 1799,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:2:1:7": {
+          "n": 1799,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:7": {
+          "n": 1799,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        }
+      },
+      "frame_budget_met": true,
+      "operation_budget_met": null
+    },
+    {
+      "scene": "Render",
+      "stage": "transition",
+      "frame_count": 3,
+      "first_frame": 3298,
+      "last_frame": 6895,
+      "main_thread_ms": {
+        "n": 3,
+        "p50": 5.1179,
+        "p95": 5.6998,
+        "p99": 5.6998,
+        "maximum": 5.6998
+      },
+      "frame_interval_ms": {
+        "n": 3,
+        "p50": 16.7934,
+        "p95": 17.0519,
+        "p99": 17.0519,
+        "maximum": 17.0519
+      },
+      "operation_response_ms": {
+        "n": 0,
+        "p50": null,
+        "p95": null,
+        "p99": null,
+        "maximum": null
+      },
+      "slices_ms": {
+        "heatmap-submit": {
+          "n": 3,
+          "p50": 0,
+          "p95": 0.3239,
+          "p99": 0.3239,
+          "maximum": 0.3239
+        },
+        "waveform-envelope": {
+          "n": 3,
+          "p50": 1.5266,
+          "p95": 1.5585,
+          "p99": 1.5585,
+          "maximum": 1.5585
+        },
+        "log-drain": {
+          "n": 3,
+          "p50": 0.0003,
+          "p95": 0.0004,
+          "p99": 0.0004,
+          "maximum": 0.0004
+        },
+        "present": {
+          "n": 3,
+          "p50": 11.6668,
+          "p95": 12.3111,
+          "p99": 12.3111,
+          "maximum": 12.3111
+        },
+        "main-thread": {
+          "n": 3,
+          "p50": 5.1179,
+          "p95": 5.6998,
+          "p99": 5.6998,
+          "maximum": 5.6998
+        },
+        "ui-build": {
+          "n": 3,
+          "p50": 5.0052,
+          "p95": 5.5316,
+          "p99": 5.5316,
+          "maximum": 5.5316
+        },
+        "dx11-submit": {
+          "n": 3,
+          "p50": 0.0767,
+          "p95": 0.1472,
+          "p99": 0.1472,
+          "maximum": 0.1472
+        },
+        "probe-io": {
+          "n": 3,
+          "p50": 0.0672,
+          "p95": 0.0873,
+          "p99": 0.0873,
+          "maximum": 0.0873
+        },
+        "chart-refresh": {
+          "n": 3,
+          "p50": 3.3969,
+          "p95": 3.6229,
+          "p99": 3.6229,
+          "maximum": 3.6229
+        },
+        "fft": {
+          "n": 3,
+          "p50": 0.6424,
+          "p95": 0.7333,
+          "p99": 0.7333,
+          "maximum": 0.7333
+        },
+        "heatmap-fill": {
+          "n": 3,
+          "p50": 0,
+          "p95": 0.2619,
+          "p99": 0.2619,
+          "maximum": 0.2619
+        },
+        "heatmap-upload": {
+          "n": 3,
+          "p50": 0,
+          "p95": 0.0423,
+          "p99": 0.0423,
+          "maximum": 0.0423
+        },
+        "call-receive": {
+          "n": 3,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "call-sort": {
+          "n": 3,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "call-match": {
+          "n": 3,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "call-rows": {
+          "n": 3,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "graph-hint": {
+          "n": 3,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "export-start": {
+          "n": 3,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "spec-history": {
+          "n": 3,
+          "p50": 0.3018,
+          "p95": 0.3368,
+          "p99": 0.3368,
+          "maximum": 0.3368
+        }
+      },
+      "work": {
+        "wave-move-bytes:1:1:0": 5888640,
+        "wave-request-samples:1:1:0": 2400,
+        "wave-copy-bytes:1:1:0": 9600,
+        "wave-move-bytes:1:1:1": 5888640,
+        "wave-request-samples:1:1:1": 2400,
+        "wave-copy-bytes:1:1:1": 9600,
+        "wave-move-bytes:1:1:2": 5888640,
+        "wave-request-samples:1:1:2": 2400,
+        "wave-copy-bytes:1:1:2": 9600,
+        "wave-move-bytes:1:1:3": 5888640,
+        "wave-request-samples:1:1:3": 2400,
+        "wave-copy-bytes:1:1:3": 9600,
+        "wave-move-bytes:1:1:4": 5888640,
+        "wave-request-samples:1:1:4": 2400,
+        "wave-copy-bytes:1:1:4": 9600,
+        "wave-move-bytes:1:1:5": 5888640,
+        "wave-request-samples:1:1:5": 2400,
+        "wave-copy-bytes:1:1:5": 9600,
+        "wave-move-bytes:1:1:6": 5888640,
+        "wave-request-samples:1:1:6": 2400,
+        "wave-copy-bytes:1:1:6": 9600,
+        "wave-move-bytes:1:1:7": 5888640,
+        "wave-request-samples:1:1:7": 2400,
+        "wave-copy-bytes:1:1:7": 9600,
+        "fft-request-samples:1:1:0": 6144,
+        "fft-request-samples:1:1:1": 6144,
+        "fft-request-samples:1:1:2": 6144,
+        "fft-request-samples:1:1:3": 6144,
+        "fft-request-samples:1:1:4": 6144,
+        "fft-request-samples:1:1:5": 6144,
+        "fft-request-samples:1:1:6": 6144,
+        "fft-request-samples:1:1:7": 6144,
+        "spec-hops:1:1:0": 3,
+        "spec-move-bytes:1:1:0": 735744,
+        "spec-hops:1:1:1": 3,
+        "spec-move-bytes:1:1:1": 735744,
+        "spec-hops:1:1:2": 3,
+        "spec-move-bytes:1:1:2": 735744,
+        "spec-hops:1:1:3": 3,
+        "spec-move-bytes:1:1:3": 735744,
+        "spec-hops:1:1:4": 3,
+        "spec-move-bytes:1:1:4": 735744,
+        "spec-hops:1:1:5": 3,
+        "spec-move-bytes:1:1:5": 735744,
+        "spec-hops:1:1:6": 3,
+        "spec-move-bytes:1:1:6": 735744,
+        "spec-hops:1:1:7": 3,
+        "spec-move-bytes:1:1:7": 735744,
+        "visible-wave-plots:1:1:0": 1,
+        "wave-block-rebuild-samples:1:1:0": 491520,
+        "wave-exact-samples:1:1:0": 0,
+        "wave-block-queries:1:1:0": 8492,
+        "wave-envelope-columns:1:1:0": 826,
+        "visible-wave-plots:1:1:1": 1,
+        "wave-block-rebuild-samples:1:1:1": 491520,
+        "wave-exact-samples:1:1:1": 0,
+        "wave-block-queries:1:1:1": 8492,
+        "wave-envelope-columns:1:1:1": 826,
+        "visible-wave-plots:1:1:2": 1,
+        "wave-block-rebuild-samples:1:1:2": 491520,
+        "wave-exact-samples:1:1:2": 0,
+        "wave-block-queries:1:1:2": 8492,
+        "wave-envelope-columns:1:1:2": 826,
+        "visible-wave-plots:1:1:3": 1,
+        "wave-block-rebuild-samples:1:1:3": 491520,
+        "wave-exact-samples:1:1:3": 0,
+        "wave-block-queries:1:1:3": 8492,
+        "wave-envelope-columns:1:1:3": 826,
+        "wave-move-bytes:2:1:0": 5886720,
+        "wave-request-samples:2:1:0": 2880,
+        "wave-copy-bytes:2:1:0": 11520,
+        "wave-move-bytes:2:1:1": 5886720,
+        "wave-request-samples:2:1:1": 2880,
+        "wave-copy-bytes:2:1:1": 11520,
+        "wave-move-bytes:2:1:2": 5886720,
+        "wave-request-samples:2:1:2": 2880,
+        "wave-copy-bytes:2:1:2": 11520,
+        "wave-move-bytes:2:1:3": 5886720,
+        "wave-request-samples:2:1:3": 2880,
+        "wave-copy-bytes:2:1:3": 11520,
+        "wave-move-bytes:2:1:4": 5886720,
+        "wave-request-samples:2:1:4": 2880,
+        "wave-copy-bytes:2:1:4": 11520,
+        "wave-move-bytes:2:1:5": 5886720,
+        "wave-request-samples:2:1:5": 2880,
+        "wave-copy-bytes:2:1:5": 11520,
+        "wave-move-bytes:2:1:6": 5886720,
+        "wave-request-samples:2:1:6": 2880,
+        "wave-copy-bytes:2:1:6": 11520,
+        "wave-move-bytes:2:1:7": 5886720,
+        "wave-request-samples:2:1:7": 2880,
+        "wave-copy-bytes:2:1:7": 11520,
+        "fft-request-samples:2:1:0": 4096,
+        "fft-request-samples:2:1:1": 4096,
+        "fft-request-samples:2:1:2": 4096,
+        "fft-request-samples:2:1:3": 4096,
+        "fft-request-samples:2:1:4": 4096,
+        "fft-request-samples:2:1:5": 4096,
+        "fft-request-samples:2:1:6": 4096,
+        "fft-request-samples:2:1:7": 4096,
+        "spec-hops:2:1:0": 2,
+        "spec-move-bytes:2:1:0": 490496,
+        "spec-hops:2:1:1": 2,
+        "spec-move-bytes:2:1:1": 490496,
+        "spec-hops:2:1:2": 2,
+        "spec-move-bytes:2:1:2": 490496,
+        "spec-hops:2:1:3": 2,
+        "spec-move-bytes:2:1:3": 490496,
+        "spec-hops:2:1:4": 2,
+        "spec-move-bytes:2:1:4": 490496,
+        "spec-hops:2:1:5": 2,
+        "spec-move-bytes:2:1:5": 490496,
+        "spec-hops:2:1:6": 2,
+        "spec-move-bytes:2:1:6": 490496,
+        "spec-hops:2:1:7": 2,
+        "spec-move-bytes:2:1:7": 490496,
+        "visible-spec-plots:1:1:0": 1,
+        "heatmap-pixels:1:1:0": 61440,
+        "heatmap-uploads:1:1:0": 1,
+        "heatmap-upload-bytes:1:1:0": 245760,
+        "visible-spec-plots:1:1:1": 1,
+        "heatmap-pixels:1:1:1": 61440,
+        "heatmap-uploads:1:1:1": 1,
+        "heatmap-upload-bytes:1:1:1": 245760,
+        "visible-spec-plots:1:1:2": 1,
+        "heatmap-pixels:1:1:2": 61440,
+        "heatmap-uploads:1:1:2": 1,
+        "heatmap-upload-bytes:1:1:2": 245760,
+        "visible-wave-plots:2:1:0": 1,
+        "wave-block-rebuild-samples:2:1:0": 491520,
+        "wave-exact-samples:2:1:0": 0,
+        "wave-block-queries:2:1:0": 8492,
+        "wave-envelope-columns:2:1:0": 826,
+        "visible-wave-plots:2:1:1": 1,
+        "wave-block-rebuild-samples:2:1:1": 491520,
+        "wave-exact-samples:2:1:1": 0,
+        "wave-block-queries:2:1:1": 8492,
+        "wave-envelope-columns:2:1:1": 826,
+        "visible-wave-plots:2:1:2": 1,
+        "wave-block-rebuild-samples:2:1:2": 491520,
+        "wave-exact-samples:2:1:2": 0,
+        "wave-block-queries:2:1:2": 8492,
+        "wave-envelope-columns:2:1:2": 826,
+        "visible-wave-plots:2:1:3": 1,
+        "wave-block-rebuild-samples:2:1:3": 491520,
+        "wave-exact-samples:2:1:3": 0,
+        "wave-block-queries:2:1:3": 8492,
+        "wave-envelope-columns:2:1:3": 826
+      },
+      "work_per_frame": {
+        "wave-move-bytes:1:1:0": {
+          "n": 3,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:0": {
+          "n": 3,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:0": {
+          "n": 3,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:1:1:1": {
+          "n": 3,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:1": {
+          "n": 3,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:1": {
+          "n": 3,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:1:1:2": {
+          "n": 3,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:2": {
+          "n": 3,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:2": {
+          "n": 3,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:1:1:3": {
+          "n": 3,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:3": {
+          "n": 3,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:3": {
+          "n": 3,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:1:1:4": {
+          "n": 3,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:4": {
+          "n": 3,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:4": {
+          "n": 3,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:1:1:5": {
+          "n": 3,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:5": {
+          "n": 3,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:5": {
+          "n": 3,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:1:1:6": {
+          "n": 3,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:6": {
+          "n": 3,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:6": {
+          "n": 3,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:1:1:7": {
+          "n": 3,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:7": {
+          "n": 3,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:7": {
+          "n": 3,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "fft-request-samples:1:1:0": {
+          "n": 3,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:1": {
+          "n": 3,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:2": {
+          "n": 3,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:3": {
+          "n": 3,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:4": {
+          "n": 3,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:5": {
+          "n": 3,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:6": {
+          "n": 3,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:7": {
+          "n": 3,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "spec-hops:1:1:0": {
+          "n": 3,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:0": {
+          "n": 3,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:1": {
+          "n": 3,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:1": {
+          "n": 3,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:2": {
+          "n": 3,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:2": {
+          "n": 3,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:3": {
+          "n": 3,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:3": {
+          "n": 3,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:4": {
+          "n": 3,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:4": {
+          "n": 3,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:5": {
+          "n": 3,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:5": {
+          "n": 3,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:6": {
+          "n": 3,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:6": {
+          "n": 3,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:7": {
+          "n": 3,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:7": {
+          "n": 3,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "visible-wave-plots:1:1:0": {
+          "n": 3,
+          "p50": 0,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "wave-block-rebuild-samples:1:1:0": {
+          "n": 3,
+          "p50": 0,
+          "p95": 491520,
+          "p99": 491520,
+          "maximum": 491520
+        },
+        "wave-exact-samples:1:1:0": {
+          "n": 3,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "wave-block-queries:1:1:0": {
+          "n": 3,
+          "p50": 0,
+          "p95": 8492,
+          "p99": 8492,
+          "maximum": 8492
+        },
+        "wave-envelope-columns:1:1:0": {
+          "n": 3,
+          "p50": 0,
+          "p95": 826,
+          "p99": 826,
+          "maximum": 826
+        },
+        "visible-wave-plots:1:1:1": {
+          "n": 3,
+          "p50": 0,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "wave-block-rebuild-samples:1:1:1": {
+          "n": 3,
+          "p50": 0,
+          "p95": 491520,
+          "p99": 491520,
+          "maximum": 491520
+        },
+        "wave-exact-samples:1:1:1": {
+          "n": 3,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "wave-block-queries:1:1:1": {
+          "n": 3,
+          "p50": 0,
+          "p95": 8492,
+          "p99": 8492,
+          "maximum": 8492
+        },
+        "wave-envelope-columns:1:1:1": {
+          "n": 3,
+          "p50": 0,
+          "p95": 826,
+          "p99": 826,
+          "maximum": 826
+        },
+        "visible-wave-plots:1:1:2": {
+          "n": 3,
+          "p50": 0,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "wave-block-rebuild-samples:1:1:2": {
+          "n": 3,
+          "p50": 0,
+          "p95": 491520,
+          "p99": 491520,
+          "maximum": 491520
+        },
+        "wave-exact-samples:1:1:2": {
+          "n": 3,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "wave-block-queries:1:1:2": {
+          "n": 3,
+          "p50": 0,
+          "p95": 8492,
+          "p99": 8492,
+          "maximum": 8492
+        },
+        "wave-envelope-columns:1:1:2": {
+          "n": 3,
+          "p50": 0,
+          "p95": 826,
+          "p99": 826,
+          "maximum": 826
+        },
+        "visible-wave-plots:1:1:3": {
+          "n": 3,
+          "p50": 0,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "wave-block-rebuild-samples:1:1:3": {
+          "n": 3,
+          "p50": 0,
+          "p95": 491520,
+          "p99": 491520,
+          "maximum": 491520
+        },
+        "wave-exact-samples:1:1:3": {
+          "n": 3,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "wave-block-queries:1:1:3": {
+          "n": 3,
+          "p50": 0,
+          "p95": 8492,
+          "p99": 8492,
+          "maximum": 8492
+        },
+        "wave-envelope-columns:1:1:3": {
+          "n": 3,
+          "p50": 0,
+          "p95": 826,
+          "p99": 826,
+          "maximum": 826
+        },
+        "wave-move-bytes:2:1:0": {
+          "n": 3,
+          "p50": 1962240,
+          "p95": 1962240,
+          "p99": 1962240,
+          "maximum": 1962240
+        },
+        "wave-request-samples:2:1:0": {
+          "n": 3,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:2:1:0": {
+          "n": 3,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:2:1:1": {
+          "n": 3,
+          "p50": 1962240,
+          "p95": 1962240,
+          "p99": 1962240,
+          "maximum": 1962240
+        },
+        "wave-request-samples:2:1:1": {
+          "n": 3,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:2:1:1": {
+          "n": 3,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:2:1:2": {
+          "n": 3,
+          "p50": 1962240,
+          "p95": 1962240,
+          "p99": 1962240,
+          "maximum": 1962240
+        },
+        "wave-request-samples:2:1:2": {
+          "n": 3,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:2:1:2": {
+          "n": 3,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:2:1:3": {
+          "n": 3,
+          "p50": 1962240,
+          "p95": 1962240,
+          "p99": 1962240,
+          "maximum": 1962240
+        },
+        "wave-request-samples:2:1:3": {
+          "n": 3,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:2:1:3": {
+          "n": 3,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:2:1:4": {
+          "n": 3,
+          "p50": 1962240,
+          "p95": 1962240,
+          "p99": 1962240,
+          "maximum": 1962240
+        },
+        "wave-request-samples:2:1:4": {
+          "n": 3,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:2:1:4": {
+          "n": 3,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:2:1:5": {
+          "n": 3,
+          "p50": 1962240,
+          "p95": 1962240,
+          "p99": 1962240,
+          "maximum": 1962240
+        },
+        "wave-request-samples:2:1:5": {
+          "n": 3,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:2:1:5": {
+          "n": 3,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:2:1:6": {
+          "n": 3,
+          "p50": 1962240,
+          "p95": 1962240,
+          "p99": 1962240,
+          "maximum": 1962240
+        },
+        "wave-request-samples:2:1:6": {
+          "n": 3,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:2:1:6": {
+          "n": 3,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:2:1:7": {
+          "n": 3,
+          "p50": 1962240,
+          "p95": 1962240,
+          "p99": 1962240,
+          "maximum": 1962240
+        },
+        "wave-request-samples:2:1:7": {
+          "n": 3,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:2:1:7": {
+          "n": 3,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "fft-request-samples:2:1:0": {
+          "n": 3,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:2:1:1": {
+          "n": 3,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:2:1:2": {
+          "n": 3,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:2:1:3": {
+          "n": 3,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:2:1:4": {
+          "n": 3,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:2:1:5": {
+          "n": 3,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:2:1:6": {
+          "n": 3,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:2:1:7": {
+          "n": 3,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "spec-hops:2:1:0": {
+          "n": 3,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:0": {
+          "n": 3,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:2:1:1": {
+          "n": 3,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:1": {
+          "n": 3,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:2:1:2": {
+          "n": 3,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:2": {
+          "n": 3,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:2:1:3": {
+          "n": 3,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:3": {
+          "n": 3,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:2:1:4": {
+          "n": 3,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:4": {
+          "n": 3,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:2:1:5": {
+          "n": 3,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:5": {
+          "n": 3,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:2:1:6": {
+          "n": 3,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:6": {
+          "n": 3,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:2:1:7": {
+          "n": 3,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:7": {
+          "n": 3,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "visible-spec-plots:1:1:0": {
+          "n": 3,
+          "p50": 0,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "heatmap-pixels:1:1:0": {
+          "n": 3,
+          "p50": 0,
+          "p95": 61440,
+          "p99": 61440,
+          "maximum": 61440
+        },
+        "heatmap-uploads:1:1:0": {
+          "n": 3,
+          "p50": 0,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "heatmap-upload-bytes:1:1:0": {
+          "n": 3,
+          "p50": 0,
+          "p95": 245760,
+          "p99": 245760,
+          "maximum": 245760
+        },
+        "visible-spec-plots:1:1:1": {
+          "n": 3,
+          "p50": 0,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "heatmap-pixels:1:1:1": {
+          "n": 3,
+          "p50": 0,
+          "p95": 61440,
+          "p99": 61440,
+          "maximum": 61440
+        },
+        "heatmap-uploads:1:1:1": {
+          "n": 3,
+          "p50": 0,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "heatmap-upload-bytes:1:1:1": {
+          "n": 3,
+          "p50": 0,
+          "p95": 245760,
+          "p99": 245760,
+          "maximum": 245760
+        },
+        "visible-spec-plots:1:1:2": {
+          "n": 3,
+          "p50": 0,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "heatmap-pixels:1:1:2": {
+          "n": 3,
+          "p50": 0,
+          "p95": 61440,
+          "p99": 61440,
+          "maximum": 61440
+        },
+        "heatmap-uploads:1:1:2": {
+          "n": 3,
+          "p50": 0,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "heatmap-upload-bytes:1:1:2": {
+          "n": 3,
+          "p50": 0,
+          "p95": 245760,
+          "p99": 245760,
+          "maximum": 245760
+        },
+        "visible-wave-plots:2:1:0": {
+          "n": 3,
+          "p50": 0,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "wave-block-rebuild-samples:2:1:0": {
+          "n": 3,
+          "p50": 0,
+          "p95": 491520,
+          "p99": 491520,
+          "maximum": 491520
+        },
+        "wave-exact-samples:2:1:0": {
+          "n": 3,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "wave-block-queries:2:1:0": {
+          "n": 3,
+          "p50": 0,
+          "p95": 8492,
+          "p99": 8492,
+          "maximum": 8492
+        },
+        "wave-envelope-columns:2:1:0": {
+          "n": 3,
+          "p50": 0,
+          "p95": 826,
+          "p99": 826,
+          "maximum": 826
+        },
+        "visible-wave-plots:2:1:1": {
+          "n": 3,
+          "p50": 0,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "wave-block-rebuild-samples:2:1:1": {
+          "n": 3,
+          "p50": 0,
+          "p95": 491520,
+          "p99": 491520,
+          "maximum": 491520
+        },
+        "wave-exact-samples:2:1:1": {
+          "n": 3,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "wave-block-queries:2:1:1": {
+          "n": 3,
+          "p50": 0,
+          "p95": 8492,
+          "p99": 8492,
+          "maximum": 8492
+        },
+        "wave-envelope-columns:2:1:1": {
+          "n": 3,
+          "p50": 0,
+          "p95": 826,
+          "p99": 826,
+          "maximum": 826
+        },
+        "visible-wave-plots:2:1:2": {
+          "n": 3,
+          "p50": 0,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "wave-block-rebuild-samples:2:1:2": {
+          "n": 3,
+          "p50": 0,
+          "p95": 491520,
+          "p99": 491520,
+          "maximum": 491520
+        },
+        "wave-exact-samples:2:1:2": {
+          "n": 3,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "wave-block-queries:2:1:2": {
+          "n": 3,
+          "p50": 0,
+          "p95": 8492,
+          "p99": 8492,
+          "maximum": 8492
+        },
+        "wave-envelope-columns:2:1:2": {
+          "n": 3,
+          "p50": 0,
+          "p95": 826,
+          "p99": 826,
+          "maximum": 826
+        },
+        "visible-wave-plots:2:1:3": {
+          "n": 3,
+          "p50": 0,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "wave-block-rebuild-samples:2:1:3": {
+          "n": 3,
+          "p50": 0,
+          "p95": 491520,
+          "p99": 491520,
+          "maximum": 491520
+        },
+        "wave-exact-samples:2:1:3": {
+          "n": 3,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "wave-block-queries:2:1:3": {
+          "n": 3,
+          "p50": 0,
+          "p95": 8492,
+          "p99": 8492,
+          "maximum": 8492
+        },
+        "wave-envelope-columns:2:1:3": {
+          "n": 3,
+          "p50": 0,
+          "p95": 826,
+          "p99": 826,
+          "maximum": 826
+        }
+      },
+      "frame_budget_met": true,
+      "operation_budget_met": null
+    },
+    {
+      "scene": "Render",
+      "stage": "track1-spec",
+      "frame_count": 1797,
+      "first_frame": 3299,
+      "last_frame": 5095,
+      "main_thread_ms": {
+        "n": 1797,
+        "p50": 4.0006,
+        "p95": 4.6489,
+        "p99": 5.2924,
+        "maximum": 7.3413
+      },
+      "frame_interval_ms": {
+        "n": 1797,
+        "p50": 16.6769,
+        "p95": 17.4575,
+        "p99": 18.5372,
+        "maximum": 20.2823
+      },
+      "operation_response_ms": {
+        "n": 0,
+        "p50": null,
+        "p95": null,
+        "p99": null,
+        "maximum": null
+      },
+      "slices_ms": {
+        "heatmap-submit": {
+          "n": 1797,
+          "p50": 0.3223,
+          "p95": 0.3916,
+          "p99": 0.4697,
+          "maximum": 2.0292
+        },
+        "waveform-envelope": {
+          "n": 1797,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "log-drain": {
+          "n": 1797,
+          "p50": 0.0004,
+          "p95": 0.0007,
+          "p99": 0.0008,
+          "maximum": 0.0222
+        },
+        "present": {
+          "n": 1797,
+          "p50": 12.5911,
+          "p95": 13.9231,
+          "p99": 14.5658,
+          "maximum": 17.2192
+        },
+        "main-thread": {
+          "n": 1797,
+          "p50": 4.0006,
+          "p95": 4.6489,
+          "p99": 5.2924,
+          "maximum": 7.3413
+        },
+        "ui-build": {
+          "n": 1797,
+          "p50": 3.9629,
+          "p95": 4.6041,
+          "p99": 5.2173,
+          "maximum": 7.2891
+        },
+        "dx11-submit": {
+          "n": 1797,
+          "p50": 0.0143,
+          "p95": 0.0194,
+          "p99": 0.0258,
+          "maximum": 0.178
+        },
+        "probe-io": {
+          "n": 1797,
+          "p50": 0.0651,
+          "p95": 0.1375,
+          "p99": 0.6431,
+          "maximum": 2.9405
+        },
+        "chart-refresh": {
+          "n": 1797,
+          "p50": 3.4762,
+          "p95": 4.0574,
+          "p99": 4.5843,
+          "maximum": 6.4328
+        },
+        "fft": {
+          "n": 1797,
+          "p50": 0.6505,
+          "p95": 0.759,
+          "p99": 0.8914,
+          "maximum": 1.6586
+        },
+        "heatmap-fill": {
+          "n": 1797,
+          "p50": 0.2597,
+          "p95": 0.3154,
+          "p99": 0.3714,
+          "maximum": 0.4441
+        },
+        "heatmap-upload": {
+          "n": 1797,
+          "p50": 0.0432,
+          "p95": 0.0513,
+          "p99": 0.0737,
+          "maximum": 0.4018
+        },
+        "call-receive": {
+          "n": 1797,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "call-sort": {
+          "n": 1797,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "call-match": {
+          "n": 1797,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "call-rows": {
+          "n": 1797,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "graph-hint": {
+          "n": 1797,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "export-start": {
+          "n": 1797,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "spec-history": {
+          "n": 1797,
+          "p50": 0.2872,
+          "p95": 0.3561,
+          "p99": 0.4276,
+          "maximum": 1.5915
+        }
+      },
+      "work": {
+        "wave-move-bytes:1:1:0": 3527289600,
+        "wave-request-samples:1:1:0": 1439040,
+        "wave-copy-bytes:1:1:0": 5756160,
+        "wave-move-bytes:1:1:1": 3527289600,
+        "wave-request-samples:1:1:1": 1439040,
+        "wave-copy-bytes:1:1:1": 5744640,
+        "wave-move-bytes:1:1:2": 3527289600,
+        "wave-request-samples:1:1:2": 1439040,
+        "wave-copy-bytes:1:1:2": 5756160,
+        "wave-move-bytes:1:1:3": 3527289600,
+        "wave-request-samples:1:1:3": 1439040,
+        "wave-copy-bytes:1:1:3": 5754240,
+        "wave-move-bytes:1:1:4": 3527289600,
+        "wave-request-samples:1:1:4": 1439040,
+        "wave-copy-bytes:1:1:4": 5756160,
+        "wave-move-bytes:1:1:5": 3527289600,
+        "wave-request-samples:1:1:5": 1439040,
+        "wave-copy-bytes:1:1:5": 5754240,
+        "wave-move-bytes:1:1:6": 3527289600,
+        "wave-request-samples:1:1:6": 1439040,
+        "wave-copy-bytes:1:1:6": 5756160,
+        "wave-move-bytes:1:1:7": 3527289600,
+        "wave-request-samples:1:1:7": 1439040,
+        "wave-copy-bytes:1:1:7": 5750400,
+        "visible-spec-plots:1:1:0": 1797,
+        "heatmap-create:1:1:0": 1,
+        "heatmap-pixels:1:1:0": 85954560,
+        "heatmap-uploads:1:1:0": 1399,
+        "heatmap-upload-bytes:1:1:0": 343818240,
+        "visible-spec-plots:1:1:1": 1797,
+        "heatmap-create:1:1:1": 1,
+        "heatmap-pixels:1:1:1": 85954560,
+        "heatmap-uploads:1:1:1": 1399,
+        "heatmap-upload-bytes:1:1:1": 343818240,
+        "visible-spec-plots:1:1:2": 1797,
+        "heatmap-create:1:1:2": 1,
+        "heatmap-pixels:1:1:2": 85954560,
+        "heatmap-uploads:1:1:2": 1399,
+        "heatmap-upload-bytes:1:1:2": 343818240,
+        "wave-move-bytes:2:1:0": 3527291520,
+        "wave-request-samples:2:1:0": 1438560,
+        "wave-copy-bytes:2:1:0": 5748480,
+        "wave-move-bytes:2:1:1": 3527291520,
+        "wave-request-samples:2:1:1": 1438560,
+        "wave-copy-bytes:2:1:1": 5752320,
+        "wave-move-bytes:2:1:2": 3527291520,
+        "wave-request-samples:2:1:2": 1438560,
+        "wave-copy-bytes:2:1:2": 5754240,
+        "wave-move-bytes:2:1:3": 3527291520,
+        "wave-request-samples:2:1:3": 1438560,
+        "wave-copy-bytes:2:1:3": 5750400,
+        "wave-move-bytes:2:1:4": 3527291520,
+        "wave-request-samples:2:1:4": 1438560,
+        "wave-copy-bytes:2:1:4": 5752320,
+        "wave-move-bytes:2:1:5": 3527291520,
+        "wave-request-samples:2:1:5": 1438560,
+        "wave-copy-bytes:2:1:5": 5754240,
+        "wave-move-bytes:2:1:6": 3527291520,
+        "wave-request-samples:2:1:6": 1438560,
+        "wave-copy-bytes:2:1:6": 5754240,
+        "wave-move-bytes:2:1:7": 3527291520,
+        "wave-request-samples:2:1:7": 1438560,
+        "wave-copy-bytes:2:1:7": 5752320,
+        "fft-request-samples:2:1:0": 2877440,
+        "fft-request-samples:2:1:1": 2873344,
+        "fft-request-samples:2:1:2": 2873344,
+        "fft-request-samples:2:1:3": 2871296,
+        "fft-request-samples:2:1:4": 2869248,
+        "fft-request-samples:2:1:5": 2869248,
+        "fft-request-samples:2:1:6": 2867200,
+        "fft-request-samples:2:1:7": 2867200,
+        "spec-hops:2:1:0": 1398,
+        "spec-move-bytes:2:1:0": 342856704,
+        "spec-hops:2:1:1": 1398,
+        "spec-move-bytes:2:1:1": 342856704,
+        "spec-hops:2:1:2": 1398,
+        "spec-move-bytes:2:1:2": 342856704,
+        "spec-hops:2:1:3": 1398,
+        "spec-move-bytes:2:1:3": 342856704,
+        "spec-hops:2:1:4": 1398,
+        "spec-move-bytes:2:1:4": 342856704,
+        "spec-hops:2:1:5": 1398,
+        "spec-move-bytes:2:1:5": 342856704,
+        "spec-hops:2:1:6": 1398,
+        "spec-move-bytes:2:1:6": 342856704,
+        "spec-hops:2:1:7": 1398,
+        "spec-move-bytes:2:1:7": 342856704,
+        "fft-request-samples:1:1:0": 2877440,
+        "fft-request-samples:1:1:1": 2875392,
+        "fft-request-samples:1:1:2": 2873344,
+        "fft-request-samples:1:1:3": 2871296,
+        "fft-request-samples:1:1:4": 2869248,
+        "fft-request-samples:1:1:5": 2867200,
+        "fft-request-samples:1:1:6": 2865152,
+        "fft-request-samples:1:1:7": 2865152,
+        "spec-hops:1:1:0": 1398,
+        "spec-move-bytes:1:1:0": 342856704,
+        "spec-hops:1:1:1": 1398,
+        "spec-move-bytes:1:1:1": 342856704,
+        "spec-hops:1:1:2": 1398,
+        "spec-move-bytes:1:1:2": 342856704,
+        "spec-hops:1:1:3": 1398,
+        "spec-move-bytes:1:1:3": 342856704,
+        "spec-hops:1:1:4": 1398,
+        "spec-move-bytes:1:1:4": 342856704,
+        "spec-hops:1:1:5": 1398,
+        "spec-move-bytes:1:1:5": 342856704,
+        "spec-hops:1:1:6": 1398,
+        "spec-move-bytes:1:1:6": 342856704,
+        "spec-hops:1:1:7": 1398,
+        "spec-move-bytes:1:1:7": 342856704,
+        "heatmap-skip:1:1:0": 398,
+        "heatmap-skip:1:1:1": 398,
+        "heatmap-skip:1:1:2": 398
+      },
+      "work_per_frame": {
+        "wave-move-bytes:1:1:0": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:0": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 1440
+        },
+        "wave-copy-bytes:1:1:0": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 5760
+        },
+        "wave-move-bytes:1:1:1": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:1": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 1440
+        },
+        "wave-copy-bytes:1:1:1": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 5760
+        },
+        "wave-move-bytes:1:1:2": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:2": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 1440
+        },
+        "wave-copy-bytes:1:1:2": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 5760
+        },
+        "wave-move-bytes:1:1:3": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:3": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 1440
+        },
+        "wave-copy-bytes:1:1:3": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 5760
+        },
+        "wave-move-bytes:1:1:4": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:4": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 1440
+        },
+        "wave-copy-bytes:1:1:4": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 5760
+        },
+        "wave-move-bytes:1:1:5": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:5": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 1440
+        },
+        "wave-copy-bytes:1:1:5": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 5760
+        },
+        "wave-move-bytes:1:1:6": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:6": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 1440
+        },
+        "wave-copy-bytes:1:1:6": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 5760
+        },
+        "wave-move-bytes:1:1:7": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:7": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 1440
+        },
+        "wave-copy-bytes:1:1:7": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 5760
+        },
+        "visible-spec-plots:1:1:0": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "heatmap-create:1:1:0": {
+          "n": 1797,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 1
+        },
+        "heatmap-pixels:1:1:0": {
+          "n": 1797,
+          "p50": 61440,
+          "p95": 61440,
+          "p99": 61440,
+          "maximum": 61440
+        },
+        "heatmap-uploads:1:1:0": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "heatmap-upload-bytes:1:1:0": {
+          "n": 1797,
+          "p50": 245760,
+          "p95": 245760,
+          "p99": 245760,
+          "maximum": 245760
+        },
+        "visible-spec-plots:1:1:1": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "heatmap-create:1:1:1": {
+          "n": 1797,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 1
+        },
+        "heatmap-pixels:1:1:1": {
+          "n": 1797,
+          "p50": 61440,
+          "p95": 61440,
+          "p99": 61440,
+          "maximum": 61440
+        },
+        "heatmap-uploads:1:1:1": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "heatmap-upload-bytes:1:1:1": {
+          "n": 1797,
+          "p50": 245760,
+          "p95": 245760,
+          "p99": 245760,
+          "maximum": 245760
+        },
+        "visible-spec-plots:1:1:2": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "heatmap-create:1:1:2": {
+          "n": 1797,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 1
+        },
+        "heatmap-pixels:1:1:2": {
+          "n": 1797,
+          "p50": 61440,
+          "p95": 61440,
+          "p99": 61440,
+          "maximum": 61440
+        },
+        "heatmap-uploads:1:1:2": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "heatmap-upload-bytes:1:1:2": {
+          "n": 1797,
+          "p50": 245760,
+          "p95": 245760,
+          "p99": 245760,
+          "maximum": 245760
+        },
+        "wave-move-bytes:2:1:0": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:0": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:2:1:0": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:2:1:1": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:1": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:2:1:1": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:2:1:2": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:2": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:2:1:2": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:2:1:3": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:3": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:2:1:3": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:2:1:4": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:4": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:2:1:4": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:2:1:5": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:5": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:2:1:5": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:2:1:6": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:6": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:2:1:6": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:2:1:7": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:7": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:2:1:7": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "fft-request-samples:2:1:0": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 4096
+        },
+        "fft-request-samples:2:1:1": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 4096
+        },
+        "fft-request-samples:2:1:2": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 4096
+        },
+        "fft-request-samples:2:1:3": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 4096
+        },
+        "fft-request-samples:2:1:4": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 4096
+        },
+        "fft-request-samples:2:1:5": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 4096
+        },
+        "fft-request-samples:2:1:6": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 4096
+        },
+        "fft-request-samples:2:1:7": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 4096
+        },
+        "spec-hops:2:1:0": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 2
+        },
+        "spec-move-bytes:2:1:0": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 490496
+        },
+        "spec-hops:2:1:1": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 2
+        },
+        "spec-move-bytes:2:1:1": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 490496
+        },
+        "spec-hops:2:1:2": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 2
+        },
+        "spec-move-bytes:2:1:2": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 490496
+        },
+        "spec-hops:2:1:3": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 2
+        },
+        "spec-move-bytes:2:1:3": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 490496
+        },
+        "spec-hops:2:1:4": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 2
+        },
+        "spec-move-bytes:2:1:4": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 490496
+        },
+        "spec-hops:2:1:5": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 2
+        },
+        "spec-move-bytes:2:1:5": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 490496
+        },
+        "spec-hops:2:1:6": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 2
+        },
+        "spec-move-bytes:2:1:6": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 490496
+        },
+        "spec-hops:2:1:7": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 2
+        },
+        "spec-move-bytes:2:1:7": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 490496
+        },
+        "fft-request-samples:1:1:0": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:1": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:2": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:3": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:4": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:5": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:6": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:7": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "spec-hops:1:1:0": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:0": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:1": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:1": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:2": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:2": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:3": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:3": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:4": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:4": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:5": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:5": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:6": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:6": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:7": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:7": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "heatmap-skip:1:1:0": {
+          "n": 1797,
+          "p50": 0,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "heatmap-skip:1:1:1": {
+          "n": 1797,
+          "p50": 0,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "heatmap-skip:1:1:2": {
+          "n": 1797,
+          "p50": 0,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        }
+      },
+      "frame_budget_met": true,
+      "operation_budget_met": null
+    },
+    {
+      "scene": "Render",
+      "stage": "track2-wave",
+      "frame_count": 1798,
+      "first_frame": 5097,
+      "last_frame": 6894,
+      "main_thread_ms": {
+        "n": 1798,
+        "p50": 5.4876,
+        "p95": 6.0843,
+        "p99": 6.6609,
+        "maximum": 8.0789
+      },
+      "frame_interval_ms": {
+        "n": 1798,
+        "p50": 16.6672,
+        "p95": 17.4697,
+        "p99": 18.5972,
+        "maximum": 19.448
+      },
+      "operation_response_ms": {
+        "n": 0,
+        "p50": null,
+        "p95": null,
+        "p99": null,
+        "maximum": null
+      },
+      "slices_ms": {
+        "heatmap-submit": {
+          "n": 1798,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "waveform-envelope": {
+          "n": 1798,
+          "p50": 1.5188,
+          "p95": 1.7161,
+          "p99": 1.903,
+          "maximum": 2.2387
+        },
+        "log-drain": {
+          "n": 1798,
+          "p50": 0.0004,
+          "p95": 0.0006,
+          "p99": 0.0008,
+          "maximum": 0.1453
+        },
+        "present": {
+          "n": 1798,
+          "p50": 11.047,
+          "p95": 12.1834,
+          "p99": 12.6135,
+          "maximum": 13.8449
+        },
+        "main-thread": {
+          "n": 1798,
+          "p50": 5.4876,
+          "p95": 6.0843,
+          "p99": 6.6609,
+          "maximum": 8.0789
+        },
+        "ui-build": {
+          "n": 1798,
+          "p50": 5.3812,
+          "p95": 5.9638,
+          "p99": 6.5552,
+          "maximum": 7.9373
+        },
+        "dx11-submit": {
+          "n": 1798,
+          "p50": 0.0785,
+          "p95": 0.1164,
+          "p99": 0.1503,
+          "maximum": 0.2488
+        },
+        "probe-io": {
+          "n": 1798,
+          "p50": 0.0665,
+          "p95": 0.1411,
+          "p99": 2.0369,
+          "maximum": 2.612
+        },
+        "chart-refresh": {
+          "n": 1798,
+          "p50": 3.489,
+          "p95": 3.9743,
+          "p99": 4.3836,
+          "maximum": 6.0701
+        },
+        "fft": {
+          "n": 1798,
+          "p50": 0.6447,
+          "p95": 0.7413,
+          "p99": 0.8272,
+          "maximum": 1.4491
+        },
+        "heatmap-fill": {
+          "n": 1798,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "heatmap-upload": {
+          "n": 1798,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "call-receive": {
+          "n": 1798,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "call-sort": {
+          "n": 1798,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "call-match": {
+          "n": 1798,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "call-rows": {
+          "n": 1798,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "graph-hint": {
+          "n": 1798,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "export-start": {
+          "n": 1798,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "spec-history": {
+          "n": 1798,
+          "p50": 0.287,
+          "p95": 0.3458,
+          "p99": 0.3819,
+          "maximum": 0.6492
+        }
+      },
+      "work": {
+        "wave-move-bytes:1:1:0": 3529253760,
+        "wave-request-samples:1:1:0": 1439520,
+        "wave-copy-bytes:1:1:0": 5748480,
+        "wave-move-bytes:1:1:1": 3529253760,
+        "wave-request-samples:1:1:1": 1439520,
+        "wave-copy-bytes:1:1:1": 5756160,
+        "wave-move-bytes:1:1:2": 3529253760,
+        "wave-request-samples:1:1:2": 1439520,
+        "wave-copy-bytes:1:1:2": 5758080,
+        "wave-move-bytes:1:1:3": 3529253760,
+        "wave-request-samples:1:1:3": 1439520,
+        "wave-copy-bytes:1:1:3": 5758080,
+        "wave-move-bytes:1:1:4": 3529253760,
+        "wave-request-samples:1:1:4": 1439520,
+        "wave-copy-bytes:1:1:4": 5756160,
+        "wave-move-bytes:1:1:5": 3529253760,
+        "wave-request-samples:1:1:5": 1439520,
+        "wave-copy-bytes:1:1:5": 5748480,
+        "wave-move-bytes:1:1:6": 3529253760,
+        "wave-request-samples:1:1:6": 1439520,
+        "wave-copy-bytes:1:1:6": 5752320,
+        "wave-move-bytes:1:1:7": 3529253760,
+        "wave-request-samples:1:1:7": 1439520,
+        "wave-copy-bytes:1:1:7": 5758080,
+        "fft-request-samples:1:1:0": 2877440,
+        "fft-request-samples:1:1:1": 2877440,
+        "fft-request-samples:1:1:2": 2877440,
+        "fft-request-samples:1:1:3": 2875392,
+        "fft-request-samples:1:1:4": 2875392,
+        "fft-request-samples:1:1:5": 2875392,
+        "fft-request-samples:1:1:6": 2873344,
+        "fft-request-samples:1:1:7": 2873344,
+        "spec-hops:1:1:0": 1402,
+        "spec-move-bytes:1:1:0": 343837696,
+        "spec-hops:1:1:1": 1402,
+        "spec-move-bytes:1:1:1": 343837696,
+        "spec-hops:1:1:2": 1402,
+        "spec-move-bytes:1:1:2": 343837696,
+        "spec-hops:1:1:3": 1402,
+        "spec-move-bytes:1:1:3": 343837696,
+        "spec-hops:1:1:4": 1402,
+        "spec-move-bytes:1:1:4": 343837696,
+        "spec-hops:1:1:5": 1402,
+        "spec-move-bytes:1:1:5": 343837696,
+        "spec-hops:1:1:6": 1402,
+        "spec-move-bytes:1:1:6": 343837696,
+        "spec-hops:1:1:7": 1402,
+        "spec-move-bytes:1:1:7": 343837696,
+        "wave-move-bytes:2:1:0": 3529253760,
+        "wave-request-samples:2:1:0": 1439520,
+        "wave-copy-bytes:2:1:0": 5754240,
+        "wave-move-bytes:2:1:1": 3529253760,
+        "wave-request-samples:2:1:1": 1439520,
+        "wave-copy-bytes:2:1:1": 5756160,
+        "wave-move-bytes:2:1:2": 3529253760,
+        "wave-request-samples:2:1:2": 1439520,
+        "wave-copy-bytes:2:1:2": 5758080,
+        "wave-move-bytes:2:1:3": 3529253760,
+        "wave-request-samples:2:1:3": 1439520,
+        "wave-copy-bytes:2:1:3": 5754240,
+        "wave-move-bytes:2:1:4": 3529253760,
+        "wave-request-samples:2:1:4": 1439520,
+        "wave-copy-bytes:2:1:4": 5756160,
+        "wave-move-bytes:2:1:5": 3529253760,
+        "wave-request-samples:2:1:5": 1439520,
+        "wave-copy-bytes:2:1:5": 5756160,
+        "wave-move-bytes:2:1:6": 3529253760,
+        "wave-request-samples:2:1:6": 1439520,
+        "wave-copy-bytes:2:1:6": 5752320,
+        "wave-move-bytes:2:1:7": 3529253760,
+        "wave-request-samples:2:1:7": 1439520,
+        "wave-copy-bytes:2:1:7": 5756160,
+        "fft-request-samples:2:1:0": 2879488,
+        "fft-request-samples:2:1:1": 2877440,
+        "fft-request-samples:2:1:2": 2877440,
+        "fft-request-samples:2:1:3": 2875392,
+        "fft-request-samples:2:1:4": 2873344,
+        "fft-request-samples:2:1:5": 2873344,
+        "fft-request-samples:2:1:6": 2871296,
+        "fft-request-samples:2:1:7": 2871296,
+        "spec-hops:2:1:0": 1401,
+        "spec-move-bytes:2:1:0": 343592448,
+        "spec-hops:2:1:1": 1401,
+        "spec-move-bytes:2:1:1": 343592448,
+        "spec-hops:2:1:2": 1401,
+        "spec-move-bytes:2:1:2": 343592448,
+        "spec-hops:2:1:3": 1401,
+        "spec-move-bytes:2:1:3": 343592448,
+        "spec-hops:2:1:4": 1401,
+        "spec-move-bytes:2:1:4": 343592448,
+        "spec-hops:2:1:5": 1401,
+        "spec-move-bytes:2:1:5": 343592448,
+        "spec-hops:2:1:6": 1401,
+        "spec-move-bytes:2:1:6": 343592448,
+        "spec-hops:2:1:7": 1401,
+        "spec-move-bytes:2:1:7": 343592448,
+        "visible-wave-plots:2:1:0": 1798,
+        "wave-block-rebuild-samples:2:1:0": 883752960,
+        "wave-exact-samples:2:1:0": 0,
+        "wave-block-queries:2:1:0": 15268616,
+        "wave-envelope-columns:2:1:0": 1485148,
+        "visible-wave-plots:2:1:1": 1798,
+        "wave-block-rebuild-samples:2:1:1": 883752960,
+        "wave-exact-samples:2:1:1": 0,
+        "wave-block-queries:2:1:1": 15268616,
+        "wave-envelope-columns:2:1:1": 1485148,
+        "visible-wave-plots:2:1:2": 1798,
+        "wave-block-rebuild-samples:2:1:2": 883752960,
+        "wave-exact-samples:2:1:2": 0,
+        "wave-block-queries:2:1:2": 15268616,
+        "wave-envelope-columns:2:1:2": 1485148,
+        "visible-wave-plots:2:1:3": 1798,
+        "wave-block-rebuild-samples:2:1:3": 883752960,
+        "wave-exact-samples:2:1:3": 0,
+        "wave-block-queries:2:1:3": 15268616,
+        "wave-envelope-columns:2:1:3": 1485148
+      },
+      "work_per_frame": {
+        "wave-move-bytes:1:1:0": {
+          "n": 1798,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:0": {
+          "n": 1798,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:0": {
+          "n": 1798,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:1:1:1": {
+          "n": 1798,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:1": {
+          "n": 1798,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:1": {
+          "n": 1798,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:1:1:2": {
+          "n": 1798,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:2": {
+          "n": 1798,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:2": {
+          "n": 1798,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:1:1:3": {
+          "n": 1798,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:3": {
+          "n": 1798,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:3": {
+          "n": 1798,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:1:1:4": {
+          "n": 1798,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:4": {
+          "n": 1798,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:4": {
+          "n": 1798,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:1:1:5": {
+          "n": 1798,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:5": {
+          "n": 1798,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:5": {
+          "n": 1798,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:1:1:6": {
+          "n": 1798,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:6": {
+          "n": 1798,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:6": {
+          "n": 1798,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:1:1:7": {
+          "n": 1798,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:7": {
+          "n": 1798,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:7": {
+          "n": 1798,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "fft-request-samples:1:1:0": {
+          "n": 1798,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:1": {
+          "n": 1798,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:2": {
+          "n": 1798,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:3": {
+          "n": 1798,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:4": {
+          "n": 1798,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:5": {
+          "n": 1798,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:6": {
+          "n": 1798,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:7": {
+          "n": 1798,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "spec-hops:1:1:0": {
+          "n": 1798,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:0": {
+          "n": 1798,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:1": {
+          "n": 1798,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:1": {
+          "n": 1798,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:2": {
+          "n": 1798,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:2": {
+          "n": 1798,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:3": {
+          "n": 1798,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:3": {
+          "n": 1798,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:4": {
+          "n": 1798,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:4": {
+          "n": 1798,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:5": {
+          "n": 1798,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:5": {
+          "n": 1798,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:6": {
+          "n": 1798,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:6": {
+          "n": 1798,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:7": {
+          "n": 1798,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:7": {
+          "n": 1798,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "wave-move-bytes:2:1:0": {
+          "n": 1798,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:0": {
+          "n": 1798,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:2:1:0": {
+          "n": 1798,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:2:1:1": {
+          "n": 1798,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:1": {
+          "n": 1798,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:2:1:1": {
+          "n": 1798,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:2:1:2": {
+          "n": 1798,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:2": {
+          "n": 1798,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:2:1:2": {
+          "n": 1798,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:2:1:3": {
+          "n": 1798,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:3": {
+          "n": 1798,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:2:1:3": {
+          "n": 1798,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:2:1:4": {
+          "n": 1798,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:4": {
+          "n": 1798,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:2:1:4": {
+          "n": 1798,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:2:1:5": {
+          "n": 1798,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:5": {
+          "n": 1798,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:2:1:5": {
+          "n": 1798,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:2:1:6": {
+          "n": 1798,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:6": {
+          "n": 1798,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:2:1:6": {
+          "n": 1798,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:2:1:7": {
+          "n": 1798,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:7": {
+          "n": 1798,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:2:1:7": {
+          "n": 1798,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "fft-request-samples:2:1:0": {
+          "n": 1798,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:2:1:1": {
+          "n": 1798,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:2:1:2": {
+          "n": 1798,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:2:1:3": {
+          "n": 1798,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:2:1:4": {
+          "n": 1798,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:2:1:5": {
+          "n": 1798,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:2:1:6": {
+          "n": 1798,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:2:1:7": {
+          "n": 1798,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "spec-hops:2:1:0": {
+          "n": 1798,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:0": {
+          "n": 1798,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:2:1:1": {
+          "n": 1798,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:1": {
+          "n": 1798,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:2:1:2": {
+          "n": 1798,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:2": {
+          "n": 1798,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:2:1:3": {
+          "n": 1798,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:3": {
+          "n": 1798,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:2:1:4": {
+          "n": 1798,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:4": {
+          "n": 1798,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:2:1:5": {
+          "n": 1798,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:5": {
+          "n": 1798,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:2:1:6": {
+          "n": 1798,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:6": {
+          "n": 1798,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:2:1:7": {
+          "n": 1798,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:7": {
+          "n": 1798,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "visible-wave-plots:2:1:0": {
+          "n": 1798,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "wave-block-rebuild-samples:2:1:0": {
+          "n": 1798,
+          "p50": 491520,
+          "p95": 491520,
+          "p99": 491520,
+          "maximum": 491520
+        },
+        "wave-exact-samples:2:1:0": {
+          "n": 1798,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "wave-block-queries:2:1:0": {
+          "n": 1798,
+          "p50": 8492,
+          "p95": 8492,
+          "p99": 8492,
+          "maximum": 8492
+        },
+        "wave-envelope-columns:2:1:0": {
+          "n": 1798,
+          "p50": 826,
+          "p95": 826,
+          "p99": 826,
+          "maximum": 826
+        },
+        "visible-wave-plots:2:1:1": {
+          "n": 1798,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "wave-block-rebuild-samples:2:1:1": {
+          "n": 1798,
+          "p50": 491520,
+          "p95": 491520,
+          "p99": 491520,
+          "maximum": 491520
+        },
+        "wave-exact-samples:2:1:1": {
+          "n": 1798,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "wave-block-queries:2:1:1": {
+          "n": 1798,
+          "p50": 8492,
+          "p95": 8492,
+          "p99": 8492,
+          "maximum": 8492
+        },
+        "wave-envelope-columns:2:1:1": {
+          "n": 1798,
+          "p50": 826,
+          "p95": 826,
+          "p99": 826,
+          "maximum": 826
+        },
+        "visible-wave-plots:2:1:2": {
+          "n": 1798,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "wave-block-rebuild-samples:2:1:2": {
+          "n": 1798,
+          "p50": 491520,
+          "p95": 491520,
+          "p99": 491520,
+          "maximum": 491520
+        },
+        "wave-exact-samples:2:1:2": {
+          "n": 1798,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "wave-block-queries:2:1:2": {
+          "n": 1798,
+          "p50": 8492,
+          "p95": 8492,
+          "p99": 8492,
+          "maximum": 8492
+        },
+        "wave-envelope-columns:2:1:2": {
+          "n": 1798,
+          "p50": 826,
+          "p95": 826,
+          "p99": 826,
+          "maximum": 826
+        },
+        "visible-wave-plots:2:1:3": {
+          "n": 1798,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "wave-block-rebuild-samples:2:1:3": {
+          "n": 1798,
+          "p50": 491520,
+          "p95": 491520,
+          "p99": 491520,
+          "maximum": 491520
+        },
+        "wave-exact-samples:2:1:3": {
+          "n": 1798,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "wave-block-queries:2:1:3": {
+          "n": 1798,
+          "p50": 8492,
+          "p95": 8492,
+          "p99": 8492,
+          "maximum": 8492
+        },
+        "wave-envelope-columns:2:1:3": {
+          "n": 1798,
+          "p50": 826,
+          "p95": 826,
+          "p99": 826,
+          "maximum": 826
+        }
+      },
+      "frame_budget_met": true,
+      "operation_budget_met": null
+    },
+    {
+      "scene": "Render",
+      "stage": "track2-spec",
+      "frame_count": 1797,
+      "first_frame": 6896,
+      "last_frame": 8692,
+      "main_thread_ms": {
+        "n": 1797,
+        "p50": 4.0095,
+        "p95": 4.6725,
+        "p99": 5.2773,
+        "maximum": 7.8398
+      },
+      "frame_interval_ms": {
+        "n": 1797,
+        "p50": 16.6836,
+        "p95": 17.4123,
+        "p99": 18.4275,
+        "maximum": 19.4723
+      },
+      "operation_response_ms": {
+        "n": 0,
+        "p50": null,
+        "p95": null,
+        "p99": null,
+        "maximum": null
+      },
+      "slices_ms": {
+        "heatmap-submit": {
+          "n": 1797,
+          "p50": 0.3284,
+          "p95": 0.3957,
+          "p99": 0.4556,
+          "maximum": 0.8813
+        },
+        "waveform-envelope": {
+          "n": 1797,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "log-drain": {
+          "n": 1797,
+          "p50": 0.0004,
+          "p95": 0.0007,
+          "p99": 0.0009,
+          "maximum": 0.0348
+        },
+        "present": {
+          "n": 1797,
+          "p50": 12.5625,
+          "p95": 13.9222,
+          "p99": 14.4371,
+          "maximum": 15.1689
+        },
+        "main-thread": {
+          "n": 1797,
+          "p50": 4.0095,
+          "p95": 4.6725,
+          "p99": 5.2773,
+          "maximum": 7.8398
+        },
+        "ui-build": {
+          "n": 1797,
+          "p50": 3.9745,
+          "p95": 4.63,
+          "p99": 5.2237,
+          "maximum": 7.7599
+        },
+        "dx11-submit": {
+          "n": 1797,
+          "p50": 0.0137,
+          "p95": 0.0175,
+          "p99": 0.0257,
+          "maximum": 0.1301
+        },
+        "probe-io": {
+          "n": 1797,
+          "p50": 0.0655,
+          "p95": 0.1466,
+          "p99": 2.0097,
+          "maximum": 2.9808
+        },
+        "chart-refresh": {
+          "n": 1797,
+          "p50": 3.475,
+          "p95": 4.0891,
+          "p99": 4.6431,
+          "maximum": 6.8361
+        },
+        "fft": {
+          "n": 1797,
+          "p50": 0.6444,
+          "p95": 0.773,
+          "p99": 0.8684,
+          "maximum": 1.401
+        },
+        "heatmap-fill": {
+          "n": 1797,
+          "p50": 0.2647,
+          "p95": 0.32,
+          "p99": 0.3561,
+          "maximum": 0.5519
+        },
+        "heatmap-upload": {
+          "n": 1797,
+          "p50": 0.0436,
+          "p95": 0.0516,
+          "p99": 0.0765,
+          "maximum": 0.1836
+        },
+        "call-receive": {
+          "n": 1797,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "call-sort": {
+          "n": 1797,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "call-match": {
+          "n": 1797,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "call-rows": {
+          "n": 1797,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "graph-hint": {
+          "n": 1797,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "export-start": {
+          "n": 1797,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "maximum": 0
+        },
+        "spec-history": {
+          "n": 1797,
+          "p50": 0.2874,
+          "p95": 0.3585,
+          "p99": 0.4303,
+          "maximum": 0.89
+        }
+      },
+      "work": {
+        "wave-move-bytes:1:1:0": 3527291520,
+        "wave-request-samples:1:1:0": 1438560,
+        "wave-copy-bytes:1:1:0": 5748480,
+        "wave-move-bytes:1:1:1": 3527291520,
+        "wave-request-samples:1:1:1": 1438560,
+        "wave-copy-bytes:1:1:1": 5748480,
+        "wave-move-bytes:1:1:2": 3527291520,
+        "wave-request-samples:1:1:2": 1438560,
+        "wave-copy-bytes:1:1:2": 5752320,
+        "wave-move-bytes:1:1:3": 3527291520,
+        "wave-request-samples:1:1:3": 1438560,
+        "wave-copy-bytes:1:1:3": 5752320,
+        "wave-move-bytes:1:1:4": 3527291520,
+        "wave-request-samples:1:1:4": 1438560,
+        "wave-copy-bytes:1:1:4": 5750400,
+        "wave-move-bytes:1:1:5": 3527291520,
+        "wave-request-samples:1:1:5": 1438560,
+        "wave-copy-bytes:1:1:5": 5752320,
+        "wave-move-bytes:1:1:6": 3527291520,
+        "wave-request-samples:1:1:6": 1438560,
+        "wave-copy-bytes:1:1:6": 5752320,
+        "wave-move-bytes:1:1:7": 3527291520,
+        "wave-request-samples:1:1:7": 1438560,
+        "wave-copy-bytes:1:1:7": 5754240,
+        "fft-request-samples:1:1:0": 2877440,
+        "fft-request-samples:1:1:1": 2877440,
+        "fft-request-samples:1:1:2": 2877440,
+        "fft-request-samples:1:1:3": 2875392,
+        "fft-request-samples:1:1:4": 2871296,
+        "fft-request-samples:1:1:5": 2871296,
+        "fft-request-samples:1:1:6": 2871296,
+        "fft-request-samples:1:1:7": 2867200,
+        "spec-hops:1:1:0": 1400,
+        "spec-move-bytes:1:1:0": 343347200,
+        "spec-hops:1:1:1": 1400,
+        "spec-move-bytes:1:1:1": 343347200,
+        "spec-hops:1:1:2": 1400,
+        "spec-move-bytes:1:1:2": 343347200,
+        "spec-hops:1:1:3": 1400,
+        "spec-move-bytes:1:1:3": 343347200,
+        "spec-hops:1:1:4": 1400,
+        "spec-move-bytes:1:1:4": 343347200,
+        "spec-hops:1:1:5": 1400,
+        "spec-move-bytes:1:1:5": 343347200,
+        "spec-hops:1:1:6": 1400,
+        "spec-move-bytes:1:1:6": 343347200,
+        "spec-hops:1:1:7": 1400,
+        "spec-move-bytes:1:1:7": 343347200,
+        "wave-move-bytes:2:1:0": 3527291520,
+        "wave-request-samples:2:1:0": 1438560,
+        "wave-copy-bytes:2:1:0": 5752320,
+        "wave-move-bytes:2:1:1": 3527291520,
+        "wave-request-samples:2:1:1": 1438560,
+        "wave-copy-bytes:2:1:1": 5752320,
+        "wave-move-bytes:2:1:2": 3527291520,
+        "wave-request-samples:2:1:2": 1438560,
+        "wave-copy-bytes:2:1:2": 5746560,
+        "wave-move-bytes:2:1:3": 3527291520,
+        "wave-request-samples:2:1:3": 1438560,
+        "wave-copy-bytes:2:1:3": 5750400,
+        "wave-move-bytes:2:1:4": 3527291520,
+        "wave-request-samples:2:1:4": 1438560,
+        "wave-copy-bytes:2:1:4": 5752320,
+        "wave-move-bytes:2:1:5": 3527291520,
+        "wave-request-samples:2:1:5": 1438560,
+        "wave-copy-bytes:2:1:5": 5754240,
+        "wave-move-bytes:2:1:6": 3527291520,
+        "wave-request-samples:2:1:6": 1438560,
+        "wave-copy-bytes:2:1:6": 5752320,
+        "wave-move-bytes:2:1:7": 3527291520,
+        "wave-request-samples:2:1:7": 1438560,
+        "wave-copy-bytes:2:1:7": 5754240,
+        "fft-request-samples:2:1:0": 2877440,
+        "fft-request-samples:2:1:1": 2877440,
+        "fft-request-samples:2:1:2": 2875392,
+        "fft-request-samples:2:1:3": 2875392,
+        "fft-request-samples:2:1:4": 2873344,
+        "fft-request-samples:2:1:5": 2871296,
+        "fft-request-samples:2:1:6": 2869248,
+        "fft-request-samples:2:1:7": 2869248,
+        "spec-hops:2:1:0": 1400,
+        "spec-move-bytes:2:1:0": 343347200,
+        "spec-hops:2:1:1": 1400,
+        "spec-move-bytes:2:1:1": 343347200,
+        "spec-hops:2:1:2": 1400,
+        "spec-move-bytes:2:1:2": 343347200,
+        "spec-hops:2:1:3": 1400,
+        "spec-move-bytes:2:1:3": 343347200,
+        "spec-hops:2:1:4": 1400,
+        "spec-move-bytes:2:1:4": 343347200,
+        "spec-hops:2:1:5": 1400,
+        "spec-move-bytes:2:1:5": 343347200,
+        "spec-hops:2:1:6": 1400,
+        "spec-move-bytes:2:1:6": 343347200,
+        "spec-hops:2:1:7": 1400,
+        "spec-move-bytes:2:1:7": 343347200,
+        "visible-spec-plots:2:1:0": 1797,
+        "heatmap-pixels:2:1:0": 86016000,
+        "heatmap-uploads:2:1:0": 1400,
+        "heatmap-upload-bytes:2:1:0": 344064000,
+        "visible-spec-plots:2:1:1": 1797,
+        "heatmap-pixels:2:1:1": 86016000,
+        "heatmap-uploads:2:1:1": 1400,
+        "heatmap-upload-bytes:2:1:1": 344064000,
+        "visible-spec-plots:2:1:2": 1797,
+        "heatmap-pixels:2:1:2": 86016000,
+        "heatmap-uploads:2:1:2": 1400,
+        "heatmap-upload-bytes:2:1:2": 344064000,
+        "heatmap-skip:2:1:0": 397,
+        "heatmap-skip:2:1:1": 397,
+        "heatmap-skip:2:1:2": 397
+      },
+      "work_per_frame": {
+        "wave-move-bytes:1:1:0": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:0": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:0": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:1:1:1": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:1": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:1": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:1:1:2": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:2": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:2": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:1:1:3": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:3": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:3": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:1:1:4": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:4": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:4": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:1:1:5": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:5": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:5": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:1:1:6": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:6": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:6": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "wave-move-bytes:1:1:7": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:1:1:7": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 960
+        },
+        "wave-copy-bytes:1:1:7": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 3840
+        },
+        "fft-request-samples:1:1:0": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:1": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:2": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:3": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:4": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:5": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:6": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:1:1:7": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "spec-hops:1:1:0": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:0": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:1": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:1": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:2": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:2": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:3": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:3": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:4": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:4": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:5": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:5": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:6": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:6": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:1:1:7": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:1:1:7": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "wave-move-bytes:2:1:0": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:0": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 1440
+        },
+        "wave-copy-bytes:2:1:0": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 5760
+        },
+        "wave-move-bytes:2:1:1": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:1": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 1440
+        },
+        "wave-copy-bytes:2:1:1": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 5760
+        },
+        "wave-move-bytes:2:1:2": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:2": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 1440
+        },
+        "wave-copy-bytes:2:1:2": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 5760
+        },
+        "wave-move-bytes:2:1:3": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:3": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 1440
+        },
+        "wave-copy-bytes:2:1:3": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 5760
+        },
+        "wave-move-bytes:2:1:4": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:4": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 1440
+        },
+        "wave-copy-bytes:2:1:4": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 5760
+        },
+        "wave-move-bytes:2:1:5": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:5": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 1440
+        },
+        "wave-copy-bytes:2:1:5": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 5760
+        },
+        "wave-move-bytes:2:1:6": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:6": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 1440
+        },
+        "wave-copy-bytes:2:1:6": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 5760
+        },
+        "wave-move-bytes:2:1:7": {
+          "n": 1797,
+          "p50": 1962240,
+          "p95": 1964160,
+          "p99": 1964160,
+          "maximum": 1964160
+        },
+        "wave-request-samples:2:1:7": {
+          "n": 1797,
+          "p50": 960,
+          "p95": 960,
+          "p99": 960,
+          "maximum": 1440
+        },
+        "wave-copy-bytes:2:1:7": {
+          "n": 1797,
+          "p50": 3840,
+          "p95": 3840,
+          "p99": 3840,
+          "maximum": 5760
+        },
+        "fft-request-samples:2:1:0": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:2:1:1": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:2:1:2": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:2:1:3": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:2:1:4": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:2:1:5": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:2:1:6": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "fft-request-samples:2:1:7": {
+          "n": 1797,
+          "p50": 2048,
+          "p95": 2048,
+          "p99": 2048,
+          "maximum": 2048
+        },
+        "spec-hops:2:1:0": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:0": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:2:1:1": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:1": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:2:1:2": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:2": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:2:1:3": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:3": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:2:1:4": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:4": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:2:1:5": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:5": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:2:1:6": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:6": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "spec-hops:2:1:7": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "spec-move-bytes:2:1:7": {
+          "n": 1797,
+          "p50": 245248,
+          "p95": 245248,
+          "p99": 245248,
+          "maximum": 245248
+        },
+        "visible-spec-plots:2:1:0": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "heatmap-pixels:2:1:0": {
+          "n": 1797,
+          "p50": 61440,
+          "p95": 61440,
+          "p99": 61440,
+          "maximum": 61440
+        },
+        "heatmap-uploads:2:1:0": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "heatmap-upload-bytes:2:1:0": {
+          "n": 1797,
+          "p50": 245760,
+          "p95": 245760,
+          "p99": 245760,
+          "maximum": 245760
+        },
+        "visible-spec-plots:2:1:1": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "heatmap-pixels:2:1:1": {
+          "n": 1797,
+          "p50": 61440,
+          "p95": 61440,
+          "p99": 61440,
+          "maximum": 61440
+        },
+        "heatmap-uploads:2:1:1": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "heatmap-upload-bytes:2:1:1": {
+          "n": 1797,
+          "p50": 245760,
+          "p95": 245760,
+          "p99": 245760,
+          "maximum": 245760
+        },
+        "visible-spec-plots:2:1:2": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "heatmap-pixels:2:1:2": {
+          "n": 1797,
+          "p50": 61440,
+          "p95": 61440,
+          "p99": 61440,
+          "maximum": 61440
+        },
+        "heatmap-uploads:2:1:2": {
+          "n": 1797,
+          "p50": 1,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "heatmap-upload-bytes:2:1:2": {
+          "n": 1797,
+          "p50": 245760,
+          "p95": 245760,
+          "p99": 245760,
+          "maximum": 245760
+        },
+        "heatmap-skip:2:1:0": {
+          "n": 1797,
+          "p50": 0,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "heatmap-skip:2:1:1": {
+          "n": 1797,
+          "p50": 0,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        },
+        "heatmap-skip:2:1:2": {
+          "n": 1797,
+          "p50": 0,
+          "p95": 1,
+          "p99": 1,
+          "maximum": 1
+        }
+      },
+      "frame_budget_met": true,
+      "operation_budget_met": null
+    }
+  ],
+  "run_complete": true,
+  "pending_operations_at_end": 0
+}

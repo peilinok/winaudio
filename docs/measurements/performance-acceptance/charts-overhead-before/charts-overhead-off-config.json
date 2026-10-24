@@ -1,0 +1,14 @@
+{
+    "source":  "bcc5c71164137299ceb99ced9df8a1c99d4e8ebb",
+    "executable":  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\bin\\Release\\WinAudioPerformanceGui.exe",
+    "executable_sha256":  "FE476FE94E1BFD5C176FD8732A03E14E40ABD44375B1762F50A086C91EBED11B",
+    "endpoint":  "{0.0.0.00000000}.{09793ccf-e246-4dbf-800b-a7cf44856994}",
+    "configuration":  {
+                          "name":  "charts-overhead-off",
+                          "tracks":  2,
+                          "mode":  "off",
+                          "warmup":  30,
+                          "duration":  120
+                      },
+    "started":  "2026-10-24T10:36:13.0438981+08:00"
+}

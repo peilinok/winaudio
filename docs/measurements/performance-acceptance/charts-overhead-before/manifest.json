@@ -1,0 +1,80 @@
+{
+  "build\\performance-vs18\\charts-overhead-before\\charts-overhead-buffered\\config.json": {
+    "artifact": "charts-overhead-buffered-config.json",
+    "source_sha256": "6d58421f5969ae6d34219e0b813f9b9274634582be64f09041a44656b3da00e4",
+    "content_sha256": "883e3ecf2b5b944e3ee8338134d5662daa94d3fc0ad1de06a42bfc8495fd52c8",
+    "artifact_sha256": "883e3ecf2b5b944e3ee8338134d5662daa94d3fc0ad1de06a42bfc8495fd52c8"
+  },
+  "build\\performance-vs18\\charts-overhead-before\\charts-overhead-buffered\\frames.txt": {
+    "artifact": "charts-overhead-buffered-frames.txt.gz",
+    "source_sha256": "e647274f087ea09ed36a34fd70d514d74cd6c17fd7a81e3d64c1b4fa829c7605",
+    "content_sha256": "e647274f087ea09ed36a34fd70d514d74cd6c17fd7a81e3d64c1b4fa829c7605",
+    "artifact_sha256": "a5fa381de5e108b54b9cb409f4d885d5a735dd59f29ee1729c7b5796762a411a"
+  },
+  "build\\performance-vs18\\charts-overhead-before\\charts-overhead-buffered\\process.csv": {
+    "artifact": "charts-overhead-buffered-process.csv",
+    "source_sha256": "1674f514cae6602bc87a66e1ae10ed7542ab29d58ce864133fb22f55b4841677",
+    "content_sha256": "61fcc8bfbe97f820a3c8e3dda62a0ddf5973107fef1b1e543d7eccb28a73bf28",
+    "artifact_sha256": "61fcc8bfbe97f820a3c8e3dda62a0ddf5973107fef1b1e543d7eccb28a73bf28"
+  },
+  "build\\performance-vs18\\charts-overhead-before\\charts-overhead-buffered\\summary.json": {
+    "artifact": "charts-overhead-buffered-summary.json",
+    "source_sha256": "66c2e308d06262003de6e81a65bf3ff0481a0735244a9de9845db801936ca70a",
+    "content_sha256": "5c1d6be9068327e723ac36ce011fad8040d47af5090dfb1725fd60e0cadf81f6",
+    "artifact_sha256": "5c1d6be9068327e723ac36ce011fad8040d47af5090dfb1725fd60e0cadf81f6"
+  },
+  "build\\performance-vs18\\charts-overhead-before\\charts-overhead-buffered\\winaudio.log": {
+    "artifact": "charts-overhead-buffered-winaudio.log.gz",
+    "source_sha256": "4e2ce5b04d5e235b67b6eb3369515f5ba03580a77c917170c19f3ba91b07f8ce",
+    "content_sha256": "4e2ce5b04d5e235b67b6eb3369515f5ba03580a77c917170c19f3ba91b07f8ce",
+    "artifact_sha256": "34c5c7a69a5e3ce65eb9911ea2f93c0e7497f1d986a3fce0072acd78dd7f304c"
+  },
+  "build\\performance-vs18\\charts-overhead-before\\charts-overhead-flush\\config.json": {
+    "artifact": "charts-overhead-flush-config.json",
+    "source_sha256": "4a08fedb4dde7f5ad1cd0eac6c71d2c813ee47a49052087a0038a2c099982688",
+    "content_sha256": "422b98146f01b032843f799a5fe5cd0d8757448ce245a9407cfda6504ce0e3e9",
+    "artifact_sha256": "422b98146f01b032843f799a5fe5cd0d8757448ce245a9407cfda6504ce0e3e9"
+  },
+  "build\\performance-vs18\\charts-overhead-before\\charts-overhead-flush\\frames.txt": {
+    "artifact": "charts-overhead-flush-frames.txt.gz",
+    "source_sha256": "dbce274249ca4aee5f55a135d58206352788304e6293cac6e8336e9f7dbd09c6",
+    "content_sha256": "dbce274249ca4aee5f55a135d58206352788304e6293cac6e8336e9f7dbd09c6",
+    "artifact_sha256": "1ed797a45f1ca315c75c106047964fdf6f9ad6e1d1c76ffe93be54a1daa8a275"
+  },
+  "build\\performance-vs18\\charts-overhead-before\\charts-overhead-flush\\process.csv": {
+    "artifact": "charts-overhead-flush-process.csv",
+    "source_sha256": "b017defe37398ef1a941e73c7b58c355e618b6babfaef906e742113a93624332",
+    "content_sha256": "1080cc3b53cdbdf59b10acaf88f417e34d302ad5c69686401db22f318cf6186b",
+    "artifact_sha256": "1080cc3b53cdbdf59b10acaf88f417e34d302ad5c69686401db22f318cf6186b"
+  },
+  "build\\performance-vs18\\charts-overhead-before\\charts-overhead-flush\\summary.json": {
+    "artifact": "charts-overhead-flush-summary.json",
+    "source_sha256": "19938f7d8d7840426ab957c299433ac885acd1e9e02d31b9effcd163fef15b86",
+    "content_sha256": "1bc814f1cf4bd22899973573fce0d8ac497a4c5ff95bec5ccc9db387c15c728b",
+    "artifact_sha256": "1bc814f1cf4bd22899973573fce0d8ac497a4c5ff95bec5ccc9db387c15c728b"
+  },
+  "build\\performance-vs18\\charts-overhead-before\\charts-overhead-flush\\winaudio.log": {
+    "artifact": "charts-overhead-flush-winaudio.log.gz",
+    "source_sha256": "2886c1e379e2b0ea31cceaf879381709246a9e0e555aca7cd7b19a9bc372fbb6",
+    "content_sha256": "2886c1e379e2b0ea31cceaf879381709246a9e0e555aca7cd7b19a9bc372fbb6",
+    "artifact_sha256": "667568fa782d96be110583bf15531a482ada95bd8dea5d27b9d68d1b9113130a"
+  },
+  "build\\performance-vs18\\charts-overhead-before\\charts-overhead-off\\config.json": {
+    "artifact": "charts-overhead-off-config.json",
+    "source_sha256": "17f984e5e94f670ce14a1004ae0bd0c643274387bbbf85b7e69a058adb885317",
+    "content_sha256": "88d0065857b3e4a6fb140db90bde7c1a8f4eb284470ece8d411673fb01c4383d",
+    "artifact_sha256": "88d0065857b3e4a6fb140db90bde7c1a8f4eb284470ece8d411673fb01c4383d"
+  },
+  "build\\performance-vs18\\charts-overhead-before\\charts-overhead-off\\process.csv": {
+    "artifact": "charts-overhead-off-process.csv",
+    "source_sha256": "f10cdb7755b682c4d0e7636a355a3d351f7a30519b1982646d8567067391379a",
+    "content_sha256": "e92bfee4ddd635a037524454fc2e989ba01d0eab6cc4675c31e5a7aafd6cd706",
+    "artifact_sha256": "e92bfee4ddd635a037524454fc2e989ba01d0eab6cc4675c31e5a7aafd6cd706"
+  },
+  "build\\performance-vs18\\charts-overhead-before\\charts-overhead-off\\winaudio.log": {
+    "artifact": "charts-overhead-off-winaudio.log.gz",
+    "source_sha256": "171dfd75de7e5b05a240bef90c3d62ab1a99d063a6c0a79ccbee6f898753c5f7",
+    "content_sha256": "171dfd75de7e5b05a240bef90c3d62ab1a99d063a6c0a79ccbee6f898753c5f7",
+    "artifact_sha256": "a1eec437071bfb944bb34c6750cbdab7930dd69566addb6ede656665b0923ca9"
+  }
+}
