@@ -1,0 +1,33 @@
+{
+    "source":  "2f0b37ce0c63bd97cc265c2b436e2270154fce3e",
+    "executable":  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-inspector-before-v2\\bin\\Release\\WinAudioPerformanceGui.exe",
+    "executable_sha256":  "5F8D0C8A7B16CE406EFB436874B151711B0457F7A2FFD5B6965F7B040F753640",
+    "configuration":  {
+                          "name":  "inspector-single-2",
+                          "records":  10000,
+                          "pids":  1,
+                          "mode":  "browse",
+                          "warmup":  30,
+                          "duration":  120
+                      },
+    "started":  "2026-10-24T11:44:51.0601716+08:00",
+    "workspace_status":  [
+                             " M docs/measurements/performance-acceptance/implementation-log.md",
+                             " M src/gui/AppUi.cpp",
+                             " M src/gui/AppUi.h",
+                             " M src/gui/ChartDataPipeline.cpp",
+                             " M src/gui/ChartDataPipeline.h",
+                             " M src/gui/HeatmapTexture.cpp",
+                             " M src/gui/HeatmapTexture.h",
+                             " M src/tests/CMakeLists.txt",
+                             " M src/tests/test_chart_data_pipeline.cpp",
+                             "?? .archify/",
+                             "?? _shots/",
+                             "?? docs/measurements/performance-acceptance/inspector-implementation-notes.md",
+                             "?? shots/",
+                             "?? src/gui/SpectrogramVisual.h",
+                             "?? src/tests/test_heatmap_texture.cpp"
+                         ],
+    "live_pids":  null,
+    "fixture_input_sha256":  "9A77A9859421770A48C67A2565A997ADE688CBAA5A65C0FDB6D178B48876C71F"
+}
