@@ -214,6 +214,7 @@ bool PerformanceFixture::startInspector(AppUi& ui) {
     ui.pipelineSelectedPid_ = 42001;
     ui.pipelineSessionsLoaded_ = true;
     ui.pipelineAudioOnly_ = true;
+    ui.rebuildPipelineProcessTree();
     ui.pipelineTopRowFrac_ = 0.25f;
     ui.receivePipelineCalls(std::move(calls));
     ui.pipelineCallSelected_ = 0;
