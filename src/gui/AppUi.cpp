@@ -35,6 +35,7 @@
 #include <windows.h>
 #include <shellapi.h>
 #include <algorithm>
+#include <array>
 #include <filesystem>
 #include <cfloat>
 #include <cmath>
@@ -368,8 +369,15 @@ void AppUi::stopAll() {
 }
 
 void AppUi::releaseGpu() {
-    for (auto& tex : heatmapTex_)
-        tex.reset();
+    const auto release = [](VisualState& viz) {
+        viz.capSpec.releaseGpu();
+        viz.renderSpec.releaseGpu();
+        for (auto& channel : viz.capChannelSpecs) channel->releaseGpu();
+    };
+    release(monitorViz_);
+    for (auto& entry : loopbackViz_) release(entry.second);
+    for (auto& entry : appLoopbackViz_) release(entry.second);
+    for (auto& entry : renderViz_) release(entry.second);
 }
 
 void AppUi::refreshApplicationLoopbackSessions() {
@@ -1021,26 +1029,28 @@ void AppUi::ensureRunningVisuals(const wa::MonitorStatus& status, VisualState& v
         viz.workCap.resize(kFftWin);
         if (includeRender) viz.workRender.resize(kFftWin);
         viz.specWin.resize(kFftWin);
-        viz.capSpec = std::make_unique<wa::Spectrogram>(kSpecRows, kSpecCols, 20.0,
-                                                        (double)sr / 2.0, sr);
+        viz.capSpec.reset(std::make_unique<wa::Spectrogram>(kSpecRows, kSpecCols, 20.0,
+                                                        (double)sr / 2.0, sr));
         if (includeRender) {
-            viz.renderSpec = std::make_unique<wa::Spectrogram>(kSpecRows, kSpecCols, 20.0,
-                                                               (double)sr / 2.0, sr);
+            viz.renderSpec.reset(std::make_unique<wa::Spectrogram>(kSpecRows, kSpecCols, 20.0,
+                                                               (double)sr / 2.0, sr));
         }
         viz.capChannelSpecs.clear();
         viz.capChannelSpecs.reserve((size_t)capChannels);
         for (uint32_t ch = 0; ch < capChannels; ++ch) {
-            viz.capChannelSpecs.push_back(std::make_unique<wa::Spectrogram>(
+            auto visual = std::make_unique<wa::SpectrogramVisual>();
+            visual->reset(std::make_unique<wa::Spectrogram>(
                 kSpecRows, kSpecCols, 20.0, (double)sr / 2.0, sr));
+            viz.capChannelSpecs.push_back(std::move(visual));
         }
         viz.capSpecWindows.assign((size_t)capChannels, std::vector<float>(kFftWin, 0.f));
         viz.capSpecChannels = capChannels;
         viz.nextCapEnd = 0;
         if (includeRender) viz.nextRenderEnd = 0;
     } else if (includeRender && !viz.renderSpec) {
-        viz.renderSpec = std::make_unique<wa::Spectrogram>(kSpecRows, kSpecCols, 20.0,
+        viz.renderSpec.reset(std::make_unique<wa::Spectrogram>(kSpecRows, kSpecCols, 20.0,
                                                            (double)viz.specSr / 2.0,
-                                                           viz.specSr);
+                                                           viz.specSr));
     }
 }
 
@@ -3132,8 +3142,9 @@ static ImPlotColormap waSpectroColormap() {
 // label the real frequencies, so the axis reads in Hz. The range is set once (not Always) so the
 // user can pan/zoom the frequency axis; the explicit Once limits apply on the plot's first frame,
 // so the always-created (possibly empty) plot never pins to the [0,1] defaults.
-void AppUi::drawSpectrogramPanel(VisualState& viz, const char* plotId, wa::Spectrogram* spec,
+void AppUi::drawSpectrogramPanel(VisualState& viz, const char* plotId, wa::SpectrogramVisual* visual,
                                  double histSec, float height, int slot) {
+    const wa::Spectrogram* spec = visual ? visual->get() : nullptr;
     // spec == null (not running / no data yet): draw the axes only with a default 20..24 kHz range
     // so the panel is ALWAYS visible, consistent with the waveform panel. The explicit
     // log-range SetupAxisLimits keeps the empty plot from pinning to [0,1] (the old auto-fit bug).
@@ -3190,19 +3201,12 @@ void AppUi::drawSpectrogramPanel(VisualState& viz, const char* plotId, wa::Spect
                 wa::buildHeatmapLut(kStops, 8, lut);
                 lutReady = true;
             }
-            constexpr int kTexSlots = (int)(sizeof(heatmapTex_) / sizeof(heatmapTex_[0]));
             bool drew = false;
-            if (slot >= 0 && slot < kTexSlots) {
-                if (!heatmapTex_[slot])
-                    heatmapTex_[slot] = std::make_unique<wa::HeatmapTexture>();
-                if (heatmapTex_[slot]->ensure(spec->data(), spec->rows(), spec->cols(),
-                                              spec->revision(), -96.f, 0.f, lut,
-                                              frameProbe_.enabled() ? &frameProbe_ : nullptr,
-                                              viz.probeSource, viz.probeDrawDirection, channel)) {
-                    ImPlot::PlotImage("##hm", heatmapTex_[slot]->textureId(),
-                                      ImPlotPoint(0, loL), ImPlotPoint(histSec, hiL));
-                    drew = true;
-                }
+            if (auto* texture = visual->ensure(lut, frameProbe_.enabled() ? &frameProbe_ : nullptr,
+                                               viz.probeSource, viz.probeDrawDirection, channel)) {
+                ImPlot::PlotImage("##hm", texture->textureId(),
+                                  ImPlotPoint(0, loL), ImPlotPoint(histSec, hiL));
+                drew = true;
             }
             if (!drew) {
                 frameProbe_.addWork("heatmap-fallback", 1, viz.probeSource, viz.probeDrawDirection, channel);
@@ -3341,7 +3345,11 @@ void AppUi::drawComboPanel(wa::ScopeReader& reader, const wa::MonitorStatus& sta
         buffers.waveState = &viz.capWaveState;
         buffers.waveScratch = &waveSnapshotScratch_;
         buffers.channelSpecWindows = &viz.capSpecWindows;
-        buffers.channelSpecs = &viz.capChannelSpecs;
+        std::array<wa::Spectrogram*, 8> spectra{};
+        const uint32_t specCount = std::min<uint32_t>(shownChannels, static_cast<uint32_t>(viz.capChannelSpecs.size()));
+        for (uint32_t ch = 0; ch < specCount; ++ch) spectra[ch] = viz.capChannelSpecs[ch]->get();
+        buffers.channelSpecs = spectra.data();
+        buffers.channelSpecCount = specCount;
         buffers.work = &viz.workCap;
         buffers.mag = &viz.magCap;
         buffers.nextEnd = &viz.nextCapEnd;
@@ -3386,7 +3394,7 @@ void AppUi::drawComboPanel(wa::ScopeReader& reader, const wa::MonitorStatus& sta
                           wa::ui_text::get(wa::ui_text::kCaptureChannelSpectrogram), ch + 1u);
             ImGui::TextUnformatted(title);
             const std::string plotId = "##capSpecCh" + std::to_string(ch);
-            wa::Spectrogram* spec = (ch < viz.capChannelSpecs.size())
+            wa::SpectrogramVisual* spec = (ch < viz.capChannelSpecs.size())
                                         ? viz.capChannelSpecs[(size_t)ch].get()
                                         : nullptr;
             drawSpectrogramPanel(viz, plotId.c_str(), spec, histSec, kMultiSpecH,
@@ -3426,14 +3434,14 @@ void AppUi::drawComboPanel(wa::ScopeReader& reader, const wa::MonitorStatus& sta
                                         ImVec2(smx.x, (smn.y + smx.y) * 0.5f),
                                         ImGui::GetColorU32(ImGuiCol_Separator), 1.0f);
 
-    wa::Spectrogram* spec = nullptr;
+    wa::SpectrogramVisual* spec = nullptr;
     if (overallRunning) {
         // Live: render spectrogram only while playback runs. Frozen: keep last renderSpec even
         // if playback was turned off mid-freeze (resetRenderVisuals is suppressed).
         if (renderSide)
-            spec = (renderRunning || viz.chartsFrozen) ? viz.renderSpec.get() : nullptr;
+            spec = (renderRunning || viz.chartsFrozen) ? &viz.renderSpec : nullptr;
         else
-            spec = viz.capSpec.get();
+            spec = &viz.capSpec;
     }
     const uint32_t hz = (sr > 0) ? sr : 48000u;   // idle: assume 48 kHz for the axis ranges
     drawSpectrogramPanel(viz, renderSide ? "##renSpec" : "##capSpec", spec,

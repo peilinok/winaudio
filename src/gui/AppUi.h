@@ -32,7 +32,7 @@
 #include "AudioEffects.h"
 #include "Spectrogram.h"
 #include "WaveEnvelope.h"
-#include "HeatmapTexture.h"
+#include "SpectrogramVisual.h"
 #include "TrackScopeReader.h"
 
 class AppUi {
@@ -77,8 +77,8 @@ private:
         uint32_t specSr        = 0;
         uint32_t capSpecChannels = 0;
 
-        std::unique_ptr<wa::Spectrogram> capSpec, renderSpec;
-        std::vector<std::unique_ptr<wa::Spectrogram>> capChannelSpecs;
+        wa::SpectrogramVisual capSpec, renderSpec;
+        std::vector<std::unique_ptr<wa::SpectrogramVisual>> capChannelSpecs;
     };
     wa::WaveSnapshotScratch waveSnapshotScratch_;
 
@@ -146,7 +146,7 @@ private:
                         const wa::MonitorStatus& status, VisualState& viz);
     void drawComboPanel(wa::ScopeReader& reader, const wa::MonitorStatus& status, VisualState& viz,
                         bool renderSide);
-    void drawSpectrogramPanel(VisualState& viz, const char* plotId, wa::Spectrogram* spec, double histSec, float height, int slot);
+    void drawSpectrogramPanel(VisualState& viz, const char* plotId, wa::SpectrogramVisual* visual, double histSec, float height, int slot);
     void drawWaveformPanel(VisualState& viz, const char* plotId, const float* wave, int n, uint32_t sr, bool haveData, float height, int slot, wa::MinMaxPyramid* pyr = nullptr);
     float logRegionHeight() const;
     void drawLogRegion(const char* regionId, const char* listId);
@@ -179,8 +179,6 @@ private:
     std::mutex               logMutex_;    // guards pendingLog_ (pump thread → draw drains it)
     std::vector<std::string> pendingLog_;
     wa::FrameProbe           frameProbe_;  // off until main() enables it; slots only, no logging
-    // One GPU heatmap texture per spectrogram plot slot; dirty-skipped via Spectrogram::revision().
-    std::unique_ptr<wa::HeatmapTexture> heatmapTex_[32];
     int                      logLevelIdx_ = 2;   // 0=Trace..4=Err; default Info
     bool                     logCollapsed_ = false;
     bool                     logPinToBottomOnExpand_ = false; // one-shot after clicking +

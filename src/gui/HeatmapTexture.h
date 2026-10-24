@@ -2,10 +2,12 @@
 #include "HeatmapRgba.h"
 #include "imgui.h"
 #include <cstdint>
+#include <array>
 #include <vector>
 
 struct ID3D11ShaderResourceView;
 struct ID3D11Texture2D;
+struct ID3D11Device;
 
 namespace wa {
 class FrameProbe;
@@ -14,7 +16,9 @@ class FrameProbe;
 // Draw with ImPlot::PlotImage using textureId().
 class HeatmapTexture {
 public:
-    HeatmapTexture() = default;
+    using ResourceCreator = long (*)(ID3D11Device*, int, int,
+                                    ID3D11Texture2D**, ID3D11ShaderResourceView**);
+    explicit HeatmapTexture(ResourceCreator creator = nullptr) : creator_(creator) {}
     ~HeatmapTexture() { release(); }
     HeatmapTexture(const HeatmapTexture&) = delete;
     HeatmapTexture& operator=(const HeatmapTexture&) = delete;
@@ -38,11 +42,15 @@ private:
 
     ID3D11Texture2D* tex_ = nullptr;
     ID3D11ShaderResourceView* srv_ = nullptr;
+    ID3D11Device* device_ = nullptr;  // borrowed; tex_ retains its creating device
     std::vector<uint32_t> rgba_;
     int rows_ = 0;
     int cols_ = 0;
     uint64_t revision_ = 0;
     bool haveRevision_ = false;
+    float scaleMin_ = 0, scaleMax_ = 0;
+    std::array<uint32_t, 256> lut_{};
+    ResourceCreator creator_ = nullptr;
 };
 
 }  // namespace wa

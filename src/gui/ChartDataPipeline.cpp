@@ -110,7 +110,7 @@ void advanceSpectraMulti(const ChartRefreshParams& p, ChartBuffers& b, uint64_t 
     const uint32_t nCh = std::min(
         b.channelCount,
         std::min(static_cast<uint32_t>(b.channelSpecWindows->size()),
-                 static_cast<uint32_t>(b.channelSpecs->size())));
+                 b.channelSpecCount));
     if (nCh == 0) return;
     for (uint32_t ch = 0; ch < nCh; ++ch) {
         if ((*b.channelSpecWindows)[ch].size() < p.fftWin) return;
@@ -133,12 +133,12 @@ void advanceSpectraMulti(const ChartRefreshParams& p, ChartBuffers& b, uint64_t 
                 magnitudeSpectrumDb((*b.channelSpecWindows)[ch].data(), p.fftWin, b.work->data(),
                                     *b.mag);
             }
-            if ((*b.channelSpecs)[ch]) {
+            if (b.channelSpecs[ch]) {
                 FrameBracket history(p.probe, FrameSlice::SpecHistory);
-                (*b.channelSpecs)[ch]->pushColumn(*b.mag);
+                b.channelSpecs[ch]->pushColumn(*b.mag);
                 note(p, "spec-hops", 1, static_cast<int>(ch));
-                note(p, "spec-move-bytes", static_cast<uint64_t>((*b.channelSpecs)[ch]->rows()) *
-                    static_cast<uint64_t>((*b.channelSpecs)[ch]->cols() - 1) * sizeof(float), static_cast<int>(ch));
+                note(p, "spec-move-bytes", static_cast<uint64_t>(b.channelSpecs[ch]->rows()) *
+                    static_cast<uint64_t>(b.channelSpecs[ch]->cols() - 1) * sizeof(float), static_cast<int>(ch));
             }
         }
     });

@@ -66,7 +66,8 @@ struct ChartBuffers {
     std::vector<std::complex<float>>*         work = nullptr;
     std::vector<float>*                       mag = nullptr;
     Spectrogram*                              spectrogram = nullptr;       // mono
-    std::vector<std::unique_ptr<Spectrogram>>* channelSpecs = nullptr;     // multi
+    Spectrogram* const*                       channelSpecs = nullptr;   // borrowed for this refresh
+    uint32_t                                 channelSpecCount = 0;
     uint64_t*                                 nextEnd = nullptr;           // analysis cursor
     uint32_t                                  specSr = 0;                  // >0 when analysis ready
 };

@@ -19,6 +19,7 @@ add_executable(WinAudioTests
     test_production_catalog.cpp
     test_spectrogram.cpp
     test_heatmap_rgba.cpp
+    test_heatmap_texture.cpp
     test_wave_envelope.cpp
     test_capture_channel_view.cpp
     test_charts_freeze.cpp
@@ -57,6 +58,8 @@ add_executable(WinAudioTests
     test_create_recipe.cpp
     ${CMAKE_SOURCE_DIR}/src/gui/Spectrogram.cpp   # compiled into tests, as in the current setup
     ${CMAKE_SOURCE_DIR}/src/gui/HeatmapRgba.cpp
+    ${CMAKE_SOURCE_DIR}/src/gui/HeatmapTexture.cpp
+    ${CMAKE_SOURCE_DIR}/src/gui/GuiGpu.cpp
     ${CMAKE_SOURCE_DIR}/src/gui/WaveEnvelope.cpp
     ${CMAKE_SOURCE_DIR}/src/gui/ChartDataPipeline.cpp
     ${CMAKE_SOURCE_DIR}/src/gui/DumpUi.cpp
@@ -71,7 +74,7 @@ target_include_directories(WinAudioTests PRIVATE
 )
 string(REPLACE "\\" "/" WA_CHANNEL_IDENT_DIR "${CMAKE_SOURCE_DIR}/assets/channel-idents")
 target_compile_definitions(WinAudioTests PRIVATE "WA_CHANNEL_IDENT_DIR=\"${WA_CHANNEL_IDENT_DIR}\"")
-target_link_libraries(WinAudioTests PRIVATE WinAudioCore gtest_main shell32 imgui)
+target_link_libraries(WinAudioTests PRIVATE WinAudioCore gtest_main shell32 imgui d3d11)
 wa_set_project_warnings(WinAudioTests)
 
 include(GoogleTest)

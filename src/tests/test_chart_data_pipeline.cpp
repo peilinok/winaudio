@@ -524,7 +524,10 @@ TEST(ChartDataPipeline, MultiChannelWavesShareWrittenEnd) {
     b.waveN = 4;
     b.waveSr = 48000;
     b.channelSpecWindows = &chSpecWin;
-    b.channelSpecs = &chSpecs;
+    std::vector<Spectrogram*> chSpecsPointers;
+    for (auto& history : chSpecs) chSpecsPointers.push_back(history.get());
+    b.channelSpecs = chSpecsPointers.data();
+    b.channelSpecCount = static_cast<uint32_t>(chSpecsPointers.size());
     b.work = &work;
     b.mag = &mag;
     b.nextEnd = &nextEnd;
@@ -637,7 +640,10 @@ TEST(ChartDataPipeline, RefreshCharts8chRecord) {
     buffers.waveSr = kSr;
     buffers.waveState = &waveFilled;
     buffers.channelSpecWindows = &channelSpecWindows;
-    buffers.channelSpecs = &channelSpecs;
+    std::vector<Spectrogram*> channelSpecsPointers;
+    for (auto& history : channelSpecs) channelSpecsPointers.push_back(history.get());
+    buffers.channelSpecs = channelSpecsPointers.data();
+    buffers.channelSpecCount = static_cast<uint32_t>(channelSpecsPointers.size());
     buffers.work = &work;
     buffers.mag = &mag;
     buffers.nextEnd = &nextEnd;
@@ -724,7 +730,10 @@ TEST(ChartDataPipeline, WaveIncrementalMatchesFullRefill) {
     a.waveSr = 48000;
     a.waveState = &filledA;
     a.channelSpecWindows = &specWin;
-    a.channelSpecs = &specs;
+    std::vector<Spectrogram*> specsPointers;
+    for (auto& history : specs) specsPointers.push_back(history.get());
+    a.channelSpecs = specsPointers.data();
+    a.channelSpecCount = static_cast<uint32_t>(specsPointers.size());
     a.work = &work;
     a.mag = &mag;
     a.nextEnd = &nextEnd;
@@ -748,7 +757,8 @@ TEST(ChartDataPipeline, WaveIncrementalMatchesFullRefill) {
     b.waveN = 8;
     b.waveSr = 48000;
     b.channelSpecWindows = &specWin;
-    b.channelSpecs = &specs;
+    b.channelSpecs = specsPointers.data();
+    b.channelSpecCount = static_cast<uint32_t>(specsPointers.size());
     b.work = &work;
     b.mag = &mag;
     b.nextEnd = &nextEnd;
