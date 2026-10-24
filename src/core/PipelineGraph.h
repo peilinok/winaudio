@@ -168,4 +168,22 @@ std::vector<PipelineNode> assemblePipeline(
     const std::vector<ProbeSlice>& probes,
     const std::vector<HookedCall>& hooked = {});
 
+bool initializeHintEqual(const EtwInitializeHint& a, const EtwInitializeHint& b);
+
+// One selected graph; status counters are deliberately not graph inputs.
+class PipelineGraphCache {
+public:
+    bool update(const LiveSessionView& session, const EndpointSnapshot& endpoint,
+                const EtwInitializeHint& hint, const std::vector<ProbeSlice>& probes);
+    void clear() { valid_ = false; nodes_.clear(); }
+    const std::vector<PipelineNode>& nodes() const { return nodes_; }
+private:
+    bool valid_ = false;
+    LiveSessionView session_;
+    EndpointSnapshot endpoint_;
+    EtwInitializeHint hint_;
+    std::vector<ProbeSlice> probes_;
+    std::vector<PipelineNode> nodes_;
+};
+
 }  // namespace wa

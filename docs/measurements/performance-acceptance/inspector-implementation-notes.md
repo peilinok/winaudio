@@ -105,3 +105,9 @@ OnDemandAttach 的头文件只前置声明 PumpWindow，具体定义在 COM 公�
 Store 缓存当前查询的控制排序、匹配和反向位置索引，pump 只维护最多六十四条的二分插入位置。无新增不重排、不匹配；Iface 使用独立小列表。主表只提交裁剪范围，首次 Step 前包含定位选择；自动测量首行高度以包含当前字体、CellPadding 和 Selectable。Call 与 Args 仅显示时替换换行，提示与参数面板保留完整内容。
 
 Release 三个目标构建通过，二十六项直接测试通过，见 inspector-query-green.xml。真实一万条短运行已完成，截图观察到旧／新记录定位和独立参数面板，尚不据此宣布完整性能或 DPI 验收。图摘要仍沿用全量参考，下一票消重。
+
+## #227 摘要与图输入判变
+
+每个 Attach 段仅追加三类字段贡献引用与控制计数；普通调用不保存第二份索引。initializeHint 按段缓存，含 legacy PID 0 时按时间／接收序合并贡献再提取，避免合并两个最终摘要丢失 primary stream 语义。sessionRecords 保留为全量参考入口，生产摘要不调用它。活动新段不借旧段，Detach 取最近段。
+
+PipelineGraphCache 比较 Live session、endpoint、合并 hint 与 probe 的实际值后复用原图，状态计数独立更新；音量／静音通知也更新选中图。三十六项直接测试通过，红证据 inspector-hint-red-build.log 与 inspector-graph-red-build.log，绿结果 inspector-graph-final-green.xml。曾将测试字段误写为 Mute，按既有小写 mute 修正测试；未为测试改变产品字段。

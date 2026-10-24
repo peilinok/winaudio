@@ -106,6 +106,8 @@ void CallLogStore::beginRound() {
     controlIfaces_.clear();
     ifaces_.clear();
     queryValid_ = false;
+    combinedAttach_ = combinedLegacy_ = 0;
+    combinedRevision_ = combinedLegacyRevision_ = kNotFound;
     ++round_;
     range_ = recording_ ? RecordingRange::Following : RecordingRange::Never;
     frozenCount_ = 0;
@@ -113,7 +115,9 @@ void CallLogStore::beginRound() {
 
 uint64_t CallLogStore::registerAttach(uint32_t pid) {
     if (const auto active = activeAttach(pid)) return active;
-    attaches_.push_back({pid, true, {}, {}});
+    AttachSegment segment;
+    segment.pid = pid;
+    attaches_.push_back(std::move(segment));
     const uint64_t id = attaches_.size();
     latestAttach_[pid] = id;
     return id;
@@ -199,7 +203,9 @@ void CallLogStore::append(uint64_t attach, HookedCall call) {
     ++pidCounts_[ref->call.pid];
     call_log_filter::addIface(controlIfaces_, ref->call.iface);
     ++controlRevision_;
-    segment.records.push_back(ref);
+    ++segment.count;
+    if (ref->call.method == "Initialize" || ref->call.method == "InitializeSharedAudioStream" ||
+        ref->call.method == "SetClientProperties") segment.contributors.push_back(ref);
     entries_.push_back(std::move(ref));
 }
 
@@ -333,7 +339,7 @@ std::vector<const HookedCall*> CallLogStore::sessionRecords(uint32_t pid) const 
     std::vector<const CallRecord*> records;
     const auto appendSegment = [&](uint64_t id) {
         if (id == 0) return;
-        for (const auto& ref : attaches_[static_cast<size_t>(id - 1)].records) records.push_back(ref.get());
+        for (const auto& ref : entries_) if (ref->id.attach == id) records.push_back(ref.get());
     };
     appendSegment(latestAttach(pid));
     if (pid != 0) appendSegment(latestAttach(0));
@@ -345,6 +351,60 @@ std::vector<const HookedCall*> CallLogStore::sessionRecords(uint32_t pid) const 
     out.reserve(records.size());
     for (const auto* record : records) out.push_back(&record->call);
     return out;
+}
+
+size_t CallLogStore::sessionCallCount(uint32_t pid) const {
+    const auto count = [&](uint64_t id) { return id ? attaches_[static_cast<size_t>(id - 1)].count : 0; };
+    return count(latestAttach(pid)) + (pid != 0 ? count(latestAttach(0)) : 0);
+}
+
+const HookedInitializeExtract& CallLogStore::initializeHint(uint64_t attach, CallLogObserver observer) {
+    static const HookedInitializeExtract empty;
+    if (!attach || attach > attaches_.size()) return empty;
+    auto& segment = attaches_[static_cast<size_t>(attach - 1)];
+    if (segment.hintRevision == segment.contributors.size()) return segment.hint;
+    observer.stage(CallLogStage::Initialize, true, segment.contributors.size());
+    std::sort(segment.contributors.begin(), segment.contributors.end(), [](const CallRecordRef& a, const CallRecordRef& b) {
+        if (a->call.timeMs != b->call.timeMs) return a->call.timeMs < b->call.timeMs;
+        return a->id.sequence < b->id.sequence;
+    });
+    std::vector<const HookedCall*> refs;
+    refs.reserve(segment.contributors.size());
+    for (const auto& ref : segment.contributors) refs.push_back(&ref->call);
+    segment.hint = extractHookedInitializeRefs(refs);
+    segment.hintRevision = segment.contributors.size();
+    observer.stage(CallLogStage::Initialize, false, refs.size());
+    return segment.hint;
+}
+
+const HookedInitializeExtract& CallLogStore::initializeHintForPid(uint32_t pid, CallLogObserver observer) {
+    const auto attach = latestAttach(pid);
+    const auto legacy = pid != 0 ? latestAttach(0) : 0;
+    if (!legacy || attaches_[static_cast<size_t>(legacy - 1)].contributors.empty())
+        return initializeHint(attach, observer);
+    const auto revision = attach ? attaches_[static_cast<size_t>(attach - 1)].contributors.size() : 0;
+    const auto legacyRevision = attaches_[static_cast<size_t>(legacy - 1)].contributors.size();
+    if (combinedAttach_ == attach && combinedLegacy_ == legacy && combinedRevision_ == revision &&
+        combinedLegacyRevision_ == legacyRevision) return combinedHint_;
+    observer.stage(CallLogStage::Initialize, true, revision + legacyRevision);
+    std::vector<const CallRecord*> records;
+    records.reserve(revision + legacyRevision);
+    if (attach) for (const auto& ref : attaches_[static_cast<size_t>(attach - 1)].contributors) records.push_back(ref.get());
+    for (const auto& ref : attaches_[static_cast<size_t>(legacy - 1)].contributors) records.push_back(ref.get());
+    std::sort(records.begin(), records.end(), [](const CallRecord* a, const CallRecord* b) {
+        if (a->call.timeMs != b->call.timeMs) return a->call.timeMs < b->call.timeMs;
+        return a->id.sequence < b->id.sequence;
+    });
+    std::vector<const HookedCall*> refs;
+    refs.reserve(records.size());
+    for (const auto* record : records) refs.push_back(&record->call);
+    combinedHint_ = extractHookedInitializeRefs(refs);
+    combinedAttach_ = attach;
+    combinedLegacy_ = legacy;
+    combinedRevision_ = revision;
+    combinedLegacyRevision_ = legacyRevision;
+    observer.stage(CallLogStage::Initialize, false, refs.size());
+    return combinedHint_;
 }
 
 void CallLogStore::setRecording(bool on) {

@@ -331,3 +331,54 @@ TEST(CallLogStore, PumpIfaceOptionsExpireWithoutChangingControlQuery) {
     EXPECT_EQ(store.ifaces(), std::vector<std::string>{"IAudioClient"});
     EXPECT_EQ(store.view({}).work().matched, 0u);
 }
+
+TEST(CallLogStore, InitializeCacheMatchesStableReferenceAndSkipsUnrelatedCalls) {
+    CallLogStore store;
+    const auto attach = store.registerAttach(7);
+    auto init = sampleCall();
+    init.timeMs = 20;
+    init.raw = false;
+    init.hresult = 0;
+    init.format = "current";
+    store.append(attach, init);
+    size_t visited = 0;
+    const CallLogObserver observer{&visited, [](void* context, CallLogStage stage, bool begin, size_t count) {
+        if (stage == CallLogStage::Initialize && begin) *static_cast<size_t*>(context) += count;
+    }};
+    EXPECT_EQ(store.initializeHint(attach, observer).hint.format, init.format);
+    EXPECT_EQ(visited, 1u);
+    auto ordinary = init;
+    ordinary.method = "Start";
+    store.append(attach, ordinary);
+    EXPECT_EQ(store.initializeHintForPid(7, observer).hint.raw, std::optional<bool>(false));
+    EXPECT_EQ(visited, 1u);
+    EXPECT_EQ(store.sessionCallCount(7), 2u);
+    auto late = init;
+    late.timeMs = 10;
+    late.streamId = 99;
+    late.format = "late";
+    store.append(attach, late);
+    auto legacy = late;
+    legacy.pid = 0;
+    legacy.timeMs = 20;
+    legacy.streamId = 0;
+    legacy.format = "legacy-zero";
+    store.append({legacy});
+    const auto& actual = store.initializeHintForPid(7, observer);
+    const auto expected = extractHookedInitializeRefs(store.sessionRecords(7));
+    EXPECT_EQ(actual.hint.format, expected.hint.format);
+    EXPECT_EQ(actual.hint.raw, expected.hint.raw);
+    EXPECT_EQ(actual.hint.hresult, expected.hint.hresult);
+    EXPECT_EQ(actual.streamCount, expected.streamCount);
+    EXPECT_EQ(actual.primaryStreamId, expected.primaryStreamId);
+    visited = 0;
+    store.initializeHintForPid(7, observer);
+    EXPECT_EQ(visited, 0u);
+    store.endAttach(attach);
+    EXPECT_EQ(store.initializeHintForPid(7).hint.format, legacy.format);
+    store.registerAttach(7);
+    EXPECT_EQ(store.initializeHintForPid(7).hint.format, legacy.format);
+    EXPECT_EQ(store.sessionCallCount(7), 1u);
+    store.beginRound();
+    EXPECT_FALSE(store.initializeHintForPid(7).hint.present);
+}

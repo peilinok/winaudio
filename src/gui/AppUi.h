@@ -227,7 +227,7 @@ private:
     bool pipelineProcessSortAsc_ = true;
 
     unsigned long long pipelineProcessesTick_ = 0;
-    std::vector<wa::PipelineNode> pipelineNodes_;
+    wa::PipelineGraphCache pipelineGraph_;
     std::vector<wa::ProbeSlice> pipelineProbes_;
     bool pipelineProbing_ = false;
     wa::EtwInitializeWatch pipelineEtw_;

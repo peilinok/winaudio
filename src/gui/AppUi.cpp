@@ -409,7 +409,7 @@ void AppUi::refreshPipelineSessions() {
     if (!r) {
         pipelineSessions_.clear();
         pipelineSelected_ = -1;
-        pipelineNodes_.clear();
+        pipelineGraph_.clear();
         rebuildPipelineProcessTree();
         logLines_.push_back("pipeline refresh failed: " + r.message);
         return;
@@ -459,9 +459,10 @@ void AppUi::applyPipelineProcessSort() {
 }
 
 void AppUi::rebuildPipelineGraph() {
-    pipelineNodes_.clear();
-    if (pipelineSelected_ < 0 || pipelineSelected_ >= (int)pipelineSessions_.size())
+    if (pipelineSelected_ < 0 || pipelineSelected_ >= (int)pipelineSessions_.size()) {
+        pipelineGraph_.clear();
         return;
+    }
 
     const wa::LiveSessionView& session = pipelineSessions_[(size_t)pipelineSelected_];
     wa::EndpointSnapshot snap;
@@ -476,26 +477,34 @@ void AppUi::rebuildPipelineGraph() {
 
 void AppUi::applyLiveSessionCellPatches() {
     const std::vector<wa::LiveSessionCellPatch> patches = pipelineWatch_.drainCellPatches();
-    for (const auto& patch : patches)
-        wa::applyLiveSessionCellPatch(pipelineSessions_, patch);
+    bool selectedChanged = false;
+    for (const auto& patch : patches) {
+        const auto index = wa::applyLiveSessionCellPatch(pipelineSessions_, patch);
+        selectedChanged = selectedChanged || (index >= 0 && index == pipelineSelected_);
+    }
+    if (selectedChanged) applyPipelineJoin();
 }
 
 void AppUi::applyPipelineJoin() {
     wa::FrameBracket graph(frameProbe_, wa::FrameSlice::GraphHint);
-    pipelineNodes_.clear();
     pipelineJoinStatus_ = {};
-    if (pipelineSelected_ < 0 || pipelineSelected_ >= (int)pipelineSessions_.size())
+    if (pipelineSelected_ < 0 || pipelineSelected_ >= (int)pipelineSessions_.size()) {
+        pipelineGraph_.clear();
         return;
+    }
     const wa::LiveSessionView& session = pipelineSessions_[(size_t)pipelineSelected_];
     wa::EtwInitializeHint etw;
     if (pipelineEtw_.status() == wa::EtwWatchStatus::Listening)
         etw = wa::matchEtwInitialize(session, pipelineEtw_.snapshot(), wa::etwNowMs());
     pipelineEtwHint_ = etw;
-    const auto calls = pipelineCallStore_.sessionRecords(session.processId);
-    const auto hooked = wa::extractHookedInitializeRefs(calls);
+    const auto& hooked = pipelineCallStore_.initializeHintForPid(session.processId, {&frameProbe_,
+        [](void* context, wa::CallLogStage stage, bool begin, size_t count) {
+            if (stage == wa::CallLogStage::Initialize && begin)
+                static_cast<wa::FrameProbe*>(context)->addWork("initialize-contributors", count);
+        }});
     pipelineJoinStatus_.etwMatched = etw.present;
     pipelineJoinStatus_.probesPresent = !pipelineProbes_.empty();
-    pipelineJoinStatus_.sessionControlCalls = calls.size();
+    pipelineJoinStatus_.sessionControlCalls = pipelineCallStore_.sessionCallCount(session.processId);
     pipelineJoinStatus_.otherPidCalls = pipelineCallStore_.size() -
         pipelineCallStore_.pidCallCount(session.processId) -
         (session.processId != 0 ? pipelineCallStore_.pidCallCount(0) : 0);
@@ -503,8 +512,9 @@ void AppUi::applyPipelineJoin() {
     pipelineJoinStatus_.primaryStreamId = hooked.primaryStreamId;
     pipelineJoinStatus_.initializeSource = hooked.hint.present ? wa::InitializeFieldSource::Hooked :
         (etw.present ? wa::InitializeFieldSource::Etw : wa::InitializeFieldSource::None);
-    pipelineNodes_ = wa::assemblePipeline(session, pipelineEndpoint_,
+    const bool rebuilt = pipelineGraph_.update(session, pipelineEndpoint_,
         wa::mergeInitializeHint(etw, hooked.hint), pipelineProbes_);
+    frameProbe_.addWork("graph-rebuilds", rebuilt);
 }
 
 void AppUi::runPipelineProbe() {
@@ -1331,12 +1341,6 @@ void AppUi::drawApplicationLoopbackPage() {
 }
 
 namespace {
-bool etwHintEqual(const wa::EtwInitializeHint& a, const wa::EtwInitializeHint& b) {
-    return a.present == b.present && a.category == b.category && a.raw == b.raw &&
-           a.matchFormat == b.matchFormat && a.exclusive == b.exclusive &&
-           a.hresult == b.hresult && a.format == b.format;
-}
-
 ImVec4 kindColor(wa::ObservationKind kind) {
     switch (kind) {
         case wa::ObservationKind::Observed: return ImVec4(0.45f, 0.90f, 0.55f, 1.f);
@@ -1376,7 +1380,7 @@ void AppUi::drawPipelinePage() {
         const wa::LiveSessionView& session = pipelineSessions_[(size_t)pipelineSelected_];
         const wa::EtwInitializeHint hint =
             wa::matchEtwInitialize(session, pipelineEtw_.snapshot(), wa::etwNowMs());
-        if (!etwHintEqual(hint, pipelineEtwHint_))
+        if (!wa::initializeHintEqual(hint, pipelineEtwHint_))
             applyPipelineJoin();
     }
 #ifdef WA_PERFORMANCE_FIXTURE
@@ -1767,7 +1771,7 @@ void AppUi::drawPipelinePage() {
                 ImGui::PopStyleColor();
             }
             ImGui::Spacing();
-            for (const auto& n : pipelineNodes_) {
+            for (const auto& n : pipelineGraph_.nodes()) {
                 ImGui::PushStyleColor(ImGuiCol_Text, kindColor(n.kind));
                 ImGui::Text("%s [%s]", n.title.c_str(), wa::observationKindName(n.kind));
                 ImGui::PopStyleColor();

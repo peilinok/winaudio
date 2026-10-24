@@ -61,6 +61,38 @@ bool hasParam(const PipelineNode& n, const char* key, const char* value, Observa
 
 }  // namespace
 
+TEST(PipelineGraph, CacheRebuildsOnlyWhenGraphInputsChange) {
+    PipelineGraphCache cache;
+    auto session = chromeCap();
+    auto endpoint = endpointWithApos();
+    EtwInitializeHint hint;
+    std::vector<ProbeSlice> probes;
+    EXPECT_TRUE(cache.update(session, endpoint, hint, probes));
+    EXPECT_EQ(ids(cache.nodes()), ids(assemblePipeline(session, endpoint, hint, probes)));
+    EXPECT_FALSE(cache.update(session, endpoint, hint, probes));
+    session.sessionMute = true;
+    EXPECT_TRUE(cache.update(session, endpoint, hint, probes));
+    const auto* node = findNode(cache.nodes(), "session");
+    ASSERT_NE(node, nullptr);
+    EXPECT_TRUE(hasParam(*node, "mute", "true", ObservationKind::Observed));
+    hint.present = true;
+    hint.raw = false;
+    hint.hresult = 0;
+    EXPECT_TRUE(cache.update(session, endpoint, hint, probes));
+    EXPECT_FALSE(cache.update(session, endpoint, hint, probes));
+    endpoint.hardware.front().value = "true";
+    EXPECT_TRUE(cache.update(session, endpoint, hint, probes));
+    probes.push_back({"shared", false, {{"AEC", true, false}}, {}});
+    EXPECT_TRUE(cache.update(session, endpoint, hint, probes));
+    probes.front().effects.front().on = false;
+    EXPECT_TRUE(cache.update(session, endpoint, hint, probes));
+    session.sessionInstanceId = "another-live-session";
+    EXPECT_TRUE(cache.update(session, endpoint, hint, probes));
+    cache.clear();
+    EXPECT_TRUE(cache.nodes().empty());
+    EXPECT_TRUE(cache.update(session, endpoint, hint, probes));
+}
+
 TEST(ObservationKind, Names) {
     EXPECT_STREQ(observationKindName(ObservationKind::Observed), "Observed");
     EXPECT_STREQ(observationKindName(ObservationKind::Probed), "Probed");

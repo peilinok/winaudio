@@ -81,6 +81,9 @@ public:
     void append(std::vector<HookedCall> calls);
     const CallRecord* find(CallRecordId id) const;
     std::vector<const HookedCall*> sessionRecords(uint32_t pid) const;
+    size_t sessionCallCount(uint32_t pid) const;
+    const HookedInitializeExtract& initializeHint(uint64_t attach, CallLogObserver observer = {});
+    const HookedInitializeExtract& initializeHintForPid(uint32_t pid, CallLogObserver observer = {});
     size_t pidCallCount(uint32_t pid) const;
     void updatePump(uint64_t attach, const std::vector<PumpCall>& window);
     void setPumpVisible(bool on);
@@ -115,7 +118,10 @@ private:
     struct AttachSegment {
         uint32_t pid = 0;
         bool active = true;
-        std::vector<CallRecordRef> records;
+        size_t count = 0;
+        std::vector<CallRecordRef> contributors;
+        size_t hintRevision = kNotFound;
+        HookedInitializeExtract hint;
         std::vector<CallRecordRef> pump;
     };
     std::vector<AttachSegment> attaches_;
@@ -138,6 +144,9 @@ private:
     CallLogViewWork viewWork_;
     std::vector<std::string> controlIfaces_, ifaces_;
     uint64_t ifacesControlRevision_ = 0, ifacesPumpRevision_ = 0;
+    uint64_t combinedAttach_ = 0, combinedLegacy_ = 0;
+    size_t combinedRevision_ = kNotFound, combinedLegacyRevision_ = kNotFound;
+    HookedInitializeExtract combinedHint_;
 };
 
 // Stable key for Live-session attach UI state (instance id, else pid|device|flow).
