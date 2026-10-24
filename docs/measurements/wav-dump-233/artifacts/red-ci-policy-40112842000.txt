@@ -1,0 +1,80 @@
+Excerpt normalized to UTF-8; source line numbers retained; trailing whitespace removed.
+PR: https://github.com/peilinok/winaudio/pull/235
+CI run: https://github.com/peilinok/winaudio/actions/runs/40112842000
+PR head: 45fa7d3ce268a1420caf9382fbbd65727f8481d9
+
+Debug log: runner image, checked-out merge, and CTest error
+16: 2026-10-24T16:43:23.6503847Z ##[group]Runner Image
+17: 2026-10-24T16:43:23.6504264Z Image: windows-2022
+18: 2026-10-24T16:43:23.6504665Z Version: 20261012.333.1
+19: 2026-10-24T16:43:23.6505677Z Included Software: https://github.com/actions/runner-images/blob/win22/20261012.333/images/windows/Windows2022-Readme.md
+20: 2026-10-24T16:43:23.6506813Z Image Release: https://github.com/actions/runner-images/releases/tag/win22%2F20261012.333
+21: 2026-10-24T16:43:23.6507479Z ##[endgroup]
+155: 2026-10-24T16:43:34.0529900Z HEAD is now at e0fc808 Merge 45fa7d3ce268a1420caf9382fbbd65727f8481d9 into 3c433575f0bfc77808eaa09113ba1eb2052ffb4e
+408: 2026-10-24T16:45:51.7020431Z ##[group]Run ctest --test-dir build -C Debug --output-on-failure
+409: 2026-10-24T16:45:51.7021054Z [36;1mctest --test-dir build -C Debug --output-on-failure[0m
+410: 2026-10-24T16:45:51.7056701Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+411: 2026-10-24T16:45:51.7056977Z ##[endgroup]
+412: 2026-10-24T16:45:52.2814649Z Internal ctest changing into directory: D:/a/winaudio/winaudio/build
+413: 2026-10-24T16:45:52.3735720Z Test project D:/a/winaudio/winaudio/build
+414: 2026-10-24T16:45:52.4207108Z CMake Warning (dev) at D:/a/winaudio/winaudio/src/tests/WavDumpTestTimeouts.cmake:7 (if):
+415: 2026-10-24T16:45:52.4207694Z   Policy CMP0057 is not set: Support new IN_LIST if() operator.  Run "cmake
+416: 2026-10-24T16:45:52.4208083Z   --help-policy CMP0057" for policy details.  Use the cmake_policy command to
+417: 2026-10-24T16:45:52.4208395Z   set the policy and suppress this warning.
+418: 2026-10-24T16:45:52.4208546Z
+419: 2026-10-24T16:45:52.4208785Z   IN_LIST will be interpreted as an operator when the policy is set to NEW.
+420: 2026-10-24T16:45:52.4209119Z   Since the policy is not set the OLD behavior will be used.
+421: 2026-10-24T16:45:52.4209375Z Call Stack (most recent call first):
+422: 2026-10-24T16:45:52.4209653Z   D:/a/winaudio/winaudio/build/src/tests/CTestTestfile.cmake:8 (include)
+423: 2026-10-24T16:45:52.4209940Z   CTestTestfile.cmake:13 (subdirs)
+424: 2026-10-24T16:45:52.4210213Z This warning is for project developers.  Use -Wno-dev to suppress it.
+425: 2026-10-24T16:45:52.4210420Z
+426: 2026-10-24T16:45:52.4248101Z CMake Error at D:/a/winaudio/winaudio/src/tests/WavDumpTestTimeouts.cmake:7 (if):
+427: 2026-10-24T16:45:52.4248642Z   if given arguments:
+428: 2026-10-24T16:45:52.4248771Z
+429: 2026-10-24T16:45:52.4249061Z     "CaptureTrackList.SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing" "IN_LIST" "WinAudioTests_TESTS"
+430: 2026-10-24T16:45:52.4249419Z
+431: 2026-10-24T16:45:52.4249503Z   Unknown arguments specified
+432: 2026-10-24T16:45:52.4249711Z Call Stack (most recent call first):
+433: 2026-10-24T16:45:52.4250003Z   D:/a/winaudio/winaudio/build/src/tests/CTestTestfile.cmake:8 (include)
+434: 2026-10-24T16:45:52.4250295Z   CTestTestfile.cmake:13 (subdirs)
+435: 2026-10-24T16:45:52.4250423Z
+436: 2026-10-24T16:45:52.4250426Z
+437: 2026-10-24T16:45:52.4251270Z Errors while running CTest
+438: 2026-10-24T16:45:52.5304387Z ##[error]Process completed with exit code 1.
+439: 2026-10-24T16:45:52.5475946Z Post job cleanup.
+
+Release log: checked-out merge and same CTest error
+188: 2026-10-24T16:43:33.4274627Z HEAD is now at e0fc808 Merge 45fa7d3ce268a1420caf9382fbbd65727f8481d9 into 3c433575f0bfc77808eaa09113ba1eb2052ffb4e
+470: 2026-10-24T16:47:47.9151590Z   Building Custom Rule D:/a/winaudio/winaudio/CMakeLists.txt
+471: 2026-10-24T16:47:48.1111475Z ##[group]Run ctest --test-dir build -C Release --output-on-failure
+472: 2026-10-24T16:47:48.1112102Z [36;1mctest --test-dir build -C Release --output-on-failure[0m
+473: 2026-10-24T16:47:48.1152007Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+474: 2026-10-24T16:47:48.1152371Z ##[endgroup]
+475: 2026-10-24T16:47:48.7084379Z Internal ctest changing into directory: D:/a/winaudio/winaudio/build
+476: 2026-10-24T16:47:48.7914536Z Test project D:/a/winaudio/winaudio/build
+477: 2026-10-24T16:47:48.8462913Z CMake Warning (dev) at D:/a/winaudio/winaudio/src/tests/WavDumpTestTimeouts.cmake:7 (if):
+478: 2026-10-24T16:47:48.8463653Z   Policy CMP0057 is not set: Support new IN_LIST if() operator.  Run "cmake
+479: 2026-10-24T16:47:48.8464511Z   --help-policy CMP0057" for policy details.  Use the cmake_policy command to
+480: 2026-10-24T16:47:48.8465062Z   set the policy and suppress this warning.
+481: 2026-10-24T16:47:48.8465316Z
+482: 2026-10-24T16:47:48.8465653Z   IN_LIST will be interpreted as an operator when the policy is set to NEW.
+483: 2026-10-24T16:47:48.8466193Z   Since the policy is not set the OLD behavior will be used.
+484: 2026-10-24T16:47:48.8466627Z Call Stack (most recent call first):
+485: 2026-10-24T16:47:48.8467072Z   D:/a/winaudio/winaudio/build/src/tests/CTestTestfile.cmake:8 (include)
+486: 2026-10-24T16:47:48.8467540Z   CTestTestfile.cmake:13 (subdirs)
+487: 2026-10-24T16:47:48.8467980Z This warning is for project developers.  Use -Wno-dev to suppress it.
+488: 2026-10-24T16:47:48.8468328Z
+489: 2026-10-24T16:47:48.8499466Z CMake Error at D:/a/winaudio/winaudio/src/tests/WavDumpTestTimeouts.cmake:7 (if):
+490: 2026-10-24T16:47:48.8500192Z   if given arguments:
+491: 2026-10-24T16:47:48.8500381Z
+492: 2026-10-24T16:47:48.8500899Z     "CaptureTrackList.SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing" "IN_LIST" "WinAudioTests_TESTS"
+493: 2026-10-24T16:47:48.8502750Z
+494: 2026-10-24T16:47:48.8502919Z   Unknown arguments specified
+495: 2026-10-24T16:47:48.8503289Z Call Stack (most recent call first):
+496: 2026-10-24T16:47:48.8503875Z   D:/a/winaudio/winaudio/build/src/tests/CTestTestfile.cmake:8 (include)
+497: 2026-10-24T16:47:48.8504831Z   CTestTestfile.cmake:13 (subdirs)
+498: 2026-10-24T16:47:48.8505114Z
+499: 2026-10-24T16:47:48.8505119Z
+500: 2026-10-24T16:47:48.8505277Z Errors while running CTest
+501: 2026-10-24T16:47:48.9844454Z ##[error]Process completed with exit code 1.

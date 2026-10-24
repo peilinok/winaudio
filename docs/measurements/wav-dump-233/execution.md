@@ -190,3 +190,11 @@ ctest --test-dir build-233 -C Debug -R '^(WavLifecycle\.)?CaptureTrackList\.(Slo
 - 固定业务范围 `3c433575..abf5aff`：Standards 0、Spec 0；增量 `abf5aff..4f22a80` 的 Standards 发现两项，均在 `baa0fbc` 修复并重新确认无遗留，Spec 0。
 - 最终证据范围：Standards `baa0fbc..8bd12bc`、Spec `4f22a80..8bd12bc` 均为 0 条问题。两名审查者独立解压十份 WAV、核对二进制/原始帧 SHA256、重算图表分位数并核对六份 CSV，均与报告吻合；没有运行额外编译或全量本地音频回归。
 - 后续仅追加本发布记录，不更改已测业务、测试或测量证据。完整 Debug/Release CI 与审批状态以 PR 的实时 checks/reviews 和发布评论为准；CI 通过且独立审批满足前不合并，不关闭 #233，也不启动 #234。
+
+### 2026-10-25：CTest 策略兼容修复
+
+- PR #235 的 head `45fa7d3ce268a1420caf9382fbbd65727f8481d9` 在 [CI run 40112842000](https://github.com/peilinok/winaudio/actions/runs/40112842000) 的 Debug、Release 均构建成功，但 CTest 读取 `WavDumpTestTimeouts.cmake` 时失败：CMP0057 未设置，按 OLD 策略解释 `IN_LIST`，报 `Unknown arguments specified`。[真实 CI 红测摘录](artifacts/red-ci-policy-40112842000.txt) 保留两配置错误、runner 镜像和实际 checkout 关联。
+- 本机 CMake/CTest 为 4.4.2；CI 使用 windows-2022 镜像 `20261012.333.1`。本机较新的解释器未暴露该策略差异，不能用先前本地通过结果代替 CI 验证。
+- 最小修复仅把 `IN_LIST` 改为 `list(FIND ...)` 和索引判断，不依赖 CMP0057；保留三个生产测试及专用测试原有的 30 秒上限，业务源码、CI workflow 和 preset 未改动。
+- CTest 实际注册的六项 `TIMEOUT` 均为 30 秒：[注册属性](artifacts/ci-policy-fix-timeouts.txt)。沿用上面的六项受影响 CTest 命令，x64 Debug 6/6 通过，耗时 5.25 秒：[本地绿测](artifacts/green-ci-policy-fix.txt)。本轮未重建，也未追加全量回归。
+- 完整 Debug/Release CI 仍待总控推送后重跑；当前记录不宣称远端 CI 已通过。
