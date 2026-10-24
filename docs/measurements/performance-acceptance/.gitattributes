@@ -7,3 +7,5 @@ charts-before/*.csv text eol=lf
 charts-before/*.json text eol=lf
 charts-overhead-before/*.csv text eol=lf
 charts-overhead-before/*.json text eol=lf
+inspector-before/*.csv text eol=lf
+inspector-before/*.json text eol=lf
