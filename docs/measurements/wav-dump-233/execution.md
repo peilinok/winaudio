@@ -183,3 +183,10 @@ ctest --test-dir build-233 -C Debug -R '^(WavLifecycle\.)?CaptureTrackList\.(Slo
 - 原始 checkout 状态仍为原有 CONTEXT/ADR/spec 与截图目录改动，三份相关文档 SHA256 与开始时一致；没有 stash/reset/clean 或改动原始文件。
 - 两轴代码审查：Standards 最终遗留 0（增量发现的 P2 清理死锁与 P3 编译规则已修复并复核）；Spec 0。最终测量文档的增量复核、PR、CI 与审批记录在后续发布时补充。
 - 2026-10-25 复查规则集 `protect-main`（18481045）仍要求 1 个独立 approving review、仅 squash。当前身份虽为 owner bypass actor，也不会绕过所需审批。#233 仍 OPEN；#234 唯一原生 open blocker 仍为 #233，未开始业务实施。
+
+### 发布与最终审查记录
+
+- PR：[peilinok/winaudio#235](https://github.com/peilinok/winaudio/pull/235)，标题 `fix(core): make capture WAV dump stop and restart safe`；base main，head codex/wav-dump-233。已读回服务器完整标题、正文及 head，和本地一致。
+- 固定业务范围 `3c433575..abf5aff`：Standards 0、Spec 0；增量 `abf5aff..4f22a80` 的 Standards 发现两项，均在 `baa0fbc` 修复并重新确认无遗留，Spec 0。
+- 最终证据范围：Standards `baa0fbc..8bd12bc`、Spec `4f22a80..8bd12bc` 均为 0 条问题。两名审查者独立解压十份 WAV、核对二进制/原始帧 SHA256、重算图表分位数并核对六份 CSV，均与报告吻合；没有运行额外编译或全量本地音频回归。
+- 后续仅追加本发布记录，不更改已测业务、测试或测量证据。完整 Debug/Release CI 与审批状态以 PR 的实时 checks/reviews 和发布评论为准；CI 通过且独立审批满足前不合并，不关闭 #233，也不启动 #234。
