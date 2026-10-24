@@ -25,6 +25,7 @@
 #include "PipelineSplit.h"
 #include "OnDemandAttach.h"
 #include "PipelineAttachSet.h"
+#include "PipelineAttachUiModel.h"
 #include "PipelineGraph.h"
 #include "HookedCall.h"
 #include "SharedProbe.h"
@@ -93,9 +94,11 @@ private:
     void applyLiveSessionCellPatches();
     void runPipelineProbe();
     void runPipelineAttach();
+    void attemptPipelineAttach(const wa::pipeline_attach_ui::AttachRequest& request);
+    void drawPipelineRoundDialog();
     void runPipelineDetach();
     void runPipelineDetachAll();
-    void savePipelineCallLog(const std::wstring& destination = {});
+    bool savePipelineCallLog(const std::wstring& destination = {});
     void setPipelineRecording(bool on);
     void receivePipelineCalls(std::vector<wa::HookedCall> calls);
     wa::PipelineAttachUiState pipelineAttachUiFor(const wa::LiveSessionView& row) const;
@@ -233,8 +236,8 @@ private:
     wa::EtwInitializeHint pipelineEtwHint_{};
     wa::PipelineJoinStatus pipelineJoinStatus_{};
     wa::PipelineAttachSet pipelineAttaches_;
-    std::vector<wa::HookedCall> pipelineCalls_;
-    int pipelineCallSelected_ = -1;
+    wa::CallRecordId pipelineCallSelected_;
+    bool pipelinePumpSelectionExpired_ = false;
     char pipelineCallFilter_[128] = "";
     char pipelineCallIfaceFilter_[96] = "";  // empty => all ifaces
     bool pipelineCallFailuresOnly_ = false;
@@ -249,6 +252,8 @@ private:
     bool pipelinePump_ = false;
     bool pipelineRecord_ = false;
     wa::CallLogStore pipelineCallStore_;
+    wa::pipeline_attach_ui::RoundTransition pipelineRoundTransition_;
+    bool pipelineExportBusy_ = false;
     std::unordered_map<std::string, wa::PipelineAttachUiState> pipelineAttachUi_;
     std::unordered_map<std::string, std::string> pipelineAttachFailBanner_;
 

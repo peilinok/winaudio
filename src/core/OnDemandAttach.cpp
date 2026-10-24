@@ -1,6 +1,7 @@
 #include "OnDemandAttach.h"
 #include "AudioFormatStr.h"
 #include "ComUtil.h"
+#include "PumpWindow.h"
 #include "HookedCall.h"
 #include "HookedCallPod.h"
 #include "Log.h"
@@ -107,26 +108,6 @@ void enableDebugPrivilege() {
     CloseHandle(tok);
 }
 
-HookedCall fromPod(const hook_ipc::CallPod& p) {
-    HookedCall c;
-    c.streamId = p.streamId;
-    c.timeMs = p.timeMs;
-    c.iface = p.iface;
-    c.method = p.method;
-    c.args = p.args;
-    c.hresult = p.hresult;
-    c.pump = p.pump != 0;
-    c.xrun = p.xrun != 0;
-    if (p.hasCategory) c.category = std::string(p.category);
-    if (p.hasRaw) c.raw = p.raw != 0;
-    if (p.hasMatchFormat) c.matchFormat = p.matchFormat != 0;
-    if (p.hasExclusive) c.exclusive = p.exclusive != 0;
-    if (p.hasFormat) c.format = std::string(p.format);
-    if (p.argBlobLen > 0)
-        decodeCallArgBlob(p.argBlob, p.argBlobLen, c.parameters);
-    return c;
-}
-
 Result win32Result(DWORD err, const char* where) {
     if (err == ERROR_SUCCESS) return Result::Ok();
     return HrToResult(HRESULT_FROM_WIN32(err), where);
@@ -231,6 +212,7 @@ struct OnDemandAttach::Impl {
     hook_ipc::Ring* ring = nullptr;
     uint32_t readIndex = 0;
     uint64_t droppedControl = 0;
+    PumpWindow pump;
 };
 
 OnDemandAttach::OnDemandAttach() : impl_(std::make_unique<Impl>()) {}
@@ -372,6 +354,7 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
     impl_->pid = pid;
     impl_->readIndex = ring->writeIndex;
     impl_->block = AttachBlock::None;
+    impl_->pump.begin(*ring);
     InterlockedExchange(reinterpret_cast<volatile LONG*>(&ring->captureEnabled), 1);
     WA_LOG(wa::log::Level::Info, "Attach", "start",
            "pid=" + std::to_string(pid) + " " + name, "attached");
@@ -393,7 +376,7 @@ std::vector<HookedCall> OnDemandAttach::drain() {
     out.reserve(count);
     for (uint32_t i = read; i < write; ++i) {
         const auto& pod = impl_->ring->slots[i % hook_ipc::kCap];
-        out.push_back(fromPod(pod));
+        out.push_back(decodeHookedCallPod(pod));
     }
     impl_->readIndex = write;
     return out;
@@ -405,14 +388,13 @@ uint64_t OnDemandAttach::droppedControlCalls() const {
 
 std::vector<HookedCall> OnDemandAttach::pumpRing() const {
     std::vector<HookedCall> out;
-    if (!attached() || !ReadULongAcquire(reinterpret_cast<const volatile ULONG*>(&impl_->ring->pumpEnabled)))
-        return out;
-    const uint32_t write = impl_->ring->pumpWriteIndex;
-    const uint32_t n = write < hook_ipc::kPumpCap ? write : hook_ipc::kPumpCap;
-    out.reserve(n);
-    for (uint32_t i = write - n; i < write; ++i)
-        out.push_back(fromPod(impl_->ring->pumpSlots[i % hook_ipc::kPumpCap]));
+    for (const auto& observed : pumpWindow()) out.push_back(observed.call);
     return out;
+}
+
+const std::vector<PumpCall>& OnDemandAttach::pumpWindow() const {
+    static const std::vector<PumpCall> empty;
+    return attached() ? impl_->pump.poll(*impl_->ring) : empty;
 }
 
 uint32_t OnDemandAttach::pumpXruns() const {

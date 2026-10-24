@@ -8,6 +8,8 @@
 
 namespace wa {
 
+class CallLogStore;
+
 // Owns one OnDemandAttach per PID. Attach adds without detaching others.
 class PipelineAttachSet {
 public:
@@ -23,6 +25,7 @@ public:
     std::vector<HookedCall> drainAll();
     uint64_t droppedControlCalls() const;
     std::vector<HookedCall> pumpRingAll() const;
+    void updatePump(CallLogStore& store) const;
     uint32_t pumpXrunsSum() const;
 
     void setPumpEnabled(bool on);

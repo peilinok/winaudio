@@ -217,7 +217,7 @@ bool PerformanceFixture::startInspector(AppUi& ui) {
     ui.rebuildPipelineProcessTree();
     ui.pipelineTopRowFrac_ = 0.25f;
     ui.receivePipelineCalls(std::move(calls));
-    ui.pipelineCallSelected_ = 0;
+    ui.pipelineCallSelected_ = ui.pipelineCallStore_.entries().front()->id;
     return true;
 }
 
@@ -242,7 +242,8 @@ void PerformanceFixture::prepareInspector(AppUi& ui) {
             warmupAction = action;
             const int step = action % 6;
             if (step == 0 || step == 1) {
-                ui.pipelineCallSelected_ = step == 0 ? 0 : static_cast<int>(ui.pipelineCalls_.size() - 1);
+                const auto& records = ui.pipelineCallStore_.entries();
+                ui.pipelineCallSelected_ = (step == 0 ? records.front() : records.back())->id;
                 ui.pipelineCallScrollToSelected_ = true;
             } else if (step == 2 || step == 3) {
                 std::snprintf(ui.pipelineCallFilter_, sizeof(ui.pipelineCallFilter_), "%s", step == 2 ? "iacl init" : "");
@@ -280,7 +281,7 @@ void PerformanceFixture::prepareInspector(AppUi& ui) {
     const size_t action = (nextOperation - 1) % 6;
     ui.frameProbe_.startOperation(operationId, kinds[action], issue);
     if (action == 0) {
-        ui.pipelineCallSelected_ = 0;
+        ui.pipelineCallSelected_ = ui.pipelineCallStore_.entries().front()->id;
         ui.pipelineCallScrollToSelected_ = true;
         submittedAfter = ui.frameProbe_.frameNumber() + 1;
     } else if (action == 1 || action == 2) {
@@ -290,7 +291,7 @@ void PerformanceFixture::prepareInspector(AppUi& ui) {
         tableTarget = ((nextOperation / 6) % 2) ? 1e9f : 0.f;
         scrollPending = true;
     } else if (action == 4) {
-        ui.pipelineCallSelected_ = static_cast<int>(ui.pipelineCalls_.size() - 1);
+        ui.pipelineCallSelected_ = ui.pipelineCallStore_.entries().back()->id;
         ui.pipelineCallScrollToSelected_ = true;
         submittedAfter = ui.frameProbe_.frameNumber() + 1;
     } else {

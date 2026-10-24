@@ -21,6 +21,7 @@ bool decodeCallArgBlob(const uint8_t* data, uint16_t len, std::vector<CallArg>& 
             a.post.assign(post, post + ql);
             out.push_back(std::move(a));
         });
+    if (!ok) out.clear();
     return ok && !out.empty();
 }
 
@@ -99,12 +100,13 @@ void applyContributor(EtwInitializeHint& h, const HookedCall& c) {
 
 }  // namespace
 
-HookedInitializeExtract extractHookedInitializeDetailed(const std::vector<HookedCall>& calls) {
+HookedInitializeExtract extractHookedInitializeRefs(const std::vector<const HookedCall*>& calls) {
     HookedInitializeExtract out;
     const HookedCall* latestInit = nullptr;
     std::vector<uint32_t> streamIds;
     bool anyZeroInit = false;
-    for (const auto& c : calls) {
+    for (const auto* call : calls) {
+        const auto& c = *call;
         if (c.pump || isPumpMethod(c.method)) continue;
         if (!isInitializeLike(c)) continue;
         if (!latestInit || c.timeMs >= latestInit->timeMs) latestInit = &c;
@@ -120,13 +122,21 @@ HookedInitializeExtract extractHookedInitializeDetailed(const std::vector<Hooked
     if (!latestInit) return out;
 
     out.primaryStreamId = latestInit->streamId;
-    for (const auto& c : calls) {
+    for (const auto* call : calls) {
+        const auto& c = *call;
         if (!isInitializeContributor(c)) continue;
         // Non-zero primary: only that stream. Zero primary: legacy last-wins across all.
         if (out.primaryStreamId != 0 && c.streamId != out.primaryStreamId) continue;
         applyContributor(out.hint, c);
     }
     return out;
+}
+
+HookedInitializeExtract extractHookedInitializeDetailed(const std::vector<HookedCall>& calls) {
+    std::vector<const HookedCall*> refs;
+    refs.reserve(calls.size());
+    for (const auto& call : calls) refs.push_back(&call);
+    return extractHookedInitializeRefs(refs);
 }
 
 EtwInitializeHint extractHookedInitialize(const std::vector<HookedCall>& calls) {

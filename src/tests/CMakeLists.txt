@@ -46,6 +46,7 @@ add_executable(WinAudioTests
     test_on_demand_attach.cpp
     test_pipeline_attach_ui_model.cpp
     test_pipeline_attach_set.cpp
+    test_pump_window.cpp
 
     test_cli_options.cpp
     test_dump_ui.cpp

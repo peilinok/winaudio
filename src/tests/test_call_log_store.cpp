@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include "CallLogStore.h"
+#include "PumpWindow.h"
 #include <cstdio>
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -50,16 +51,103 @@ TEST(CallLogStore, JsonLineIncludesArgsAndHr) {
     EXPECT_NE(line.find("AUDCLNT_SHAREMODE_SHARED"), std::string::npos);
 }
 
-TEST(CallLogStore, RecordingGatesAppend) {
+TEST(CallLogStore, RecordingDoesNotGateObservation) {
     CallLogStore store;
     store.append({sampleCall()});
-    EXPECT_EQ(store.size(), 0u);
+    EXPECT_EQ(store.size(), 1u);
     store.setRecording(true);
     store.append({sampleCall()});
-    EXPECT_EQ(store.size(), 1u);
+    EXPECT_EQ(store.size(), 2u);
+    store.setRecording(false);
+    store.append({sampleCall()});
+    EXPECT_EQ(store.size(), 3u);
+}
+
+TEST(CallLogStore, RecordingFreezesReceptionBoundaryAndCanIncludeHistoryAgain) {
+    CallLogStore store;
+    store.append({sampleCall(), sampleCall()});
+    store.setRecording(true);
+    store.append({sampleCall()});
+    store.setRecording(false);
+    store.append({sampleCall()});
+    const auto frozen = store.freezeExport();
+    ASSERT_EQ(frozen.records.size(), 3u);
+    EXPECT_EQ(store.size(), 4u);
+    store.setRecording(true);
+    EXPECT_EQ(store.freezeExport().records.size(), 4u);
+    store.append({sampleCall()});
+    EXPECT_EQ(frozen.records.size(), 3u);
+    EXPECT_EQ(frozen.records.front().get(), store.entries().front().get());
+    EXPECT_EQ(frozen.records.front()->call.parameters[0].name, "ShareMode");
+}
+
+TEST(CallLogStore, ExplicitEmptyRecordingDoesNotFallBackToLaterHistory) {
+    CallLogStore store;
+    store.setRecording(true);
     store.setRecording(false);
     store.append({sampleCall()});
     EXPECT_EQ(store.size(), 1u);
+    EXPECT_TRUE(store.freezeExport().records.empty());
+}
+
+TEST(CallLogStore, AttachSegmentsAndRoundsDoNotReuseRecordIdentity) {
+    CallLogStore store;
+    const auto a = store.registerAttach(7);
+    EXPECT_EQ(store.registerAttach(7), a);
+    const auto b = store.registerAttach(9);
+    auto call = sampleCall();
+    store.append(a, {call});
+    store.append(b, {call});
+    const auto kept = store.entries().front();
+    EXPECT_EQ(kept->call.pid, 7u);
+    EXPECT_EQ(store.entries().back()->call.pid, 9u);
+    EXPECT_NE(kept->id, store.entries().back()->id);
+    store.endAttach(a);
+    const auto reconnected = store.registerAttach(7);
+    EXPECT_NE(a, reconnected);
+    EXPECT_TRUE(store.sessionRecords(7).empty());
+    store.endAttach(reconnected);
+    EXPECT_TRUE(store.sessionRecords(7).empty());
+    store.append(b, {call});
+    ASSERT_NE(store.find(kept->id), nullptr);
+    EXPECT_EQ(store.find(kept->id), kept.get());
+    EXPECT_EQ(store.size(), 3u);
+    store.beginRound();
+    EXPECT_EQ(store.find(kept->id), nullptr);
+    EXPECT_TRUE(store.entries().empty());
+    EXPECT_EQ(kept->call.parameters.front().name, "ShareMode");
+    const auto fresh = store.registerAttach(7);
+    store.append(fresh, {call});
+    EXPECT_NE(store.entries().front()->id, kept->id);
+}
+
+TEST(CallLogStore, PumpWindowHasGlobalLimitAndExpiresOnDetachOrHide) {
+    CallLogStore store;
+    const auto first = store.registerAttach(7), second = store.registerAttach(9);
+    std::vector<PumpCall> window;
+    for (uint64_t i = 1; i <= 64; ++i) {
+        auto call = sampleCall();
+        call.method = "GetBuffer";
+        call.pump = true;
+        call.timeMs = static_cast<int64_t>(i);
+        window.push_back({i, std::move(call)});
+    }
+    store.updatePump(first, window);
+    store.updatePump(second, window);
+    EXPECT_TRUE(store.pumpEntries().empty());
+    store.setPumpVisible(true);
+    ASSERT_EQ(store.pumpEntries().size(), 64u);
+    const auto selected = store.pumpEntries().back()->id;
+    EXPECT_EQ(selected.attach, second);
+    EXPECT_NE(store.find(selected), nullptr);
+    EXPECT_EQ(store.size(), 0u);
+    EXPECT_TRUE(store.freezeExport().records.empty());
+    store.endAttach(second);
+    EXPECT_EQ(store.find(selected), nullptr);
+    EXPECT_EQ(store.pumpEntries().size(), 64u);
+    const auto remaining = store.pumpEntries().front()->id;
+    store.setPumpVisible(false);
+    EXPECT_EQ(store.find(remaining), nullptr);
 }
 
 TEST(CallLogStore, SaveJsonlRoundTrip) {
@@ -82,6 +170,68 @@ TEST(CallLogStore, SaveJsonlRoundTrip) {
     EXPECT_NE(body.find("Initialize"), std::string::npos);
     EXPECT_NE(body.find("S_OK"), std::string::npos);
     EXPECT_NE(body.find("parameters"), std::string::npos);
+}
+
+TEST(CallLogStore, SessionSourcesMatchStableReferenceAndExcludePreviousAttach) {
+    CallLogStore store;
+    const auto local = store.registerAttach(7), foreign = store.registerAttach(9);
+    auto a = sampleCall();
+    a.timeMs = 20;
+    a.raw = true;
+    store.append(local, a);
+    auto b = a;
+    b.raw = false;
+    b.hresult = 0;
+    b.format = "44100/16/2";
+    store.append(local, b); // Same timestamp: reception order wins.
+    auto late = a;
+    late.timeMs = 10;
+    late.format = "96000/32f/2";
+    store.append(local, late);
+    auto other = a;
+    other.format = "192000/32f/2";
+    store.append(foreign, other);
+    auto legacy = a;
+    legacy.timeMs = 5;
+    legacy.format = "legacy";
+    store.append({legacy});
+    const auto extract = extractHookedInitializeRefs(store.sessionRecords(7));
+    auto reference = std::vector<HookedCall>{legacy, late, a, b};
+    const auto expected = extractHookedInitializeDetailed(reference);
+    EXPECT_EQ(extract.primaryStreamId, expected.primaryStreamId);
+    EXPECT_EQ(extract.streamCount, expected.streamCount);
+    EXPECT_EQ(extract.hint.format, expected.hint.format);
+    EXPECT_EQ(extract.hint.raw, std::optional<bool>(false));
+    EXPECT_EQ(extract.hint.hresult, std::optional<int32_t>(0));
+    EXPECT_EQ(extractHookedInitializeRefs(store.sessionRecords(9)).hint.format, other.format);
+    store.endAttach(local);
+    EXPECT_EQ(extractHookedInitializeRefs(store.sessionRecords(7)).hint.format, b.format);
+    store.registerAttach(7);
+    EXPECT_EQ(extractHookedInitializeRefs(store.sessionRecords(7)).hint.format, legacy.format);
+    EXPECT_EQ(store.size(), 5u);
+}
+
+TEST(CallLogStore, ExportIdentityAndFilenameComeFromFrozenSources) {
+    CallLogStore store;
+    const auto first = store.registerAttach(7);
+    store.append(first, sampleCall());
+    const auto single = store.freezeExport();
+    EXPECT_EQ(CallLogStore::exportFileStem(single).find("calls-pid7-"), 0u);
+    store.append(store.registerAttach(9), sampleCall());
+    const auto multi = store.freezeExport();
+    EXPECT_EQ(CallLogStore::exportFileStem(multi).find("calls-multi-"), 0u);
+    const auto line = CallLogStore::toJsonLine(*single.records.front());
+    EXPECT_NE(line.find("\"roundId\":1"), std::string::npos);
+    EXPECT_NE(line.find("\"attachId\":1"), std::string::npos);
+    EXPECT_NE(line.find("\"sequence\":1"), std::string::npos);
+    EXPECT_NE(line.find("\"lane\":\"control\""), std::string::npos);
+    EXPECT_NE(line.find("\"pid\":7"), std::string::npos);
+    store.beginRound();
+    EXPECT_EQ(single.records.size(), 1u);
+    EXPECT_EQ(single.records.front()->call.parameters.front().name, "ShareMode");
+    EXPECT_FALSE(store.recording());
+    store.append({sampleCall()});
+    EXPECT_EQ(store.exportCount(), 1u);
 }
 
 TEST(CallLogStore, LiveSessionAttachKeyPrefersInstanceId) {

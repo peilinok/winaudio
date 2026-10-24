@@ -2,6 +2,7 @@
 #include "HookedCall.h"
 #include "Log.h"
 #include <cstdio>
+#include <algorithm>
 #include <fstream>
 #include <sstream>
 #ifndef WIN32_LEAN_AND_MEAN
@@ -58,16 +59,23 @@ std::string csvEscape(const std::string& s) {
     return out;
 }
 
-Result writeTextFile(const std::wstring& path, const std::string& body) {
+Result writeRecords(const std::wstring& path, const CallLogExport& snapshot, bool csv) {
     FILE* f = nullptr;
     if (_wfopen_s(&f, path.c_str(), L"wb") != 0 || !f)
         return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_ACCESS_DENIED)),
                             "CallLogStore: open failed");
-    const size_t n = fwrite(body.data(), 1, body.size(), f);
-    fclose(f);
-    if (n != body.size())
-        return Result::Fail(static_cast<long>(E_FAIL), "CallLogStore: write failed");
-    return Result::Ok();
+    bool ok = true;
+    const auto writeLine = [&](const std::string& line) {
+        return fwrite(line.data(), 1, line.size(), f) == line.size() && fputc('\n', f) != EOF;
+    };
+    if (csv) ok = writeLine(CallLogStore::toCsvHeader());
+    for (const auto& record : snapshot.records) {
+        if (!ok) break;
+        ok = writeLine(csv ? CallLogStore::toCsvLine(record->call) : CallLogStore::toJsonLine(*record));
+    }
+    if (fflush(f) != 0) ok = false;
+    if (fclose(f) != 0) ok = false;
+    return ok ? Result::Ok() : Result::Fail(static_cast<long>(E_FAIL), "CallLogStore: write/close failed");
 }
 
 bool ensureDir(const std::wstring& dir) {
@@ -79,31 +87,168 @@ bool ensureDir(const std::wstring& dir) {
 
 }  // namespace
 
-void CallLogStore::clear() {
-    std::lock_guard<std::mutex> lk(mtx_);
+void CallLogStore::clear() { beginRound(); }
+
+void CallLogStore::beginRound() {
     entries_.clear();
+    attaches_.clear();
+    latestAttach_.clear();
+    pidCounts_.clear();
+    pump_.clear();
+    ++round_;
+    range_ = recording_ ? RecordingRange::Following : RecordingRange::Never;
+    frozenCount_ = 0;
 }
 
-void CallLogStore::append(const std::vector<HookedCall>& calls) {
-    if (calls.empty()) return;
-    std::lock_guard<std::mutex> lk(mtx_);
-    if (!recording_) return;
-    entries_.insert(entries_.end(), calls.begin(), calls.end());
+uint64_t CallLogStore::registerAttach(uint32_t pid) {
+    if (const auto active = activeAttach(pid)) return active;
+    attaches_.push_back({pid, true, {}, {}});
+    const uint64_t id = attaches_.size();
+    latestAttach_[pid] = id;
+    return id;
+}
+
+void CallLogStore::endAttach(uint64_t attach) {
+    if (attach == 0 || attach > attaches_.size()) return;
+    auto& segment = attaches_[static_cast<size_t>(attach - 1)];
+    segment.active = false;
+    segment.pump.clear();
+    rebuildPump();
+}
+
+const std::vector<CallRecordRef>& CallLogStore::pumpEntries() const {
+    static const std::vector<CallRecordRef> empty;
+    return pumpVisible_ ? pump_ : empty;
+}
+
+void CallLogStore::rebuildPump() {
+    pump_.clear();
+    for (const auto& segment : attaches_)
+        if (segment.active) pump_.insert(pump_.end(), segment.pump.begin(), segment.pump.end());
+    std::sort(pump_.begin(), pump_.end(), [](const CallRecordRef& a, const CallRecordRef& b) {
+        if (a->call.timeMs != b->call.timeMs) return a->call.timeMs < b->call.timeMs;
+        if (a->id.attach != b->id.attach) return a->id.attach < b->id.attach;
+        return a->id.sequence < b->id.sequence;
+    });
+    if (pump_.size() > kDefaultPumpRingCap)
+        pump_.erase(pump_.begin(), pump_.end() - static_cast<std::ptrdiff_t>(kDefaultPumpRingCap));
+}
+
+void CallLogStore::updatePump(uint64_t attach, const std::vector<PumpCall>& window) {
+    if (attach == 0 || attach > attaches_.size()) return;
+    auto& segment = attaches_[static_cast<size_t>(attach - 1)];
+    if (!segment.active) return;
+    bool unchanged = segment.pump.size() == window.size();
+    for (size_t i = 0; unchanged && i < window.size(); ++i)
+        unchanged = segment.pump[i]->id.sequence == window[i].sequence;
+    if (unchanged) return;
+    std::vector<CallRecordRef> next;
+    next.reserve(window.size());
+    for (const auto& observed : window) {
+        const auto old = std::find_if(segment.pump.begin(), segment.pump.end(), [&](const CallRecordRef& ref) {
+            return ref->id.sequence == observed.sequence;
+        });
+        if (old != segment.pump.end()) { next.push_back(*old); continue; }
+        auto call = observed.call;
+        call.pid = segment.pid;
+        call.pump = true;
+        call.args = sanitizeHookedArgs(std::move(call.args));
+        CallRecord record{{round_, attach, observed.sequence, CallLane::Pump}, std::move(call)};
+        next.push_back(std::make_shared<const CallRecord>(std::move(record)));
+    }
+    segment.pump = std::move(next);
+    rebuildPump();
+}
+
+uint64_t CallLogStore::latestAttach(uint32_t pid) const {
+    const auto it = latestAttach_.find(pid);
+    return it == latestAttach_.end() ? 0 : it->second;
+}
+
+uint64_t CallLogStore::activeAttach(uint32_t pid) const {
+    const auto id = latestAttach(pid);
+    return id && attaches_[static_cast<size_t>(id - 1)].active ? id : 0;
+}
+
+void CallLogStore::append(uint64_t attach, HookedCall call) {
+    if (attach == 0 || attach > attaches_.size()) return;
+    auto& segment = attaches_[static_cast<size_t>(attach - 1)];
+    if (!segment.active || call.pump || isPumpMethod(call.method)) return;
+    if (segment.pid != 0) call.pid = segment.pid;
+    call.args = sanitizeHookedArgs(std::move(call.args));
+    CallRecord record{{round_, attach, entries_.size() + 1, CallLane::Control}, std::move(call)};
+    auto ref = std::make_shared<const CallRecord>(std::move(record));
+    ++pidCounts_[ref->call.pid];
+    segment.records.push_back(ref);
+    entries_.push_back(std::move(ref));
+}
+
+void CallLogStore::append(uint64_t attach, std::vector<HookedCall> calls) {
+    for (auto& call : calls) append(attach, std::move(call));
+}
+
+void CallLogStore::append(std::vector<HookedCall> calls) {
+    for (auto& call : calls) append(registerAttach(call.pid), std::move(call));
+}
+
+const CallRecord* CallLogStore::find(CallRecordId id) const {
+    if (id.round == round_ && id.lane == CallLane::Pump) {
+        for (const auto& ref : pumpEntries()) if (ref->id == id) return ref.get();
+        return nullptr;
+    }
+    if (id.round != round_ || id.lane != CallLane::Control || id.sequence == 0 ||
+        id.sequence > entries_.size()) return nullptr;
+    const auto& ref = entries_[static_cast<size_t>(id.sequence - 1)];
+    return ref->id == id ? ref.get() : nullptr;
+}
+
+size_t CallLogStore::pidCallCount(uint32_t pid) const {
+    const auto it = pidCounts_.find(pid);
+    return it == pidCounts_.end() ? 0 : it->second;
+}
+
+std::vector<const HookedCall*> CallLogStore::sessionRecords(uint32_t pid) const {
+    std::vector<const CallRecord*> records;
+    const auto appendSegment = [&](uint64_t id) {
+        if (id == 0) return;
+        for (const auto& ref : attaches_[static_cast<size_t>(id - 1)].records) records.push_back(ref.get());
+    };
+    appendSegment(latestAttach(pid));
+    if (pid != 0) appendSegment(latestAttach(0));
+    std::sort(records.begin(), records.end(), [](const CallRecord* a, const CallRecord* b) {
+        if (a->call.timeMs != b->call.timeMs) return a->call.timeMs < b->call.timeMs;
+        return a->id.sequence < b->id.sequence;
+    });
+    std::vector<const HookedCall*> out;
+    out.reserve(records.size());
+    for (const auto* record : records) out.push_back(&record->call);
+    return out;
 }
 
 void CallLogStore::setRecording(bool on) {
-    std::lock_guard<std::mutex> lk(mtx_);
+    if (on == recording_) return;
     recording_ = on;
+    range_ = on ? RecordingRange::Following : RecordingRange::Frozen;
+    if (!on) frozenCount_ = entries_.size();
 }
 
 bool CallLogStore::recording() const {
-    std::lock_guard<std::mutex> lk(mtx_);
     return recording_;
 }
 
 size_t CallLogStore::size() const {
-    std::lock_guard<std::mutex> lk(mtx_);
     return entries_.size();
+}
+
+CallLogExport CallLogStore::freezeExport() const {
+    const size_t count = exportCount();
+    CallLogExport out{round_, count, {}};
+    out.records.assign(entries_.begin(), entries_.begin() + static_cast<std::ptrdiff_t>(count));
+    return out;
+}
+
+size_t CallLogStore::exportCount() const {
+    return range_ == RecordingRange::Frozen ? frozenCount_ : entries_.size();
 }
 
 std::wstring CallLogStore::defaultDirectory() {
@@ -123,6 +268,17 @@ std::string CallLogStore::defaultFileStem(uint32_t pid) {
     sprintf_s(buf, "calls-pid%u-%04u%02u%02u-%02u%02u%02u", pid, st.wYear, st.wMonth, st.wDay,
               st.wHour, st.wMinute, st.wSecond);
     return buf;
+}
+
+std::string CallLogStore::exportFileStem(const CallLogExport& snapshot) {
+    const uint32_t pid = snapshot.records.empty() ? 0 : snapshot.records.front()->call.pid;
+    std::string stem = defaultFileStem(pid);
+    for (const auto& record : snapshot.records) {
+        if (record->call.pid == pid) continue;
+        stem.replace(6, stem.find('-', 6) - 6, "multi");
+        break;
+    }
+    return stem;
 }
 
 std::string CallLogStore::formatHresult(int32_t hr) {
@@ -167,6 +323,15 @@ std::string CallLogStore::toCsvHeader() {
     return "timeMs,pid,iface,method,args,hr,hresult,streamId,pump,xrun";
 }
 
+std::string CallLogStore::toJsonLine(const CallRecord& record) {
+    std::string line = toJsonLine(record.call);
+    line.pop_back();
+    line += ",\"roundId\":" + std::to_string(record.id.round) +
+        ",\"attachId\":" + std::to_string(record.id.attach) +
+        ",\"lane\":\"control\",\"sequence\":" + std::to_string(record.id.sequence) + "}";
+    return line;
+}
+
 std::string CallLogStore::toCsvLine(const HookedCall& c) {
     std::ostringstream oss;
     oss << c.timeMs << ',' << c.pid << ',' << csvEscape(c.iface) << ',' << csvEscape(c.method) << ','
@@ -176,34 +341,21 @@ std::string CallLogStore::toCsvLine(const HookedCall& c) {
 }
 
 Result CallLogStore::saveJsonl(const std::wstring& path) const {
-    std::lock_guard<std::mutex> lk(mtx_);
-    std::string body;
-    body.reserve(entries_.size() * 128 + 16);
-    for (const auto& c : entries_) {
-        body += toJsonLine(c);
-        body.push_back('\n');
-    }
-    return writeTextFile(path, body);
+    return writeRecords(path, freezeExport(), false);
 }
 
 Result CallLogStore::saveCsv(const std::wstring& path) const {
-    std::lock_guard<std::mutex> lk(mtx_);
-    std::string body = toCsvHeader();
-    body.push_back('\n');
-    for (const auto& c : entries_) {
-        body += toCsvLine(c);
-        body.push_back('\n');
-    }
-    return writeTextFile(path, body);
+    return writeRecords(path, freezeExport(), true);
 }
 
-Result CallLogStore::saveDefaultJsonl(uint32_t pid, std::wstring& outPath) const {
+Result CallLogStore::saveDefaultJsonl(std::wstring& outPath) const {
     const std::wstring dir = defaultDirectory();
     if (dir.empty() || !ensureDir(dir))
         return Result::Fail(static_cast<long>(E_FAIL), "CallLogStore: cannot create directory");
-    const std::string stem = defaultFileStem(pid);
+    const auto snapshot = freezeExport();
+    const std::string stem = exportFileStem(snapshot);
     outPath = dir + L"\\" + std::wstring(stem.begin(), stem.end()) + L".jsonl";
-    return saveJsonl(outPath);
+    return writeRecords(outPath, snapshot, false);
 }
 
 std::string liveSessionAttachKey(const LiveSessionView& row) {

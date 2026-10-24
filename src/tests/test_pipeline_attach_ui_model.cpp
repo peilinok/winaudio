@@ -110,3 +110,67 @@ TEST(PipelineAttachUiModel, FormatAttachedPidsAndDetachGates) {
     EXPECT_TRUE(pipeline_attach_ui::canDetachPid(9u, attached, fails));
     EXPECT_TRUE(pipeline_attach_ui::canDetachAll(attached, fails));
 }
+
+TEST(PipelineAttachUiModel, ReplacementKeepsFixedRequestAndCommitsOnlyOnSuccess) {
+    using namespace pipeline_attach_ui;
+    CallLogStore store;
+    store.append({HookedCall{}});
+    store.setRecording(true);
+    const auto oldRound = store.round();
+    RoundTransition transition;
+    AttachRequest request{7, "device-a", PipelineFlow::Render, "session-a", true};
+    EXPECT_EQ(transition.request(request, true, false), RoundAttachAction::Confirm);
+    transition.saveThenContinue();
+    transition.saved(false);
+    EXPECT_FALSE(transition.ready());
+    EXPECT_EQ(store.round(), oldRound);
+    EXPECT_EQ(transition.request(request, true, true), RoundAttachAction::Busy);
+    EXPECT_FALSE(transition.ready());
+    EXPECT_EQ(transition.request(request, true, false), RoundAttachAction::Confirm);
+    request.pid = 9;
+    request.deviceId = "new-focus";
+    transition.discard();
+    ASSERT_TRUE(transition.ready());
+    const auto fixed = transition.take();
+    ASSERT_TRUE(fixed.has_value());
+    EXPECT_EQ(fixed->pid, 7u);
+    EXPECT_EQ(fixed->deviceId, "device-a");
+    EXPECT_EQ(commitAttach(store, *fixed, false), 0u);
+    EXPECT_EQ(store.round(), oldRound);
+    EXPECT_EQ(store.size(), 1u);
+    EXPECT_NE(commitAttach(store, *fixed, true), 0u);
+    EXPECT_NE(store.round(), oldRound);
+    EXPECT_EQ(store.size(), 0u);
+    EXPECT_TRUE(store.recording());
+    EXPECT_TRUE(store.freezeExport().records.empty());
+}
+
+TEST(PipelineAttachUiModel, CancelAndSavedAttemptFailureKeepRangeAndDoNotQueueBusyRequest) {
+    using namespace pipeline_attach_ui;
+    CallLogStore store;
+    store.append({HookedCall{}});
+    store.setRecording(true);
+    store.setRecording(false);
+    const auto before = store.freezeExport();
+    RoundTransition transition;
+    const AttachRequest request{7, "device", PipelineFlow::Capture, "session", true};
+    EXPECT_EQ(transition.request(request, true, true), RoundAttachAction::Busy);
+    EXPECT_FALSE(transition.pending());
+    EXPECT_FALSE(transition.take().has_value());
+    EXPECT_EQ(transition.request(request, true, false), RoundAttachAction::Confirm);
+    transition.cancel();
+    EXPECT_FALSE(transition.take().has_value());
+    EXPECT_EQ(transition.request(request, true, false), RoundAttachAction::Confirm);
+    transition.saveThenContinue();
+    transition.saved(true);
+    const auto attempt = transition.take();
+    ASSERT_TRUE(attempt.has_value());
+    EXPECT_EQ(commitAttach(store, *attempt, false), 0u);
+    EXPECT_EQ(store.freezeExport().records.front(), before.records.front());
+    EXPECT_EQ(store.round(), before.round);
+    EXPECT_EQ(store.exportCount(), 1u);
+    // Same-round additional targets remain allowed during an export.
+    auto sameRound = request;
+    sameRound.replaceRound = false;
+    EXPECT_EQ(transition.request(sameRound, true, true), RoundAttachAction::Attempt);
+}
