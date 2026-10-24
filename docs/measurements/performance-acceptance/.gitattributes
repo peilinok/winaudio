@@ -2,3 +2,4 @@
 hook-*.csv -text
 hook-audio-*.txt -text
 hook-codegen-*.txt -text
+meter-*.csv -text

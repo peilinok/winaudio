@@ -29,7 +29,7 @@ py -3 -B scripts/performance/summarize.py build/performance-vs18/gui-raw.txt --w
 
 同一帧的 `N` 为切片命中次数，不能当成样本帧数。帧元数据包含命中 mask，允许区分没有工作与缺行；切片、操作、工作量或帧溢出都会使汇总失败。无工作切片在汇总中为零，缺失元数据、频率不一致、帧号跳跃、截断、操作终点与提交帧不一致均拒绝。分位数采用排序后 `ceil(p*n)` 位置。`--require-budget` 额外检查完整结束和每组 8／16 ms 帧预算；操作、样本时长和具体场景覆盖仍需按票据核对，不能只凭退出码签收。
 
-探针默认关闭，关闭时不取时。干扰对照分别使用：不设置 `WINAUDIO_FRAME_PROBE`、缓冲写入、`WINAUDIO_FRAME_PROBE_FLUSH=1`。必须保持同一 Release、负载和窗口条件；关闭模式需要独立外部观测，不能从不存在的探针记录推算零开销。真实 GUI 和干扰对照仍待桌面解锁。
+探针默认关闭，关闭时不取时。干扰对照分别使用：不设置 `WINAUDIO_FRAME_PROBE`、缓冲写入、`WINAUDIO_FRAME_PROBE_FLUSH=1`。必须保持同一 Release、负载和窗口条件；关闭模式需要独立外部观测，不能从不存在的探针记录推算零开销。解锁后已完成本地真实 GUI 与三模式干扰对照，见 [计量报告](meter-report.md)；空闲对照不能替代完整负载采集干扰核对。
 
 ## Hook 独立入口
 
