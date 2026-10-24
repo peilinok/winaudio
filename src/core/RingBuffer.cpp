@@ -1,6 +1,9 @@
 #include "RingBuffer.h"
 #include <algorithm>
 #include <cstring>
+#ifdef WA_WAV_SINK_TESTING
+#include "WavSinkTestHooks.h"
+#endif
 
 namespace wa {
 
@@ -30,6 +33,9 @@ size_t RingBuffer::write(const void* data, size_t bytes) {
     if (n > first)
         std::memcpy(buf_.data(), static_cast<const uint8_t*>(data) + first, n - first);
 
+#ifdef WA_WAV_SINK_TESTING
+    wavSinkTest::checkpoint(wavSinkTest::Point::BeforePublish, nullptr);
+#endif
     head_.store(h + n, std::memory_order_release);
     return n;
 }

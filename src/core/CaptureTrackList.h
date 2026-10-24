@@ -9,6 +9,7 @@
 #include "IAudioBackend.h"
 #include "MonitorEngine.h"
 #include "Result.h"
+#include "WavSinkOutput.h"
 
 namespace wa {
 
@@ -50,7 +51,8 @@ public:
     using SilentRenderFactory =
         std::function<std::unique_ptr<IAudioBackend>(const AudioFormat*)>;
 
-    explicit CaptureTrackList(BackendFactory factory = {}, SilentRenderFactory silentFactory = {});
+    explicit CaptureTrackList(BackendFactory factory = {}, SilentRenderFactory silentFactory = {},
+                              WavSinkOutputFactory outputFactory = {});
     ~CaptureTrackList();
 
     CaptureTrackList(const CaptureTrackList&)            = delete;
@@ -74,6 +76,7 @@ private:
     struct Member;
     BackendFactory       factory_;
     SilentRenderFactory  silentFactory_;
+    WavSinkOutputFactory outputFactory_;
     TrackId              nextId_ = 1;
     std::vector<std::unique_ptr<Member>> members_;
     mutable std::mutex   mtx_;

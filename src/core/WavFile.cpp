@@ -117,9 +117,10 @@ Result WavWriter::open(const std::wstring& path, const AudioFormat& fmt) {
     return Result::Ok();
 }
 
-void WavWriter::setStdioBuffer(size_t bytes) {
-    if (file_ && bytes > 0)
-        std::setvbuf(file_, nullptr, _IOFBF, bytes);
+Result WavWriter::setStdioBuffer(size_t bytes) {
+    if (file_ && bytes > 0 && std::setvbuf(file_, nullptr, _IOFBF, bytes) != 0)
+        return Result::Fail(-1, "WavWriter: failed to set file buffer");
+    return Result::Ok();
 }
 
 Result WavWriter::write(const void* data, size_t bytes) {

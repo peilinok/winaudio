@@ -545,8 +545,8 @@ void MonitorEngine::pumpLoop() {
                 renderXruns_.store(renderDropped_.load(std::memory_order_relaxed), std::memory_order_relaxed);
         }
     }
-    capSink_.stop();
-    renderSink_.stop();
+    capSink_.requestStop();
+    renderSink_.requestStop();
 }
 
 void MonitorEngine::teardown() {
@@ -556,6 +556,8 @@ void MonitorEngine::teardown() {
         if (void* e = capBackend_->dataReadyEvent()) SetEvent(static_cast<HANDLE>(e));
     }
     if (pump_.joinable()) pump_.join();
+    capSink_.stop();
+    renderSink_.stop();
 
     // Pump is gone -> safe to stop helper/devices and free buffers.
     stopSilentRender();
