@@ -101,4 +101,4 @@ add_executable(WinAudioWavLifecycleTests
 target_compile_definitions(WinAudioWavLifecycleTests PRIVATE WA_WAV_SINK_TESTING)
 target_link_libraries(WinAudioWavLifecycleTests PRIVATE WinAudioCore gtest_main)
 wa_set_project_warnings(WinAudioWavLifecycleTests)
-gtest_discover_tests(WinAudioWavLifecycleTests TEST_PREFIX "WavLifecycle.")
+gtest_discover_tests(WinAudioWavLifecycleTests TEST_PREFIX "WavLifecycle." PROPERTIES TIMEOUT 30)

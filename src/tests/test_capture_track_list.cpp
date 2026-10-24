@@ -673,6 +673,49 @@ private:
     DumpFailure failure_;
     WavWriter writer_;
 };
+
+struct SlowOutputGate {
+    std::mutex mtx;
+    std::condition_variable cv;
+    bool blockWrite = false;
+    bool entered = false;
+    bool released = false;
+    bool waitEntered() {
+        std::unique_lock<std::mutex> lk(mtx);
+        return cv.wait_for(lk, std::chrono::seconds(10), [&] { return entered; });
+    }
+    void pause() {
+        std::unique_lock<std::mutex> lk(mtx);
+        entered = true;
+        cv.notify_all();
+        cv.wait(lk, [&] { return released; });
+    }
+    void release() {
+        std::lock_guard<std::mutex> lk(mtx);
+        released = true;
+        cv.notify_all();
+    }
+};
+
+class SlowOutput : public WavSinkOutput {
+public:
+    explicit SlowOutput(SlowOutputGate& gate) : gate_(gate) {}
+    Result open(const std::wstring& path, const AudioFormat& fmt) override {
+        return writer_.open(path, fmt);
+    }
+    Result setBuffer(size_t bytes) override { return writer_.setStdioBuffer(bytes); }
+    Result write(const void* data, size_t bytes) override {
+        if (gate_.blockWrite) gate_.pause();
+        return writer_.write(data, bytes);
+    }
+    Result close() override {
+        if (!gate_.blockWrite) gate_.pause();
+        return writer_.close();
+    }
+private:
+    SlowOutputGate& gate_;
+    WavWriter writer_;
+};
 }
 
 TEST(CaptureTrackList, RequiredWavAsyncFailureMarksOnlyItsTrackWithoutMorePcm) {
@@ -807,4 +850,81 @@ TEST(CaptureTrackList, DestroyAllAndDestructorFinalizeEveryAcceptedByte) {
             DeleteFileW(path.c_str());
         }
     }
+}
+
+TEST(CaptureTrackList, SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing) {
+    ListRig rig;
+    SlowOutputGate gate;
+    CaptureTrackList list(rig.factory(), {}, [&] { return std::make_unique<SlowOutput>(gate); });
+    TrackId id = 0, sibling = 0;
+    ASSERT_TRUE(list.create({}, &id));
+    ASSERT_TRUE(list.create({}, &sibling));
+    wchar_t dir[MAX_PATH]{};
+    GetTempPathW(MAX_PATH, dir);
+    ASSERT_TRUE(list.startDump(id, dir));
+    const auto path = list.poll()[0].dumpPath;
+    const int16_t pcm[4]{10, -10, 20, -20};
+    rig.caps[0]->pushPcm(pcm, sizeof(pcm));
+    ASSERT_TRUE(waitFor([&] { return list.written(id) == 2; }));
+    Result stopped;
+    std::thread control([&] { stopped = list.stopDump(id); });
+    EXPECT_TRUE(gate.waitEntered()) << "writer close deadlock";
+    rig.caps[0]->pushPcm(pcm, sizeof(pcm));
+    rig.caps[1]->pushPcm(pcm, sizeof(pcm));
+    EXPECT_TRUE(waitFor([&] { return list.written(id) == 4 && list.written(sibling) == 2; }));
+    EXPECT_FALSE(rig.stopped[0]->load());
+    EXPECT_FALSE(rig.stopped[1]->load());
+    gate.release();
+    control.join();
+    EXPECT_TRUE(stopped);
+    WavReader reader;
+    ASSERT_TRUE(reader.open(path));
+    int16_t back[4]{};
+    EXPECT_EQ(reader.read(back, sizeof(back)), sizeof(back));
+    EXPECT_EQ(std::vector<int16_t>(back, back + 4), std::vector<int16_t>(pcm, pcm + 4));
+    EXPECT_EQ(reader.read(back, sizeof(back)), 0u);
+    reader.close();
+    list.destroyAll();
+    DeleteFileW(path.c_str());
+}
+
+TEST(CaptureTrackList, OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix) {
+    ListRig rig;
+    SlowOutputGate gate;
+    gate.blockWrite = true;
+    CaptureTrackList list(rig.factory(), {}, [&] { return std::make_unique<SlowOutput>(gate); });
+    TrackId id = 0, sibling = 0;
+    ASSERT_TRUE(list.create({}, &id));
+    ASSERT_TRUE(list.create({}, &sibling));
+    wchar_t dir[MAX_PATH]{};
+    GetTempPathW(MAX_PATH, dir);
+    ASSERT_TRUE(list.startDump(id, dir));
+    const auto path = list.poll()[0].dumpPath;
+    const std::vector<int16_t> block(8192, 123);
+    for (uint64_t n = 1; n <= 96; ++n) {
+        rig.caps[0]->pushPcm(block.data(), block.size() * 2);
+        EXPECT_TRUE(waitFor([&] { return list.written(id) == n * 4096; }));
+        if (n == 16) EXPECT_TRUE(gate.waitEntered()) << "writer write deadlock";
+    }
+    rig.caps[1]->pushPcm(block.data(), block.size() * 2);
+    EXPECT_TRUE(waitFor([&] { return list.written(sibling) == 4096; }));
+    EXPECT_EQ(list.poll()[0].state, StreamState::Running);
+    EXPECT_EQ(list.poll()[1].state, StreamState::Running);
+    EXPECT_FALSE(rig.stopped[0]->load());
+    EXPECT_FALSE(rig.stopped[1]->load());
+    gate.release();
+    const Result result = list.stopDump(id);
+    EXPECT_FALSE(result);
+    EXPECT_EQ(result.message, "WavSink: ring overflow");
+    WavReader reader;
+    ASSERT_TRUE(reader.open(path));
+    // One batch in the blocked writer plus the unchanged one-MiB sink ring.
+    std::vector<int16_t> prefix((256u * 1024u + 1024u * 1024u) / 2u);
+    EXPECT_EQ(reader.read(prefix.data(), prefix.size() * 2), prefix.size() * 2);
+    EXPECT_EQ(prefix, std::vector<int16_t>(prefix.size(), 123));
+    int16_t extra = 0;
+    EXPECT_EQ(reader.read(&extra, sizeof(extra)), 0u);
+    reader.close();
+    list.destroyAll();
+    DeleteFileW(path.c_str());
 }

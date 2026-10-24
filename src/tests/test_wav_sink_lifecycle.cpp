@@ -411,3 +411,37 @@ TEST(WavSinkLifecycle, OverflowAndStopDrainAcceptedPrefixAfterPublication) {
     pcm.resize(accepted / 2);
     expectPcm(path, pcm);
 }
+
+TEST(WavSinkLifecycle, WriterBatchBoundariesPreserveMultichannelFrames) {
+    const AudioFormat fmt{48000, 6, 24, false};
+    const auto path = tempPath(L"frame_batches");
+    WavSink sink;
+    ASSERT_TRUE(sink.startExact(path, fmt));
+    std::vector<uint8_t> pcm(18u * 20000u);
+    for (size_t i = 0; i < pcm.size(); ++i) pcm[i] = static_cast<uint8_t>(i);
+    EXPECT_EQ(sink.push(pcm.data(), 5), 5u);
+    EXPECT_EQ(sink.push(pcm.data() + 5, pcm.size() - 5), pcm.size() - 5);
+    EXPECT_TRUE(sink.stop());
+    WavReader reader;
+    ASSERT_TRUE(reader.open(path));
+    EXPECT_TRUE(reader.format() == fmt);
+    std::vector<uint8_t> back(pcm.size());
+    EXPECT_EQ(reader.read(back.data(), back.size()), back.size());
+    EXPECT_EQ(back, pcm);
+    reader.close();
+    DeleteFileW(path.c_str());
+}
+
+TEST(WavSinkLifecycle, IncompleteTailRemainsAFailureAndFileIsRetained) {
+    const auto path = tempPath(L"incomplete_tail");
+    WavSink sink;
+    ASSERT_TRUE(sink.startExact(path, AudioFormat{48000, 2, 16, false}));
+    const uint8_t tail[3]{1, 2, 3};
+    EXPECT_EQ(sink.push(tail, sizeof(tail)), sizeof(tail));
+    const Result result = sink.stop();
+    EXPECT_FALSE(result);
+    EXPECT_NE(result.message.find("incomplete audio frame"), std::string::npos);
+    EXPECT_TRUE(sink.hasFailed());
+    EXPECT_NE(GetFileAttributesW(path.c_str()), INVALID_FILE_ATTRIBUTES);
+    DeleteFileW(path.c_str());
+}
