@@ -1,0 +1,33 @@
+﻿Running main() from C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSinkLifecycle.StopWaitsForAdmittedPushAndKeepsItsBytes
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.StopWaitsForAdmittedPushAndKeepsItsBytes
+C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\src\tests\test_wav_sink_lifecycle.cpp(142): error: Value of: s.closeEntered
+  Actual: true
+Expected: false
+file closed while an admitted push was paused
+
+C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\src\tests\test_wav_sink_lifecycle.cpp(91): error: Expected equality of these values:
+  reader.read(back.data(), back.size() * sizeof(int16_t))
+    Which is: 0
+  back.size() * sizeof(int16_t)
+    Which is: 8
+
+C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\src\tests\test_wav_sink_lifecycle.cpp(92): error: Expected equality of these values:
+  back
+    Which is: { 0, 0, 0, 0 }
+  expected
+    Which is: { 11, -22, 33, -44 }
+
+[  FAILED  ] WavSinkLifecycle.StopWaitsForAdmittedPushAndKeepsItsBytes (23 ms)
+[----------] 1 test from WavSinkLifecycle (23 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (23 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] WavSinkLifecycle.StopWaitsForAdmittedPushAndKeepsItsBytes
+
+ 1 FAILED TEST

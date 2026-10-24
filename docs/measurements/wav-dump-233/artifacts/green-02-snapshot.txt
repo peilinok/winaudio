@@ -1,0 +1,34 @@
+﻿Running main() from C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+[==========] Running 11 tests from 2 test suites.
+[----------] Global test environment set-up.
+[----------] 2 tests from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.StopWaitsForAdmittedPushAndKeepsItsBytes
+[       OK ] WavSinkLifecycle.StopWaitsForAdmittedPushAndKeepsItsBytes (41 ms)
+[ RUN      ] WavSinkLifecycle.OldSnapshotCannotWriteIntoRestartedFile
+[       OK ] WavSinkLifecycle.OldSnapshotCannotWriteIntoRestartedFile (66 ms)
+[----------] 2 tests from WavSinkLifecycle (107 ms total)
+
+[----------] 9 tests from WavSink
+[ RUN      ] WavSink.ExactPathRoundTrip16BitStereo
+[       OK ] WavSink.ExactPathRoundTrip16BitStereo (26 ms)
+[ RUN      ] WavSink.ExactPathRoundTripFloat32Stereo
+[       OK ] WavSink.ExactPathRoundTripFloat32Stereo (31 ms)
+[ RUN      ] WavSink.ExactPathKeepsCallerName
+[       OK ] WavSink.ExactPathKeepsCallerName (30 ms)
+[ RUN      ] WavSink.InvalidPathFailsWithoutThrowing
+[       OK ] WavSink.InvalidPathFailsWithoutThrowing (15 ms)
+[ RUN      ] WavSink.AutoNameUsesPrefixFormatAndTimestamp
+[       OK ] WavSink.AutoNameUsesPrefixFormatAndTimestamp (31 ms)
+[ RUN      ] WavSink.AutoNameKeepsCallerPrefixTokens
+[       OK ] WavSink.AutoNameKeepsCallerPrefixTokens (30 ms)
+[ RUN      ] WavSink.AutoNameCollisionGetsNumericSuffix
+[       OK ] WavSink.AutoNameCollisionGetsNumericSuffix (62 ms)
+[ RUN      ] WavSink.OverflowFailsSinkAndPatchesHeader
+[       OK ] WavSink.OverflowFailsSinkAndPatchesHeader (37 ms)
+[ RUN      ] WavSink.TwoSinksDoNotMixBytes
+[       OK ] WavSink.TwoSinksDoNotMixBytes (40 ms)
+[----------] 9 tests from WavSink (308 ms total)
+
+[----------] Global test environment tear-down
+[==========] 11 tests from 2 test suites ran. (417 ms total)
+[  PASSED  ] 11 tests.

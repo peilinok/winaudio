@@ -1,0 +1,12 @@
+﻿build-233 production WavSink.obj hook symbols: 0
+build-233 test WavSink.obj hook symbols: 3
+8D8 00000000 UNDEF  notype ()    External     | ?checkpoint@wavSinkTest@wa@@YAXW4Point@12@PEBVWavSink@2@@Z (void __cdecl wa::wavSinkTest::checkpoint(enum wa::wavSinkTest::Point,class wa::WavSink const *))
+8D9 00000000 UNDEF  notype ()    External     | ?drainObserved@wavSinkTest@wa@@YAXPEBVWavSink@2@_N@Z (void __cdecl wa::wavSinkTest::drainObserved(class wa::WavSink const *,bool))
+8DA 00000000 UNDEF  notype ()    External     | ?prepare@wavSinkTest@wa@@YAXW4Preparation@12@@Z (void __cdecl wa::wavSinkTest::prepare(enum wa::wavSinkTest::Preparation))
+build-233 production RingBuffer.obj hook symbols: 0
+build-233-x86 production WavSink.obj hook symbols: 0
+build-233-x86 test WavSink.obj hook symbols: 3
+8D9 00000000 UNDEF  notype ()    External     | ?checkpoint@wavSinkTest@wa@@YAXW4Point@12@PBVWavSink@2@@Z (void __cdecl wa::wavSinkTest::checkpoint(enum wa::wavSinkTest::Point,class wa::WavSink const *))
+8DA 00000000 UNDEF  notype ()    External     | ?drainObserved@wavSinkTest@wa@@YAXPBVWavSink@2@_N@Z (void __cdecl wa::wavSinkTest::drainObserved(class wa::WavSink const *,bool))
+8DB 00000000 UNDEF  notype ()    External     | ?prepare@wavSinkTest@wa@@YAXW4Preparation@12@@Z (void __cdecl wa::wavSinkTest::prepare(enum wa::wavSinkTest::Preparation))
+build-233-x86 production RingBuffer.obj hook symbols: 0

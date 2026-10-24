@@ -1,0 +1,4 @@
+﻿x64 production size=472 alignment=8 atomic64_lock_free=1
+x64 test size=472 alignment=8 atomic64_lock_free=1
+x86 production size=320 alignment=8 atomic64_lock_free=1
+x86 test size=320 alignment=8 atomic64_lock_free=1

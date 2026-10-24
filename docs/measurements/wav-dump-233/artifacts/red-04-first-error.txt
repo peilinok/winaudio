@@ -1,0 +1,21 @@
+﻿Running main() from C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSinkLifecycle.WriteFailureSurvivesCloseFailureAndRepeatedStop
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.WriteFailureSurvivesCloseFailureAndRepeatedStop
+C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\src\tests\test_wav_sink_lifecycle.cpp(216): error: Expected equality of these values:
+  first.message
+    Which is: "later close failure"
+  "first write failure"
+
+[  FAILED  ] WavSinkLifecycle.WriteFailureSurvivesCloseFailureAndRepeatedStop (25 ms)
+[----------] 1 test from WavSinkLifecycle (25 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (25 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] WavSinkLifecycle.WriteFailureSurvivesCloseFailureAndRepeatedStop
+
+ 1 FAILED TEST

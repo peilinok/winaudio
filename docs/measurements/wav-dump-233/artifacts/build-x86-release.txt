@@ -1,0 +1,217 @@
+﻿适用于 .NET Framework MSBuild 版本 18.10.1-1.26427.6+3cd27c13e
+
+  1>Checking Build System
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/core/CMakeLists.txt
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/probe/CMakeLists.txt
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/hook/CMakeLists.txt
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/third_party/CMakeLists.txt
+  HookBufferProbe.cpp
+  DelayFifo.cpp
+  WinAudioHook.cpp
+  imgui.cpp
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/third_party/googletest/googletest/CMakeLists.txt
+  gtest-all.cc
+  AudioFormat.cpp
+  正在生成代码
+  Previous IPDB not found, fall back to full compilation.
+  imgui_draw.cpp
+  All 84 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  已完成代码的生成
+  WinAudioHook.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\bin\Release\WinAudioHook.dll
+  Fft.cpp
+  正在生成代码
+  Previous IPDB not found, fall back to full compilation.
+  imgui_tables.cpp
+  All 191 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  已完成代码的生成
+  HookBufferProbe.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\bin\Release\HookBufferProbe.exe
+  imgui_widgets.cpp
+  RingBuffer.cpp
+  imgui_impl_win32.cpp
+  imgui_impl_dx11.cpp
+  SampleConvert.cpp
+  WavFile.cpp
+  gtest.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\lib\Release\gtest.lib
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/third_party/googletest/googletest/CMakeLists.txt
+  gtest_main.cc
+  imgui.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\lib\Release\imgui.lib
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/third_party/CMakeLists.txt
+  implot.cpp
+  implot_items.cpp
+  WavSink.cpp
+  gtest_main.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\lib\Release\gtest_main.lib
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/tests/CMakeLists.txt
+  test_hook_buffer.cpp
+  implot.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\lib\Release\implot.lib
+  AudioSessionEnumerator.cpp
+  正在生成代码
+  Previous IPDB not found, fall back to full compilation.
+  ApplicationLoopbackCapture.cpp
+  All 3710 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  已完成代码的生成
+  WinAudioHookTests.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\bin\Release\WinAudioHookTests.exe
+  DeviceEnumerator.cpp
+  WasapiStream.cpp
+  StreamInit.cpp
+  Engine.cpp
+  FormatSpec.cpp
+  MonitorEngine.cpp
+  CaptureTrackList.cpp
+  RenderTrackList.cpp
+  PhraseCatalog.cpp
+  Capabilities.cpp
+  Log.cpp
+  正在编译...
+  PipelineGraph.cpp
+  LiveSessionEnumerator.cpp
+  LiveSessionWatch.cpp
+  UserProcessEnumerator.cpp
+  EndpointGraphReader.cpp
+  SharedProbe.cpp
+  AudioEffects.cpp
+  EndpointEnhancements.cpp
+  PolicyConfig.cpp
+  Elevate.cpp
+  EtwInitialize.cpp
+  HookedCall.cpp
+  CallLogStore.cpp
+  CallLogExportJob.cpp
+  OnDemandAttach.cpp
+  PipelineAttachSet.cpp
+  PumpWindow.cpp
+  WinAudioCore.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\lib\Release\WinAudioCore.lib
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/probe/CMakeLists.txt
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/tests/CMakeLists.txt
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/tests/CMakeLists.txt
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/probe/CMakeLists.txt
+  AttachSmoke.cpp
+  LoopbackTreeProbe.cpp
+  test_wav_sink_lifecycle.cpp
+  test_delayfifo.cpp
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/cli/CMakeLists.txt
+  main.cpp
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/probe/CMakeLists.txt
+  HookAudioProbe.cpp
+  正在生成代码
+  正在生成代码
+  Previous IPDB not found, fall back to full compilation.
+  Previous IPDB not found, fall back to full compilation.
+  All 390 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  已完成代码的生成
+  test_streamparams.cpp
+  LoopbackTreeProbe.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\bin\Release\LoopbackTreeProbe.exe
+  正在生成代码
+  Previous IPDB not found, fall back to full compilation.
+  test_wav_sink.cpp
+  All 4859 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  已完成代码的生成
+  HookAudioProbe.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\bin\Release\HookAudioProbe.exe
+  正在生成代码
+  Previous IPDB not found, fall back to full compilation.
+  All 4309 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  已完成代码的生成
+  AttachSmoke.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\bin\Release\AttachSmoke.exe
+  test_stream_init.cpp
+  test_capture_track_list.cpp
+  All 6693 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  已完成代码的生成
+  WinAudioCli.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\bin\Release\WinAudioCli.exe
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/gui/CMakeLists.txt
+  AppUi.cpp
+  test_smoke.cpp
+C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\src\gui\AppUi.cpp(1657,56): warning C4293: '<<': Shift 计数为负或过大，其行为未定义 [C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\src\gui\WinAudioGui.vcxproj]
+  WavSink.cpp
+  ChartDataPipeline.cpp
+  test_audioformat.cpp
+  DumpUi.cpp
+  RingBuffer.cpp
+  正在生成代码
+  Previous IPDB not found, fall back to full compilation.
+  test_fft.cpp
+  FrameProbe.cpp
+  GuiGpu.cpp
+  HeatmapRgba.cpp
+  HeatmapTexture.cpp
+  test_ringbuffer.cpp
+  All 10855 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  已完成代码的生成
+  WaveEnvelope.cpp
+  WinAudioWavLifecycleTests.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\bin\Release\WinAudioWavLifecycleTests.exe
+  main.cpp
+  test_sampleconvert.cpp
+  test_wavfile.cpp
+  Spectrogram.cpp
+  正在生成代码
+  test_wav_sink.cpp
+  Previous IPDB not found, fall back to full compilation.
+  test_formatspec.cpp
+  test_scopebuffer.cpp
+  All 15813 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  已完成代码的生成
+  WinAudioGui.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\bin\Release\WinAudioGui.exe
+  test_scope_reader.cpp
+  test_analysis.cpp
+  test_monitorengine.cpp
+  test_capture_track_list.cpp
+  test_render_track_list.cpp
+  test_production_catalog.cpp
+  test_spectrogram.cpp
+  test_heatmap_rgba.cpp
+  正在编译...
+  test_heatmap_texture.cpp
+  test_wave_envelope.cpp
+C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\src\tests\test_wave_envelope.cpp(1,1): warning C4828: 文件包含在偏移 0x7aa 处开始的字符，该字符在当前源字符集中无效(代码页 65001)。 [C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\src\tests\WinAudioTests.vcxproj]
+C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\src\tests\test_wave_envelope.cpp(1,1): warning C4828: 文件包含在偏移 0x851 处开始的字符，该字符在当前源字符集中无效(代码页 65001)。 [C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\src\tests\WinAudioTests.vcxproj]
+  test_capture_channel_view.cpp
+  test_charts_freeze.cpp
+  test_charts_time_zoom.cpp
+  test_chart_data_pipeline.cpp
+  test_chart_host.cpp
+  test_capabilities.cpp
+  test_device_enhancements.cpp
+  test_audio_effects.cpp
+  test_log.cpp
+  test_loopback.cpp
+  test_audio_session_enumerator.cpp
+  test_pipeline_graph.cpp
+  test_live_session_list.cpp
+  test_shared_probe.cpp
+  test_etw_initialize.cpp
+  test_hooked_call.cpp
+  test_call_log_store.cpp
+  test_call_log_export.cpp
+  正在编译...
+  test_call_log_filter.cpp
+  test_pipeline_split.cpp
+  test_user_process_tree.cpp
+  test_call_arg_blob.cpp
+  test_runtime_fault.cpp
+  test_on_demand_attach.cpp
+  test_pipeline_attach_ui_model.cpp
+  test_pipeline_attach_set.cpp
+  test_pump_window.cpp
+  test_cli_options.cpp
+  test_dump_ui.cpp
+  test_frame_probe.cpp
+  test_performance_calls.cpp
+  test_page_probe.cpp
+  test_os_sound_ui.cpp
+  test_log_region_prefs.cpp
+  test_gui_language.cpp
+  test_create_recipe.cpp
+  Spectrogram.cpp
+  HeatmapRgba.cpp
+  正在编译...
+  HeatmapTexture.cpp
+  GuiGpu.cpp
+  WaveEnvelope.cpp
+  ChartDataPipeline.cpp
+  DumpUi.cpp
+  FrameProbe.cpp
+  PerformanceCalls.cpp
+  正在生成代码
+  Previous IPDB not found, fall back to full compilation.
+  All 25531 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  已完成代码的生成
+  WinAudioTests.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\bin\Release\WinAudioTests.exe
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/CMakeLists.txt

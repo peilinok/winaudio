@@ -1,0 +1,123 @@
+﻿Running main() from C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+[==========] Running 54 tests from 3 test suites.
+[----------] Global test environment set-up.
+[----------] 11 tests from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.StopWaitsForAdmittedPushAndKeepsItsBytes
+[       OK ] WavSinkLifecycle.StopWaitsForAdmittedPushAndKeepsItsBytes (27 ms)
+[ RUN      ] WavSinkLifecycle.EmptyRingDoesNotFinalizeBeforeLastPublication
+[       OK ] WavSinkLifecycle.EmptyRingDoesNotFinalizeBeforeLastPublication (30 ms)
+[ RUN      ] WavSinkLifecycle.OldSnapshotCannotWriteIntoRestartedFile
+[       OK ] WavSinkLifecycle.OldSnapshotCannotWriteIntoRestartedFile (30 ms)
+[ RUN      ] WavSinkLifecycle.WriteFailureSurvivesCloseFailureAndRepeatedStop
+[       OK ] WavSinkLifecycle.WriteFailureSurvivesCloseFailureAndRepeatedStop (15 ms)
+[ RUN      ] WavSinkLifecycle.PreparationExceptionClosesOutputAndAllowsRetry
+[       OK ] WavSinkLifecycle.PreparationExceptionClosesOutputAndAllowsRetry (15 ms)
+[ RUN      ] WavSinkLifecycle.DifferentSourceCannotWriteIntoCurrentFile
+[       OK ] WavSinkLifecycle.DifferentSourceCannotWriteIntoCurrentFile (16 ms)
+[ RUN      ] WavSinkLifecycle.OverflowRemainsFirstFailureWhenOutputAlsoFails
+[       OK ] WavSinkLifecycle.OverflowRemainsFirstFailureWhenOutputAlsoFails (14 ms)
+[ RUN      ] WavSinkLifecycle.StopRequestDuringPreparationCannotPublishReady
+[       OK ] WavSinkLifecycle.StopRequestDuringPreparationCannotPublishReady (2 ms)
+[ RUN      ] WavSinkLifecycle.AllocationAndThreadLaunchFailuresReleaseResourcesForRetry
+[       OK ] WavSinkLifecycle.AllocationAndThreadLaunchFailuresReleaseResourcesForRetry (46 ms)
+[ RUN      ] WavSinkLifecycle.NormalRejectionAndWrongSourceStopAreNotFileFailures
+[       OK ] WavSinkLifecycle.NormalRejectionAndWrongSourceStopAreNotFileFailures (16 ms)
+[ RUN      ] WavSinkLifecycle.OverflowAndStopDrainAcceptedPrefixAfterPublication
+[       OK ] WavSinkLifecycle.OverflowAndStopDrainAcceptedPrefixAfterPublication (39 ms)
+[----------] 11 tests from WavSinkLifecycle (255 ms total)
+
+[----------] 9 tests from WavSink
+[ RUN      ] WavSink.ExactPathRoundTrip16BitStereo
+[       OK ] WavSink.ExactPathRoundTrip16BitStereo (22 ms)
+[ RUN      ] WavSink.ExactPathRoundTripFloat32Stereo
+[       OK ] WavSink.ExactPathRoundTripFloat32Stereo (15 ms)
+[ RUN      ] WavSink.ExactPathKeepsCallerName
+[       OK ] WavSink.ExactPathKeepsCallerName (14 ms)
+[ RUN      ] WavSink.InvalidPathFailsWithoutThrowing
+[       OK ] WavSink.InvalidPathFailsWithoutThrowing (0 ms)
+[ RUN      ] WavSink.AutoNameUsesPrefixFormatAndTimestamp
+[       OK ] WavSink.AutoNameUsesPrefixFormatAndTimestamp (15 ms)
+[ RUN      ] WavSink.AutoNameKeepsCallerPrefixTokens
+[       OK ] WavSink.AutoNameKeepsCallerPrefixTokens (14 ms)
+[ RUN      ] WavSink.AutoNameCollisionGetsNumericSuffix
+[       OK ] WavSink.AutoNameCollisionGetsNumericSuffix (31 ms)
+[ RUN      ] WavSink.OverflowFailsSinkAndPatchesHeader
+[       OK ] WavSink.OverflowFailsSinkAndPatchesHeader (21 ms)
+[ RUN      ] WavSink.TwoSinksDoNotMixBytes
+[       OK ] WavSink.TwoSinksDoNotMixBytes (25 ms)
+[----------] 9 tests from WavSink (162 ms total)
+
+[----------] 34 tests from CaptureTrackList
+[ RUN      ] CaptureTrackList.CreateStartsLiveTrack
+[       OK ] CaptureTrackList.CreateStartsLiveTrack (3 ms)
+[ RUN      ] CaptureTrackList.DestroyRemovesTrackAndStopsBackend
+[       OK ] CaptureTrackList.DestroyRemovesTrackAndStopsBackend (2 ms)
+[ RUN      ] CaptureTrackList.RuntimeBackendFaultMarksTrackError
+[       OK ] CaptureTrackList.RuntimeBackendFaultMarksTrackError (23 ms)
+[ RUN      ] CaptureTrackList.RuntimeFaultStillFinalizesCreateTimeWav
+[       OK ] CaptureTrackList.RuntimeFaultStillFinalizesCreateTimeWav (46 ms)
+[ RUN      ] CaptureTrackList.SilentRenderRuntimeFaultKeepsCaptureRunning
+[       OK ] CaptureTrackList.SilentRenderRuntimeFaultKeepsCaptureRunning (29 ms)
+[ RUN      ] CaptureTrackList.DestroyAllClearsEveryMember
+[       OK ] CaptureTrackList.DestroyAllClearsEveryMember (31 ms)
+[ RUN      ] CaptureTrackList.FailedOpenDoesNotLeaveMember
+[       OK ] CaptureTrackList.FailedOpenDoesNotLeaveMember (0 ms)
+[ RUN      ] CaptureTrackList.FailedStartDoesNotLeaveMember
+[       OK ] CaptureTrackList.FailedStartDoesNotLeaveMember (0 ms)
+[ RUN      ] CaptureTrackList.EqualSourcesMayBothBeLive
+[       OK ] CaptureTrackList.EqualSourcesMayBothBeLive (30 ms)
+[ RUN      ] CaptureTrackList.CreateAllowedWhileSiblingStillListed
+[       OK ] CaptureTrackList.CreateAllowedWhileSiblingStillListed (46 ms)
+[ RUN      ] CaptureTrackList.WavOpenFailureDoesNotDestroySibling
+[       OK ] CaptureTrackList.WavOpenFailureDoesNotDestroySibling (33 ms)
+[ RUN      ] CaptureTrackList.ExclusiveLoopbackRejected
+[       OK ] CaptureTrackList.ExclusiveLoopbackRejected (0 ms)
+[ RUN      ] CaptureTrackList.ExclusiveApplicationLoopbackRejected
+[       OK ] CaptureTrackList.ExclusiveApplicationLoopbackRejected (0 ms)
+[ RUN      ] CaptureTrackList.ApplicationLoopbackPreservesPidAndMode
+[       OK ] CaptureTrackList.ApplicationLoopbackPreservesPidAndMode (44 ms)
+[ RUN      ] CaptureTrackList.CreateFailureDoesNotDestroySibling
+[       OK ] CaptureTrackList.CreateFailureDoesNotDestroySibling (16 ms)
+[ RUN      ] CaptureTrackList.SecondListUnaffectedByDestroyAll
+[       OK ] CaptureTrackList.SecondListUnaffectedByDestroyAll (30 ms)
+[ RUN      ] CaptureTrackList.TapsAreIndependent
+[       OK ] CaptureTrackList.TapsAreIndependent (46 ms)
+[ RUN      ] CaptureTrackList.CreateTimeWavWritesPushedPcm
+[       OK ] CaptureTrackList.CreateTimeWavWritesPushedPcm (47 ms)
+[ RUN      ] CaptureTrackList.LiveDumpWritesPushedPcm
+[       OK ] CaptureTrackList.LiveDumpWritesPushedPcm (60 ms)
+[ RUN      ] CaptureTrackList.AppLoopbackDumpNameIncludesPidAndProcessName
+[       OK ] CaptureTrackList.AppLoopbackDumpNameIncludesPidAndProcessName (32 ms)
+[ RUN      ] CaptureTrackList.LiveDumpRejectedWhenAlreadyDumping
+[       OK ] CaptureTrackList.LiveDumpRejectedWhenAlreadyDumping (32 ms)
+[ RUN      ] CaptureTrackList.LiveDumpRejectedWhenTrackNotRunning
+[       OK ] CaptureTrackList.LiveDumpRejectedWhenTrackNotRunning (2 ms)
+[ RUN      ] CaptureTrackList.LiveDumpOpenFailureLeavesTrackRunning
+[       OK ] CaptureTrackList.LiveDumpOpenFailureLeavesTrackRunning (12 ms)
+[ RUN      ] CaptureTrackList.DestroyWhileDumpingFinalizesWav
+[       OK ] CaptureTrackList.DestroyWhileDumpingFinalizesWav (62 ms)
+[ RUN      ] CaptureTrackList.OptionalWavStillRuns
+[       OK ] CaptureTrackList.OptionalWavStillRuns (2 ms)
+[ RUN      ] CaptureTrackList.DefaultCreateOpensWithDefaultStreamParamsAndNoRequestedFormat
+[       OK ] CaptureTrackList.DefaultCreateOpensWithDefaultStreamParamsAndNoRequestedFormat (2 ms)
+[ RUN      ] CaptureTrackList.CreatePassesRequestedFormatToBackend
+[       OK ] CaptureTrackList.CreatePassesRequestedFormatToBackend (2 ms)
+[ RUN      ] CaptureTrackList.CreatePassesStreamParamsToOpen
+[       OK ] CaptureTrackList.CreatePassesStreamParamsToOpen (2 ms)
+[ RUN      ] CaptureTrackList.SystemAndApplicationLoopbackBothPassStreamParams
+[       OK ] CaptureTrackList.SystemAndApplicationLoopbackBothPassStreamParams (32 ms)
+[ RUN      ] CaptureTrackList.SilentRenderOpenStaysDefaultWhenCaptureHasStreamParams
+[       OK ] CaptureTrackList.SilentRenderOpenStaysDefaultWhenCaptureHasStreamParams (2 ms)
+[ RUN      ] CaptureTrackList.RequiredWavAsyncFailureMarksOnlyItsTrackWithoutMorePcm
+[       OK ] CaptureTrackList.RequiredWavAsyncFailureMarksOnlyItsTrackWithoutMorePcm (74 ms)
+[ RUN      ] CaptureTrackList.BothLoopbackKindsKeepCapturingAcrossThreeIndependentDumps
+[       OK ] CaptureTrackList.BothLoopbackKindsKeepCapturingAcrossThreeIndependentDumps (456 ms)
+[ RUN      ] CaptureTrackList.OptionalOpenWriteAndCloseFailuresKeepBothTracksAndTapsRunning
+[       OK ] CaptureTrackList.OptionalOpenWriteAndCloseFailuresKeepBothTracksAndTapsRunning (255 ms)
+[ RUN      ] CaptureTrackList.DestroyAllAndDestructorFinalizeEveryAcceptedByte
+[       OK ] CaptureTrackList.DestroyAllAndDestructorFinalizeEveryAcceptedByte (140 ms)
+[----------] 34 tests from CaptureTrackList (1613 ms total)
+
+[----------] Global test environment tear-down
+[==========] 54 tests from 3 test suites ran. (2031 ms total)
+[  PASSED  ] 54 tests.

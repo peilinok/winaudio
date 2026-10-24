@@ -1,0 +1,48 @@
+﻿适用于 .NET Framework MSBuild 版本 18.10.1-1.26427.6+3cd27c13e
+
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/probe/CMakeLists.txt
+  imgui.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233\lib\Debug\imgui.lib
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/hook/CMakeLists.txt
+  HookBufferProbe.cpp
+  WinAudioCore.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233\lib\Debug\WinAudioCore.lib
+  gtest.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233\lib\Debug\gtest.lib
+  WinAudioHook.cpp
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/cli/CMakeLists.txt
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/probe/CMakeLists.txt
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/probe/CMakeLists.txt
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/probe/CMakeLists.txt
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/third_party/CMakeLists.txt
+  gtest_main.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233\lib\Debug\gtest_main.lib
+  implot.cpp
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/tests/CMakeLists.txt
+  test_hook_buffer.cpp
+  HookAudioProbe.cpp
+  AttachSmoke.cpp
+  implot_items.cpp
+  WinAudioHook.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233\bin\Debug\WinAudioHook.dll
+  main.cpp
+  WinAudioTests.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233\bin\Debug\WinAudioTests.exe
+  WinAudioWavLifecycleTests.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233\bin\Debug\WinAudioWavLifecycleTests.exe
+  HookBufferProbe.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233\bin\Debug\HookBufferProbe.exe
+  LoopbackTreeProbe.cpp
+  AttachSmoke.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233\bin\Debug\AttachSmoke.exe
+  正在生成代码...
+  HookAudioProbe.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233\bin\Debug\HookAudioProbe.exe
+  WinAudioCli.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233\bin\Debug\WinAudioCli.exe
+  implot.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233\lib\Debug\implot.lib
+  WinAudioHookTests.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233\bin\Debug\WinAudioHookTests.exe
+  LoopbackTreeProbe.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233\bin\Debug\LoopbackTreeProbe.exe
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/gui/CMakeLists.txt
+  AppUi.cpp
+  ChartDataPipeline.cpp
+  DumpUi.cpp
+  FrameProbe.cpp
+  GuiGpu.cpp
+  HeatmapRgba.cpp
+  HeatmapTexture.cpp
+  WaveEnvelope.cpp
+  main.cpp
+  Spectrogram.cpp
+  正在生成代码...
+  WinAudioGui.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233\bin\Debug\WinAudioGui.exe
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/CMakeLists.txt

@@ -1,0 +1,187 @@
+﻿适用于 .NET Framework MSBuild 版本 18.10.1-1.26427.6+3cd27c13e
+
+  1>Checking Build System
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/core/CMakeLists.txt
+  DelayFifo.cpp
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/probe/CMakeLists.txt
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/third_party/googletest/googletest/CMakeLists.txt
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/hook/CMakeLists.txt
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/third_party/CMakeLists.txt
+  HookBufferProbe.cpp
+  gtest-all.cc
+  WinAudioHook.cpp
+  imgui.cpp
+  AudioFormat.cpp
+  Fft.cpp
+  imgui_draw.cpp
+  WinAudioHook.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\bin\Debug\WinAudioHook.dll
+  imgui_tables.cpp
+  HookBufferProbe.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\bin\Debug\HookBufferProbe.exe
+  imgui_widgets.cpp
+  RingBuffer.cpp
+  imgui_impl_win32.cpp
+  SampleConvert.cpp
+  imgui_impl_dx11.cpp
+  WavFile.cpp
+  gtest.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\lib\Debug\gtest.lib
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/third_party/googletest/googletest/CMakeLists.txt
+  正在生成代码...
+  gtest_main.cc
+  imgui.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\lib\Debug\imgui.lib
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/third_party/CMakeLists.txt
+  implot.cpp
+  WavSink.cpp
+  implot_items.cpp
+  gtest_main.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\lib\Debug\gtest_main.lib
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/tests/CMakeLists.txt
+  test_hook_buffer.cpp
+  AudioSessionEnumerator.cpp
+  正在生成代码...
+  implot.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\lib\Debug\implot.lib
+  ApplicationLoopbackCapture.cpp
+  WinAudioHookTests.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\bin\Debug\WinAudioHookTests.exe
+  DeviceEnumerator.cpp
+  WasapiStream.cpp
+  StreamInit.cpp
+  Engine.cpp
+  FormatSpec.cpp
+  MonitorEngine.cpp
+  CaptureTrackList.cpp
+  RenderTrackList.cpp
+  PhraseCatalog.cpp
+  Capabilities.cpp
+  Log.cpp
+  正在生成代码...
+  正在编译...
+  PipelineGraph.cpp
+  LiveSessionEnumerator.cpp
+  LiveSessionWatch.cpp
+  UserProcessEnumerator.cpp
+  EndpointGraphReader.cpp
+  SharedProbe.cpp
+  AudioEffects.cpp
+  EndpointEnhancements.cpp
+  PolicyConfig.cpp
+  Elevate.cpp
+  EtwInitialize.cpp
+  HookedCall.cpp
+  CallLogStore.cpp
+  CallLogExportJob.cpp
+  OnDemandAttach.cpp
+  PipelineAttachSet.cpp
+  PumpWindow.cpp
+  正在生成代码...
+  WinAudioCore.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\lib\Debug\WinAudioCore.lib
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/probe/CMakeLists.txt
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/probe/CMakeLists.txt
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/tests/CMakeLists.txt
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/probe/CMakeLists.txt
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/tests/CMakeLists.txt
+  AttachSmoke.cpp
+  LoopbackTreeProbe.cpp
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/cli/CMakeLists.txt
+  test_delayfifo.cpp
+  main.cpp
+  test_wav_sink_lifecycle.cpp
+  HookAudioProbe.cpp
+  test_streamparams.cpp
+  LoopbackTreeProbe.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\bin\Debug\LoopbackTreeProbe.exe
+  AttachSmoke.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\bin\Debug\AttachSmoke.exe
+  HookAudioProbe.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\bin\Debug\HookAudioProbe.exe
+  WinAudioCli.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\bin\Debug\WinAudioCli.exe
+  test_wav_sink.cpp
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/src/gui/CMakeLists.txt
+  AppUi.cpp
+  test_stream_init.cpp
+  test_capture_track_list.cpp
+C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\src\gui\AppUi.cpp(1657,56): warning C4293: '<<': Shift 计数为负或过大，其行为未定义 [C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\src\gui\WinAudioGui.vcxproj]
+  test_smoke.cpp
+  ChartDataPipeline.cpp
+  DumpUi.cpp
+  test_audioformat.cpp
+  WavSink.cpp
+  FrameProbe.cpp
+  RingBuffer.cpp
+  GuiGpu.cpp
+  HeatmapRgba.cpp
+  HeatmapTexture.cpp
+  正在生成代码...
+  test_fft.cpp
+  WinAudioWavLifecycleTests.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\bin\Debug\WinAudioWavLifecycleTests.exe
+  WaveEnvelope.cpp
+  test_ringbuffer.cpp
+  main.cpp
+  test_sampleconvert.cpp
+  Spectrogram.cpp
+  test_wavfile.cpp
+  正在生成代码...
+  WinAudioGui.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\bin\Debug\WinAudioGui.exe
+  test_wav_sink.cpp
+  test_formatspec.cpp
+  test_scopebuffer.cpp
+  test_scope_reader.cpp
+  test_analysis.cpp
+  test_monitorengine.cpp
+  test_capture_track_list.cpp
+  test_render_track_list.cpp
+  test_production_catalog.cpp
+  test_spectrogram.cpp
+  test_heatmap_rgba.cpp
+  正在生成代码...
+  正在编译...
+  test_heatmap_texture.cpp
+  test_wave_envelope.cpp
+C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\src\tests\test_wave_envelope.cpp(1,1): warning C4828: 文件包含在偏移 0x7aa 处开始的字符，该字符在当前源字符集中无效(代码页 65001)。 [C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\src\tests\WinAudioTests.vcxproj]
+C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\src\tests\test_wave_envelope.cpp(1,1): warning C4828: 文件包含在偏移 0x851 处开始的字符，该字符在当前源字符集中无效(代码页 65001)。 [C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\src\tests\WinAudioTests.vcxproj]
+  test_capture_channel_view.cpp
+  test_charts_freeze.cpp
+  test_charts_time_zoom.cpp
+  test_chart_data_pipeline.cpp
+  test_chart_host.cpp
+  test_capabilities.cpp
+  test_device_enhancements.cpp
+  test_audio_effects.cpp
+  test_log.cpp
+  test_loopback.cpp
+  test_audio_session_enumerator.cpp
+  test_pipeline_graph.cpp
+  test_live_session_list.cpp
+  test_shared_probe.cpp
+  test_etw_initialize.cpp
+  test_hooked_call.cpp
+  test_call_log_store.cpp
+  test_call_log_export.cpp
+  正在生成代码...
+  正在编译...
+  test_call_log_filter.cpp
+  test_pipeline_split.cpp
+  test_user_process_tree.cpp
+  test_call_arg_blob.cpp
+  test_runtime_fault.cpp
+  test_on_demand_attach.cpp
+  test_pipeline_attach_ui_model.cpp
+  test_pipeline_attach_set.cpp
+  test_pump_window.cpp
+  test_cli_options.cpp
+  test_dump_ui.cpp
+  test_frame_probe.cpp
+  test_performance_calls.cpp
+  test_page_probe.cpp
+  test_os_sound_ui.cpp
+  test_log_region_prefs.cpp
+  test_gui_language.cpp
+  test_create_recipe.cpp
+  Spectrogram.cpp
+  HeatmapRgba.cpp
+  正在生成代码...
+  正在编译...
+  HeatmapTexture.cpp
+  GuiGpu.cpp
+  WaveEnvelope.cpp
+  ChartDataPipeline.cpp
+  DumpUi.cpp
+  FrameProbe.cpp
+  PerformanceCalls.cpp
+  正在生成代码...
+  WinAudioTests.vcxproj -> C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\build-233-x86\bin\Debug\WinAudioTests.exe
+  Building Custom Rule C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/CMakeLists.txt

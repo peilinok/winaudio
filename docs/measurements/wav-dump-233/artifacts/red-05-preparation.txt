@@ -1,0 +1,6 @@
+﻿Running main() from C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSinkLifecycle.PreparationExceptionClosesOutputAndAllowsRetry
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.PreparationExceptionClosesOutputAndAllowsRetry

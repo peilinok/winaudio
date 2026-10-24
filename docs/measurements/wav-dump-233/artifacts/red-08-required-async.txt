@@ -1,0 +1,20 @@
+﻿Running main() from C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.RequiredWavAsyncFailureMarksOnlyItsTrackWithoutMorePcm
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.RequiredWavAsyncFailureMarksOnlyItsTrackWithoutMorePcm
+C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\src\tests\test_capture_track_list.cpp(665): error: Value of: waitFor([&] { return list.poll()[0].state == StreamState::Error; })
+  Actual: false
+Expected: true
+
+[  FAILED  ] CaptureTrackList.RequiredWavAsyncFailureMarksOnlyItsTrackWithoutMorePcm (3096 ms)
+[----------] 1 test from CaptureTrackList (3096 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (3096 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] CaptureTrackList.RequiredWavAsyncFailureMarksOnlyItsTrackWithoutMorePcm
+
+ 1 FAILED TEST
