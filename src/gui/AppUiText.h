@@ -161,6 +161,10 @@ namespace wa::ui_text {
     WA_UI_TEXT(kPipelineDiscardContinue, "Discard, then attach", "放弃后附加") \
     WA_UI_TEXT(kPipelineCancel, "Cancel", "取消") \
     WA_UI_TEXT(kPipelineExportBusy, "Saving calls. Retry after completion.", "调用正在保存，请完成后重试。") \
+    WA_UI_TEXT(kPipelineExportExit, "Save before exit", "保存后退出") \
+    WA_UI_TEXT(kPipelineExportExitHint, "Saving calls. Wait or cancel the save before exit.", "调用正在保存。请选择等待完成，或取消保存后退出。") \
+    WA_UI_TEXT(kPipelineExportWait, "Wait for save", "等待保存完成") \
+    WA_UI_TEXT(kPipelineExportCancelExit, "Cancel save and exit", "取消保存并退出") \
     WA_UI_TEXT(kPipelineEmptyRecording, "The recording range has no calls.", "录制范围内无记录。") \
     WA_UI_TEXT(kPipelinePumpExpired, "The record is no longer in the recent window.", "记录已不在近期窗口。") \
     WA_UI_TEXT(kPipelineColAttach, "Hook", "Hook") \

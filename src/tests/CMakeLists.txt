@@ -38,6 +38,7 @@ add_executable(WinAudioTests
     test_etw_initialize.cpp
     test_hooked_call.cpp
     test_call_log_store.cpp
+    test_call_log_export.cpp
     test_call_log_filter.cpp
     test_pipeline_split.cpp
     test_user_process_tree.cpp

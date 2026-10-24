@@ -31,6 +31,7 @@ static IDXGISwapChain*          g_pSwapChain = nullptr;
 static bool                     g_SwapChainOccluded = false;
 static UINT                     g_ResizeWidth = 0, g_ResizeHeight = 0;
 static ID3D11RenderTargetView*  g_mainRenderTargetView = nullptr;
+static bool                     g_CloseRequested = false;
 
 // Forward declarations of helper functions
 bool CreateDeviceD3D(HWND hWnd);
@@ -195,9 +196,15 @@ int main(int, char**)
         if (done)
             break;
 
+        if (g_CloseRequested) ui.requestClose();
+        if (ui.closeReady()) break;
+
         // Handle window being minimized or screen locked
         if (g_SwapChainOccluded && g_pSwapChain->Present(0, DXGI_PRESENT_TEST) == DXGI_STATUS_OCCLUDED)
         {
+            // Reap while hidden; publish UI completion on the next measured frame.
+            ui.pollBackground(false);
+            if (ui.closeReady()) break;
             ::Sleep(10);
             continue;
         }
@@ -217,6 +224,7 @@ int main(int, char**)
         if (!PerformanceFixture::advance(ui)) break;
 #endif
         ui.frameProbe().beginFrame();
+        ui.pollBackground();
         ImGui_ImplDX11_NewFrame();
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
@@ -381,7 +389,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     switch (msg)
     {
     case WM_CLOSE:
-        ::PostQuitMessage(0);
+        g_CloseRequested = true;
         return 0;
     case WM_SIZE:
         if (wParam == SIZE_MINIMIZED)

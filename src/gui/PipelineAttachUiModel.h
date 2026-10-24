@@ -21,6 +21,20 @@ struct AttachRequest {
 
 enum class RoundAttachAction { Busy, Confirm, Attempt };
 
+// Ready means the export was reaped, not merely that its worker signalled done.
+class ExportExitState {
+public:
+    void request() { if (state_ == State::None) state_ = State::Prompt; }
+    void choose(bool cancel) { state_ = cancel ? State::Cancel : State::Wait; }
+    bool requested() const { return state_ != State::None; }
+    bool prompt() const { return state_ == State::Prompt; }
+    bool cancelRequested() const { return state_ == State::Cancel; }
+    bool ready(bool busy) const { return requested() && !busy; }
+private:
+    enum class State { None, Prompt, Wait, Cancel };
+    State state_ = State::None;
+};
+
 // Saving/drop only authorizes an attempt; it never clears the old round.
 class RoundTransition {
 public:

@@ -359,6 +359,9 @@ void AppUi::refreshMonitorDevices() {
 void AppUi::setMainWindow(void* hwnd) { pipelineHwnd_ = hwnd; }
 
 void AppUi::stopAll() {
+    pipelineExport_.cancel();
+    wa::CallLogExportResult exportResult;
+    pipelineExport_.wait(exportResult);
     pipelineWatch_.stop();
     monitor_.stop();
     loopbackTracks_.destroyAll();
@@ -595,7 +598,7 @@ void AppUi::runPipelineAttach() {
     wa::pipeline_attach_ui::AttachRequest request{pid, deviceId, flow, sessionKey,
         !pipelineAttaches_.anyAttached() && pipelineCallStore_.hasSources()};
     const auto action = pipelineRoundTransition_.request(std::move(request), pipelineCallStore_.size() != 0,
-                                                        pipelineExportBusy_);
+                                                        pipelineExport_.busy());
     if (action == wa::pipeline_attach_ui::RoundAttachAction::Busy) {
         logLines_.push_back("pipeline attach: export or replacement is busy");
         return;
@@ -634,6 +637,10 @@ void AppUi::attemptPipelineAttach(const wa::pipeline_attach_ui::AttachRequest& r
 }
 
 void AppUi::drawPipelineRoundDialog() {
+    if (pipelineRoundTransition_.ready()) {
+        if (const auto ready = pipelineRoundTransition_.take()) attemptPipelineAttach(*ready);
+        return;
+    }
     if (!pipelineRoundTransition_.pending() || pipelineRoundTransition_.waitingForSave()) return;
     const auto* title = wa::ui_text::id(wa::ui_text::kPipelineReplaceRound);
     if (!ImGui::IsPopupOpen(title)) ImGui::OpenPopup(title);
@@ -642,7 +649,7 @@ void AppUi::drawPipelineRoundDialog() {
                 pipelineCallStore_.exportCount(), pipelineCallStore_.size());
     if (ImGui::Button(wa::ui_text::get(wa::ui_text::kPipelineSaveContinue))) {
         pipelineRoundTransition_.saveThenContinue();
-        pipelineRoundTransition_.saved(savePipelineCallLog());
+        if (!savePipelineCallLog()) pipelineRoundTransition_.saved(false);
         ImGui::CloseCurrentPopup();
     }
     ImGui::SameLine();
@@ -690,22 +697,60 @@ void AppUi::runPipelineDetachAll() {
 
 bool AppUi::savePipelineCallLog(const std::wstring& destination) {
     wa::FrameBracket saving(frameProbe_, wa::FrameSlice::ExportStart);
+    if (pipelineExport_.busy()) {
+        logLines_.push_back("pipeline save calls: export is busy");
+        return false;
+    }
     const auto count = pipelineCallStore_.exportCount();
     if (count == 0) {
         logLines_.push_back("pipeline save calls: recording range is empty");
         return false;
     }
-    std::wstring path = destination;
-    wa::Result r = path.empty() ? pipelineCallStore_.saveDefaultJsonl(path) : pipelineCallStore_.saveJsonl(path);
+    auto snapshot = pipelineCallStore_.freezeExport();
+    frameProbe_.addWork("export-reference-bytes", snapshot.records.capacity() * sizeof(wa::CallRecordRef));
+    const auto r = pipelineExport_.start(std::move(snapshot), destination);
     if (!r) {
         logLines_.push_back("pipeline save calls failed: " + r.message);
         return false;
     }
-    std::string narrow;
-    for (wchar_t ch : path) narrow.push_back(ch < 128 ? static_cast<char>(ch) : '?');
-    logLines_.push_back("pipeline saved calls: " + narrow + " (" + std::to_string(count) + ")");
-    if (destination.empty()) wa::dump_ui::revealDumpFile(path);
+    pipelineExportReveal_ = destination.empty();
+    logLines_.push_back("pipeline saving calls: " + std::to_string(count));
     return true;
+}
+
+void AppUi::pollBackground(bool notify) {
+    wa::CallLogExportResult result;
+    if (pipelineExport_.take(result)) pipelineExportCompleted_ = std::move(result);
+    if (!notify || !pipelineExportCompleted_) return;
+    result = std::move(*pipelineExportCompleted_);
+    pipelineExportCompleted_.reset();
+    exportElapsedUs_ = result.elapsedUs;
+    exportWritten_ = result.recordsWritten;
+    exportMetricsPending_ = true;
+    if (result.result) {
+        logLines_.push_back("pipeline saved calls: " + wtou(result.path) +
+                            " (" + std::to_string(result.recordsWritten) + ")");
+        if (pipelineExportReveal_ && !exportExit_.requested()) wa::dump_ui::revealDumpFile(result.path);
+    } else {
+        logLines_.push_back("pipeline save calls incomplete: " + result.result.message);
+    }
+    pipelineRoundTransition_.saved(static_cast<bool>(result.result) && !exportExit_.requested());
+}
+
+void AppUi::drawExportCloseDialog() {
+    if (!exportExit_.requested() || !pipelineExport_.busy()) return;
+    const auto* title = wa::ui_text::id(wa::ui_text::kPipelineExportExit);
+    if (!ImGui::IsPopupOpen(title)) ImGui::OpenPopup(title);
+    if (!ImGui::BeginPopupModal(title, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) return;
+    ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineExportExitHint));
+    if (exportExit_.prompt() && ImGui::Button(wa::ui_text::get(wa::ui_text::kPipelineExportWait)))
+        exportExit_.choose(false);
+    ImGui::SameLine();
+    if (ImGui::Button(wa::ui_text::get(wa::ui_text::kPipelineExportCancelExit))) {
+        pipelineExport_.cancel();
+        exportExit_.choose(true);
+    }
+    ImGui::EndPopup();
 }
 
 void AppUi::setPipelineRecording(bool on) {
@@ -1105,6 +1150,11 @@ void AppUi::ensureRunningVisuals(const wa::MonitorStatus& status, VisualState& v
 }
 
 void AppUi::draw() {
+    if (exportMetricsPending_) {
+        frameProbe_.addWork("export-total-us", exportElapsedUs_);
+        frameProbe_.addWork("export-records-written", exportWritten_);
+        exportMetricsPending_ = false;
+    }
     // Drain lines buffered by the logging pump thread into the panel history (bounded).
     // The bracket covers the lock and the trim. The probe itself only writes its slot.
     {
@@ -1231,6 +1281,7 @@ void AppUi::draw() {
     }
     ImGui::SetCursorScreenPos(afterTabs);
 
+    drawExportCloseDialog();
     ImGui::End();
 }
 
@@ -1445,7 +1496,8 @@ void AppUi::drawPipelinePage() {
         const bool boxPidOk = wa::pipeline_attach_ui::parseAttachPid(pipelineAttachPid_, boxPid);
         const auto attachedSet = pipelineAttachedPidSet();
         const bool canAttach = wa::pipeline_attach_ui::canAttach(
-            boxPidOk ? boxPid : 0u, attachedSet.find(boxPidOk ? boxPid : 0u) != attachedSet.end());
+            boxPidOk ? boxPid : 0u, attachedSet.find(boxPidOk ? boxPid : 0u) != attachedSet.end()) &&
+            !(pipelineExport_.busy() && !pipelineAttaches_.anyAttached());
         if (!canAttach) ImGui::BeginDisabled();
         if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineAttach)))
             runPipelineAttach();
@@ -1489,14 +1541,18 @@ void AppUi::drawPipelinePage() {
             setPipelineRecording(pipelineRecord_);
         }
         ImGui::SameLine();
-        const bool canSave = pipelineCallStore_.size() > 0;
+        const bool canSave = pipelineCallStore_.size() > 0 && !pipelineExport_.busy();
         if (!canSave) ImGui::BeginDisabled();
         if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineSaveCalls)))
             savePipelineCallLog();
         if (!canSave) ImGui::EndDisabled();
         if (pipelineRecord_)
             ImGui::Text("recording: %zu", pipelineCallStore_.exportCount());
-        if (pipelineExportBusy_) ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineExportBusy));
+        if (pipelineExport_.busy()) {
+            ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineExportBusy));
+            ImGui::SameLine();
+            if (ImGui::Button(wa::ui_text::get(wa::ui_text::kPipelineCancel))) pipelineExport_.cancel();
+        }
         if (pipelineCallStore_.size() && pipelineCallStore_.exportCount() == 0)
             ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineEmptyRecording));
         {

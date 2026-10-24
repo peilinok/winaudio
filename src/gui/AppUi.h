@@ -2,6 +2,7 @@
 #include <complex>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -22,6 +23,7 @@
 #include "LiveSessionWatch.h"
 #include "MonitorEngine.h"
 #include "CallLogStore.h"
+#include "CallLogExportJob.h"
 #include "PipelineSplit.h"
 #include "OnDemandAttach.h"
 #include "PipelineAttachSet.h"
@@ -46,6 +48,9 @@ public:
     void pushLog(int level, const std::string& line);  // thread-safe; called from the logging pump thread
     void loadLogRegionPrefs();
     void loadProductionPhrases();
+    void requestClose() { exportExit_.request(); }
+    void pollBackground(bool notify = true);
+    bool closeReady() const { return exportExit_.ready(pipelineExport_.busy()); }
 private:
 #ifdef WA_PERFORMANCE_FIXTURE
     friend class PerformanceFixture;
@@ -96,6 +101,7 @@ private:
     void runPipelineAttach();
     void attemptPipelineAttach(const wa::pipeline_attach_ui::AttachRequest& request);
     void drawPipelineRoundDialog();
+    void drawExportCloseDialog();
     void runPipelineDetach();
     void runPipelineDetachAll();
     bool savePipelineCallLog(const std::wstring& destination = {});
@@ -253,7 +259,13 @@ private:
     bool pipelineRecord_ = false;
     wa::CallLogStore pipelineCallStore_;
     wa::pipeline_attach_ui::RoundTransition pipelineRoundTransition_;
-    bool pipelineExportBusy_ = false;
+    wa::CallLogExportJob pipelineExport_;
+    std::optional<wa::CallLogExportResult> pipelineExportCompleted_;
+    bool pipelineExportReveal_ = false;
+    wa::pipeline_attach_ui::ExportExitState exportExit_;
+    bool exportMetricsPending_ = false;
+    uint64_t exportElapsedUs_ = 0;
+    size_t exportWritten_ = 0;
     std::unordered_map<std::string, wa::PipelineAttachUiState> pipelineAttachUi_;
     std::unordered_map<std::string, std::string> pipelineAttachFailBanner_;
 

@@ -32,6 +32,7 @@ add_library(WinAudioCore STATIC
     EtwInitialize.cpp
     HookedCall.cpp
     CallLogStore.cpp
+    CallLogExportJob.cpp
     OnDemandAttach.cpp
     PipelineAttachSet.cpp
     PumpWindow.cpp
