@@ -1,0 +1,27 @@
+{
+    "source":  "7c853b0af85a3bbe8e76933a7d0946e9356a723a",
+    "executable":  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\bin\\Release\\WinAudioPerformanceGui.exe",
+    "executable_sha256":  "4EC3DFBAF134D8ABBE4BB2AA1A0FA293CABFEAC1F9EA5D56CF113948792DA5D9",
+    "configuration":  {
+                          "name":  "inspector-single-1",
+                          "records":  10000,
+                          "pids":  1,
+                          "mode":  "browse",
+                          "warmup":  30,
+                          "duration":  120
+                      },
+    "started":  "2026-10-24T14:28:29.3409651+08:00",
+    "workspace_status":  [
+                             " M docs/measurements/performance-acceptance/.gitattributes",
+                             " M docs/measurements/performance-acceptance/README.md",
+                             " M docs/measurements/performance-acceptance/inspector-implementation-notes.md",
+                             "?? .archify/",
+                             "?? _shots/",
+                             "?? docs/measurements/performance-acceptance/charts-acceptance-report.md",
+                             "?? docs/measurements/performance-acceptance/charts-after/",
+                             "?? docs/measurements/performance-acceptance/gui-checks/",
+                             "?? shots/"
+                         ],
+    "live_pids":  null,
+    "fixture_input_sha256":  "9A77A9859421770A48C67A2565A997ADE688CBAA5A65C0FDB6D178B48876C71F"
+}

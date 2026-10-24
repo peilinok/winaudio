@@ -61,6 +61,12 @@ inline std::string formatCallName(const HookedCall& c) {
     return name;
 }
 
+// Presentation only: matching and export continue to use the original summary.
+inline std::string singleLine(std::string text) {
+    for (auto& c : text) if (c == '\n' || c == '\r') c = ' ';
+    return text;
+}
+
 inline bool callMatches(const HookedCall& c, std::string_view filter) {
     if (filter.empty()) return true;
     if (fuzzyMatch(formatCallName(c), filter)) return true;
@@ -82,20 +88,13 @@ inline bool callMatches(const HookedCall& c, const FilterOpts& opts) {
     return callMatches(c, opts.text);
 }
 
-// Unique iface names, sorted case-insensitively for chip/combo UI.
-inline std::vector<std::string> uniqueIfaces(const std::vector<HookedCall>& calls) {
-    std::vector<std::string> out;
-    for (const auto& c : calls) {
-        if (c.iface.empty()) continue;
-        bool seen = false;
-        for (const auto& s : out) {
-            if (asciiEqualsIgnoreCase(s, c.iface)) {
-                seen = true;
-                break;
-            }
-        }
-        if (!seen) out.push_back(c.iface);
-    }
+inline void addIface(std::vector<std::string>& out, std::string_view iface) {
+    if (iface.empty()) return;
+    for (const auto& s : out) if (asciiEqualsIgnoreCase(s, iface)) return;
+    out.emplace_back(iface);
+}
+
+inline void sortIfaces(std::vector<std::string>& out) {
     std::sort(out.begin(), out.end(), [](const std::string& a, const std::string& b) {
         const size_t n = (std::min)(a.size(), b.size());
         for (size_t i = 0; i < n; ++i) {
@@ -105,6 +104,13 @@ inline std::vector<std::string> uniqueIfaces(const std::vector<HookedCall>& call
         }
         return a.size() < b.size();
     });
+}
+
+// Unique iface names, sorted case-insensitively for chip/combo UI.
+inline std::vector<std::string> uniqueIfaces(const std::vector<HookedCall>& calls) {
+    std::vector<std::string> out;
+    for (const auto& c : calls) addIface(out, c.iface);
+    sortIfaces(out);
     return out;
 }
 

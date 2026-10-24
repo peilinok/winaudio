@@ -1,0 +1,24 @@
+{
+    "source":  "2f0b37ce0c63bd97cc265c2b436e2270154fce3e",
+    "executable":  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-inspector-before-v2\\bin\\Release\\WinAudioPerformanceGui.exe",
+    "executable_sha256":  "5F8D0C8A7B16CE406EFB436874B151711B0457F7A2FFD5B6965F7B040F753640",
+    "configuration":  {
+                          "name":  "inspector-idle",
+                          "records":  10000,
+                          "pids":  2,
+                          "mode":  "idle",
+                          "warmup":  30,
+                          "duration":  600
+                      },
+    "started":  "2026-10-24T12:19:13.2238436+08:00",
+    "workspace_status":  [
+                             " M src/tests/test_heatmap_texture.cpp",
+                             "?? .archify/",
+                             "?? _shots/",
+                             "?? docs/measurements/performance-acceptance/inspector-baseline-report.md",
+                             "?? docs/measurements/performance-acceptance/inspector-implementation-notes.md",
+                             "?? shots/"
+                         ],
+    "live_pids":  null,
+    "fixture_input_sha256":  "B7006AEFFB8AB782F37C4B8E960910750E81C2B5FF636D12F24B40A8E8AE3D4F"
+}

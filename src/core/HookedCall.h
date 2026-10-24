@@ -19,6 +19,11 @@ const char* callArgDirName(uint8_t dir);
 
 inline constexpr size_t kDefaultPumpRingCap = 64;
 
+struct PumpCall {
+    uint64_t sequence = 0;
+    HookedCall call;
+};
+
 struct CallLogView {
     std::vector<HookedCall> entries;
     uint32_t pumpXruns = 0;
@@ -41,6 +46,7 @@ struct HookedInitializeExtract {
 };
 
 HookedInitializeExtract extractHookedInitializeDetailed(const std::vector<HookedCall>& calls);
+HookedInitializeExtract extractHookedInitializeRefs(const std::vector<const HookedCall*>& calls);
 
 // Hooked fields replace matching ETW fields when present.
 EtwInitializeHint mergeInitializeHint(const EtwInitializeHint& etw,

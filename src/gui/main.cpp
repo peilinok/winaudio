@@ -8,6 +8,9 @@
 // - Introduction, links and more at the top of imgui.cpp
 
 #include "AppUi.h"
+#ifdef WA_PERFORMANCE_FIXTURE
+#include "PerformanceFixture.h"
+#endif
 #include "GuiGpu.h"
 #include "Log.h"
 #include "imgui.h"
@@ -28,6 +31,7 @@ static IDXGISwapChain*          g_pSwapChain = nullptr;
 static bool                     g_SwapChainOccluded = false;
 static UINT                     g_ResizeWidth = 0, g_ResizeHeight = 0;
 static ID3D11RenderTargetView*  g_mainRenderTargetView = nullptr;
+static bool                     g_CloseRequested = false;
 
 // Forward declarations of helper functions
 bool CreateDeviceD3D(HWND hWnd);
@@ -36,15 +40,22 @@ void CreateRenderTarget();
 void CleanupRenderTarget();
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-static void writeFrameProbeRecords(FILE* file, const wa::FrameProbe& probe) {
-    char line[512];
+static bool writeFrameProbeRecords(FILE* file, const wa::FrameProbe& probe) {
+    char line[1536];
+    bool ok = true;
+    const auto emit = [&](int n) {
+        if (n > 0 && std::fwrite(line, 1, static_cast<size_t>(n), file) != static_cast<size_t>(n))
+            ok = false;
+    };
     for (int i = 0; i < static_cast<int>(wa::FrameSlice::Count); ++i) {
-        const int n = probe.formatLine(static_cast<wa::FrameSlice>(i), line,
-                                       static_cast<int>(sizeof(line)));
-        if (n > 0)
-            std::fwrite(line, 1, static_cast<size_t>(n), file);
+        if (i == static_cast<int>(wa::FrameSlice::ProbeIo)) continue;
+        emit(probe.formatLine(static_cast<wa::FrameSlice>(i), line, sizeof(line)));
     }
-    std::fflush(file);
+    for (size_t i = 0; i < probe.operationCount(); ++i)
+        emit(probe.formatOperation(i, line, sizeof(line)));
+    for (size_t i = 0; i < probe.workCount(); ++i)
+        emit(probe.formatWork(i, line, sizeof(line)));
+    return ok;
 }
 
 // Unset, empty, and "0" leave the probe off. Read once, before the frame loop.
@@ -111,7 +122,11 @@ int main(int, char**)
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     // WinAudio: UI (owns both engine and monitor engine)
+#ifdef WA_PERFORMANCE_FIXTURE
+    static AppUi ui(PerformanceFixture::exportWriter());
+#else
     static AppUi ui;
+#endif
     ui.setMainWindow(hwnd);
 
     // WinAudio: logging — file (winaudio.log, exe dir) + GUI panel via callback sink.
@@ -140,13 +155,23 @@ int main(int, char**)
     }
     ui.loadLogRegionPrefs();
     ui.loadProductionPhrases();
+#ifdef WA_PERFORMANCE_FIXTURE
+    const bool fixtureReady = PerformanceFixture::start(ui);
+#endif
 
     // Append records after Present. Failure leaves the probe off. Not wa::log:
     // a log line would be counted by the next frame's log-drain slice.
     FILE* frameProbeLog = nullptr;
+    const wchar_t* probePath = _wgetenv(L"WINAUDIO_FRAME_PROBE_PATH");
+    const char* probeFlush = std::getenv("WINAUDIO_FRAME_PROBE_FLUSH");
+    const bool flushEveryFrame = probeFlush && std::strcmp(probeFlush, "1") == 0;
     if (frameProbeRequested() &&
-        fopen_s(&frameProbeLog, "winaudio-frame-probe.log", "a") == 0 && frameProbeLog) {
+        _wfopen_s(&frameProbeLog, probePath && *probePath ? probePath : L"winaudio-frame-probe.log",
+                  L"a") == 0 && frameProbeLog) {
+        std::setvbuf(frameProbeLog, nullptr, _IOFBF, 1024 * 1024);
         ui.frameProbe().setEnabled(true);
+        const char* stage = std::getenv("WINAUDIO_FRAME_PROBE_STAGE");
+        if (stage && *stage) ui.frameProbe().setStage(stage);
         const char* header = wa::FrameProbe::headerLine();
         std::fwrite(header, 1, std::strlen(header), frameProbeLog);
         std::fflush(frameProbeLog);
@@ -154,6 +179,9 @@ int main(int, char**)
 
     // Main loop
     bool done = false;
+#ifdef WA_PERFORMANCE_FIXTURE
+    done = !fixtureReady;
+#endif
     while (!done)
     {
         // Poll and handle messages (inputs, window resize, etc.)
@@ -161,6 +189,9 @@ int main(int, char**)
         MSG msg;
         while (::PeekMessage(&msg, nullptr, 0U, 0U, PM_REMOVE))
         {
+            if (ui.frameProbe().enabled() &&
+                (msg.message == WM_LBUTTONDOWN || msg.message == WM_LBUTTONDBLCLK))
+                ui.frameProbe().noteInput(msg.message, ::GetTickCount() - msg.time);
             ::TranslateMessage(&msg);
             ::DispatchMessage(&msg);
             if (msg.message == WM_QUIT)
@@ -169,9 +200,15 @@ int main(int, char**)
         if (done)
             break;
 
+        if (g_CloseRequested) ui.requestClose();
+        if (ui.closeReady()) break;
+
         // Handle window being minimized or screen locked
         if (g_SwapChainOccluded && g_pSwapChain->Present(0, DXGI_PRESENT_TEST) == DXGI_STATUS_OCCLUDED)
         {
+            // Reap while hidden; publish UI completion on the next measured frame.
+            ui.pollBackground(false);
+            if (ui.closeReady()) break;
             ::Sleep(10);
             continue;
         }
@@ -187,19 +224,31 @@ int main(int, char**)
         }
 
         // Start the Dear ImGui frame
+#ifdef WA_PERFORMANCE_FIXTURE
+        if (!PerformanceFixture::advance(ui)) break;
+#endif
+        ui.frameProbe().beginFrame();
+        ui.pollBackground();
         ImGui_ImplDX11_NewFrame();
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
 
         // WinAudio: draw the application UI
-        ui.draw();
+        {
+            wa::FrameBracket uiBracket(ui.frameProbe(), wa::FrameSlice::Ui);
+            ui.draw();
+        }
 
         // Rendering
         ImGui::Render();
         const float clear_color_with_alpha[4] = { clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w };
         g_pd3dDeviceContext->OMSetRenderTargets(1, &g_mainRenderTargetView, nullptr);
         g_pd3dDeviceContext->ClearRenderTargetView(g_mainRenderTargetView, clear_color_with_alpha);
-        ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+        {
+            wa::FrameBracket drawBracket(ui.frameProbe(), wa::FrameSlice::DrawSubmit);
+            ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+        }
+        ui.frameProbe().endFrame();
 
         // Present(1, 0) only. The occluded Present(0, DXGI_PRESENT_TEST) above is not this slice.
         HRESULT hr = S_OK;
@@ -209,18 +258,46 @@ int main(int, char**)
         }
         //HRESULT hr = g_pSwapChain->Present(0, 0); // Present without vsync
         g_SwapChainOccluded = (hr == DXGI_STATUS_OCCLUDED);
-        if (frameProbeLog)
-            writeFrameProbeRecords(frameProbeLog, ui.frameProbe());
+        if (frameProbeLog) {
+            auto& probe = ui.frameProbe();
+            probe.begin(wa::FrameSlice::ProbeIo);
+            bool ok = writeFrameProbeRecords(frameProbeLog, probe);
+            if (flushEveryFrame && std::fflush(frameProbeLog) != 0) ok = false;
+            probe.end(wa::FrameSlice::ProbeIo);
+            // The timing trailer cannot include its own write; the full frame interval does.
+            char trailer[1536];
+            int n = probe.formatLine(wa::FrameSlice::ProbeIo, trailer, sizeof(trailer));
+            if (n > 0 && std::fwrite(trailer, 1, static_cast<size_t>(n), frameProbeLog) != static_cast<size_t>(n)) ok = false;
+            n = probe.formatFrame(trailer, sizeof(trailer));
+            if (n > 0 && std::fwrite(trailer, 1, static_cast<size_t>(n), frameProbeLog) != static_cast<size_t>(n)) ok = false;
+            if (!ok || std::ferror(frameProbeLog)) {
+                WA_LOG(wa::log::Level::Warn, "FrameProbe", "write", "records", "failed; measurement incomplete");
+                probe.setEnabled(false);
+                std::fclose(frameProbeLog);
+                frameProbeLog = nullptr;
+            }
+        }
     }
 
+    // Keep shutdown resource work separate from rendered workload frames.
+    ui.frameProbe().setStage("teardown");
+    ui.frameProbe().beginFrame();
+    ui.stopAll();
+    ui.releaseGpu();  // previous draw consumed its SRVs; device is still alive
+    ui.frameProbe().endFrame();
     if (frameProbeLog) {
-        std::fclose(frameProbeLog);
+        bool ok = writeFrameProbeRecords(frameProbeLog, ui.frameProbe());
+        char metadata[1536];
+        const int n = ui.frameProbe().formatFrame(metadata, sizeof(metadata));
+        if (n <= 0 || std::fwrite(metadata, 1, static_cast<size_t>(n), frameProbeLog) != static_cast<size_t>(n))
+            ok = false;
+        std::fprintf(frameProbeLog, "# End frame probe frame=%llu complete=%d\n",
+                     static_cast<unsigned long long>(ui.frameProbe().frameNumber()), ok ? 1 : 0);
+        if (std::fclose(frameProbeLog) != 0 || !ok)
+            WA_LOG(wa::log::Level::Warn, "FrameProbe", "close", "records", "failed; measurement incomplete");
         frameProbeLog = nullptr;
     }
 
-    // Join engines and the Live session watch before the window is destroyed.
-    ui.stopAll();
-    ui.releaseGpu();  // drop heatmap textures before the D3D device goes away
     wa::log::shutdown();   // flush + stop the logging pump before teardown
 
     // Cleanup
@@ -234,7 +311,11 @@ int main(int, char**)
     ::DestroyWindow(hwnd);
     ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
 
+#ifdef WA_PERFORMANCE_FIXTURE
+    return fixtureReady ? 0 : 2;
+#else
     return 0;
+#endif
 }
 
 // Helper functions
@@ -312,7 +393,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     switch (msg)
     {
     case WM_CLOSE:
-        ::PostQuitMessage(0);
+        g_CloseRequested = true;
         return 0;
     case WM_SIZE:
         if (wParam == SIZE_MINIMIZED)

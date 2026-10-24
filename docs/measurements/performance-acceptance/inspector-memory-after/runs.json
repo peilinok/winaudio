@@ -1,0 +1,1067 @@
+[
+  {
+    "name": "inspector-idle",
+    "config": {
+      "source": "7c853b0af85a3bbe8e76933a7d0946e9356a723a",
+      "executable": "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\bin\\Release\\WinAudioPerformanceGui.exe",
+      "executable_sha256": "4EC3DFBAF134D8ABBE4BB2AA1A0FA293CABFEAC1F9EA5D56CF113948792DA5D9",
+      "configuration": {
+        "name": "inspector-idle",
+        "records": 10000,
+        "pids": 2,
+        "mode": "idle",
+        "warmup": 30,
+        "duration": 600
+      },
+      "started": "2026-10-24T15:53:38.6065061+08:00",
+      "workspace_status": [
+        " M README.zh-CN.md",
+        " M docs/measurements/performance-acceptance/.gitattributes",
+        " M docs/measurements/performance-acceptance/README.md",
+        " M docs/measurements/performance-acceptance/implementation-log.md",
+        " M docs/measurements/performance-acceptance/inspector-implementation-notes.md",
+        "?? .archify/",
+        "?? _shots/",
+        "?? docs/measurements/performance-acceptance/charts-acceptance-report.md",
+        "?? docs/measurements/performance-acceptance/charts-after/",
+        "?? docs/measurements/performance-acceptance/gui-checks/",
+        "?? docs/measurements/performance-acceptance/inspector-acceptance-report.md",
+        "?? shots/"
+      ],
+      "live_pids": null,
+      "fixture_input_sha256": "B7006AEFFB8AB782F37C4B8E960910750E81C2B5FF636D12F24B40A8E8AE3D4F"
+    },
+    "groups": [
+      {
+        "scene": "Pipeline",
+        "stage": "idle",
+        "frame_count": 35970,
+        "first_frame": 1795,
+        "last_frame": 37764,
+        "main_thread_ms": {
+          "n": 35970,
+          "p50": 0.2181,
+          "p95": 0.313,
+          "p99": 0.397,
+          "maximum": 2.7047
+        },
+        "frame_interval_ms": {
+          "n": 35970,
+          "p50": 16.6792,
+          "p95": 17.2848,
+          "p99": 17.747,
+          "maximum": 21.604
+        },
+        "operation_response_ms": {
+          "n": 0,
+          "p50": null,
+          "p95": null,
+          "p99": null,
+          "maximum": null
+        },
+        "slices_ms": {
+          "heatmap-submit": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "waveform-envelope": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "log-drain": {
+            "n": 35970,
+            "p50": 0.0004,
+            "p95": 0.0006,
+            "p99": 0.0007,
+            "maximum": 0.0377
+          },
+          "present": {
+            "n": 35970,
+            "p50": 16.4134,
+            "p95": 17.0099,
+            "p99": 17.3478,
+            "maximum": 19.5342
+          },
+          "main-thread": {
+            "n": 35970,
+            "p50": 0.2181,
+            "p95": 0.313,
+            "p99": 0.397,
+            "maximum": 2.7047
+          },
+          "ui-build": {
+            "n": 35970,
+            "p50": 0.1716,
+            "p95": 0.2581,
+            "p99": 0.3293,
+            "maximum": 2.1632
+          },
+          "dx11-submit": {
+            "n": 35970,
+            "p50": 0.0172,
+            "p95": 0.0257,
+            "p99": 0.0455,
+            "maximum": 0.9948
+          },
+          "probe-io": {
+            "n": 35970,
+            "p50": 0.0268,
+            "p95": 0.0336,
+            "p99": 0.0619,
+            "maximum": 3.4069
+          },
+          "chart-refresh": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "fft": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "heatmap-fill": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "heatmap-upload": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "call-receive": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "call-sort": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "call-match": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "call-rows": {
+            "n": 35970,
+            "p50": 0.0322,
+            "p95": 0.0552,
+            "p99": 0.0755,
+            "maximum": 1.357
+          },
+          "graph-hint": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "export-start": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "spec-history": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          }
+        },
+        "work": {
+          "control-total:0:-1:-1": 359700000,
+          "control-capacity:0:-1:-1": 436603860,
+          "recording-copy-total:0:-1:-1": 0,
+          "presentation-copy-total:0:-1:-1": 0,
+          "pump-total:0:-1:-1": 0,
+          "call-matching-total:0:-1:-1": 359700000,
+          "call-query-bytes:0:-1:-1": 9248030880,
+          "control-sort-records:0:-1:-1": 0,
+          "control-match-records:0:-1:-1": 0,
+          "pump-match-records:0:-1:-1": 0,
+          "query-invalidated:0:-1:-1": 0,
+          "control-invalidated:0:-1:-1": 0,
+          "pump-invalidated:0:-1:-1": 0,
+          "call-row-submissions:0:-1:-1": 359700,
+          "call-row-visible:0:-1:-1": 359700
+        },
+        "operations_by_target_ms": {},
+        "work_per_frame": {
+          "control-total:0:-1:-1": {
+            "n": 35970,
+            "p50": 10000,
+            "p95": 10000,
+            "p99": 10000,
+            "maximum": 10000
+          },
+          "control-capacity:0:-1:-1": {
+            "n": 35970,
+            "p50": 12138,
+            "p95": 12138,
+            "p99": 12138,
+            "maximum": 12138
+          },
+          "recording-copy-total:0:-1:-1": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "presentation-copy-total:0:-1:-1": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "pump-total:0:-1:-1": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "call-matching-total:0:-1:-1": {
+            "n": 35970,
+            "p50": 10000,
+            "p95": 10000,
+            "p99": 10000,
+            "maximum": 10000
+          },
+          "call-query-bytes:0:-1:-1": {
+            "n": 35970,
+            "p50": 257104,
+            "p95": 257104,
+            "p99": 257104,
+            "maximum": 257104
+          },
+          "control-sort-records:0:-1:-1": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "control-match-records:0:-1:-1": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "pump-match-records:0:-1:-1": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "query-invalidated:0:-1:-1": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "control-invalidated:0:-1:-1": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "pump-invalidated:0:-1:-1": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "call-row-submissions:0:-1:-1": {
+            "n": 35970,
+            "p50": 10,
+            "p95": 10,
+            "p99": 10,
+            "maximum": 10
+          },
+          "call-row-visible:0:-1:-1": {
+            "n": 35970,
+            "p50": 10,
+            "p95": 10,
+            "p99": 10,
+            "maximum": 10
+          }
+        },
+        "frame_budget_met": true,
+        "operation_budget_met": null
+      },
+      {
+        "scene": "Pipeline",
+        "stage": "teardown",
+        "frame_count": 1,
+        "first_frame": 37765,
+        "last_frame": 37765,
+        "main_thread_ms": {
+          "n": 1,
+          "p50": 0.035,
+          "p95": 0.035,
+          "p99": 0.035,
+          "maximum": 0.035
+        },
+        "frame_interval_ms": {
+          "n": 1,
+          "p50": 17.0075,
+          "p95": 17.0075,
+          "p99": 17.0075,
+          "maximum": 17.0075
+        },
+        "operation_response_ms": {
+          "n": 0,
+          "p50": null,
+          "p95": null,
+          "p99": null,
+          "maximum": null
+        },
+        "slices_ms": {
+          "heatmap-submit": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "waveform-envelope": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "log-drain": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "present": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "main-thread": {
+            "n": 1,
+            "p50": 0.035,
+            "p95": 0.035,
+            "p99": 0.035,
+            "maximum": 0.035
+          },
+          "ui-build": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "dx11-submit": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "probe-io": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "chart-refresh": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "fft": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "heatmap-fill": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "heatmap-upload": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "call-receive": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "call-sort": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "call-match": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "call-rows": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "graph-hint": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "export-start": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "spec-history": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          }
+        },
+        "work": {},
+        "operations_by_target_ms": {},
+        "work_per_frame": {},
+        "frame_budget_met": null,
+        "operation_budget_met": null
+      }
+    ],
+    "raw_frame_sha256": "af66122b0720b8849500bb0fd21371cc7778a9d0bce4baa2149ee93b50754baa",
+    "process": {
+      "samples": 660,
+      "seconds": 599.8967458,
+      "cpu_ms_per_s": 43.60125335422348,
+      "private_bytes": {
+        "first": 122859520.0,
+        "last": 122966016.0,
+        "minimum": 122724352.0,
+        "maximum": 123064320.0
+      },
+      "working_set": {
+        "first": 118198272.0,
+        "last": 118767616.0,
+        "minimum": 118145024.0,
+        "maximum": 118800384.0
+      }
+    }
+  },
+  {
+    "name": "inspector-memory",
+    "config": {
+      "source": "7c853b0af85a3bbe8e76933a7d0946e9356a723a",
+      "executable": "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\bin\\Release\\WinAudioPerformanceGui.exe",
+      "executable_sha256": "4EC3DFBAF134D8ABBE4BB2AA1A0FA293CABFEAC1F9EA5D56CF113948792DA5D9",
+      "configuration": {
+        "name": "inspector-memory",
+        "records": 10000,
+        "pids": 2,
+        "mode": "memory",
+        "warmup": 30,
+        "duration": 600
+      },
+      "started": "2026-10-24T15:42:59.8306843+08:00",
+      "workspace_status": [
+        " M README.zh-CN.md",
+        " M docs/measurements/performance-acceptance/.gitattributes",
+        " M docs/measurements/performance-acceptance/README.md",
+        " M docs/measurements/performance-acceptance/implementation-log.md",
+        " M docs/measurements/performance-acceptance/inspector-implementation-notes.md",
+        "?? .archify/",
+        "?? _shots/",
+        "?? docs/measurements/performance-acceptance/charts-acceptance-report.md",
+        "?? docs/measurements/performance-acceptance/charts-after/",
+        "?? docs/measurements/performance-acceptance/gui-checks/",
+        "?? docs/measurements/performance-acceptance/inspector-acceptance-report.md",
+        "?? shots/"
+      ],
+      "live_pids": null,
+      "fixture_input_sha256": "B7006AEFFB8AB782F37C4B8E960910750E81C2B5FF636D12F24B40A8E8AE3D4F"
+    },
+    "groups": [
+      {
+        "scene": "Pipeline",
+        "stage": "memory",
+        "frame_count": 35970,
+        "first_frame": 1795,
+        "last_frame": 37764,
+        "main_thread_ms": {
+          "n": 35970,
+          "p50": 0.2212,
+          "p95": 0.3174,
+          "p99": 0.4279,
+          "maximum": 9.8992
+        },
+        "frame_interval_ms": {
+          "n": 35970,
+          "p50": 16.6797,
+          "p95": 17.2818,
+          "p99": 17.7279,
+          "maximum": 20.9014
+        },
+        "operation_response_ms": {
+          "n": 600,
+          "p50": 21.4877,
+          "p95": 32.2273,
+          "p99": 33.8452,
+          "maximum": 36.7109
+        },
+        "slices_ms": {
+          "heatmap-submit": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "waveform-envelope": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "log-drain": {
+            "n": 35970,
+            "p50": 0.0004,
+            "p95": 0.0006,
+            "p99": 0.0008,
+            "maximum": 0.0345
+          },
+          "present": {
+            "n": 35970,
+            "p50": 16.4114,
+            "p95": 16.9987,
+            "p99": 17.3127,
+            "maximum": 20.0504
+          },
+          "main-thread": {
+            "n": 35970,
+            "p50": 0.2212,
+            "p95": 0.3174,
+            "p99": 0.4279,
+            "maximum": 9.8992
+          },
+          "ui-build": {
+            "n": 35970,
+            "p50": 0.1744,
+            "p95": 0.2624,
+            "p99": 0.3551,
+            "maximum": 9.8574
+          },
+          "dx11-submit": {
+            "n": 35970,
+            "p50": 0.0172,
+            "p95": 0.0256,
+            "p99": 0.0457,
+            "maximum": 1.7174
+          },
+          "probe-io": {
+            "n": 35970,
+            "p50": 0.0267,
+            "p95": 0.0333,
+            "p99": 0.0617,
+            "maximum": 3.5695
+          },
+          "chart-refresh": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "fft": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "heatmap-fill": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "heatmap-upload": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "call-receive": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "call-sort": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "call-match": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 9.6378
+          },
+          "call-rows": {
+            "n": 35970,
+            "p50": 0.035,
+            "p95": 0.0601,
+            "p99": 0.0823,
+            "maximum": 1.1933
+          },
+          "graph-hint": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "export-start": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "spec-history": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          }
+        },
+        "work": {
+          "control-total:0:-1:-1": 359700000,
+          "control-capacity:0:-1:-1": 436603860,
+          "recording-copy-total:0:-1:-1": 0,
+          "presentation-copy-total:0:-1:-1": 0,
+          "pump-total:0:-1:-1": 0,
+          "call-matching-total:0:-1:-1": 317735000,
+          "call-query-bytes:0:-1:-1": 9248030880,
+          "control-sort-records:0:-1:-1": 0,
+          "control-match-records:0:-1:-1": 2000000,
+          "pump-match-records:0:-1:-1": 0,
+          "query-invalidated:0:-1:-1": 200,
+          "control-invalidated:0:-1:-1": 0,
+          "pump-invalidated:0:-1:-1": 0,
+          "call-row-submissions:0:-1:-1": 407800,
+          "call-row-visible:0:-1:-1": 392669
+        },
+        "operations_by_target_ms": {
+          "select-old": {
+            "n": 100,
+            "p50": 24.7835,
+            "p95": 32.2273,
+            "p99": 33.8582,
+            "maximum": 33.8929
+          },
+          "filter": {
+            "n": 100,
+            "p50": 15.627,
+            "p95": 22.5312,
+            "p99": 23.6735,
+            "maximum": 24.7014
+          },
+          "clear-filter": {
+            "n": 100,
+            "p50": 8.667,
+            "p95": 16.0455,
+            "p99": 17.1007,
+            "maximum": 17.3498
+          },
+          "scroll-calls": {
+            "n": 100,
+            "p50": 24.8405,
+            "p95": 32.8532,
+            "p99": 33.6848,
+            "maximum": 36.7109
+          },
+          "select-new": {
+            "n": 100,
+            "p50": 25.5873,
+            "p95": 32.2994,
+            "p99": 33.6828,
+            "maximum": 33.8452
+          },
+          "scroll-parameters": {
+            "n": 100,
+            "p50": 25.0333,
+            "p95": 33.243,
+            "p99": 34.011,
+            "maximum": 35.4688
+          }
+        },
+        "work_per_frame": {
+          "control-total:0:-1:-1": {
+            "n": 35970,
+            "p50": 10000,
+            "p95": 10000,
+            "p99": 10000,
+            "maximum": 10000
+          },
+          "control-capacity:0:-1:-1": {
+            "n": 35970,
+            "p50": 12138,
+            "p95": 12138,
+            "p99": 12138,
+            "maximum": 12138
+          },
+          "recording-copy-total:0:-1:-1": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "presentation-copy-total:0:-1:-1": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "pump-total:0:-1:-1": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "call-matching-total:0:-1:-1": {
+            "n": 35970,
+            "p50": 10000,
+            "p95": 10000,
+            "p99": 10000,
+            "maximum": 10000
+          },
+          "call-query-bytes:0:-1:-1": {
+            "n": 35970,
+            "p50": 257104,
+            "p95": 257104,
+            "p99": 257104,
+            "maximum": 257104
+          },
+          "control-sort-records:0:-1:-1": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "control-match-records:0:-1:-1": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 10000
+          },
+          "pump-match-records:0:-1:-1": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "query-invalidated:0:-1:-1": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 1
+          },
+          "control-invalidated:0:-1:-1": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "pump-invalidated:0:-1:-1": {
+            "n": 35970,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "call-row-submissions:0:-1:-1": {
+            "n": 35970,
+            "p50": 11,
+            "p95": 12,
+            "p99": 12,
+            "maximum": 13
+          },
+          "call-row-visible:0:-1:-1": {
+            "n": 35970,
+            "p50": 11,
+            "p95": 11,
+            "p99": 11,
+            "maximum": 11
+          }
+        },
+        "frame_budget_met": true,
+        "operation_budget_met": true
+      },
+      {
+        "scene": "Pipeline",
+        "stage": "teardown",
+        "frame_count": 1,
+        "first_frame": 37765,
+        "last_frame": 37765,
+        "main_thread_ms": {
+          "n": 1,
+          "p50": 0.0331,
+          "p95": 0.0331,
+          "p99": 0.0331,
+          "maximum": 0.0331
+        },
+        "frame_interval_ms": {
+          "n": 1,
+          "p50": 16.4908,
+          "p95": 16.4908,
+          "p99": 16.4908,
+          "maximum": 16.4908
+        },
+        "operation_response_ms": {
+          "n": 0,
+          "p50": null,
+          "p95": null,
+          "p99": null,
+          "maximum": null
+        },
+        "slices_ms": {
+          "heatmap-submit": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "waveform-envelope": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "log-drain": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "present": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "main-thread": {
+            "n": 1,
+            "p50": 0.0331,
+            "p95": 0.0331,
+            "p99": 0.0331,
+            "maximum": 0.0331
+          },
+          "ui-build": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "dx11-submit": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "probe-io": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "chart-refresh": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "fft": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "heatmap-fill": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "heatmap-upload": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "call-receive": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "call-sort": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "call-match": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "call-rows": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "graph-hint": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "export-start": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          },
+          "spec-history": {
+            "n": 1,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "maximum": 0
+          }
+        },
+        "work": {},
+        "operations_by_target_ms": {},
+        "work_per_frame": {},
+        "frame_budget_met": null,
+        "operation_budget_met": null
+      }
+    ],
+    "raw_frame_sha256": "f9c2f5dd1c5898f24bdd88e644c2c48605aca903ee151d193bd47a0a18272b6b",
+    "process": {
+      "samples": 660,
+      "seconds": 600.0727698999999,
+      "cpu_ms_per_s": 43.84884853946112,
+      "private_bytes": {
+        "first": 123117568.0,
+        "last": 123260928.0,
+        "minimum": 122896384.0,
+        "maximum": 123269120.0
+      },
+      "working_set": {
+        "first": 118288384.0,
+        "last": 118865920.0,
+        "minimum": 118194176.0,
+        "maximum": 118865920.0
+      }
+    }
+  }
+]

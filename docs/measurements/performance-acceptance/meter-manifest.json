@@ -1,0 +1,45 @@
+[
+  {
+    "file": "gui-meter-smoke.txt.gz",
+    "sha256": "30c4b0433aca59b27a8f70667144c9ab5aceae981e0c2d76c93bf8ffcac7e293",
+    "raw_sha256": "afa0fdb7b702140e1522fc2e9637966ab27ce68d1c26f8f9eb3d050a01f01e4b",
+    "raw_bytes": 4191201
+  },
+  {
+    "file": "meter-buffered.txt.gz",
+    "sha256": "e59c781bea64055a9b0773791a1e2a72cafdfa9924229ae26ad85bf465d9c98e",
+    "raw_sha256": "350dbe1cd7c7da526bca4f2f6286f20642e81ada879ef8db5875eb63d59d2606",
+    "raw_bytes": 9086115
+  },
+  {
+    "file": "meter-flush.txt.gz",
+    "sha256": "30debb2eaac185c31ea5d68c36c310b2377a50310e76830f9205af8831f0cc52",
+    "raw_sha256": "50d93b7b0486beec6df096980612d362200cc33e1a65f0f09f811e558ea2d589",
+    "raw_bytes": 9993113
+  },
+  {
+    "file": "gui-meter-smoke.json",
+    "sha256": "a26a28cb08b2ed8405e7d4e49414ba780f90e50b5babfd0dc40eb84298892722",
+    "bytes": 14301
+  },
+  {
+    "file": "meter-summary.json",
+    "sha256": "bdbdbd6dd977e7287ad6afddba19224f63bba3f620ae4e9a8da446a4f2a238e0",
+    "bytes": 10747
+  },
+  {
+    "file": "meter-off-process.csv",
+    "sha256": "68ac4c2283cf27252b12472bd8d7e0e854dec405ee7e347036814b1ce8107163",
+    "bytes": 5907
+  },
+  {
+    "file": "meter-buffered-process.csv",
+    "sha256": "aefe414af2d8535f469b4c280154cd335079b3231fe50cfec4548c2f0caa3e28",
+    "bytes": 6198
+  },
+  {
+    "file": "meter-flush-process.csv",
+    "sha256": "63f956151ae7a2cdd084bacdfbeb03bb97ff744a8845eaf5ea626e536a7d9989",
+    "bytes": 6026
+  }
+]

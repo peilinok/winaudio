@@ -1,4 +1,5 @@
 #include "PipelineAttachSet.h"
+#include "CallLogStore.h"
 #include <windows.h>
 #include <algorithm>
 
@@ -57,15 +58,19 @@ std::vector<uint32_t> PipelineAttachSet::attachedPids() const {
 
 std::vector<HookedCall> PipelineAttachSet::drainAll() {
     std::vector<HookedCall> out;
-    for (auto& kv : byPid_) {
-        if (!kv.second || !kv.second->attached()) continue;
-        auto chunk = kv.second->drain();
+    for (const auto pid : attachedPids()) {
+        auto chunk = byPid_.at(pid)->drain();
         for (auto& c : chunk) {
-            if (c.pid == 0) c.pid = kv.first;
+            c.pid = pid;
             out.push_back(std::move(c));
         }
     }
     return out;
+}
+
+void PipelineAttachSet::updatePump(CallLogStore& store) const {
+    for (const auto pid : attachedPids())
+        store.updatePump(store.activeAttach(pid), byPid_.at(pid)->pumpWindow());
 }
 
 std::vector<HookedCall> PipelineAttachSet::pumpRingAll() const {
@@ -79,6 +84,13 @@ std::vector<HookedCall> PipelineAttachSet::pumpRingAll() const {
         }
     }
     return out;
+}
+
+uint64_t PipelineAttachSet::droppedControlCalls() const {
+    uint64_t total = 0;
+    for (const auto& kv : byPid_)
+        if (kv.second && kv.second->attached()) total += kv.second->droppedControlCalls();
+    return total;
 }
 
 uint32_t PipelineAttachSet::pumpXrunsSum() const {

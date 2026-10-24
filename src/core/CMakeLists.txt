@@ -32,8 +32,10 @@ add_library(WinAudioCore STATIC
     EtwInitialize.cpp
     HookedCall.cpp
     CallLogStore.cpp
+    CallLogExportJob.cpp
     OnDemandAttach.cpp
     PipelineAttachSet.cpp
+    PumpWindow.cpp
 )
 target_include_directories(WinAudioCore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(WinAudioCore PUBLIC ole32 oleaut32 mmdevapi tdh advapi32 shell32 spdlog)

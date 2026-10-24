@@ -1,0 +1,587 @@
+; MSVC 19.51.36257.0 /O2 /FAs, no /GL; x64
+; Full listing SHA256: 0d6131e61141d8deb45b77821a3a1f763996c99a73f64fd90909ccb1c1ea1717
+; Instructions from the production translation unit; source comments omitted.
+
+?shouldEmit@?A0xc744a5b1@@YA_N_N@Z PROC			; `anonymous namespace'::shouldEmit, COMDAT
+	cmp	QWORD PTR ?g_ring@?A0xc744a5b1@@3PEAURing@hook_ipc@wa@@EA, 0 ; `anonymous namespace'::g_ring
+	je	SHORT $LN3@shouldEmit
+	mov	eax, DWORD PTR ?g_quiet@?A0xc744a5b1@@3JC ; `anonymous namespace'::g_quiet
+	test	eax, eax
+	jne	SHORT $LN3@shouldEmit
+	mov	rax, QWORD PTR ?g_ring@?A0xc744a5b1@@3PEAURing@hook_ipc@wa@@EA ; `anonymous namespace'::g_ring
+	mov	edx, DWORD PTR [rax+36]
+	test	edx, edx
+	je	SHORT $LN3@shouldEmit
+	test	cl, cl
+	je	SHORT $LN4@shouldEmit
+	mov	rax, QWORD PTR ?g_ring@?A0xc744a5b1@@3PEAURing@hook_ipc@wa@@EA ; `anonymous namespace'::g_ring
+	mov	ecx, DWORD PTR [rax+16]
+	test	ecx, ecx
+	je	SHORT $LN3@shouldEmit
+$LN4@shouldEmit:
+	mov	al, 1
+	ret	0
+$LN3@shouldEmit:
+	xor	al, al
+	ret	0
+?shouldEmit@?A0xc744a5b1@@YA_N_N@Z ENDP			; `anonymous namespace'::shouldEmit
+
+?emit@?A0xc744a5b1@@YAXUCallPod@hook_ipc@wa@@@Z PROC	; `anonymous namespace'::emit, COMDAT
+	push	rbx
+	sub	rsp, 48					; 00000030H
+	mov	rax, QWORD PTR __security_cookie
+	xor	rax, rsp
+	mov	QWORD PTR __$ArrayPad$[rsp], rax
+	cmp	QWORD PTR ?g_ring@?A0xc744a5b1@@3PEAURing@hook_ipc@wa@@EA, 0 ; `anonymous namespace'::g_ring
+	mov	rbx, rcx
+	je	$LN1@emit
+	mov	eax, DWORD PTR ?g_quiet@?A0xc744a5b1@@3JC ; `anonymous namespace'::g_quiet
+	test	eax, eax
+	jne	$LN1@emit
+	mov	rax, QWORD PTR ?g_ring@?A0xc744a5b1@@3PEAURing@hook_ipc@wa@@EA ; `anonymous namespace'::g_ring
+	mov	ecx, DWORD PTR [rax+36]
+	test	ecx, ecx
+	je	$LN1@emit
+	cmp	BYTE PTR [rbx+292], 0
+	je	SHORT $LN23@emit
+	mov	rax, QWORD PTR ?g_ring@?A0xc744a5b1@@3PEAURing@hook_ipc@wa@@EA ; `anonymous namespace'::g_ring
+	mov	ecx, DWORD PTR [rax+16]
+	test	ecx, ecx
+	je	$LN1@emit
+$LN23@emit:
+	lea	rcx, QWORD PTR ft$1[rsp]
+	mov	QWORD PTR ft$1[rsp], 0
+	call	QWORD PTR __imp_GetSystemTimeAsFileTime
+	mov	eax, DWORD PTR ft$1[rsp]
+	mov	ecx, DWORD PTR ft$1[rsp+4]
+	shl	rcx, 32					; 00000020H
+	or	rcx, rax
+	mov	rax, 3777893186295716171		; 346dc5d63886594bH
+	mul	rcx
+	mov	rax, 11644473600000			; 00000a9730b66800H
+	shr	rdx, 11
+	sub	rdx, rax
+	cmp	BYTE PTR [rbx+292], 0
+	mov	QWORD PTR [rbx+8], rdx
+	je	$LN3@emit
+	cmp	BYTE PTR [rbx+293], 0
+	je	SHORT $LN4@emit
+	mov	rax, QWORD PTR ?g_ring@?A0xc744a5b1@@3PEAURing@hook_ipc@wa@@EA ; `anonymous namespace'::g_ring
+	lock inc DWORD PTR [rax+24]
+$LN4@emit:
+	mov	rax, QWORD PTR ?g_ring@?A0xc744a5b1@@3PEAURing@hook_ipc@wa@@EA ; `anonymous namespace'::g_ring
+	mov	ecx, 1
+	lock xadd DWORD PTR [rax+20], ecx
+	mov	rdx, QWORD PTR ?g_ring@?A0xc744a5b1@@3PEAURing@hook_ipc@wa@@EA ; `anonymous namespace'::g_ring
+	mov	eax, ecx
+	and	eax, 63					; 0000003fH
+	add	rdx, 2130472				; 00208228H
+	imul	rcx, rax, 1040				; 00000410H
+	mov	eax, 8
+	add	rdx, rcx
+	npad	6
+$LL25@emit:
+	lea	rdx, QWORD PTR [rdx+128]
+	movups	xmm0, XMMWORD PTR [rbx]
+	movups	xmm1, XMMWORD PTR [rbx+16]
+	lea	rbx, QWORD PTR [rbx+128]
+	movups	XMMWORD PTR [rdx-128], xmm0
+	movups	xmm0, XMMWORD PTR [rbx-96]
+	movups	XMMWORD PTR [rdx-112], xmm1
+	movups	xmm1, XMMWORD PTR [rbx-80]
+	movups	XMMWORD PTR [rdx-96], xmm0
+	movups	xmm0, XMMWORD PTR [rbx-64]
+	movups	XMMWORD PTR [rdx-80], xmm1
+	movups	xmm1, XMMWORD PTR [rbx-48]
+	movups	XMMWORD PTR [rdx-64], xmm0
+	movups	xmm0, XMMWORD PTR [rbx-32]
+	movups	XMMWORD PTR [rdx-48], xmm1
+	movups	xmm1, XMMWORD PTR [rbx-16]
+	movups	XMMWORD PTR [rdx-32], xmm0
+	movups	XMMWORD PTR [rdx-16], xmm1
+	sub	rax, 1
+	jne	SHORT $LL25@emit
+	jmp	$LN34@emit
+$LN3@emit:
+	mov	rax, QWORD PTR ?g_ring@?A0xc744a5b1@@3PEAURing@hook_ipc@wa@@EA ; `anonymous namespace'::g_ring
+	mov	ecx, 1
+	lock xadd DWORD PTR [rax+4], ecx
+	mov	rdx, QWORD PTR ?g_ring@?A0xc744a5b1@@3PEAURing@hook_ipc@wa@@EA ; `anonymous namespace'::g_ring
+	mov	eax, ecx
+	and	eax, 2047				; 000007ffH
+	add	rdx, 552				; 00000228H
+	imul	rcx, rax, 1040				; 00000410H
+	mov	eax, 8
+	add	rdx, rcx
+	npad	3
+$LL24@emit:
+	lea	rdx, QWORD PTR [rdx+128]
+	movups	xmm0, XMMWORD PTR [rbx]
+	movups	xmm1, XMMWORD PTR [rbx+16]
+	lea	rbx, QWORD PTR [rbx+128]
+	movups	XMMWORD PTR [rdx-128], xmm0
+	movups	xmm0, XMMWORD PTR [rbx-96]
+	movups	XMMWORD PTR [rdx-112], xmm1
+	movups	xmm1, XMMWORD PTR [rbx-80]
+	movups	XMMWORD PTR [rdx-96], xmm0
+	movups	xmm0, XMMWORD PTR [rbx-64]
+	movups	XMMWORD PTR [rdx-80], xmm1
+	movups	xmm1, XMMWORD PTR [rbx-48]
+	movups	XMMWORD PTR [rdx-64], xmm0
+	movups	xmm0, XMMWORD PTR [rbx-32]
+	movups	XMMWORD PTR [rdx-48], xmm1
+	movups	xmm1, XMMWORD PTR [rbx-16]
+	movups	XMMWORD PTR [rdx-32], xmm0
+	movups	XMMWORD PTR [rdx-16], xmm1
+	sub	rax, 1
+	jne	SHORT $LL24@emit
+$LN34@emit:
+	movups	xmm0, XMMWORD PTR [rbx]
+	movups	XMMWORD PTR [rdx], xmm0
+$LN1@emit:
+	mov	rcx, QWORD PTR __$ArrayPad$[rsp]
+	xor	rcx, rsp
+	call	__security_check_cookie
+	add	rsp, 48					; 00000030H
+	pop	rbx
+	ret	0
+?emit@?A0xc744a5b1@@YAXUCallPod@hook_ipc@wa@@@Z ENDP	; `anonymous namespace'::emit
+
+?HookCapGetBuffer@?A0xc744a5b1@@YAJPEAUIAudioCaptureClient@@PEAPEAEPEAIPEAKPEA_K4@Z PROC ; `anonymous namespace'::HookCapGetBuffer, COMDAT
+	push	rbx
+	push	rbp
+	push	rsi
+	push	rdi
+	sub	rsp, 2152				; 00000868H
+	mov	rax, QWORD PTR __security_cookie
+	xor	rax, rsp
+	mov	QWORD PTR __$ArrayPad$[rsp], rax
+	mov	rax, QWORD PTR ?g_capGet@?A0xc744a5b1@@3P6AJPEAUIAudioCaptureClient@@PEAPEAEPEAIPEAKPEA_K4@ZEA ; `anonymous namespace'::g_capGet
+	mov	rdi, r8
+	mov	r8, QWORD PTR qpc$[rsp]
+	mov	rbp, rcx
+	mov	rcx, QWORD PTR pos$[rsp]
+	mov	rsi, r9
+	test	rax, rax
+	je	SHORT $LN4@HookCapGet
+	mov	QWORD PTR [rsp+40], r8
+	mov	r8, rdi
+	mov	QWORD PTR [rsp+32], rcx
+	mov	rcx, rbp
+	call	rax
+	mov	ebx, eax
+	jmp	SHORT $LN5@HookCapGet
+$LN4@HookCapGet:
+	mov	ebx, -2147418113			; ffffffff8000ffffH
+$LN5@HookCapGet:
+	cmp	QWORD PTR ?g_ring@?A0xc744a5b1@@3PEAURing@hook_ipc@wa@@EA, 0 ; `anonymous namespace'::g_ring
+	je	$LN14@HookCapGet
+	mov	eax, DWORD PTR ?g_quiet@?A0xc744a5b1@@3JC ; `anonymous namespace'::g_quiet
+	test	eax, eax
+	jne	$LN14@HookCapGet
+	mov	rax, QWORD PTR ?g_ring@?A0xc744a5b1@@3PEAURing@hook_ipc@wa@@EA ; `anonymous namespace'::g_ring
+	mov	ecx, DWORD PTR [rax+36]
+	test	ecx, ecx
+	je	$LN14@HookCapGet
+	mov	rax, QWORD PTR ?g_ring@?A0xc744a5b1@@3PEAURing@hook_ipc@wa@@EA ; `anonymous namespace'::g_ring
+	mov	ecx, DWORD PTR [rax+16]
+	test	ecx, ecx
+	je	$LN14@HookCapGet
+	xor	edx, edx
+	lea	rcx, QWORD PTR p$[rsp+4]
+	mov	r8d, 288				; 00000120H
+	call	memset
+	xor	edx, edx
+	lea	rcx, QWORD PTR p$[rsp+293]
+	mov	r8d, 747				; 000002ebH
+	call	memset
+	mov	r9, -1
+	mov	DWORD PTR p$[rsp], ebp
+	lea	r8, OFFSET FLAT:??_C@_0BE@DBFAFHJN@IAudioCaptureClient@
+	mov	BYTE PTR p$[rsp+292], 1
+	mov	edx, 40					; 00000028H
+	lea	rcx, QWORD PTR p$[rsp+16]
+	call	strncpy_s
+	mov	r9, -1
+	lea	r8, OFFSET FLAT:??_C@_09INKMBAHO@GetBuffer@
+	mov	edx, 40					; 00000028H
+	lea	rcx, QWORD PTR p$[rsp+56]
+	call	strncpy_s
+	test	ebx, ebx
+	js	SHORT $LN6@HookCapGet
+	test	rdi, rdi
+	je	SHORT $LN6@HookCapGet
+	mov	r8d, DWORD PTR [rdi]
+	jmp	SHORT $LN7@HookCapGet
+$LN6@HookCapGet:
+	xor	r8d, r8d
+$LN7@HookCapGet:
+	test	rsi, rsi
+	je	SHORT $LN8@HookCapGet
+	mov	edi, DWORD PTR [rsi]
+	jmp	SHORT $LN9@HookCapGet
+$LN8@HookCapGet:
+	xor	edi, edi
+$LN9@HookCapGet:
+	mov	r9d, edi
+	lea	rdx, OFFSET FLAT:??_C@_0BG@OPADICL@frames?$DN?$CFu?5flags?$DN0x?$CFlX@
+	lea	rcx, QWORD PTR p$[rsp+96]
+	call	??$sprintf_s@$0MA@@@YAHAEAY0MA@DPEBDZZ	; sprintf_s<192>
+	mov	DWORD PTR p$[rsp+288], ebx
+	test	ebx, ebx
+	js	SHORT $LN10@HookCapGet
+	mov	BYTE PTR p$[rsp+293], 0
+	test	dil, 1
+	je	SHORT $LN11@HookCapGet
+$LN10@HookCapGet:
+	mov	BYTE PTR p$[rsp+293], 1
+$LN11@HookCapGet:
+	lea	rcx, QWORD PTR $T1[rsp]
+	mov	edx, 8
+	lea	rax, QWORD PTR p$[rsp]
+	npad	3
+$LL40@HookCapGet:
+	lea	rcx, QWORD PTR [rcx+128]
+	movups	xmm0, XMMWORD PTR [rax]
+	movups	xmm1, XMMWORD PTR [rax+16]
+	lea	rax, QWORD PTR [rax+128]
+	movups	XMMWORD PTR [rcx-128], xmm0
+	movups	xmm0, XMMWORD PTR [rax-96]
+	movups	XMMWORD PTR [rcx-112], xmm1
+	movups	xmm1, XMMWORD PTR [rax-80]
+	movups	XMMWORD PTR [rcx-96], xmm0
+	movups	xmm0, XMMWORD PTR [rax-64]
+	movups	XMMWORD PTR [rcx-80], xmm1
+	movups	xmm1, XMMWORD PTR [rax-48]
+	movups	XMMWORD PTR [rcx-64], xmm0
+	movups	xmm0, XMMWORD PTR [rax-32]
+	movups	XMMWORD PTR [rcx-48], xmm1
+	movups	xmm1, XMMWORD PTR [rax-16]
+	movups	XMMWORD PTR [rcx-32], xmm0
+	movups	XMMWORD PTR [rcx-16], xmm1
+	sub	rdx, 1
+	jne	SHORT $LL40@HookCapGet
+	movups	xmm0, XMMWORD PTR [rax]
+	movups	XMMWORD PTR [rcx], xmm0
+	lea	rcx, QWORD PTR $T1[rsp]
+	call	?emit@?A0xc744a5b1@@YAXUCallPod@hook_ipc@wa@@@Z ; `anonymous namespace'::emit
+$LN14@HookCapGet:
+	mov	eax, ebx
+	mov	rcx, QWORD PTR __$ArrayPad$[rsp]
+	xor	rcx, rsp
+	call	__security_check_cookie
+	add	rsp, 2152				; 00000868H
+	pop	rdi
+	pop	rsi
+	pop	rbp
+	pop	rbx
+	ret	0
+?HookCapGetBuffer@?A0xc744a5b1@@YAJPEAUIAudioCaptureClient@@PEAPEAEPEAIPEAKPEA_K4@Z ENDP ; `anonymous namespace'::HookCapGetBuffer
+
+?HookCapReleaseBuffer@?A0xc744a5b1@@YAJPEAUIAudioCaptureClient@@I@Z PROC ; `anonymous namespace'::HookCapReleaseBuffer, COMDAT
+	mov	QWORD PTR [rsp+24], rbx
+	mov	QWORD PTR [rsp+32], rsi
+	push	rdi
+	sub	rsp, 2128				; 00000850H
+	mov	rax, QWORD PTR __security_cookie
+	xor	rax, rsp
+	mov	QWORD PTR __$ArrayPad$[rsp], rax
+	mov	rax, QWORD PTR ?g_capRel@?A0xc744a5b1@@3P6AJPEAUIAudioCaptureClient@@I@ZEA ; `anonymous namespace'::g_capRel
+	mov	esi, edx
+	mov	rdi, rcx
+	test	rax, rax
+	je	SHORT $LN4@HookCapRel
+	call	rax
+	mov	ebx, eax
+	jmp	SHORT $LN5@HookCapRel
+$LN4@HookCapRel:
+	mov	ebx, -2147418113			; ffffffff8000ffffH
+$LN5@HookCapRel:
+	cmp	QWORD PTR ?g_ring@?A0xc744a5b1@@3PEAURing@hook_ipc@wa@@EA, 0 ; `anonymous namespace'::g_ring
+	je	$LN8@HookCapRel
+	mov	eax, DWORD PTR ?g_quiet@?A0xc744a5b1@@3JC ; `anonymous namespace'::g_quiet
+	test	eax, eax
+	jne	$LN8@HookCapRel
+	mov	rax, QWORD PTR ?g_ring@?A0xc744a5b1@@3PEAURing@hook_ipc@wa@@EA ; `anonymous namespace'::g_ring
+	mov	ecx, DWORD PTR [rax+36]
+	test	ecx, ecx
+	je	$LN8@HookCapRel
+	mov	rax, QWORD PTR ?g_ring@?A0xc744a5b1@@3PEAURing@hook_ipc@wa@@EA ; `anonymous namespace'::g_ring
+	mov	ecx, DWORD PTR [rax+16]
+	test	ecx, ecx
+	je	$LN8@HookCapRel
+	xor	edx, edx
+	lea	rcx, QWORD PTR p$[rsp+4]
+	mov	r8d, 288				; 00000120H
+	call	memset
+	xor	edx, edx
+	lea	rcx, QWORD PTR p$[rsp+293]
+	mov	r8d, 747				; 000002ebH
+	call	memset
+	mov	r9, -1
+	mov	DWORD PTR p$[rsp], edi
+	lea	r8, OFFSET FLAT:??_C@_0BE@DBFAFHJN@IAudioCaptureClient@
+	mov	BYTE PTR p$[rsp+292], 1
+	mov	edx, 40					; 00000028H
+	lea	rcx, QWORD PTR p$[rsp+16]
+	call	strncpy_s
+	mov	r9, -1
+	lea	r8, OFFSET FLAT:??_C@_0O@ELHHAFJI@ReleaseBuffer@
+	mov	edx, 40					; 00000028H
+	lea	rcx, QWORD PTR p$[rsp+56]
+	call	strncpy_s
+	mov	r8d, esi
+	lea	rdx, OFFSET FLAT:??_C@_09GADNKINP@frames?$DN?$CFu@
+	lea	rcx, QWORD PTR p$[rsp+96]
+	call	??$sprintf_s@$0MA@@@YAHAEAY0MA@DPEBDZZ	; sprintf_s<192>
+	mov	eax, ebx
+	mov	DWORD PTR p$[rsp+288], ebx
+	shr	eax, 31
+	lea	rcx, QWORD PTR $T1[rsp]
+	mov	BYTE PTR p$[rsp+293], al
+	mov	edx, 8
+	lea	rax, QWORD PTR p$[rsp]
+	npad	11
+$LL34@HookCapRel:
+	lea	rcx, QWORD PTR [rcx+128]
+	movups	xmm0, XMMWORD PTR [rax]
+	movups	xmm1, XMMWORD PTR [rax+16]
+	lea	rax, QWORD PTR [rax+128]
+	movups	XMMWORD PTR [rcx-128], xmm0
+	movups	xmm0, XMMWORD PTR [rax-96]
+	movups	XMMWORD PTR [rcx-112], xmm1
+	movups	xmm1, XMMWORD PTR [rax-80]
+	movups	XMMWORD PTR [rcx-96], xmm0
+	movups	xmm0, XMMWORD PTR [rax-64]
+	movups	XMMWORD PTR [rcx-80], xmm1
+	movups	xmm1, XMMWORD PTR [rax-48]
+	movups	XMMWORD PTR [rcx-64], xmm0
+	movups	xmm0, XMMWORD PTR [rax-32]
+	movups	XMMWORD PTR [rcx-48], xmm1
+	movups	xmm1, XMMWORD PTR [rax-16]
+	movups	XMMWORD PTR [rcx-32], xmm0
+	movups	XMMWORD PTR [rcx-16], xmm1
+	sub	rdx, 1
+	jne	SHORT $LL34@HookCapRel
+	movups	xmm0, XMMWORD PTR [rax]
+	movups	XMMWORD PTR [rcx], xmm0
+	lea	rcx, QWORD PTR $T1[rsp]
+	call	?emit@?A0xc744a5b1@@YAXUCallPod@hook_ipc@wa@@@Z ; `anonymous namespace'::emit
+$LN8@HookCapRel:
+	mov	eax, ebx
+	mov	rcx, QWORD PTR __$ArrayPad$[rsp]
+	xor	rcx, rsp
+	call	__security_check_cookie
+	lea	r11, QWORD PTR [rsp+2128]
+	mov	rbx, QWORD PTR [r11+32]
+	mov	rsi, QWORD PTR [r11+40]
+	mov	rsp, r11
+	pop	rdi
+	ret	0
+?HookCapReleaseBuffer@?A0xc744a5b1@@YAJPEAUIAudioCaptureClient@@I@Z ENDP ; `anonymous namespace'::HookCapReleaseBuffer
+
+?HookRenGetBuffer@?A0xc744a5b1@@YAJPEAUIAudioRenderClient@@IPEAPEAE@Z PROC ; `anonymous namespace'::HookRenGetBuffer, COMDAT
+	push	rbx
+	push	rsi
+	push	rdi
+	sub	rsp, 2128				; 00000850H
+	mov	rax, QWORD PTR __security_cookie
+	xor	rax, rsp
+	mov	QWORD PTR __$ArrayPad$[rsp], rax
+	mov	rax, QWORD PTR ?g_renGet@?A0xc744a5b1@@3P6AJPEAUIAudioRenderClient@@IPEAPEAE@ZEA ; `anonymous namespace'::g_renGet
+	mov	esi, edx
+	mov	rdi, rcx
+	test	rax, rax
+	je	SHORT $LN4@HookRenGet
+	call	rax
+	mov	ebx, eax
+	jmp	SHORT $LN5@HookRenGet
+$LN4@HookRenGet:
+	mov	ebx, -2147418113			; ffffffff8000ffffH
+$LN5@HookRenGet:
+	cmp	QWORD PTR ?g_ring@?A0xc744a5b1@@3PEAURing@hook_ipc@wa@@EA, 0 ; `anonymous namespace'::g_ring
+	je	$LN8@HookRenGet
+	mov	eax, DWORD PTR ?g_quiet@?A0xc744a5b1@@3JC ; `anonymous namespace'::g_quiet
+	test	eax, eax
+	jne	$LN8@HookRenGet
+	mov	rax, QWORD PTR ?g_ring@?A0xc744a5b1@@3PEAURing@hook_ipc@wa@@EA ; `anonymous namespace'::g_ring
+	mov	ecx, DWORD PTR [rax+36]
+	test	ecx, ecx
+	je	$LN8@HookRenGet
+	mov	rax, QWORD PTR ?g_ring@?A0xc744a5b1@@3PEAURing@hook_ipc@wa@@EA ; `anonymous namespace'::g_ring
+	mov	ecx, DWORD PTR [rax+16]
+	test	ecx, ecx
+	je	$LN8@HookRenGet
+	xor	edx, edx
+	lea	rcx, QWORD PTR p$[rsp+4]
+	mov	r8d, 288				; 00000120H
+	call	memset
+	xor	edx, edx
+	lea	rcx, QWORD PTR p$[rsp+293]
+	mov	r8d, 747				; 000002ebH
+	call	memset
+	mov	r9, -1
+	mov	DWORD PTR p$[rsp], edi
+	lea	r8, OFFSET FLAT:??_C@_0BD@BABBDBEI@IAudioRenderClient@
+	mov	BYTE PTR p$[rsp+292], 1
+	mov	edx, 40					; 00000028H
+	lea	rcx, QWORD PTR p$[rsp+16]
+	call	strncpy_s
+	mov	r9, -1
+	lea	r8, OFFSET FLAT:??_C@_09INKMBAHO@GetBuffer@
+	mov	edx, 40					; 00000028H
+	lea	rcx, QWORD PTR p$[rsp+56]
+	call	strncpy_s
+	mov	r8d, esi
+	lea	rdx, OFFSET FLAT:??_C@_09GADNKINP@frames?$DN?$CFu@
+	lea	rcx, QWORD PTR p$[rsp+96]
+	call	??$sprintf_s@$0MA@@@YAHAEAY0MA@DPEBDZZ	; sprintf_s<192>
+	mov	eax, ebx
+	mov	DWORD PTR p$[rsp+288], ebx
+	shr	eax, 31
+	lea	rcx, QWORD PTR $T1[rsp]
+	mov	BYTE PTR p$[rsp+293], al
+	mov	edx, 8
+	lea	rax, QWORD PTR p$[rsp]
+	npad	2
+$LL34@HookRenGet:
+	lea	rcx, QWORD PTR [rcx+128]
+	movups	xmm0, XMMWORD PTR [rax]
+	movups	xmm1, XMMWORD PTR [rax+16]
+	lea	rax, QWORD PTR [rax+128]
+	movups	XMMWORD PTR [rcx-128], xmm0
+	movups	xmm0, XMMWORD PTR [rax-96]
+	movups	XMMWORD PTR [rcx-112], xmm1
+	movups	xmm1, XMMWORD PTR [rax-80]
+	movups	XMMWORD PTR [rcx-96], xmm0
+	movups	xmm0, XMMWORD PTR [rax-64]
+	movups	XMMWORD PTR [rcx-80], xmm1
+	movups	xmm1, XMMWORD PTR [rax-48]
+	movups	XMMWORD PTR [rcx-64], xmm0
+	movups	xmm0, XMMWORD PTR [rax-32]
+	movups	XMMWORD PTR [rcx-48], xmm1
+	movups	xmm1, XMMWORD PTR [rax-16]
+	movups	XMMWORD PTR [rcx-32], xmm0
+	movups	XMMWORD PTR [rcx-16], xmm1
+	sub	rdx, 1
+	jne	SHORT $LL34@HookRenGet
+	movups	xmm0, XMMWORD PTR [rax]
+	movups	XMMWORD PTR [rcx], xmm0
+	lea	rcx, QWORD PTR $T1[rsp]
+	call	?emit@?A0xc744a5b1@@YAXUCallPod@hook_ipc@wa@@@Z ; `anonymous namespace'::emit
+$LN8@HookRenGet:
+	mov	eax, ebx
+	mov	rcx, QWORD PTR __$ArrayPad$[rsp]
+	xor	rcx, rsp
+	call	__security_check_cookie
+	add	rsp, 2128				; 00000850H
+	pop	rdi
+	pop	rsi
+	pop	rbx
+	ret	0
+?HookRenGetBuffer@?A0xc744a5b1@@YAJPEAUIAudioRenderClient@@IPEAPEAE@Z ENDP ; `anonymous namespace'::HookRenGetBuffer
+
+?HookRenReleaseBuffer@?A0xc744a5b1@@YAJPEAUIAudioRenderClient@@IK@Z PROC ; `anonymous namespace'::HookRenReleaseBuffer, COMDAT
+	mov	QWORD PTR [rsp+32], rbx
+	push	rbp
+	push	rsi
+	push	rdi
+	sub	rsp, 2128				; 00000850H
+	mov	rax, QWORD PTR __security_cookie
+	xor	rax, rsp
+	mov	QWORD PTR __$ArrayPad$[rsp], rax
+	mov	rax, QWORD PTR ?g_renRel@?A0xc744a5b1@@3P6AJPEAUIAudioRenderClient@@IK@ZEA ; `anonymous namespace'::g_renRel
+	mov	ebp, r8d
+	mov	esi, edx
+	mov	rdi, rcx
+	test	rax, rax
+	je	SHORT $LN4@HookRenRel
+	call	rax
+	mov	ebx, eax
+	jmp	SHORT $LN5@HookRenRel
+$LN4@HookRenRel:
+	mov	ebx, -2147418113			; ffffffff8000ffffH
+$LN5@HookRenRel:
+	cmp	QWORD PTR ?g_ring@?A0xc744a5b1@@3PEAURing@hook_ipc@wa@@EA, 0 ; `anonymous namespace'::g_ring
+	je	$LN8@HookRenRel
+	mov	eax, DWORD PTR ?g_quiet@?A0xc744a5b1@@3JC ; `anonymous namespace'::g_quiet
+	test	eax, eax
+	jne	$LN8@HookRenRel
+	mov	rax, QWORD PTR ?g_ring@?A0xc744a5b1@@3PEAURing@hook_ipc@wa@@EA ; `anonymous namespace'::g_ring
+	mov	ecx, DWORD PTR [rax+36]
+	test	ecx, ecx
+	je	$LN8@HookRenRel
+	mov	rax, QWORD PTR ?g_ring@?A0xc744a5b1@@3PEAURing@hook_ipc@wa@@EA ; `anonymous namespace'::g_ring
+	mov	ecx, DWORD PTR [rax+16]
+	test	ecx, ecx
+	je	$LN8@HookRenRel
+	xor	edx, edx
+	lea	rcx, QWORD PTR p$[rsp+4]
+	mov	r8d, 288				; 00000120H
+	call	memset
+	xor	edx, edx
+	lea	rcx, QWORD PTR p$[rsp+293]
+	mov	r8d, 747				; 000002ebH
+	call	memset
+	mov	r9, -1
+	mov	DWORD PTR p$[rsp], edi
+	lea	r8, OFFSET FLAT:??_C@_0BD@BABBDBEI@IAudioRenderClient@
+	mov	BYTE PTR p$[rsp+292], 1
+	mov	edx, 40					; 00000028H
+	lea	rcx, QWORD PTR p$[rsp+16]
+	call	strncpy_s
+	mov	r9, -1
+	lea	r8, OFFSET FLAT:??_C@_0O@ELHHAFJI@ReleaseBuffer@
+	mov	edx, 40					; 00000028H
+	lea	rcx, QWORD PTR p$[rsp+56]
+	call	strncpy_s
+	mov	r9d, ebp
+	lea	rdx, OFFSET FLAT:??_C@_0BG@OPADICL@frames?$DN?$CFu?5flags?$DN0x?$CFlX@
+	mov	r8d, esi
+	lea	rcx, QWORD PTR p$[rsp+96]
+	call	??$sprintf_s@$0MA@@@YAHAEAY0MA@DPEBDZZ	; sprintf_s<192>
+	mov	eax, ebx
+	mov	DWORD PTR p$[rsp+288], ebx
+	shr	eax, 31
+	lea	rcx, QWORD PTR $T1[rsp]
+	mov	BYTE PTR p$[rsp+293], al
+	mov	edx, 8
+	lea	rax, QWORD PTR p$[rsp]
+	npad	8
+$LL34@HookRenRel:
+	lea	rcx, QWORD PTR [rcx+128]
+	movups	xmm0, XMMWORD PTR [rax]
+	movups	xmm1, XMMWORD PTR [rax+16]
+	lea	rax, QWORD PTR [rax+128]
+	movups	XMMWORD PTR [rcx-128], xmm0
+	movups	xmm0, XMMWORD PTR [rax-96]
+	movups	XMMWORD PTR [rcx-112], xmm1
+	movups	xmm1, XMMWORD PTR [rax-80]
+	movups	XMMWORD PTR [rcx-96], xmm0
+	movups	xmm0, XMMWORD PTR [rax-64]
+	movups	XMMWORD PTR [rcx-80], xmm1
+	movups	xmm1, XMMWORD PTR [rax-48]
+	movups	XMMWORD PTR [rcx-64], xmm0
+	movups	xmm0, XMMWORD PTR [rax-32]
+	movups	XMMWORD PTR [rcx-48], xmm1
+	movups	xmm1, XMMWORD PTR [rax-16]
+	movups	XMMWORD PTR [rcx-32], xmm0
+	movups	XMMWORD PTR [rcx-16], xmm1
+	sub	rdx, 1
+	jne	SHORT $LL34@HookRenRel
+	movups	xmm0, XMMWORD PTR [rax]
+	movups	XMMWORD PTR [rcx], xmm0
+	lea	rcx, QWORD PTR $T1[rsp]
+	call	?emit@?A0xc744a5b1@@YAXUCallPod@hook_ipc@wa@@@Z ; `anonymous namespace'::emit
+$LN8@HookRenRel:
+	mov	eax, ebx
+	mov	rcx, QWORD PTR __$ArrayPad$[rsp]
+	xor	rcx, rsp
+	call	__security_check_cookie
+	mov	rbx, QWORD PTR [rsp+2184]
+	add	rsp, 2128				; 00000850H
+	pop	rdi
+	pop	rsi
+	pop	rbp
+	ret	0
+?HookRenReleaseBuffer@?A0xc744a5b1@@YAJPEAUIAudioRenderClient@@IK@Z ENDP ; `anonymous namespace'::HookRenReleaseBuffer

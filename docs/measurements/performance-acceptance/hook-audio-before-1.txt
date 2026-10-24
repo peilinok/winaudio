@@ -1,0 +1,37 @@
+target=0 endpoint={0.0.0.00000000}.{46f4256f-bc60-4865-b5f3-4c6eef7ee966} sample_rate=48000 channels=2 bits=32 format_tag=0xFFFE
+target=1 endpoint={0.0.0.00000000}.{46f4256f-bc60-4865-b5f3-4c6eef7ee966} sample_rate=48000 channels=2 bits=32 format_tag=0xFFFE
+qpc_frequency=10000000; two fresh same-bitness targets; silent render + actual endpoint loopback
+phase=no-attach target=0 pid=23604 attached=0 control=0 pump=0 control_delta=0 pump_delta=0 capture_calls=0 render_calls=0
+phase=no-attach target=1 pid=6576 attached=0 control=0 pump=0 control_delta=0 pump_delta=0 capture_calls=0 render_calls=0
+loaded pid=23604 path=E:\WORK\vibecoding\winaudio\build\performance-hook-original\build-x64\Release\WinAudioHook-5.dll
+loaded pid=6576 path=E:\WORK\vibecoding\winaudio\build\performance-hook-original\build-x64\Release\WinAudioHook-5.dll
+phase=capture-off target=0 pid=23604 attached=1 control=3 pump=0 control_delta=0 pump_delta=0 capture_calls=0 render_calls=0
+phase=capture-off target=1 pid=6576 attached=1 control=0 pump=0 control_delta=0 pump_delta=0 capture_calls=0 render_calls=0
+phase=pump-off target=0 pid=23604 attached=1 control=78 pump=0 control_delta=78 pump_delta=0 capture_calls=0 render_calls=0
+phase=pump-off target=1 pid=6576 attached=1 control=78 pump=0 control_delta=78 pump_delta=0 capture_calls=0 render_calls=0
+phase=pump-on target=0 pid=23604 attached=1 control=78 pump=64 control_delta=78 pump_delta=3172 capture_calls=44 render_calls=20
+phase=pump-on target=1 pid=6576 attached=1 control=78 pump=64 control_delta=78 pump_delta=3172 capture_calls=44 render_calls=20
+phase=detached target=0 pid=23604 attached=0 control=0 pump=0 control_delta=0 pump_delta=0 capture_calls=0 render_calls=0
+phase=detached target=1 pid=6576 attached=0 control=0 pump=0 control_delta=0 pump_delta=0 capture_calls=0 render_calls=0
+loaded pid=23604 path=E:\WORK\vibecoding\winaudio\build\performance-hook-original\build-x64\Release\WinAudioHook-5.dll
+loaded pid=6576 path=E:\WORK\vibecoding\winaudio\build\performance-hook-original\build-x64\Release\WinAudioHook-5.dll
+phase=reattached target=0 pid=23604 attached=1 control=78 pump=64 control_delta=78 pump_delta=3221 capture_calls=44 render_calls=20
+phase=reattached target=1 pid=6576 attached=1 control=78 pump=64 control_delta=78 pump_delta=3221 capture_calls=44 render_calls=20
+phase=other-pid-detached target=0 pid=23604 attached=0 control=0 pump=0 control_delta=0 pump_delta=0 capture_calls=0 render_calls=0
+phase=other-pid-detached target=1 pid=6576 attached=1 control=78 pump=64 control_delta=78 pump_delta=3202 capture_calls=44 render_calls=20
+phase,target,callbacks,failures,discontinuities,captured_frames,nonzero_bytes,samples,overflow,p50_us,p95_us,p99_us
+no-attach,0,543,0,1,408960,0,543,0,19.000,51.300,71.200
+no-attach,1,539,0,1,405600,0,539,0,19.200,54.600,76.000
+capture-off,0,526,0,0,396480,0,526,0,26.100,64.800,121.100
+capture-off,1,526,0,0,396480,0,526,0,25.800,68.000,92.000
+pump-off,0,529,0,0,398400,0,529,0,26.400,67.200,101.000
+pump-off,1,529,0,0,398400,0,529,0,26.300,63.100,115.000
+pump-on,0,522,0,0,394560,0,522,0,27.100,67.400,94.200
+pump-on,1,522,0,0,394560,0,522,0,27.100,69.000,87.800
+detached,0,527,0,0,396960,0,527,0,26.400,63.400,80.700
+detached,1,527,0,0,396960,0,527,0,25.900,64.500,80.700
+reattached,0,531,0,0,399360,0,531,0,27.200,65.500,95.300
+reattached,1,531,0,0,399360,0,531,0,27.000,68.000,115.100
+other-pid-detached,0,528,0,0,396960,0,528,0,27.000,65.900,78.600
+other-pid-detached,1,528,0,0,396960,0,528,0,26.800,66.300,142.500
+result=PASS; inspect per-phase audio tails and startup discontinuities separately

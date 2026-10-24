@@ -1,0 +1,14 @@
+{
+    "source":  "20d3ea71c160401f868fa48eab258fcb12bdbb48",
+    "executable":  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\bin\\Release\\WinAudioPerformanceGui.exe",
+    "executable_sha256":  "DB67DB7700A43722CA31EEA7F0FE83D869C91B6895376DFE576627A0D14D98C4",
+    "endpoint":  "{0.0.0.00000000}.{09793ccf-e246-4dbf-800b-a7cf44856994}",
+    "configuration":  {
+                          "name":  "charts-1-3",
+                          "tracks":  1,
+                          "mode":  "buffered",
+                          "warmup":  30,
+                          "duration":  120
+                      },
+    "started":  "2026-10-24T13:27:13.5534614+08:00"
+}

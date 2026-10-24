@@ -8,6 +8,32 @@
 
 namespace wa {
 
+class FrameProbe;
+
+// One committed history per physical source and direction. The owner invalidates
+// on replacement/clear; a temporary ScopeReader adapter is not a source identity.
+struct WaveRefreshState {
+    bool valid = false;
+    uint64_t generation = 1;
+    uint64_t revision = 0;
+    uint64_t filledThrough = 0;
+    int samples = 0;
+    uint32_t sampleRate = 0;
+    uint32_t channels = 0;
+    void invalidate() {
+        ++generation;
+        revision = filledThrough = 0;
+        valid = false;
+        samples = 0;
+        sampleRate = channels = 0;
+    }
+};
+
+// One GUI-thread scratch, borrowed sequentially by all sources/directions.
+struct WaveSnapshotScratch {
+    std::vector<float> samples;
+};
+
 // Parameters for one Chart Data Pipeline refresh (one stream side).
 struct ChartRefreshParams {
     const ScopeReader* reader = nullptr;
@@ -16,6 +42,9 @@ struct ChartRefreshParams {
     size_t             fftWin = 2048;
     size_t             fftHop = 1024;
     size_t             maxCatchup = 8;
+    FrameProbe*        probe = nullptr;     // GUI-only observation; null while disabled
+    uint64_t           source = 0;
+    int                direction = 0;
 };
 
 // External buffers owned by VisualState (or tests). Mono vs multi-channel:
@@ -28,9 +57,8 @@ struct ChartBuffers {
     uint32_t                       channelCount = 0;        // 0/1 => mono; >=2 multi
     int                            waveN = 0;
     uint32_t                       waveSr = 0;              // >0 when wave/spec buffers ready
-    // Optional cursor: reader.written() covered by the wave buffers. Enables skip when
-    // unchanged and incremental tail updates when written advances by less than waveN.
-    uint64_t*                      waveFilledThrough = nullptr;
+    WaveRefreshState*              waveState = nullptr;
+    WaveSnapshotScratch*           waveScratch = nullptr;
 
     // Spectrogram hop windows + FFT scratch.
     std::vector<float>*                       specWin = nullptr;           // mono, size fftWin
@@ -38,13 +66,15 @@ struct ChartBuffers {
     std::vector<std::complex<float>>*         work = nullptr;
     std::vector<float>*                       mag = nullptr;
     Spectrogram*                              spectrogram = nullptr;       // mono
-    std::vector<std::unique_ptr<Spectrogram>>* channelSpecs = nullptr;     // multi
+    Spectrogram* const*                       channelSpecs = nullptr;   // borrowed for this refresh
+    uint32_t                                 channelSpecCount = 0;
     uint64_t*                                 nextEnd = nullptr;           // analysis cursor
     uint32_t                                  specSr = 0;                  // >0 when analysis ready
 };
 
 struct ChartRefreshResult {
     bool haveWave = false;
+    bool waveChanged = false;
 };
 
 // Refresh chart data from a Scope Reader into external buffers. No ImGui.

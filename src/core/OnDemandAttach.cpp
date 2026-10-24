@@ -1,6 +1,7 @@
 #include "OnDemandAttach.h"
 #include "AudioFormatStr.h"
 #include "ComUtil.h"
+#include "PumpWindow.h"
 #include "HookedCall.h"
 #include "HookedCallPod.h"
 #include "Log.h"
@@ -107,26 +108,6 @@ void enableDebugPrivilege() {
     CloseHandle(tok);
 }
 
-HookedCall fromPod(const hook_ipc::CallPod& p) {
-    HookedCall c;
-    c.streamId = p.streamId;
-    c.timeMs = p.timeMs;
-    c.iface = p.iface;
-    c.method = p.method;
-    c.args = p.args;
-    c.hresult = p.hresult;
-    c.pump = p.pump != 0;
-    c.xrun = p.xrun != 0;
-    if (p.hasCategory) c.category = std::string(p.category);
-    if (p.hasRaw) c.raw = p.raw != 0;
-    if (p.hasMatchFormat) c.matchFormat = p.matchFormat != 0;
-    if (p.hasExclusive) c.exclusive = p.exclusive != 0;
-    if (p.hasFormat) c.format = std::string(p.format);
-    if (p.argBlobLen > 0)
-        decodeCallArgBlob(p.argBlob, p.argBlobLen, c.parameters);
-    return c;
-}
-
 Result win32Result(DWORD err, const char* where) {
     if (err == ERROR_SUCCESS) return Result::Ok();
     return HrToResult(HRESULT_FROM_WIN32(err), where);
@@ -230,6 +211,8 @@ struct OnDemandAttach::Impl {
     HANDLE map = nullptr;
     hook_ipc::Ring* ring = nullptr;
     uint32_t readIndex = 0;
+    uint64_t droppedControl = 0;
+    PumpWindow pump;
 };
 
 OnDemandAttach::OnDemandAttach() : impl_(std::make_unique<Impl>()) {}
@@ -238,8 +221,8 @@ OnDemandAttach::~OnDemandAttach() { stop(); }
 void OnDemandAttach::stop() {
     if (!impl_) return;
     if (impl_->ring) {
-        impl_->ring->captureEnabled = 0;
-        impl_->ring->pumpEnabled = 0;
+        InterlockedExchange(reinterpret_cast<volatile LONG*>(&impl_->ring->captureEnabled), 0);
+        InterlockedExchange(reinterpret_cast<volatile LONG*>(&impl_->ring->pumpEnabled), 0);
         UnmapViewOfFile(impl_->ring);
         impl_->ring = nullptr;
     }
@@ -252,6 +235,7 @@ void OnDemandAttach::stop() {
     }
     impl_->pid = 0;
     impl_->readIndex = 0;
+    impl_->droppedControl = 0;
 }
 
 bool OnDemandAttach::attached() const {
@@ -370,7 +354,8 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
     impl_->pid = pid;
     impl_->readIndex = ring->writeIndex;
     impl_->block = AttachBlock::None;
-    ring->captureEnabled = 1u;
+    impl_->pump.begin(*ring);
+    InterlockedExchange(reinterpret_cast<volatile LONG*>(&ring->captureEnabled), 1);
     WA_LOG(wa::log::Level::Info, "Attach", "start",
            "pid=" + std::to_string(pid) + " " + name, "attached");
     return Result::Ok();
@@ -384,27 +369,32 @@ std::vector<HookedCall> OnDemandAttach::drain() {
     if (write < read) return out;
     uint32_t count = write - read;
     if (count > hook_ipc::kCap) {
+        impl_->droppedControl += count - hook_ipc::kCap;
         read = write - hook_ipc::kCap;
         count = hook_ipc::kCap;
     }
     out.reserve(count);
     for (uint32_t i = read; i < write; ++i) {
         const auto& pod = impl_->ring->slots[i % hook_ipc::kCap];
-        out.push_back(fromPod(pod));
+        out.push_back(decodeHookedCallPod(pod));
     }
     impl_->readIndex = write;
     return out;
 }
 
+uint64_t OnDemandAttach::droppedControlCalls() const {
+    return impl_ ? impl_->droppedControl : 0;
+}
+
 std::vector<HookedCall> OnDemandAttach::pumpRing() const {
     std::vector<HookedCall> out;
-    if (!attached() || !impl_->ring->pumpEnabled) return out;
-    const uint32_t write = impl_->ring->pumpWriteIndex;
-    const uint32_t n = write < hook_ipc::kPumpCap ? write : hook_ipc::kPumpCap;
-    out.reserve(n);
-    for (uint32_t i = write - n; i < write; ++i)
-        out.push_back(fromPod(impl_->ring->pumpSlots[i % hook_ipc::kPumpCap]));
+    for (const auto& observed : pumpWindow()) out.push_back(observed.call);
     return out;
+}
+
+const std::vector<PumpCall>& OnDemandAttach::pumpWindow() const {
+    static const std::vector<PumpCall> empty;
+    return attached() ? impl_->pump.poll(*impl_->ring) : empty;
 }
 
 uint32_t OnDemandAttach::pumpXruns() const {
@@ -414,14 +404,14 @@ uint32_t OnDemandAttach::pumpXruns() const {
 
 void OnDemandAttach::setPumpEnabled(bool on) {
     if (!impl_ || !impl_->ring) return;
-    impl_->ring->pumpEnabled = on ? 1u : 0u;
+    InterlockedExchange(reinterpret_cast<volatile LONG*>(&impl_->ring->pumpEnabled), on ? 1 : 0);
     WA_LOG(wa::log::Level::Debug, "Attach", "setPumpEnabled",
            on ? "on" : "off", "S_OK");
 }
 
 void OnDemandAttach::setCaptureEnabled(bool on) {
     if (!impl_ || !impl_->ring) return;
-    impl_->ring->captureEnabled = on ? 1u : 0u;
+    InterlockedExchange(reinterpret_cast<volatile LONG*>(&impl_->ring->captureEnabled), on ? 1 : 0);
     WA_LOG(wa::log::Level::Debug, "Attach", "setCaptureEnabled",
            on ? "on" : "off", "S_OK");
 }

@@ -46,3 +46,14 @@ TEST(CallArgBlob, RejectsEmptyOrBadVersion) {
     EXPECT_FALSE(decodeCallArgBlob(bad, 4, args));
     EXPECT_TRUE(args.empty());
 }
+
+TEST(CallArgBlob, IncompleteSecondParameterDoesNotExposePartialTree) {
+    uint8_t blob[kArgBlobCap] = {};
+    ArgBlobWriter writer;
+    writer.reset(blob, kArgBlobCap);
+    ASSERT_TRUE(writer.push(0, kArgIn, "DWORD", "flags", "1", "1"));
+    ASSERT_TRUE(writer.push(1, kArgOut, "UINT", "frames", "0", "480"));
+    std::vector<CallArg> args;
+    EXPECT_FALSE(decodeCallArgBlob(blob, static_cast<uint16_t>(writer.len - 1), args));
+    EXPECT_TRUE(args.empty());
+}

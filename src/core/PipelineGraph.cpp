@@ -3,6 +3,44 @@
 #include <algorithm>
 
 namespace wa {
+
+bool initializeHintEqual(const EtwInitializeHint& a, const EtwInitializeHint& b) {
+    return a.present == b.present && a.category == b.category && a.raw == b.raw &&
+           a.matchFormat == b.matchFormat && a.exclusive == b.exclusive &&
+           a.hresult == b.hresult && a.format == b.format;
+}
+
+bool PipelineGraphCache::update(const LiveSessionView& s, const EndpointSnapshot& e,
+                                const EtwInitializeHint& hint, const std::vector<ProbeSlice>& probes) {
+    const bool sameSession = s.processId == session_.processId && s.processName == session_.processName &&
+        s.deviceId == session_.deviceId && s.deviceName == session_.deviceName && s.flow == session_.flow &&
+        s.sessionInstanceId == session_.sessionInstanceId && s.sessionVolume == session_.sessionVolume &&
+        s.sessionMute == session_.sessionMute && s.state == session_.state;
+    const bool sameEndpoint = e.sysFxDisabled == endpoint_.sysFxDisabled && e.mixFormat == endpoint_.mixFormat &&
+        e.deviceFormat == endpoint_.deviceFormat && e.oemFormat == endpoint_.oemFormat &&
+        e.apos.size() == endpoint_.apos.size() && e.hardware.size() == endpoint_.hardware.size() &&
+        std::equal(e.apos.begin(), e.apos.end(), endpoint_.apos.begin(), [](const ApoSlot& a, const ApoSlot& b) {
+            return a.role == b.role && a.clsid == b.clsid && a.friendlyName == b.friendlyName;
+        }) && std::equal(e.hardware.begin(), e.hardware.end(), endpoint_.hardware.begin(),
+            [](const HardwareControl& a, const HardwareControl& b) { return a.name == b.name && a.value == b.value; });
+    const bool sameProbes = probes.size() == probes_.size() &&
+        std::equal(probes.begin(), probes.end(), probes_.begin(), [](const ProbeSlice& a, const ProbeSlice& b) {
+            return a.label == b.label && a.raw == b.raw && a.error == b.error && a.effects.size() == b.effects.size() &&
+                std::equal(a.effects.begin(), a.effects.end(), b.effects.begin(),
+                    [](const AdvertisedEffect& x, const AdvertisedEffect& y) {
+                        return x.typeName == y.typeName && x.on == y.on && x.canSetState == y.canSetState;
+                    });
+        });
+    if (valid_ && sameSession && sameEndpoint && sameProbes && initializeHintEqual(hint, hint_)) return false;
+    session_ = s;
+    endpoint_ = e;
+    hint_ = hint;
+    probes_ = probes;
+    nodes_ = assemblePipeline(s, e, hint, probes);
+    valid_ = true;
+    return true;
+}
+
 namespace {
 
 PipelineParam param(std::string key, std::string value, ObservationKind kind) {

@@ -1,0 +1,182 @@
+{
+  "build\\performance-vs18\\charts-before\\charts-1-1\\config.json": {
+    "artifact": "charts-1-1-config.json",
+    "source_sha256": "14f1b1c6395fc2eea6e9d431de48e122d31e8feb647af738c5f453c21997b080",
+    "content_sha256": "01190ff3ee03d222ebb94def5639f2331f686274d69ff8e0f4fc391810e634a5",
+    "artifact_sha256": "01190ff3ee03d222ebb94def5639f2331f686274d69ff8e0f4fc391810e634a5"
+  },
+  "build\\performance-vs18\\charts-before\\charts-1-1\\frames.txt": {
+    "artifact": "charts-1-1-frames.txt.gz",
+    "source_sha256": "d0a04a54e7e6f5c30beffd2dadfd97016005c73bc324eccc579218a525f93809",
+    "content_sha256": "d0a04a54e7e6f5c30beffd2dadfd97016005c73bc324eccc579218a525f93809",
+    "artifact_sha256": "a031a205bf19ac69916f7853e1f1003bbfa0c15682fc50328ac1e7103ffb2753"
+  },
+  "build\\performance-vs18\\charts-before\\charts-1-1\\process.csv": {
+    "artifact": "charts-1-1-process.csv",
+    "source_sha256": "9d1538643d7e34b6ff626ac93a4a286875fa1a3784e5f3931f3571a615b7aa5b",
+    "content_sha256": "a173a6c0b283c58b8654e6f3bbd22a54c9a9cf5a141ac6d495b2c55028b64ddd",
+    "artifact_sha256": "a173a6c0b283c58b8654e6f3bbd22a54c9a9cf5a141ac6d495b2c55028b64ddd"
+  },
+  "build\\performance-vs18\\charts-before\\charts-1-1\\summary.json": {
+    "artifact": "charts-1-1-summary.json",
+    "source_sha256": "ee2bb462d795f5ea885a5f9b4e7c59c15c5b46abd35256382cc78b3a0322a226",
+    "content_sha256": "5022707854755d0dd91be73082debe94dd3cf3f64e14f2a11221f05230f24b32",
+    "artifact_sha256": "5022707854755d0dd91be73082debe94dd3cf3f64e14f2a11221f05230f24b32"
+  },
+  "build\\performance-vs18\\charts-before\\charts-1-1\\winaudio.log": {
+    "artifact": "charts-1-1-winaudio.log.gz",
+    "source_sha256": "82e5ff60b9957cc0462634683d730f3797075d7c2e01e6d9afac35819dfc8852",
+    "content_sha256": "82e5ff60b9957cc0462634683d730f3797075d7c2e01e6d9afac35819dfc8852",
+    "artifact_sha256": "afa4c84a66209aca271288423f44f3604002b50e4e7fb7b71051201519943183"
+  },
+  "build\\performance-vs18\\charts-before\\charts-1-2\\config.json": {
+    "artifact": "charts-1-2-config.json",
+    "source_sha256": "8692c5883a192bce2bb31046047bc32bf518999acfc6bd0b0357ff70efed85f8",
+    "content_sha256": "f0ec83b0fb409a0a70ce23bd6a6fc09e6e2d7c3e087a3d4719def939e71cd207",
+    "artifact_sha256": "f0ec83b0fb409a0a70ce23bd6a6fc09e6e2d7c3e087a3d4719def939e71cd207"
+  },
+  "build\\performance-vs18\\charts-before\\charts-1-2\\frames.txt": {
+    "artifact": "charts-1-2-frames.txt.gz",
+    "source_sha256": "a86aa2d7ac58758c227cf788bc750e4d8ada207722ba79ec2df74db6840b4bfe",
+    "content_sha256": "a86aa2d7ac58758c227cf788bc750e4d8ada207722ba79ec2df74db6840b4bfe",
+    "artifact_sha256": "46b879e45ead4c19346b287dfaffcb17d5ddab8ee87e1eb9f0bb9784c70ce2f9"
+  },
+  "build\\performance-vs18\\charts-before\\charts-1-2\\process.csv": {
+    "artifact": "charts-1-2-process.csv",
+    "source_sha256": "47d1f079ee766c5eb313b85fe56d6d525139b702311ece14ee42a70a8f85eb66",
+    "content_sha256": "10d4abba5b0862389336e7dced1da9a60ca1629d2352c6a420c5682d74fdd3dd",
+    "artifact_sha256": "10d4abba5b0862389336e7dced1da9a60ca1629d2352c6a420c5682d74fdd3dd"
+  },
+  "build\\performance-vs18\\charts-before\\charts-1-2\\summary.json": {
+    "artifact": "charts-1-2-summary.json",
+    "source_sha256": "158b9774357379b3c9ddfea13fc1008d14a6eaf3c2fe9fa185b1d9453ac78064",
+    "content_sha256": "ff1f8e006eec25a201c09c34b53006f68297730df2e951675550ca0a50f20dc5",
+    "artifact_sha256": "ff1f8e006eec25a201c09c34b53006f68297730df2e951675550ca0a50f20dc5"
+  },
+  "build\\performance-vs18\\charts-before\\charts-1-2\\winaudio.log": {
+    "artifact": "charts-1-2-winaudio.log.gz",
+    "source_sha256": "c116f8637bccc0e9c92671aa065cd7323e4ba0e287f472d51b12dec5d9779b07",
+    "content_sha256": "c116f8637bccc0e9c92671aa065cd7323e4ba0e287f472d51b12dec5d9779b07",
+    "artifact_sha256": "55d7827e3d5d2db770110464a100290aca108cc4d3c0b0bdd45ea2ab4a50a3a2"
+  },
+  "build\\performance-vs18\\charts-before\\charts-1-3\\config.json": {
+    "artifact": "charts-1-3-config.json",
+    "source_sha256": "757847fc372b6e31c0a1b95f48033c3a8c639fc02e3e40c27dfcaf4a1f7a6e5d",
+    "content_sha256": "eaec8432abaa7c46d61416200723bc05ab903cc31ee2ef0d441cfd7ebd873e2e",
+    "artifact_sha256": "eaec8432abaa7c46d61416200723bc05ab903cc31ee2ef0d441cfd7ebd873e2e"
+  },
+  "build\\performance-vs18\\charts-before\\charts-1-3\\frames.txt": {
+    "artifact": "charts-1-3-frames.txt.gz",
+    "source_sha256": "c1f07f35ec913e07623df78f8e415255b42b6b04aae7b588a33a605fcadd91fd",
+    "content_sha256": "c1f07f35ec913e07623df78f8e415255b42b6b04aae7b588a33a605fcadd91fd",
+    "artifact_sha256": "6416cda1373d30d679fdaa95c18725f69e767502b4aeaa4eb5a003afd252ccc8"
+  },
+  "build\\performance-vs18\\charts-before\\charts-1-3\\process.csv": {
+    "artifact": "charts-1-3-process.csv",
+    "source_sha256": "a44de8b146ff3de8f2cf9af979c57748eb731855bcceb87f7b5b75acfa0e970a",
+    "content_sha256": "d1fd6fd0414e4341cd68fc72f2b0b5f1550fde08744898ce32a8b2a1a0c5839f",
+    "artifact_sha256": "d1fd6fd0414e4341cd68fc72f2b0b5f1550fde08744898ce32a8b2a1a0c5839f"
+  },
+  "build\\performance-vs18\\charts-before\\charts-1-3\\summary.json": {
+    "artifact": "charts-1-3-summary.json",
+    "source_sha256": "528b049f76c7c6560d6cf25be5688da889a1340a7f1504b38ac42b9fa2dea7b2",
+    "content_sha256": "f2a7bfc9108ff078b9bb75eb6a1d54b73146f9bcb5124a189debe8536c860a04",
+    "artifact_sha256": "f2a7bfc9108ff078b9bb75eb6a1d54b73146f9bcb5124a189debe8536c860a04"
+  },
+  "build\\performance-vs18\\charts-before\\charts-1-3\\winaudio.log": {
+    "artifact": "charts-1-3-winaudio.log.gz",
+    "source_sha256": "799a2a8db05701b1fa8eaf82304a13a085feb46575fad9d4490ce6a280863415",
+    "content_sha256": "799a2a8db05701b1fa8eaf82304a13a085feb46575fad9d4490ce6a280863415",
+    "artifact_sha256": "ce318deade0e5207823680892e6430b40bc62c84afc441b634531d489f013188"
+  },
+  "build\\performance-vs18\\charts-before\\charts-2-1\\config.json": {
+    "artifact": "charts-2-1-config.json",
+    "source_sha256": "90697aaf0bf78c5d0de819a6a2857a2f667a0ec6d55e3ac297d3598213b6f987",
+    "content_sha256": "62e2ca0f24b78a6403c04b4d2f2aaaef72705badaf2047ec7439417b319a32dd",
+    "artifact_sha256": "62e2ca0f24b78a6403c04b4d2f2aaaef72705badaf2047ec7439417b319a32dd"
+  },
+  "build\\performance-vs18\\charts-before\\charts-2-1\\frames.txt": {
+    "artifact": "charts-2-1-frames.txt.gz",
+    "source_sha256": "e04b29931fe43fa4d39cb48f0c3826093bf64c01a591308a867223f4dbb45421",
+    "content_sha256": "e04b29931fe43fa4d39cb48f0c3826093bf64c01a591308a867223f4dbb45421",
+    "artifact_sha256": "b56b96117d52acef72769eb7fbd6e47ac5a36cf6f0750783f6d34e17a49ca4cc"
+  },
+  "build\\performance-vs18\\charts-before\\charts-2-1\\process.csv": {
+    "artifact": "charts-2-1-process.csv",
+    "source_sha256": "0bc29bf3277071b4bdf4c75365c85cdc9b1124c42af2760274e6cce9c5f80728",
+    "content_sha256": "8cc3a9670ece21fb923945d1b717958ebd542352c742352b4e5febe8f63c436b",
+    "artifact_sha256": "8cc3a9670ece21fb923945d1b717958ebd542352c742352b4e5febe8f63c436b"
+  },
+  "build\\performance-vs18\\charts-before\\charts-2-1\\summary.json": {
+    "artifact": "charts-2-1-summary.json",
+    "source_sha256": "caa2ae199bffe245122e4a8e46a81c866d0cbf79abff5324631fa24cd3ab52f8",
+    "content_sha256": "b82204ab8ad72c3848ff0842a0eb7f637073c67a511af7193fe2416fc65a8fdb",
+    "artifact_sha256": "b82204ab8ad72c3848ff0842a0eb7f637073c67a511af7193fe2416fc65a8fdb"
+  },
+  "build\\performance-vs18\\charts-before\\charts-2-1\\winaudio.log": {
+    "artifact": "charts-2-1-winaudio.log.gz",
+    "source_sha256": "f509c8dc15881f1fc52073148cb1a05d30607548245a73bfc1167a113b0f62a1",
+    "content_sha256": "f509c8dc15881f1fc52073148cb1a05d30607548245a73bfc1167a113b0f62a1",
+    "artifact_sha256": "0f5fb2caebea22cdcda3da1d77f5c2c9b509e4b281e4167884a25998f8e9ba13"
+  },
+  "build\\performance-vs18\\charts-before\\charts-2-2\\config.json": {
+    "artifact": "charts-2-2-config.json",
+    "source_sha256": "6c771c58a28adc7c69d4539aac0bc26decfe883aedfae7ecba0dd9c0357737b2",
+    "content_sha256": "af4485d34cc6593cce5b80ab88f056fcc904e66186c41207bad001201d0f52dc",
+    "artifact_sha256": "af4485d34cc6593cce5b80ab88f056fcc904e66186c41207bad001201d0f52dc"
+  },
+  "build\\performance-vs18\\charts-before\\charts-2-2\\frames.txt": {
+    "artifact": "charts-2-2-frames.txt.gz",
+    "source_sha256": "12822102316961125e3e9624e8e8372a2b1b8e1135ce33aa2b0dd0e8eebcbc52",
+    "content_sha256": "12822102316961125e3e9624e8e8372a2b1b8e1135ce33aa2b0dd0e8eebcbc52",
+    "artifact_sha256": "930753909ef854c14553470fe7f712e01ed8d205c7b9e3f62a3481298b67e55d"
+  },
+  "build\\performance-vs18\\charts-before\\charts-2-2\\process.csv": {
+    "artifact": "charts-2-2-process.csv",
+    "source_sha256": "1e2bc5ad5b3c60e8b956713cd74c6a3bb6b3869a3df46fac4b9cbd894dab5d2c",
+    "content_sha256": "cc411c8cb3187ca433ccdeebec73c08817cfa7f3af1db653d9650088fc52a880",
+    "artifact_sha256": "cc411c8cb3187ca433ccdeebec73c08817cfa7f3af1db653d9650088fc52a880"
+  },
+  "build\\performance-vs18\\charts-before\\charts-2-2\\summary.json": {
+    "artifact": "charts-2-2-summary.json",
+    "source_sha256": "44f9c303808ce28b8f3409aa6838e28468f629b781c37e05cc375b3b8bfa70b6",
+    "content_sha256": "a93dde0309ed864b746f399ea73ce383bf2062ae19afee111c6520fb0d4dc8d7",
+    "artifact_sha256": "a93dde0309ed864b746f399ea73ce383bf2062ae19afee111c6520fb0d4dc8d7"
+  },
+  "build\\performance-vs18\\charts-before\\charts-2-2\\winaudio.log": {
+    "artifact": "charts-2-2-winaudio.log.gz",
+    "source_sha256": "7924354f4bfe0e7c6b620f606139ec122a33e333d160b555586770f06df58b03",
+    "content_sha256": "7924354f4bfe0e7c6b620f606139ec122a33e333d160b555586770f06df58b03",
+    "artifact_sha256": "7154c9a64e98af2ed6aaae9b2322d0ffc212f666ad0636c841489a7db0b6ee8a"
+  },
+  "build\\performance-vs18\\charts-before\\charts-2-3\\config.json": {
+    "artifact": "charts-2-3-config.json",
+    "source_sha256": "b92dc388b047df861cfee6d46b17225c69172dc31d4601187a3fda19f2cd781f",
+    "content_sha256": "8d3413f554edf50a5f20f2e96117e554780896eedcaa45e16a212d671a82d1c6",
+    "artifact_sha256": "8d3413f554edf50a5f20f2e96117e554780896eedcaa45e16a212d671a82d1c6"
+  },
+  "build\\performance-vs18\\charts-before\\charts-2-3\\frames.txt": {
+    "artifact": "charts-2-3-frames.txt.gz",
+    "source_sha256": "ff5b7cda44ce6eb5ee9543d3161b66f5e115727ba77d29a0762f86d6ddf812a8",
+    "content_sha256": "ff5b7cda44ce6eb5ee9543d3161b66f5e115727ba77d29a0762f86d6ddf812a8",
+    "artifact_sha256": "c5f65d4f148c5b73cf4ecf1c02eb542a1ba435761ad43e740077e32e0350d0cb"
+  },
+  "build\\performance-vs18\\charts-before\\charts-2-3\\process.csv": {
+    "artifact": "charts-2-3-process.csv",
+    "source_sha256": "c6d7121770a70b70ae88ed5818cfa45c0e0d0da6ccf6a985d8deba8de32ed76c",
+    "content_sha256": "62769476ce8f4f98ecbb1ae94f1b6ea7ed0dab63cf1ceb97551c8db1035b8fd3",
+    "artifact_sha256": "62769476ce8f4f98ecbb1ae94f1b6ea7ed0dab63cf1ceb97551c8db1035b8fd3"
+  },
+  "build\\performance-vs18\\charts-before\\charts-2-3\\summary.json": {
+    "artifact": "charts-2-3-summary.json",
+    "source_sha256": "39b4247887a6174ef1857b5e271e373749995c863ba12359844793a1a365b18f",
+    "content_sha256": "480b8c6665918eadeabd8e98dc00b5778d3f03153019ed95bf23ab16009cf25d",
+    "artifact_sha256": "480b8c6665918eadeabd8e98dc00b5778d3f03153019ed95bf23ab16009cf25d"
+  },
+  "build\\performance-vs18\\charts-before\\charts-2-3\\winaudio.log": {
+    "artifact": "charts-2-3-winaudio.log.gz",
+    "source_sha256": "ab0637554e10586057692b7ebc7c6f895a8db1470ea002f81c9f2d3286611f40",
+    "content_sha256": "ab0637554e10586057692b7ebc7c6f895a8db1470ea002f81c9f2d3286611f40",
+    "artifact_sha256": "4141f036741abcbeba99b7679fbd6f8d84535eac8f327dea5d3c82433b024505"
+  }
+}

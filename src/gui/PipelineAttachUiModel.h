@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdio>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -9,6 +10,68 @@
 #include "PipelineGraph.h"
 
 namespace wa::pipeline_attach_ui {
+
+struct AttachRequest {
+    uint32_t pid = 0;
+    std::string deviceId;
+    PipelineFlow flow = PipelineFlow::Capture;
+    std::string sessionKey;
+    bool replaceRound = false;
+};
+
+enum class RoundAttachAction { Busy, Confirm, Attempt };
+
+// Ready means the export was reaped, not merely that its worker signalled done.
+class ExportExitState {
+public:
+    void request() { if (state_ == State::None) state_ = State::Prompt; }
+    void choose(bool cancel) { state_ = cancel ? State::Cancel : State::Wait; }
+    bool requested() const { return state_ != State::None; }
+    bool prompt() const { return state_ == State::Prompt; }
+    bool cancelRequested() const { return state_ == State::Cancel; }
+    bool ready(bool busy) const { return requested() && !busy; }
+private:
+    enum class State { None, Prompt, Wait, Cancel };
+    State state_ = State::None;
+};
+
+// Saving/drop only authorizes an attempt; it never clears the old round.
+class RoundTransition {
+public:
+    RoundAttachAction request(AttachRequest request, bool haveHistory, bool exportBusy) {
+        if (pending_ || (request.replaceRound && exportBusy)) return RoundAttachAction::Busy;
+        pending_ = std::move(request);
+        ready_ = !pending_->replaceRound || !haveHistory;
+        return ready_ ? RoundAttachAction::Attempt : RoundAttachAction::Confirm;
+    }
+    bool pending() const { return pending_.has_value(); }
+    bool ready() const { return ready_; }
+    bool waitingForSave() const { return saving_; }
+    void discard() { ready_ = pending_.has_value(); }
+    void saveThenContinue() { saving_ = pending_.has_value(); }
+    void saved(bool success) {
+        if (!saving_) return;
+        saving_ = false;
+        if (success) ready_ = true;
+        else cancel();
+    }
+    void cancel() { pending_.reset(); ready_ = saving_ = false; }
+    std::optional<AttachRequest> take() {
+        if (!ready_) return {};
+        auto request = std::move(pending_);
+        cancel();
+        return request;
+    }
+private:
+    std::optional<AttachRequest> pending_;
+    bool ready_ = false, saving_ = false;
+};
+
+inline uint64_t commitAttach(CallLogStore& store, const AttachRequest& request, bool succeeded) {
+    if (!succeeded) return 0;
+    if (request.replaceRound) store.beginRound();
+    return store.registerAttach(request.pid);
+}
 
 // Sync the selected Live session's PID into the Attach PID text box.
 inline bool copyLiveSessionPidToBuffer(const std::vector<LiveSessionView>& rows, int index,

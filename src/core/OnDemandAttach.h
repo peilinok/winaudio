@@ -9,6 +9,8 @@
 
 namespace wa {
 
+struct PumpCall;
+
 inline constexpr bool kAttachLaunchSuspended = false;
 inline constexpr bool kAttachAutoInject = false;
 
@@ -50,7 +52,9 @@ public:
     uint32_t pid() const;
     AttachBlock lastBlock() const;
     std::vector<HookedCall> drain();
+    uint64_t droppedControlCalls() const;
     std::vector<HookedCall> pumpRing() const;
+    const std::vector<PumpCall>& pumpWindow() const;
     uint32_t pumpXruns() const;
     void setPumpEnabled(bool on);
     void setCaptureEnabled(bool on);

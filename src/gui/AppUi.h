@@ -2,6 +2,7 @@
 #include <complex>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -10,6 +11,7 @@
 #include "CaptureTrackList.h"
 #include "RenderTrackList.h"
 #include "ChartHost.h"
+#include "ChartDataPipeline.h"
 #include "CreateRecipe.h"
 #include "DeviceEnumerator.h"
 #include "DumpUi.h"
@@ -21,9 +23,11 @@
 #include "LiveSessionWatch.h"
 #include "MonitorEngine.h"
 #include "CallLogStore.h"
+#include "CallLogExportJob.h"
 #include "PipelineSplit.h"
 #include "OnDemandAttach.h"
 #include "PipelineAttachSet.h"
+#include "PipelineAttachUiModel.h"
 #include "PipelineGraph.h"
 #include "HookedCall.h"
 #include "SharedProbe.h"
@@ -31,11 +35,15 @@
 #include "AudioEffects.h"
 #include "Spectrogram.h"
 #include "WaveEnvelope.h"
-#include "HeatmapTexture.h"
+#include "SpectrogramVisual.h"
 #include "TrackScopeReader.h"
 
 class AppUi {
 public:
+#ifdef WA_PERFORMANCE_FIXTURE
+    explicit AppUi(const std::shared_ptr<wa::CallLogWriter>& writer = {})
+        : pipelineExport_(writer) {}
+#endif
     void draw();          // called each frame; polls engines and redraws the active page
     void stopAll();       // stop engines on shutdown (idempotent)
     void releaseGpu();    // release DX heatmap textures before device teardown
@@ -44,8 +52,17 @@ public:
     void pushLog(int level, const std::string& line);  // thread-safe; called from the logging pump thread
     void loadLogRegionPrefs();
     void loadProductionPhrases();
+    void requestClose() { exportExit_.request(); }
+    void pollBackground(bool notify = true);
+    bool closeReady() const { return exportExit_.ready(pipelineExport_.busy()); }
 private:
+#ifdef WA_PERFORMANCE_FIXTURE
+    friend class PerformanceFixture;
+#endif
     struct VisualState {
+        wa::TrackId probeSource = 0;
+        int probeDirection = 0;
+        int probeDrawDirection = 0;
         std::vector<float> capWave, renderWave;
         std::vector<std::vector<float>> capChannelWaves;
         uint32_t waveSr = 0;
@@ -53,8 +70,7 @@ private:
         uint32_t capWaveChannels = 0;
         double   xLink0 = 0.0, xLink1 = 0.0;
         std::vector<float> envX, envMin, envMax;
-        uint64_t waveEpoch = 0;                      // bumps when chart wave buffers refresh
-        wa::MinMaxPyramid envPyramid;                // mono / render-side envelope LOD
+        wa::MinMaxPyramid capEnvPyramid, renderEnvPyramid;
         std::vector<wa::MinMaxPyramid> capEnvPyramids; // per capture-channel envelope LOD
         float comboRatio = 0.5f;
         bool  chartsFrozen = false; // pause chart data refresh only; audio continues
@@ -67,14 +83,14 @@ private:
         std::vector<float>               magCap, magRender;
         uint64_t nextCapEnd    = 0;
         uint64_t nextRenderEnd = 0;
-        uint64_t waveFilledCap = 0;    // ScopeReader written() covered by cap wave buffers
-        uint64_t waveFilledRender = 0; // same for render-side wave
+        wa::WaveRefreshState capWaveState, renderWaveState;
         uint32_t specSr        = 0;
         uint32_t capSpecChannels = 0;
 
-        std::unique_ptr<wa::Spectrogram> capSpec, renderSpec;
-        std::vector<std::unique_ptr<wa::Spectrogram>> capChannelSpecs;
+        wa::SpectrogramVisual capSpec, renderSpec;
+        std::vector<std::unique_ptr<wa::SpectrogramVisual>> capChannelSpecs;
     };
+    wa::WaveSnapshotScratch waveSnapshotScratch_;
 
     void refreshMonitorDevices();
     void refreshApplicationLoopbackSessions();
@@ -87,9 +103,14 @@ private:
     void applyLiveSessionCellPatches();
     void runPipelineProbe();
     void runPipelineAttach();
+    void attemptPipelineAttach(const wa::pipeline_attach_ui::AttachRequest& request);
+    void drawPipelineRoundDialog();
+    void drawExportCloseDialog();
     void runPipelineDetach();
     void runPipelineDetachAll();
-    void savePipelineCallLog();
+    bool savePipelineCallLog(const std::wstring& destination = {});
+    void setPipelineRecording(bool on);
+    void receivePipelineCalls(std::vector<wa::HookedCall> calls);
     wa::PipelineAttachUiState pipelineAttachUiFor(const wa::LiveSessionView& row) const;
     std::unordered_set<uint32_t> pipelineAttachedPidSet() const;
     void setPipelineAttachUi(const wa::LiveSessionView& row, wa::PipelineAttachUiState state,
@@ -138,7 +159,7 @@ private:
                         const wa::MonitorStatus& status, VisualState& viz);
     void drawComboPanel(wa::ScopeReader& reader, const wa::MonitorStatus& status, VisualState& viz,
                         bool renderSide);
-    void drawSpectrogramPanel(VisualState& viz, const char* plotId, wa::Spectrogram* spec, double histSec, float height, int slot);
+    void drawSpectrogramPanel(VisualState& viz, const char* plotId, wa::SpectrogramVisual* visual, double histSec, float height, int slot);
     void drawWaveformPanel(VisualState& viz, const char* plotId, const float* wave, int n, uint32_t sr, bool haveData, float height, int slot, wa::MinMaxPyramid* pyr = nullptr);
     float logRegionHeight() const;
     void drawLogRegion(const char* regionId, const char* listId);
@@ -171,8 +192,6 @@ private:
     std::mutex               logMutex_;    // guards pendingLog_ (pump thread → draw drains it)
     std::vector<std::string> pendingLog_;
     wa::FrameProbe           frameProbe_;  // off until main() enables it; slots only, no logging
-    // One GPU heatmap texture per spectrogram plot slot; dirty-skipped via Spectrogram::revision().
-    std::unique_ptr<wa::HeatmapTexture> heatmapTex_[32];
     int                      logLevelIdx_ = 2;   // 0=Trace..4=Err; default Info
     bool                     logCollapsed_ = false;
     bool                     logPinToBottomOnExpand_ = false; // one-shot after clicking +
@@ -218,7 +237,7 @@ private:
     bool pipelineProcessSortAsc_ = true;
 
     unsigned long long pipelineProcessesTick_ = 0;
-    std::vector<wa::PipelineNode> pipelineNodes_;
+    wa::PipelineGraphCache pipelineGraph_;
     std::vector<wa::ProbeSlice> pipelineProbes_;
     bool pipelineProbing_ = false;
     wa::EtwInitializeWatch pipelineEtw_;
@@ -227,8 +246,8 @@ private:
     wa::EtwInitializeHint pipelineEtwHint_{};
     wa::PipelineJoinStatus pipelineJoinStatus_{};
     wa::PipelineAttachSet pipelineAttaches_;
-    std::vector<wa::HookedCall> pipelineCalls_;
-    int pipelineCallSelected_ = -1;
+    wa::CallRecordId pipelineCallSelected_;
+    bool pipelinePumpSelectionExpired_ = false;
     char pipelineCallFilter_[128] = "";
     char pipelineCallIfaceFilter_[96] = "";  // empty => all ifaces
     bool pipelineCallFailuresOnly_ = false;
@@ -243,6 +262,14 @@ private:
     bool pipelinePump_ = false;
     bool pipelineRecord_ = false;
     wa::CallLogStore pipelineCallStore_;
+    wa::pipeline_attach_ui::RoundTransition pipelineRoundTransition_;
+    wa::CallLogExportJob pipelineExport_;
+    std::optional<wa::CallLogExportResult> pipelineExportCompleted_;
+    bool pipelineExportReveal_ = false;
+    wa::pipeline_attach_ui::ExportExitState exportExit_;
+    bool exportMetricsPending_ = false;
+    uint64_t exportElapsedUs_ = 0;
+    size_t exportWritten_ = 0;
     std::unordered_map<std::string, wa::PipelineAttachUiState> pipelineAttachUi_;
     std::unordered_map<std::string, std::string> pipelineAttachFailBanner_;
 

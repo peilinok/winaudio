@@ -137,15 +137,15 @@ inline bool decodeArgBlob(const uint8_t* data, uint16_t len, Fn&& fn) {
         const uint8_t depth = data[off++];
         const uint8_t dir = data[off++];
         const uint8_t tl = data[off++];
-        if (off + tl > len) return false;
+        if (off + tl >= len) return false;
         const char* type = reinterpret_cast<const char*>(data + off);
         off = static_cast<uint16_t>(off + tl);
         const uint8_t nl = data[off++];
-        if (off + nl > len) return false;
+        if (off + nl >= len) return false;
         const char* name = reinterpret_cast<const char*>(data + off);
         off = static_cast<uint16_t>(off + nl);
         const uint8_t pl = data[off++];
-        if (off + pl > len) return false;
+        if (off + pl >= len) return false;
         const char* pre = reinterpret_cast<const char*>(data + off);
         off = static_cast<uint16_t>(off + pl);
         const uint8_t ql = data[off++];
