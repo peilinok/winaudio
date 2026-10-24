@@ -3,6 +3,7 @@
 #include "Log.h"
 #include <cstdio>
 #include <algorithm>
+#include <numeric>
 #include <fstream>
 #include <sstream>
 #ifndef WIN32_LEAN_AND_MEAN
@@ -95,6 +96,16 @@ void CallLogStore::beginRound() {
     latestAttach_.clear();
     pidCounts_.clear();
     pump_.clear();
+    ++controlRevision_;
+    ++pumpRevision_;
+    sorted_.clear();
+    matched_.clear();
+    positions_.clear();
+    matchedPump_.clear();
+    pumpPositions_.clear();
+    controlIfaces_.clear();
+    ifaces_.clear();
+    queryValid_ = false;
     ++round_;
     range_ = recording_ ? RecordingRange::Following : RecordingRange::Never;
     frozenCount_ = 0;
@@ -121,7 +132,14 @@ const std::vector<CallRecordRef>& CallLogStore::pumpEntries() const {
     return pumpVisible_ ? pump_ : empty;
 }
 
+void CallLogStore::setPumpVisible(bool on) {
+    if (on == pumpVisible_) return;
+    pumpVisible_ = on;
+    ++pumpRevision_;
+}
+
 void CallLogStore::rebuildPump() {
+    ++pumpRevision_;
     pump_.clear();
     for (const auto& segment : attaches_)
         if (segment.active) pump_.insert(pump_.end(), segment.pump.begin(), segment.pump.end());
@@ -179,8 +197,112 @@ void CallLogStore::append(uint64_t attach, HookedCall call) {
     CallRecord record{{round_, attach, entries_.size() + 1, CallLane::Control}, std::move(call)};
     auto ref = std::make_shared<const CallRecord>(std::move(record));
     ++pidCounts_[ref->call.pid];
+    call_log_filter::addIface(controlIfaces_, ref->call.iface);
+    ++controlRevision_;
     segment.records.push_back(ref);
     entries_.push_back(std::move(ref));
+}
+
+const std::vector<std::string>& CallLogStore::ifaces() {
+    if (ifacesControlRevision_ == controlRevision_ && ifacesPumpRevision_ == pumpRevision_) return ifaces_;
+    ifaces_ = controlIfaces_;
+    for (const auto& ref : pumpEntries()) call_log_filter::addIface(ifaces_, ref->call.iface);
+    call_log_filter::sortIfaces(ifaces_);
+    ifacesControlRevision_ = controlRevision_;
+    ifacesPumpRevision_ = pumpRevision_;
+    return ifaces_;
+}
+
+CallLogStore::View CallLogStore::view(const call_log_filter::FilterOpts& query, CallLogObserver observer) {
+    viewWork_ = {};
+    viewWork_.controlChanged = matchedRevision_ != controlRevision_;
+    viewWork_.queryChanged = !queryValid_ || query.text != queryText_ || query.iface != queryIface_ ||
+        query.failuresOnly != queryFailures_;
+    viewWork_.pumpChanged = matchedPumpRevision_ != pumpRevision_;
+    if (sortedRevision_ != controlRevision_) {
+        observer.stage(CallLogStage::Sort, true, entries_.size());
+        sorted_.resize(entries_.size());
+        std::iota(sorted_.begin(), sorted_.end(), size_t{0});
+        std::sort(sorted_.begin(), sorted_.end(), [&](size_t a, size_t b) {
+            if (entries_[a]->call.timeMs != entries_[b]->call.timeMs)
+                return entries_[a]->call.timeMs < entries_[b]->call.timeMs;
+            return a < b;
+        });
+        viewWork_.sorted = entries_.size();
+        sortedRevision_ = controlRevision_;
+        observer.stage(CallLogStage::Sort, false, entries_.size());
+    }
+    if (viewWork_.controlChanged || viewWork_.queryChanged) {
+        observer.stage(CallLogStage::Match, true, entries_.size());
+        queryText_ = query.text;
+        queryIface_ = query.iface;
+        queryFailures_ = query.failuresOnly;
+        queryValid_ = true;
+        matched_.clear();
+        positions_.assign(entries_.size(), kNotFound);
+        for (const auto index : sorted_) {
+            if (!call_log_filter::callMatches(entries_[index]->call, query)) continue;
+            positions_[index] = matched_.size();
+            matched_.push_back(index);
+        }
+        viewWork_.matched = entries_.size();
+        matchedRevision_ = controlRevision_;
+        observer.stage(CallLogStage::Match, false, entries_.size());
+    }
+    if (viewWork_.controlChanged || viewWork_.queryChanged || viewWork_.pumpChanged) {
+        const auto& pump = pumpEntries();
+        observer.stage(CallLogStage::PumpMatch, true, pump.size());
+        matchedPump_.clear();
+        pumpPositions_.clear();
+        for (const auto& ref : pump) {
+            if (!call_log_filter::callMatches(ref->call, query)) continue;
+            // Equal timestamps place every control row before pump metadata.
+            const auto insertion = std::upper_bound(matched_.begin(), matched_.end(), ref->call.timeMs,
+                [&](int64_t time, size_t index) { return time < entries_[index]->call.timeMs; });
+            pumpPositions_.push_back(static_cast<size_t>(insertion - matched_.begin()) + matchedPump_.size());
+            matchedPump_.push_back(ref.get());
+        }
+        viewWork_.pumpMatched = pump.size();
+        matchedPumpRevision_ = pumpRevision_;
+        observer.stage(CallLogStage::PumpMatch, false, pump.size());
+    }
+    return View(this);
+}
+
+size_t CallLogStore::View::size() const { return store_->matched_.size() + store_->matchedPump_.size(); }
+
+const CallRecord* CallLogStore::View::at(size_t position) const {
+    if (position >= size()) return nullptr;
+    const auto& pump = store_->pumpPositions_;
+    const auto it = std::lower_bound(pump.begin(), pump.end(), position);
+    const auto before = static_cast<size_t>(it - pump.begin());
+    if (it != pump.end() && *it == position) return store_->matchedPump_[before];
+    return store_->entries_[store_->matched_[position - before]].get();
+}
+
+size_t CallLogStore::View::position(CallRecordId id) const {
+    if (id.round != store_->round_ || !id) return kNotFound;
+    if (id.lane == CallLane::Pump) {
+        for (size_t i = 0; i < store_->matchedPump_.size(); ++i)
+            if (store_->matchedPump_[i]->id == id) return store_->pumpPositions_[i];
+        return kNotFound;
+    }
+    if (id.sequence > store_->positions_.size() || !store_->find(id)) return kNotFound;
+    const auto base = store_->positions_[static_cast<size_t>(id.sequence - 1)];
+    if (base == kNotFound) return kNotFound;
+    size_t position = base;
+    for (size_t i = 0; i < store_->pumpPositions_.size(); ++i) {
+        if (store_->pumpPositions_[i] - i > base) break;
+        ++position;
+    }
+    return position;
+}
+
+const CallLogViewWork& CallLogStore::View::work() const { return store_->viewWork_; }
+
+size_t CallLogStore::View::indexBytes() const {
+    return (store_->sorted_.capacity() + store_->matched_.capacity() + store_->positions_.capacity() +
+        store_->pumpPositions_.capacity()) * sizeof(size_t) + store_->matchedPump_.capacity() * sizeof(const CallRecord*);
 }
 
 void CallLogStore::append(uint64_t attach, std::vector<HookedCall> calls) {

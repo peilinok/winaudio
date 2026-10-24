@@ -1801,24 +1801,9 @@ void AppUi::drawPipelinePage() {
         const float callRowH = (std::max)(80.0f, ImGui::GetContentRegionAvail().y);
         ImGui::BeginChild("pipelineCallLog", ImVec2(0, callRowH), true);
         ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kPipelineCallLog));
-        std::vector<wa::CallRecordRef> callLog;
-        {
-            wa::FrameBracket sort(frameProbe_, wa::FrameSlice::CallSort);
-            callLog = pipelineCallStore_.entries();
-            const auto& pump = pipelineCallStore_.pumpEntries();
-            callLog.insert(callLog.end(), pump.begin(), pump.end());
-            if (pipelinePump_) {
-                ImGui::Text("%s: %u", wa::ui_text::get(wa::ui_text::kPipelineXruns),
-                            pipelineAttaches_.pumpXrunsSum());
-            }
-            std::sort(callLog.begin(), callLog.end(), [](const wa::CallRecordRef& a, const wa::CallRecordRef& b) {
-                if (a->call.timeMs != b->call.timeMs) return a->call.timeMs < b->call.timeMs;
-                if (a->id.lane != b->id.lane) return a->id.lane == wa::CallLane::Control;
-                if (a->id.lane == wa::CallLane::Pump && a->id.attach != b->id.attach)
-                    return a->id.attach < b->id.attach;
-                return a->id.sequence < b->id.sequence;
-            });
-        }
+        if (pipelinePump_)
+            ImGui::Text("%s: %u", wa::ui_text::get(wa::ui_text::kPipelineXruns),
+                        pipelineAttaches_.pumpXrunsSum());
         frameProbe_.addWork("control-total", pipelineCallStore_.size());
         frameProbe_.addWork("control-capacity", pipelineCallStore_.entries().capacity());
         frameProbe_.addWork("recording-copy-total", 0);
@@ -1850,12 +1835,7 @@ void AppUi::drawPipelinePage() {
         ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineCallColIface));
         ImGui::SameLine();
         ImGui::SetNextItemWidth(ifaceComboW);
-        std::vector<std::string> ifaceChoices;
-        {
-            wa::FrameBracket match(frameProbe_, wa::FrameSlice::CallMatch);
-            for (const auto& record : callLog) wa::call_log_filter::addIface(ifaceChoices, record->call.iface);
-            wa::call_log_filter::sortIfaces(ifaceChoices);
-        }
+        const auto& ifaceChoices = pipelineCallStore_.ifaces();
         const char* ifacePreview = pipelineCallIfaceFilter_[0]
                                        ? pipelineCallIfaceFilter_
                                        : wa::ui_text::get(wa::ui_text::kPipelineCallIfaceAll);
@@ -1887,37 +1867,36 @@ void AppUi::drawPipelinePage() {
         filterOpts.text = pipelineCallFilter_;
         filterOpts.iface = pipelineCallIfaceFilter_;
         filterOpts.failuresOnly = pipelineCallFailuresOnly_;
-        std::vector<size_t> visible;
-        {
-            wa::FrameBracket match(frameProbe_, wa::FrameSlice::CallMatch);
-            visible.reserve(callLog.size());
-            for (size_t i = 0; i < callLog.size(); ++i)
-                if (wa::call_log_filter::callMatches(callLog[i]->call, filterOpts)) visible.push_back(i);
-        }
+        const auto visible = pipelineCallStore_.view(filterOpts, {&frameProbe_,
+            [](void* context, wa::CallLogStage stage, bool begin, size_t) {
+                auto& probe = *static_cast<wa::FrameProbe*>(context);
+                const auto slice = stage == wa::CallLogStage::Sort ? wa::FrameSlice::CallSort
+                    : wa::FrameSlice::CallMatch;
+                if (begin) probe.begin(slice); else probe.end(slice);
+            }});
         frameProbe_.addWork("call-matching-total", visible.size());
-        frameProbe_.addWork("call-query-capacity", visible.capacity());
+        frameProbe_.addWork("call-query-bytes", visible.indexBytes());
+        frameProbe_.addWork("control-sort-records", visible.work().sorted);
+        frameProbe_.addWork("control-match-records", visible.work().matched);
+        frameProbe_.addWork("pump-match-records", visible.work().pumpMatched);
+        frameProbe_.addWork("query-invalidated", visible.work().queryChanged);
+        frameProbe_.addWork("control-invalidated", visible.work().controlChanged);
+        frameProbe_.addWork("pump-invalidated", visible.work().pumpChanged);
         const bool anyFilterActive = filterOpts.text.size() > 0 || filterOpts.iface.size() > 0
                                      || filterOpts.failuresOnly;
         if (filterEdited) {
-            if (visible.empty()) {
+            if (visible.size() == 0) {
                 // Keep prior selection so Parameters still show the last pick.
             } else {
-                bool selectedVisible = false;
-                for (size_t vi : visible) {
-                    if (callLog[vi]->id == pipelineCallSelected_) {
-                        selectedVisible = true;
-                        break;
-                    }
-                }
-                if (!selectedVisible) {
-                    pipelineCallSelected_ = callLog[visible.front()]->id;
+                if (visible.position(pipelineCallSelected_) == wa::CallLogStore::kNotFound) {
+                    pipelineCallSelected_ = visible.at(0)->id;
                     pipelinePumpSelectionExpired_ = false;
                     pipelineCallScrollToSelected_ = true;
                 }
             }
         }
 
-        if (callLog.empty()) {
+        if (pipelineCallStore_.size() == 0 && pipelineCallStore_.pumpEntries().empty()) {
             ImGui::TextWrapped("%s", wa::ui_text::pipelineCallLogEmptyText(pipelineAttaches_.anyAttached(),
                                                                           pipelinePump_));
             if (pipelinePumpSelectionExpired_)
@@ -1932,7 +1911,7 @@ void AppUi::drawPipelinePage() {
             const float paramsW = callUsableX - tableW;
 
             ImGui::BeginChild("pipelineCallTable", ImVec2(tableW, 0), false);
-            if (visible.empty() && anyFilterActive) {
+            if (visible.size() == 0 && anyFilterActive) {
                 ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineCallFilterHint));
             } else if (ImGui::BeginTable("pipelineCalls", 5,
                                  ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
@@ -1954,37 +1933,49 @@ void AppUi::drawPipelinePage() {
                                         ImGuiTableColumnFlags_WidthFixed, 64.f);
                 ImGui::TableHeadersRow();
                 uint64_t visibleRows = 0;
-                for (size_t vi = 0; vi < visible.size(); ++vi) {
-                    const size_t row = visible[vi];
-                    const auto& record = *callLog[row];
-                    const auto& call = record.call;
-                    ImGui::TableNextRow();
-                    ImGui::TableSetColumnIndex(0);
-                    const bool selected = pipelineCallSelected_ == record.id;
-                    char pidLabel[160];
-                    std::snprintf(pidLabel, sizeof(pidLabel), "%u###pcall%llu-%llu-%u-%llu", call.pid,
-                        static_cast<unsigned long long>(record.id.round),
-                        static_cast<unsigned long long>(record.id.attach), static_cast<unsigned>(record.id.lane),
-                        static_cast<unsigned long long>(record.id.sequence));
-                    if (ImGui::Selectable(pidLabel, selected, ImGuiSelectableFlags_SpanAllColumns)) {
-                        pipelineCallSelected_ = record.id;
-                        pipelinePumpSelectionExpired_ = false;
-                    }
-                    if (ImGui::IsItemVisible()) ++visibleRows;
-                    if (selected && pipelineCallScrollToSelected_) {
-                        ImGui::SetScrollHereY(0.25f);
-                        pipelineCallScrollToSelected_ = false;
-                    }
-                    ImGui::TableSetColumnIndex(1);
-                    ImGui::TextUnformatted(wa::call_log_filter::formatCallName(call).c_str());
-                    ImGui::TableSetColumnIndex(2);
-                    ImGui::TextUnformatted(call.args.c_str());
-                    ImGui::TableSetColumnIndex(3);
-                    ImGui::TextUnformatted(wa::CallLogStore::formatHresult(call.hresult).c_str());
-                    ImGui::TableSetColumnIndex(4);
-                    ImGui::Text("%u", call.streamId);
+                uint64_t submittedRows = 0;
+                ImGuiListClipper clipper;
+                clipper.Begin(static_cast<int>(visible.size()));
+                if (pipelineCallScrollToSelected_) {
+                    const auto position = visible.position(pipelineCallSelected_);
+                    if (position != wa::CallLogStore::kNotFound)
+                        clipper.IncludeItemByIndex(static_cast<int>(position));
                 }
-                frameProbe_.addWork("call-row-submissions", visible.size());
+                while (clipper.Step()) {
+                    for (int vi = clipper.DisplayStart; vi < clipper.DisplayEnd; ++vi) {
+                        const auto& record = *visible.at(static_cast<size_t>(vi));
+                        const auto& call = record.call;
+                        ++submittedRows;
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        const bool selected = pipelineCallSelected_ == record.id;
+                        char pidLabel[160];
+                        std::snprintf(pidLabel, sizeof(pidLabel), "%u###pcall%llu-%llu-%u-%llu", call.pid,
+                            static_cast<unsigned long long>(record.id.round),
+                            static_cast<unsigned long long>(record.id.attach), static_cast<unsigned>(record.id.lane),
+                            static_cast<unsigned long long>(record.id.sequence));
+                        if (ImGui::Selectable(pidLabel, selected, ImGuiSelectableFlags_SpanAllColumns)) {
+                            pipelineCallSelected_ = record.id;
+                            pipelinePumpSelectionExpired_ = false;
+                        }
+                        if (ImGui::IsItemVisible()) ++visibleRows;
+                        if (selected && pipelineCallScrollToSelected_) {
+                            ImGui::SetScrollHereY(0.25f);
+                            pipelineCallScrollToSelected_ = false;
+                        }
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::TextUnformatted(wa::call_log_filter::singleLine(
+                            wa::call_log_filter::formatCallName(call)).c_str());
+                        ImGui::TableSetColumnIndex(2);
+                        ImGui::TextUnformatted(wa::call_log_filter::singleLine(call.args).c_str());
+                        if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", call.args.c_str());
+                        ImGui::TableSetColumnIndex(3);
+                        ImGui::TextUnformatted(wa::CallLogStore::formatHresult(call.hresult).c_str());
+                        ImGui::TableSetColumnIndex(4);
+                        ImGui::Text("%u", call.streamId);
+                    }
+                }
+                frameProbe_.addWork("call-row-submissions", submittedRows);
                 frameProbe_.addWork("call-row-visible", visibleRows);
                 ImGui::EndTable();
             }

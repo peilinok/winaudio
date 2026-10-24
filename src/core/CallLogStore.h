@@ -1,5 +1,6 @@
 #pragma once
 #include "HookedCall.h"
+#include "CallLogFilter.h"
 #include "Result.h"
 #include <cstdint>
 #include <memory>
@@ -33,10 +34,40 @@ struct CallLogExport {
     std::vector<CallRecordRef> records;
 };
 
+enum class CallLogStage { Sort, Match, PumpMatch, Initialize };
+struct CallLogObserver {
+    void* context = nullptr;
+    void (*event)(void*, CallLogStage, bool begin, size_t count) = nullptr;
+    void stage(CallLogStage kind, bool begin, size_t count) const {
+        if (event) event(context, kind, begin, count);
+    }
+};
+
+struct CallLogViewWork {
+    size_t sorted = 0, matched = 0, pumpMatched = 0;
+    bool controlChanged = false, queryChanged = false, pumpChanged = false;
+};
+
 // Persist monitored Core Audio intercept rows (API Monitor-style capture save).
 // JSONL one object per line; CSV is a flat export of the same fields. No PCM.
 class CallLogStore {
 public:
+    static constexpr size_t kNotFound = static_cast<size_t>(-1);
+    // Borrows the current query cache; consume before the next Store mutation/view.
+    class View {
+    public:
+        size_t size() const;
+        const CallRecord* at(size_t position) const;
+        size_t position(CallRecordId id) const;
+        const CallLogViewWork& work() const;
+        size_t indexBytes() const;
+    private:
+        friend class CallLogStore;
+        explicit View(const CallLogStore* store) : store_(store) {}
+        const CallLogStore* store_;
+    };
+    View view(const call_log_filter::FilterOpts& query = {}, CallLogObserver observer = {});
+    const std::vector<std::string>& ifaces();
     void clear();
     void beginRound();
     uint64_t round() const { return round_; }
@@ -52,7 +83,7 @@ public:
     std::vector<const HookedCall*> sessionRecords(uint32_t pid) const;
     size_t pidCallCount(uint32_t pid) const;
     void updatePump(uint64_t attach, const std::vector<PumpCall>& window);
-    void setPumpVisible(bool on) { pumpVisible_ = on; }
+    void setPumpVisible(bool on);
     const std::vector<CallRecordRef>& pumpEntries() const;
     void setRecording(bool on);
     bool recording() const;
@@ -98,6 +129,15 @@ private:
     RecordingRange range_ = RecordingRange::Never;
     size_t frozenCount_ = 0;
     bool recording_ = false;
+    uint64_t controlRevision_ = 1, pumpRevision_ = 1;
+    uint64_t sortedRevision_ = 0, matchedRevision_ = 0, matchedPumpRevision_ = 0;
+    std::vector<size_t> sorted_, matched_, positions_, pumpPositions_;
+    std::vector<const CallRecord*> matchedPump_;
+    std::string queryText_, queryIface_;
+    bool queryFailures_ = false, queryValid_ = false;
+    CallLogViewWork viewWork_;
+    std::vector<std::string> controlIfaces_, ifaces_;
+    uint64_t ifacesControlRevision_ = 0, ifacesPumpRevision_ = 0;
 };
 
 // Stable key for Live-session attach UI state (instance id, else pid|device|flow).

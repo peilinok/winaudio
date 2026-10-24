@@ -61,6 +61,12 @@ inline std::string formatCallName(const HookedCall& c) {
     return name;
 }
 
+// Presentation only: matching and export continue to use the original summary.
+inline std::string singleLine(std::string text) {
+    for (auto& c : text) if (c == '\n' || c == '\r') c = ' ';
+    return text;
+}
+
 inline bool callMatches(const HookedCall& c, std::string_view filter) {
     if (filter.empty()) return true;
     if (fuzzyMatch(formatCallName(c), filter)) return true;

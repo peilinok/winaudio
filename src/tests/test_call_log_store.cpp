@@ -250,3 +250,84 @@ TEST(CallLogStore, AttachUiStateNames) {
     EXPECT_STREQ(pipelineAttachUiStateName(PipelineAttachUiState::Attached), "Attached");
     EXPECT_STREQ(pipelineAttachUiStateName(PipelineAttachUiState::Failed), "Failed");
 }
+
+TEST(CallLogStore, QueryOrdersLateRecordsAndReusesControlWorkForPumpOnlyUpdates) {
+    CallLogStore store;
+    const auto attach = store.registerAttach(7);
+    auto call = sampleCall();
+    call.timeMs = 30;
+    store.append(attach, call);
+    const auto selected = store.entries().front()->id;
+    call.timeMs = 10;
+    store.append(attach, call);
+    store.append(attach, call);
+    auto view = store.view({});
+    ASSERT_EQ(view.size(), 3u);
+    EXPECT_EQ(view.at(0)->id.sequence, 2u);
+    EXPECT_EQ(view.at(1)->id.sequence, 3u);
+    EXPECT_EQ(view.position(selected), 2u);
+    EXPECT_EQ(view.work().sorted, 3u);
+    EXPECT_EQ(view.work().matched, 3u);
+    view = store.view({});
+    EXPECT_EQ(view.work().sorted, 0u);
+    EXPECT_EQ(view.work().matched, 0u);
+    call.method = "GetBuffer";
+    call.pump = true;
+    store.setPumpVisible(true);
+    store.updatePump(attach, {{1, call}});
+    view = store.view({});
+    ASSERT_EQ(view.size(), 4u);
+    EXPECT_EQ(view.at(2)->id.lane, CallLane::Pump); // Equal time: controls first.
+    EXPECT_EQ(view.position(selected), 3u);
+    EXPECT_EQ(view.work().sorted, 0u);
+    EXPECT_EQ(view.work().matched, 0u);
+    const auto pump = view.at(2)->id;
+    store.setPumpVisible(false);
+    view = store.view({});
+    EXPECT_EQ(view.work().matched, 0u);
+    EXPECT_EQ(view.size(), 3u);
+    EXPECT_EQ(view.position(pump), CallLogStore::kNotFound);
+    EXPECT_EQ(store.find(pump), nullptr);
+    EXPECT_EQ(store.find(selected)->id, selected);
+}
+
+TEST(CallLogStore, QueryUsesExistingSameFieldTokensAndKeepsHiddenControlDetails) {
+    CallLogStore store;
+    auto call = sampleCall();
+    call.hresult = 1;
+    call.args = "alpha\nbeta,\"quoted\"";
+    store.append({call});
+    const auto selected = store.entries().front()->id;
+    auto view = store.view({"init alpha", "", false});
+    EXPECT_EQ(view.size(), 0u); // Tokens cannot be assembled across Call and Args.
+    EXPECT_NE(store.find(selected), nullptr);
+    view = store.view({"alpha beta", "iaudioclient", true});
+    ASSERT_EQ(view.size(), 1u); // S_FALSE remains a nonzero HRESULT.
+    EXPECT_EQ(view.at(0), store.find(selected));
+    EXPECT_EQ(view.position(selected), 0u);
+    EXPECT_EQ(view.work().sorted, 0u);
+    EXPECT_EQ(view.work().matched, 1u);
+    EXPECT_EQ(store.find(selected)->call.args, call.args);
+    EXPECT_EQ(call_log_filter::singleLine(call.args), "alpha beta,\"quoted\"");
+    EXPECT_NE(CallLogStore::toJsonLine(*store.find(selected)).find("alpha\\nbeta"), std::string::npos);
+    EXPECT_EQ(store.ifaces(), std::vector<std::string>{"IAudioClient"});
+    view = store.view({"alpha beta", "iaudioclient", true});
+    EXPECT_EQ(view.work().matched, 0u);
+}
+
+TEST(CallLogStore, PumpIfaceOptionsExpireWithoutChangingControlQuery) {
+    CallLogStore store;
+    const auto attach = store.registerAttach(7);
+    store.append(attach, sampleCall());
+    store.view({});
+    auto pump = sampleCall();
+    pump.iface = "IAudioRenderClient";
+    pump.method = "GetBuffer";
+    store.setPumpVisible(true);
+    store.updatePump(attach, {{1, pump}});
+    EXPECT_EQ(store.ifaces().size(), 2u);
+    EXPECT_EQ(store.view({}).work().matched, 0u);
+    store.endAttach(attach);
+    EXPECT_EQ(store.ifaces(), std::vector<std::string>{"IAudioClient"});
+    EXPECT_EQ(store.view({}).work().matched, 0u);
+}

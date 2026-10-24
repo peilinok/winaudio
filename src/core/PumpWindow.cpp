@@ -47,6 +47,9 @@ const std::vector<PumpCall>& PumpWindow::poll(const hook_ipc::Ring& ring) {
         const uint32_t logical = write - offset;
         const size_t index = logical % hook_ipc::kPumpCap;
         const auto pod = ring.pumpSlots[index];
+        // Prevent the compiler/CPU from folding the second shared-memory read.
+        // This still cannot prove publication with the existing IPC protocol.
+        MemoryBarrier();
         const auto again = ring.pumpSlots[index];
         if (std::memcmp(&pod, &again, sizeof(pod)) != 0 ||
             std::memcmp(&pod, &initial_[index], sizeof(pod)) == 0 || pod.method[0] == 0) continue;

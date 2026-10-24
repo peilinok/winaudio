@@ -26,11 +26,15 @@ pump 仍有界轮询，不以 pumpWriteIndex 未变化为理由停止读槽。�
 
 图仍由现有 assemblePipeline 构建，使用缓存 Hooked hint 与 ETW 的既有合并规则。不增加平行图构建器；只有有效图输入变化才重建节点。
 
+图节点缓存比较 session、endpoint、合并后的 Initialize hint 和 probe 的实际值，再调用原 assemblePipeline。缓存仅持这四组小型输入及既有节点，不保存调用参数树；来源条数和 stream 提示独立更新。音量／静音的 Live session patch 同样进入此比较，避免缓存后图参数停留在旧值。
+
 ## 保存和轮次替换
 
 录制状态区分从未建立范围、跟随和冻结。冻结为空时明确返回空，不回退历史。保存只捕获引用和接收边界，按接收顺序逐条序列化。
 
 导出使用一个专用线程和窄文件写出边界，以确定性测试制造阻塞及各阶段失败。同目录临时文件完成 write、flush、close 后再以不覆盖方式发布；取消或失败清理临时文件，清理失败明确保留未完成状态。
+
+文件写出边界只暴露 open、write、flush、close、publish、cleanup；生产实现负责本次临时文件，测试实现用条件变量控制阻塞及逐步失败，不引入通用线程池或文件框架。任务在 take 回收结果和 join 前始终算忙，完成标记采用 release／acquire 交接，后台不访问 Store 或 ImGui。默认文件名由冻结来源与唯一后缀产生；指定路径也使用不覆盖发布。
 
 全部 Detach 后替换旧轮前显示保存条数及将放弃的总数，并提供保存、放弃、取消。只有用户完成保存或明确放弃，并且新 Attach 实际成功，才清理旧轮。后台任务忙时不排队替换。正常退出持续处理消息，等待或取消后回收线程。
 
@@ -93,3 +97,11 @@ pump 仍有界轮询，不以 pumpWriteIndex 未变化为理由停止读槽。�
 Release GUI、性能 GUI 和测试目标构建通过；54 项 Store／HookedCall／参数／Attach／图直接测试通过，结果在 build/performance-vs18/inspector-source-final-green.xml。红证据另见 inspector-history-red.xml、inspector-range-red.xml 和 pump-reuse-red.xml。完整 Debug／Release 与真实 GUI 多 PID／轮次演示将在各项集成后再收齐，不把本段局部测试当整线验收。
 
 OnDemandAttach 的头文件只前置声明 PumpWindow，具体定义在 COM 公共头之后包含；曾直接包含造成 Windows GUID_NULL 宏与 COM 声明冲突，按现有 COM 包含顺序修正，没有修改公共 GUID 或增加兼容宏。
+
+只读规范评审指出共享槽连续两次普通读取可能被优化器合并。两次快照之间补 MemoryBarrier，确保第二次重新读取；既有顺序测试不能证明跨进程并发完整发布，仍保留协议限制。此修正不改变共享结构或写入顺序，后续以生成代码及直接回归复核。
+
+## #226 查询与可见行
+
+Store 缓存当前查询的控制排序、匹配和反向位置索引，pump 只维护最多六十四条的二分插入位置。无新增不重排、不匹配；Iface 使用独立小列表。主表只提交裁剪范围，首次 Step 前包含定位选择；自动测量首行高度以包含当前字体、CellPadding 和 Selectable。Call 与 Args 仅显示时替换换行，提示与参数面板保留完整内容。
+
+Release 三个目标构建通过，二十六项直接测试通过，见 inspector-query-green.xml。真实一万条短运行已完成，截图观察到旧／新记录定位和独立参数面板，尚不据此宣布完整性能或 DPI 验收。图摘要仍沿用全量参考，下一票消重。
