@@ -1,0 +1,16 @@
+[
+  {
+    "label": "before",
+    "source": "3c433575f0bfc77808eaa09113ba1eb2052ffb4e",
+    "executable": ".scratch\\wav-dump-task\\performance-before-r2\\build\\bin\\Release\\WinAudioPerformanceGui.exe",
+    "executable_sha256": "341509249698064bb6a96a0065f7e47e442e02e66ff5fa6ce0c7436faa1dc220",
+    "frame_sha256": "d26fb973b46611a87b53facbfc099903b95aaa37db37f7bc0f770619686f81b6"
+  },
+  {
+    "label": "after",
+    "source": "abf5affa4e4453efb0d7ad66b4cc2e991e432588",
+    "executable": ".scratch\\wav-dump-task\\performance-after\\build\\bin\\Release\\WinAudioPerformanceGui.exe",
+    "executable_sha256": "8161d0b76667729c62d9ed374f2f7243fd3d2fdcfd0c335e58e947ebbd2581fd",
+    "frame_sha256": "91b19c97977b82816c7403bc80fb2bb31a7804b16fcd0b7c80edee3a7734ff24"
+  }
+]

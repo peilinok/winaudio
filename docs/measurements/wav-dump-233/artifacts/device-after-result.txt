@@ -1,0 +1,9 @@
+round=1 continuing_scope_system=9216 continuing_scope_application=6615
+round=1 source=system rate=48000 channels=8 bits=32 float=1 bytes=178176 nonzero_bytes=76800 file=C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\device-after\loopback_48000_8ch_32f_20261025_000805.wav
+round=1 source=application rate=44100 channels=2 bits=16 float=0 bytes=21168 nonzero_bytes=3615 file=C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\device-after\app-loopback_WavDumpDeviceSmoke.exe_28612_44100_2ch_16_20261025_000805.wav
+round=2 continuing_scope_system=16704 continuing_scope_application=12789
+round=2 source=system rate=48000 channels=8 bits=32 float=1 bytes=208896 nonzero_bytes=18779 file=C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\device-after\loopback_48000_8ch_32f_20261025_000805_2.wav
+round=2 source=application rate=44100 channels=2 bits=16 float=0 bytes=21168 nonzero_bytes=3490 file=C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\device-after\app-loopback_WavDumpDeviceSmoke.exe_28612_44100_2ch_16_20261025_000805_2.wav
+round=3 source=system rate=48000 channels=8 bits=32 float=1 bytes=161280 nonzero_bytes=69120 file=C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\device-after\loopback_48000_8ch_32f_20261025_000805_3.wav
+round=3 source=application rate=44100 channels=2 bits=16 float=0 bytes=22932 nonzero_bytes=3793 file=C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\device-after\app-loopback_WavDumpDeviceSmoke.exe_28612_44100_2ch_16_20261025_000805_3.wav
+PASS: three independent rounds for both real loopback sources; final active Dumps finalized by destroyAll

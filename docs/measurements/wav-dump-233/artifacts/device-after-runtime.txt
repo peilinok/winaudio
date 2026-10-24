@@ -1,0 +1,44 @@
+00:08:05.112 [I] [?   ] WasapiStream::threadMain                       args: worker thread started                  ret:
+00:08:05.138 [I] [?   ] WasapiStream::Start                            args: stream started                         ret:
+00:08:05.138 [I] [renW] WasapiStream::runLoop                          args: render loop started                    ret:
+00:08:05.139 [I] [?   ] CaptureTrackList::create                       args: source=system-loopback id={0.0.0.00000000}.{09793ccf-e246-4dbf-800b-a7cf44856994} ret:
+00:08:05.139 [I] [?   ] WasapiStream::threadMain                       args: worker thread started                  ret:
+00:08:05.149 [I] [?   ] WasapiStream::Start                            args: stream started                         ret:
+00:08:05.149 [I] [capW] WasapiStream::runLoop                          args: capture loop started                   ret:
+00:08:05.156 [I] [?   ] CaptureTrackList::create                       args: id=1 fmt=48000/32f/8                   ret: ok
+00:08:05.156 [I] [?   ] CaptureTrackList::create                       args: source=application-loopback id=(default) pid=28612 ret:
+00:08:05.157 [I] [?   ] ApplicationLoopbackCaptureStream::threadMain   args: worker thread started                  ret:
+00:08:05.158 [E] [?   ] StreamInit::GetMixFormat                       args: -                                      ret: 0x80004001 尚未实现
+00:08:05.158 [W] [?   ] ApplicationLoopbackCaptureStream::streamInit(mix) args: WasapiStream: GetMixFormat failed: hr=0x80004001 ret: fallback 44100/2/16
+00:08:05.159 [I] [?   ] ApplicationLoopbackCaptureStream::Start        args: pid=28612 mode=IncludeTree fmt=44100/16/2 ret: ok
+00:08:05.161 [I] [?   ] CaptureTrackList::create                       args: id=2 fmt=44100/16/2                    ret: ok
+00:08:05.195 [I] [?   ] WavSink::start                                 args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\device-after\loopback_48000_8ch_32f_20261025_000805.wav fmt=48000/32f/8 ret: ok
+00:08:05.195 [I] [?   ] CaptureTrackList::dump.start                   args: id=1 prefix=loopback                   ret: ok
+00:08:05.205 [I] [?   ] WavSink::start                                 args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\device-after\app-loopback_WavDumpDeviceSmoke.exe_28612_44100_2ch_16_20261025_000805.wav fmt=44100/16/2 ret: ok
+00:08:05.205 [I] [?   ] CaptureTrackList::dump.start                   args: id=2 prefix=app-loopback_WavDumpDeviceSmoke.exe_28612 ret: ok
+00:08:05.307 [I] [?   ] WavSink::stop                                  args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\device-after\loopback_48000_8ch_32f_20261025_000805.wav ret: ok
+00:08:05.307 [I] [?   ] CaptureTrackList::dump.stop                    args: id=1                                   ret: ok
+00:08:05.319 [I] [?   ] WavSink::stop                                  args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\device-after\app-loopback_WavDumpDeviceSmoke.exe_28612_44100_2ch_16_20261025_000805.wav ret: ok
+00:08:05.319 [I] [?   ] CaptureTrackList::dump.stop                    args: id=2                                   ret: ok
+00:08:05.330 [I] [?   ] WavSink::stop                                  args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\device-after\loopback_48000_8ch_32f_20261025_000805.wav ret: ok
+00:08:05.332 [I] [?   ] WavSink::start                                 args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\device-after\loopback_48000_8ch_32f_20261025_000805_2.wav fmt=48000/32f/8 ret: ok
+00:08:05.332 [I] [?   ] CaptureTrackList::dump.start                   args: id=1 prefix=loopback                   ret: ok
+00:08:05.333 [I] [?   ] WavSink::stop                                  args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\device-after\app-loopback_WavDumpDeviceSmoke.exe_28612_44100_2ch_16_20261025_000805.wav ret: ok
+00:08:05.334 [I] [?   ] WavSink::start                                 args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\device-after\app-loopback_WavDumpDeviceSmoke.exe_28612_44100_2ch_16_20261025_000805_2.wav fmt=44100/16/2 ret: ok
+00:08:05.334 [I] [?   ] CaptureTrackList::dump.start                   args: id=2 prefix=app-loopback_WavDumpDeviceSmoke.exe_28612 ret: ok
+00:08:05.443 [I] [?   ] WavSink::stop                                  args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\device-after\loopback_48000_8ch_32f_20261025_000805_2.wav ret: ok
+00:08:05.443 [I] [?   ] CaptureTrackList::dump.stop                    args: id=1                                   ret: ok
+00:08:05.459 [I] [?   ] WavSink::stop                                  args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\device-after\app-loopback_WavDumpDeviceSmoke.exe_28612_44100_2ch_16_20261025_000805_2.wav ret: ok
+00:08:05.459 [I] [?   ] CaptureTrackList::dump.stop                    args: id=2                                   ret: ok
+00:08:05.471 [I] [?   ] WavSink::stop                                  args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\device-after\loopback_48000_8ch_32f_20261025_000805_2.wav ret: ok
+00:08:05.473 [I] [?   ] WavSink::start                                 args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\device-after\loopback_48000_8ch_32f_20261025_000805_3.wav fmt=48000/32f/8 ret: ok
+00:08:05.473 [I] [?   ] CaptureTrackList::dump.start                   args: id=1 prefix=loopback                   ret: ok
+00:08:05.474 [I] [?   ] WavSink::stop                                  args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\device-after\app-loopback_WavDumpDeviceSmoke.exe_28612_44100_2ch_16_20261025_000805_2.wav ret: ok
+00:08:05.475 [I] [?   ] WavSink::start                                 args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\device-after\app-loopback_WavDumpDeviceSmoke.exe_28612_44100_2ch_16_20261025_000805_3.wav fmt=44100/16/2 ret: ok
+00:08:05.475 [I] [?   ] CaptureTrackList::dump.start                   args: id=2 prefix=app-loopback_WavDumpDeviceSmoke.exe_28612 ret: ok
+00:08:05.581 [I] [?   ] CaptureTrackList::destroyAll                   args: n=2                                    ret:
+00:08:05.595 [I] [?   ] WavSink::stop                                  args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\device-after\loopback_48000_8ch_32f_20261025_000805_3.wav ret: ok
+00:08:05.610 [I] [?   ] WavSink::stop                                  args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\device-after\app-loopback_WavDumpDeviceSmoke.exe_28612_44100_2ch_16_20261025_000805_3.wav ret: ok
+00:08:05.612 [I] [?   ] WavSink::stop                                  args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\device-after\loopback_48000_8ch_32f_20261025_000805_3.wav ret: ok
+00:08:05.612 [I] [?   ] WavSink::stop                                  args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\device-after\app-loopback_WavDumpDeviceSmoke.exe_28612_44100_2ch_16_20261025_000805_3.wav ret: ok
+00:08:05.618 [I] [?   ] CaptureTrackList::destroyAll                   args: n=0                                    ret:

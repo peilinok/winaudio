@@ -26,10 +26,10 @@
 - [x] 原有格式、命名、碰撞后缀、应用名/PID、目录与 CLI 精确路径、失败文件保留。
 - [x] 生产路径无锁/分配/等待/文件操作/共享所有权/测试钩子；不改变生产类布局。
 - [x] 既有 Monitor 显式停止和文件读回通过；不提前迁移 #234 自动停用与 GUI 语义。
-- [ ] 同格式、块大小、producer/writer 负载的前后吞吐与 p50/p95/p99；关闭路径另记。
+- [x] 同格式、块大小、producer/writer 负载的前后吞吐与 p50/p95/p99；关闭路径另记。
 - [x] Debug/Release、x64/x86 完整构建和直接回归。
-- [ ] 真实设备/GUI 冒烟与证据边界（总控单独核验）。
-- [ ] Standards / Spec 固定基线两轴审查，修复发现的问题并复测。
+- [x] 真实设备/GUI 冒烟与证据边界（总控单独核验）。
+- [x] Standards / Spec 固定基线两轴代码审查，修复发现的问题并复测；最终测量材料另做增量复核。
 - [ ] 独立 PR、远端 head 校验、必需 CI 成功、squash 合并、主线祖先关系与 issue 关闭核实。
 
 ## 进度
@@ -173,3 +173,13 @@ ctest --test-dir build-233 -C Debug -R '^(WavLifecycle\.)?CaptureTrackList\.(Slo
 - replay-legacy.py 生成的临时 target 现 include 仓库 cmake/CompilerWarnings.cmake，并调用 wa_set_project_warnings；覆盖 /W4、/permissive-、/utf-8、/sdl，没有另设一套规则。
 - 重放构建无新增编译警告；原始三个确定性交错仍全部预期失败，脚本按预期退出 0：[重放结果](artifacts/replay-review-warnings.txt)、[生成项目编译属性](artifacts/replay-warning-flags.txt)。
 - 这两项审查修复不改变业务提交 abf5aff 的生产代码。上述四配置 102/102、58/58 是修复前固定业务与覆盖快照的记录；新增故障清理用例本轮只跑所述六项直接回归，最终完整 CI 由总控继续。
+
+### 总控核验：设备、GUI、性能和保护
+
+- 两来源真实 WASAPI 各三轮正常收尾及持续 tap 验证通过；GUI 两来源均完成停止、重启、接收中销毁与正常退出。实际音频使用虚拟 CABLE endpoint，不改默认设备、音量或增强设置；DumpFolder 已恢复并读回核对。
+- 六轮配对生产探针全部接收并逐字节读回 3840000 字节，关闭路径接收 0。正常 push 的旧版 p95=1.7 µs，新版 1.8–1.9 µs；新版 p99=11.3–21.8 µs，高于旧版 2.4–2.7 µs。保留这项成本，不宣称加速或硬实时。
+- 前后四个图表稳定场景均满足 p95≤8 ms、p99≤16 ms；新版最高 p95=6.5197 ms、p99=7.1917 ms。原始帧、逐轮 CSV、WAV gzip、SHA256、GUI 截图均已归档，详见 [测量与设备记录](performance-and-device.md)。
+- `git diff abf5aff..baa0fbc -- src/core` 为空；所测二进制的固定业务源码与最终实现一致。四配置日志、三项旧实现红测、生产无钩子证据由总控直接读取核对。
+- 原始 checkout 状态仍为原有 CONTEXT/ADR/spec 与截图目录改动，三份相关文档 SHA256 与开始时一致；没有 stash/reset/clean 或改动原始文件。
+- 两轴代码审查：Standards 最终遗留 0（增量发现的 P2 清理死锁与 P3 编译规则已修复并复核）；Spec 0。最终测量文档的增量复核、PR、CI 与审批记录在后续发布时补充。
+- 2026-10-25 复查规则集 `protect-main`（18481045）仍要求 1 个独立 approving review、仅 squash。当前身份虽为 owner bypass actor，也不会绕过所需审批。#233 仍 OPEN；#234 唯一原生 open blocker 仍为 #233，未开始业务实施。
