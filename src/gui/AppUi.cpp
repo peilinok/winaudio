@@ -958,8 +958,8 @@ void AppUi::resetVisuals(VisualState& viz) {
     viz.envX.clear();
     viz.envMin.clear();
     viz.envMax.clear();
-    viz.waveEpoch = 0;
-    viz.envPyramid = {};
+    viz.capEnvPyramid = {};
+    viz.renderEnvPyramid = {};
     viz.capEnvPyramids.clear();
     viz.workCap.clear();
     viz.workRender.clear();
@@ -969,8 +969,8 @@ void AppUi::resetVisuals(VisualState& viz) {
     viz.magRender.clear();
     viz.nextCapEnd = 0;
     viz.nextRenderEnd = 0;
-    viz.waveFilledCap = 0;
-    viz.waveFilledRender = 0;
+    viz.capWaveState.invalidate();
+    viz.renderWaveState.invalidate();
     viz.specSr = 0;
     viz.capSpecChannels = 0;
     viz.capSpec.reset();
@@ -985,7 +985,8 @@ void AppUi::resetRenderVisuals(VisualState& viz) {
     viz.magRender.clear();
     viz.renderSpec.reset();
     viz.nextRenderEnd = 0;
-    viz.waveFilledRender = 0;
+    viz.renderWaveState.invalidate();
+    viz.renderEnvPyramid = {};
     std::fill(viz.renderWave.begin(), viz.renderWave.end(), 0.f);
 }
 
@@ -1009,8 +1010,8 @@ void AppUi::ensureRunningVisuals(const wa::MonitorStatus& status, VisualState& v
         viz.capChannelWaves.assign((size_t)capChannels,
                                    std::vector<float>((size_t)viz.waveN, 0.f));
         viz.capWaveChannels = capChannels;
-        viz.waveFilledCap = 0;
-        viz.waveFilledRender = 0;
+        viz.capWaveState.invalidate();
+        viz.renderWaveState.invalidate();
         viz.xLink0 = 0.0;
         viz.xLink1 = (double)(kSpecCols * kFftHop) / (double)sr;
     }
@@ -3220,7 +3221,7 @@ void AppUi::drawSpectrogramPanel(VisualState& viz, const char* plotId, wa::Spect
 // so the buffer's tail holds the newest samples (right edge). Level-of-detail: zoomed in -> raw
 // line; zoomed out -> per-pixel min/max envelope with translucent fill + opaque outline so far
 // view stays readable while remaining column-aligned with the spectrogram. Optional MinMaxPyramid
-// avoids a full raw history scan on later frames with the same waveEpoch (freeze / pan / zoom).
+// avoids a full raw history scan on later frames with the same committed window (freeze / pan / zoom).
 void AppUi::drawWaveformPanel(VisualState& viz, const char* plotId, const float* wave, int n,
                               uint32_t sr, bool haveData, float height, int slot,
                               wa::MinMaxPyramid* pyr) {
@@ -3271,9 +3272,10 @@ void AppUi::drawWaveformPanel(VisualState& viz, const char* plotId, const float*
                 {
                     // Resize stays outside: it can allocate. The bracket times the min/max fill only.
                     wa::FrameBracket envelope(frameProbe_, wa::FrameSlice::Envelope);
-                    wa::fillWaveEnvelope(wave, n, iLo, iHi, cols, invSr, pyr, viz.waveEpoch,
+                    const auto& state = slot == kSlotRenWave ? viz.renderWaveState : viz.capWaveState;
+                    wa::fillWaveEnvelope(wave, n, iLo, iHi, cols, invSr, pyr, state.revision,
                                          viz.envX.data(), viz.envMin.data(), viz.envMax.data(),
-                                         frameProbe_.enabled() ? &work : nullptr);
+                                         frameProbe_.enabled() ? &work : nullptr, state.generation);
                 }
                 note("wave-block-rebuild-samples", work.rebuildSamples);
                 note("wave-exact-samples", work.exactSamples);
@@ -3336,7 +3338,8 @@ void AppUi::drawComboPanel(wa::ScopeReader& reader, const wa::MonitorStatus& sta
         buffers.channelCount = shownChannels;
         buffers.waveN = viz.waveN;
         buffers.waveSr = viz.waveSr;
-        buffers.waveFilledThrough = &viz.waveFilledCap;
+        buffers.waveState = &viz.capWaveState;
+        buffers.waveScratch = &waveSnapshotScratch_;
         buffers.channelSpecWindows = &viz.capSpecWindows;
         buffers.channelSpecs = &viz.capChannelSpecs;
         buffers.work = &viz.workCap;
@@ -3347,8 +3350,6 @@ void AppUi::drawComboPanel(wa::ScopeReader& reader, const wa::MonitorStatus& sta
 
         if (viz.capEnvPyramids.size() < (size_t)shownChannels)
             viz.capEnvPyramids.resize((size_t)shownChannels);
-        if (!viz.chartsFrozen && refreshed.haveWave)
-            ++viz.waveEpoch;
 
 #ifdef WA_PERFORMANCE_FIXTURE
         PerformanceFixture::chartPosition(viz.probeSource, false);
@@ -3399,7 +3400,8 @@ void AppUi::drawComboPanel(wa::ScopeReader& reader, const wa::MonitorStatus& sta
     buffers.wave = wave.empty() ? nullptr : wave.data();
     buffers.waveN = viz.waveN;
     buffers.waveSr = viz.waveSr;
-    buffers.waveFilledThrough = renderSide ? &viz.waveFilledRender : &viz.waveFilledCap;
+    buffers.waveState = renderSide ? &viz.renderWaveState : &viz.capWaveState;
+    buffers.waveScratch = &waveSnapshotScratch_;
     buffers.specWin = &viz.specWin;
     buffers.work = renderSide ? &viz.workRender : &viz.workCap;
     buffers.mag = renderSide ? &viz.magRender : &viz.magCap;
@@ -3408,15 +3410,10 @@ void AppUi::drawComboPanel(wa::ScopeReader& reader, const wa::MonitorStatus& sta
     buffers.specSr = viz.specSr;
     const wa::ChartRefreshResult refreshed = wa::refreshCharts(refreshParams, buffers);
     bool ok = refreshed.haveWave;
-    if (!ok && viz.chartsFrozen && viz.waveSr > 0 && viz.waveN > 0 &&
-        (!renderSide || !viz.renderWave.empty()))
-        ok = true;
 
     const float waveH = kComboH * viz.comboRatio;
-    if (!viz.chartsFrozen && ok)
-        ++viz.waveEpoch;
     drawWaveformPanel(viz, renderSide ? "##renWave" : "##capWave", wave.data(), viz.waveN, viz.waveSr, ok,
-                      waveH, renderSide ? kSlotRenWave : kSlotCapWaveBase, &viz.envPyramid);
+                      waveH, renderSide ? kSlotRenWave : kSlotCapWaveBase, renderSide ? &viz.renderEnvPyramid : &viz.capEnvPyramid);
 
     // Splitter: drag to rebalance waveform vs spectrogram height (the axes re-lay out to fit).
     ImGui::InvisibleButton(renderSide ? "##renSplit" : "##capSplit",

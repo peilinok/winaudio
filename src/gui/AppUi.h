@@ -10,6 +10,7 @@
 #include "CaptureTrackList.h"
 #include "RenderTrackList.h"
 #include "ChartHost.h"
+#include "ChartDataPipeline.h"
 #include "CreateRecipe.h"
 #include "DeviceEnumerator.h"
 #include "DumpUi.h"
@@ -59,8 +60,7 @@ private:
         uint32_t capWaveChannels = 0;
         double   xLink0 = 0.0, xLink1 = 0.0;
         std::vector<float> envX, envMin, envMax;
-        uint64_t waveEpoch = 0;                      // bumps when chart wave buffers refresh
-        wa::MinMaxPyramid envPyramid;                // mono / render-side envelope LOD
+        wa::MinMaxPyramid capEnvPyramid, renderEnvPyramid;
         std::vector<wa::MinMaxPyramid> capEnvPyramids; // per capture-channel envelope LOD
         float comboRatio = 0.5f;
         bool  chartsFrozen = false; // pause chart data refresh only; audio continues
@@ -73,14 +73,14 @@ private:
         std::vector<float>               magCap, magRender;
         uint64_t nextCapEnd    = 0;
         uint64_t nextRenderEnd = 0;
-        uint64_t waveFilledCap = 0;    // ScopeReader written() covered by cap wave buffers
-        uint64_t waveFilledRender = 0; // same for render-side wave
+        wa::WaveRefreshState capWaveState, renderWaveState;
         uint32_t specSr        = 0;
         uint32_t capSpecChannels = 0;
 
         std::unique_ptr<wa::Spectrogram> capSpec, renderSpec;
         std::vector<std::unique_ptr<wa::Spectrogram>> capChannelSpecs;
     };
+    wa::WaveSnapshotScratch waveSnapshotScratch_;
 
     void refreshMonitorDevices();
     void refreshApplicationLoopbackSessions();

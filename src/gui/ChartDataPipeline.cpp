@@ -12,114 +12,80 @@ void note(const ChartRefreshParams& p, const char* metric, uint64_t value, int c
     if (p.probe) p.probe->addWork(metric, value, p.source, p.direction, channel);
 }
 
-bool fillLatestWaveMono(const ChartRefreshParams& p, float* wave, int waveN,
-                        uint64_t* filledThrough) {
-    const ScopeReader& reader = *p.reader;
-    if (!wave || waveN <= 0) return false;
-    const uint64_t written = reader.written();
-    if (written == 0) return false;
-
-    if (filledThrough && *filledThrough == written) return true;
-
-    const size_t nn = static_cast<size_t>(std::min<uint64_t>(written, static_cast<uint64_t>(waveN)));
-    if (nn == 0) return false;
-
-    if (filledThrough && *filledThrough > 0 && written > *filledThrough) {
-        const uint64_t delta64 = written - *filledThrough;
-        if (delta64 < static_cast<uint64_t>(waveN) &&
-            static_cast<uint64_t>(waveN) <= written) {
-            // Steady-state incremental: shift left, snapshot only the new tail.
-            const int delta = static_cast<int>(delta64);
-            const int keep = waveN - delta;
-            std::memmove(wave, wave + delta, static_cast<size_t>(keep) * sizeof(float));
-            note(p, "wave-move-bytes", static_cast<uint64_t>(keep) * sizeof(float), 0);
-            uint64_t end = 0;
-            note(p, "wave-request-samples", static_cast<uint64_t>(delta), 0);
-            if (!reader.snapshotLatest(static_cast<size_t>(delta), wave + keep, end))
-                return false;
-            note(p, "wave-copy-bytes", static_cast<uint64_t>(delta) * sizeof(float), 0);
-            *filledThrough = written;
-            return true;
-        }
+bool waveBuffersValid(const ChartBuffers& b) {
+    if (b.waveN <= 0 || b.waveSr == 0) return false;
+    if (b.channelCount >= 2) {
+        if (!b.channelWaves || b.channelWaves->size() < b.channelCount) return false;
+        for (uint32_t ch = 0; ch < b.channelCount; ++ch)
+            if ((*b.channelWaves)[ch].size() < static_cast<size_t>(b.waveN)) return false;
+        return true;
     }
-
-    const int head = waveN - static_cast<int>(nn);
-    if (head > 0) std::fill(wave, wave + head, 0.f);
-    uint64_t end = 0;
-    note(p, "wave-request-samples", nn, 0);
-    if (!reader.snapshotLatest(nn, wave + head, end)) return false;
-    note(p, "wave-copy-bytes", nn * sizeof(float), 0);
-    note(p, "wave-zero-bytes", static_cast<uint64_t>(head) * sizeof(float), 0);
-    if (filledThrough) *filledThrough = written;
-    return true;
+    return b.wave != nullptr;
 }
 
-bool fillLatestWaveChannels(const ChartRefreshParams& p, std::vector<std::vector<float>>& channelWaves,
-                            uint32_t channelCount, int waveN, uint64_t* filledThrough) {
-    const ScopeReader& reader = *p.reader;
-    if (waveN <= 0 || channelCount == 0) return false;
-    const uint64_t written = reader.written();
-    if (written == 0) return false;
-
-    if (filledThrough && *filledThrough == written) {
-        const uint32_t shown =
-            std::min(channelCount, static_cast<uint32_t>(channelWaves.size()));
-        return shown > 0 && static_cast<int>(channelWaves[0].size()) >= waveN;
+ChartRefreshResult refreshWave(const ChartRefreshParams& p, ChartBuffers& b, uint64_t written) {
+    ChartRefreshResult result;
+    if (!b.waveState || !b.waveScratch) return result;
+    auto& state = *b.waveState;
+    if (!waveBuffersValid(b)) { state.valid = false; return result; }
+    if (state.valid && written < state.filledThrough) {
+        // Counter rollback invalidates the window, not the commit revision.
+        state.valid = false;
+        state.filledThrough = 0;
     }
-
-    const size_t nn = static_cast<size_t>(std::min<uint64_t>(written, static_cast<uint64_t>(waveN)));
-    if (nn == 0) return false;
-    const uint32_t shown =
-        std::min(channelCount, static_cast<uint32_t>(channelWaves.size()));
-    if (shown == 0) return false;
-
-    const bool canIncremental = filledThrough && *filledThrough > 0 && written > *filledThrough &&
-                                static_cast<uint64_t>(waveN) <= written;
-    const uint64_t delta64 = canIncremental ? (written - *filledThrough) : 0;
-    const bool incremental =
-        canIncremental && delta64 < static_cast<uint64_t>(waveN);
-
-    bool any = false;
-    if (incremental) {
-        const int delta = static_cast<int>(delta64);
-        const int keep = waveN - delta;
-        for (uint32_t ch = 0; ch < shown; ++ch) {
-            std::vector<float>& wave = channelWaves[static_cast<size_t>(ch)];
-            if (static_cast<int>(wave.size()) < waveN) continue;
-            std::memmove(wave.data(), wave.data() + delta,
-                         static_cast<size_t>(keep) * sizeof(float));
-            note(p, "wave-move-bytes", static_cast<uint64_t>(keep) * sizeof(float), static_cast<int>(ch));
-            note(p, "wave-request-samples", static_cast<uint64_t>(delta), static_cast<int>(ch));
-            if (reader.snapshotChannelEndingAt(static_cast<uint16_t>(ch), written,
-                                               static_cast<size_t>(delta),
-                                               wave.data() + keep)) {
-                note(p, "wave-copy-bytes", static_cast<uint64_t>(delta) * sizeof(float), static_cast<int>(ch));
-                any = true;
-            }
-        }
-    } else {
-        for (uint32_t ch = 0; ch < shown; ++ch) {
-            std::vector<float>& wave = channelWaves[static_cast<size_t>(ch)];
-            if (static_cast<int>(wave.size()) < waveN) continue;
-            const int head = waveN - static_cast<int>(nn);
-            if (head > 0) std::fill(wave.begin(), wave.begin() + head, 0.f);
-            note(p, "wave-zero-bytes", static_cast<uint64_t>(head) * sizeof(float), static_cast<int>(ch));
-            note(p, "wave-request-samples", nn, static_cast<int>(ch));
-            if (reader.snapshotChannelEndingAt(static_cast<uint16_t>(ch), written, nn,
-                                               wave.data() + head)) {
-                note(p, "wave-copy-bytes", nn * sizeof(float), static_cast<int>(ch));
-                any = true;
-            }
-        }
+    result.haveWave = state.valid;
+    if (state.valid && written == state.filledThrough) {
+        note(p, "wave-reuse", 1, -1);
+        return result;
     }
-    if (any && filledThrough) *filledThrough = written;
-    return any;
+    if (written == 0) return result;
+    const bool multi = b.channelCount >= 2;
+    const uint32_t channels = multi ? b.channelCount : 1;
+    const uint64_t delta = state.valid ? written - state.filledThrough : 0;
+    const bool incremental = state.valid && delta > 0 && delta < static_cast<uint64_t>(b.waveN);
+    const size_t count = incremental ? static_cast<size_t>(delta)
+        : static_cast<size_t>(std::min<uint64_t>(written, static_cast<uint64_t>(b.waveN)));
+    auto& scratch = b.waveScratch->samples;
+    if (scratch.capacity() < count * channels) {
+        scratch.reserve(count * channels);
+        note(p, "wave-scratch-allocations", 1, -1);
+    }
+    scratch.resize(count * channels);
+    note(p, "wave-scratch-capacity-bytes", scratch.capacity() * sizeof(float), -1);
+    for (uint32_t ch = 0; ch < channels; ++ch) {
+        float* target = scratch.data() + static_cast<size_t>(ch) * count;
+        note(p, "wave-request-samples", count, static_cast<int>(ch));
+        const bool ok = multi
+            ? p.reader->snapshotChannelEndingAt(static_cast<uint16_t>(ch), written, count, target)
+            : p.reader->snapshotEndingAt(written, count, target);
+        if (!ok) { note(p, "wave-failed", 1, static_cast<int>(ch)); return result; }
+        note(p, "wave-snapshot-bytes", count * sizeof(float), static_cast<int>(ch));
+    }
+    // All reads succeeded. Only this commit phase may touch displayed history.
+    const size_t head = static_cast<size_t>(b.waveN) - count;
+    for (uint32_t ch = 0; ch < channels; ++ch) {
+        float* wave = multi ? (*b.channelWaves)[ch].data() : b.wave;
+        if (incremental) {
+            std::memmove(wave, wave + count, head * sizeof(float));
+            note(p, "wave-move-bytes", head * sizeof(float), static_cast<int>(ch));
+        } else {
+            std::fill(wave, wave + head, 0.f);
+            note(p, "wave-zero-bytes", head * sizeof(float), static_cast<int>(ch));
+        }
+        std::memcpy(wave + head, scratch.data() + static_cast<size_t>(ch) * count, count * sizeof(float));
+        note(p, "wave-copy-bytes", count * sizeof(float), static_cast<int>(ch));
+    }
+    state.valid = true;
+    state.filledThrough = written;
+    ++state.revision;
+    note(p, "wave-commits", 1, -1);
+    result.haveWave = result.waveChanged = true;
+    return result;
 }
 
-void advanceSpectraMono(const ChartRefreshParams& p, ChartBuffers& b) {
+void advanceSpectraMono(const ChartRefreshParams& p, ChartBuffers& b, uint64_t written) {
     if (!p.reader || !b.nextEnd || !b.specWin || !b.work || !b.mag) return;
     if (b.specWin->size() < p.fftWin || b.work->size() < p.fftWin) return;
-    const uint64_t written = p.reader->written();
     advanceAnalysis(written, *b.nextEnd, p.fftWin, p.fftHop, p.maxCatchup, [&](uint64_t endIdx) {
         note(p, "fft-request-samples", p.fftWin, 0);
         if (!p.reader->snapshotEndingAt(endIdx, p.fftWin, b.specWin->data())) return;
@@ -137,7 +103,7 @@ void advanceSpectraMono(const ChartRefreshParams& p, ChartBuffers& b) {
     });
 }
 
-void advanceSpectraMulti(const ChartRefreshParams& p, ChartBuffers& b) {
+void advanceSpectraMulti(const ChartRefreshParams& p, ChartBuffers& b, uint64_t written) {
     if (!p.reader || !b.nextEnd || !b.channelSpecWindows || !b.channelSpecs || !b.work || !b.mag)
         return;
     if (b.work->size() < p.fftWin) return;
@@ -149,7 +115,6 @@ void advanceSpectraMulti(const ChartRefreshParams& p, ChartBuffers& b) {
     for (uint32_t ch = 0; ch < nCh; ++ch) {
         if ((*b.channelSpecWindows)[ch].size() < p.fftWin) return;
     }
-    const uint64_t written = p.reader->written();
     advanceAnalysis(written, *b.nextEnd, p.fftWin, p.fftHop, p.maxCatchup, [&](uint64_t endIdx) {
         bool allGot = true;
         for (uint32_t ch = 0; ch < nCh; ++ch) {
@@ -179,43 +144,34 @@ void advanceSpectraMulti(const ChartRefreshParams& p, ChartBuffers& b) {
     });
 }
 
-bool buffersHaveWave(const ChartBuffers& b) {
-    if (b.waveN <= 0 || b.waveSr == 0) return false;
-    if (b.channelCount >= 2 && b.channelWaves)
-        return !b.channelWaves->empty() && !(*b.channelWaves)[0].empty();
-    return b.wave != nullptr;
-}
-
 } // namespace
 
 ChartRefreshResult refreshCharts(const ChartRefreshParams& params, ChartBuffers& buffers) {
     FrameBracket refresh(params.probe, FrameSlice::ChartRefresh);
     ChartRefreshResult result;
-    if (!params.reader) return result;
-
+    if (buffers.waveState) {
+        auto& state = *buffers.waveState;
+        const uint32_t channels = buffers.channelCount >= 2 ? buffers.channelCount : 1;
+        if (state.samples != buffers.waveN || state.sampleRate != buffers.waveSr || state.channels != channels) {
+            if (state.samples != 0) state.invalidate();
+            state.samples = buffers.waveN;
+            state.sampleRate = buffers.waveSr;
+            state.channels = channels;
+        }
+        if (!waveBuffersValid(buffers)) state.valid = false;
+    }
     if (params.frozen) {
-        result.haveWave = buffersHaveWave(buffers);
+        result.haveWave = buffers.waveState && buffers.waveState->valid;
         return result;
     }
-    if (!params.streamActive) return result;
-
-    const bool multi = buffers.channelCount >= 2 && buffers.channelWaves != nullptr;
-
-    if (buffers.waveSr > 0 && buffers.waveN > 0) {
-        if (multi)
-            result.haveWave = fillLatestWaveChannels(params, *buffers.channelWaves,
-                                                     buffers.channelCount, buffers.waveN,
-                                                     buffers.waveFilledThrough);
-        else if (buffers.wave)
-            result.haveWave = fillLatestWaveMono(params, buffers.wave, buffers.waveN,
-                                                 buffers.waveFilledThrough);
-    }
-
+    if (!params.streamActive || !params.reader) return result;
+    const uint64_t written = params.reader->written();
+    result = refreshWave(params, buffers, written);
     if (buffers.specSr > 0 && buffers.nextEnd) {
-        if (multi)
-            advanceSpectraMulti(params, buffers);
+        if (buffers.channelCount >= 2 && buffers.channelWaves)
+            advanceSpectraMulti(params, buffers, written);
         else
-            advanceSpectraMono(params, buffers);
+            advanceSpectraMono(params, buffers, written);
     }
 
     return result;

@@ -15,7 +15,7 @@ bool clampVisibleRange(int n, int& iLo, int& iHi) {
 }  // namespace
 
 void ensureMinMaxPyramid(MinMaxPyramid& pyr, const float* wave, int n, uint64_t epoch,
-                         WaveEnvelopeWork* work) {
+                         WaveEnvelopeWork* work, uint64_t generation) {
     if (!wave || n <= 0) {
         pyr.epoch = UINT64_MAX;
         pyr.n = 0;
@@ -23,7 +23,7 @@ void ensureMinMaxPyramid(MinMaxPyramid& pyr, const float* wave, int n, uint64_t 
         pyr.blockMax.clear();
         return;
     }
-    if (pyr.epoch == epoch && pyr.n == n &&
+    if (pyr.generation == generation && pyr.epoch == epoch && pyr.n == n &&
         static_cast<int>(pyr.blockMin.size()) == (n + kWaveEnvBlock - 1) / kWaveEnvBlock)
         return;
 
@@ -46,6 +46,7 @@ void ensureMinMaxPyramid(MinMaxPyramid& pyr, const float* wave, int n, uint64_t 
     }
     pyr.n = n;
     pyr.epoch = epoch;
+    pyr.generation = generation;
 }
 
 bool fillWaveEnvelopeExact(const float* wave, int n, int iLo, int iHi, int cols, double invSr,
@@ -76,7 +77,7 @@ bool fillWaveEnvelopeExact(const float* wave, int n, int iLo, int iHi, int cols,
 
 bool fillWaveEnvelope(const float* wave, int n, int iLo, int iHi, int cols, double invSr,
                       MinMaxPyramid* pyr, uint64_t epoch, float* envX, float* envMin,
-                      float* envMax, WaveEnvelopeWork* work) {
+                      float* envMax, WaveEnvelopeWork* work, uint64_t generation) {
     if (!wave || !envX || !envMin || !envMax || cols <= 0 || invSr <= 0.0) return false;
     if (!clampVisibleRange(n, iLo, iHi)) return false;
     const int visN = iHi - iLo + 1;
@@ -87,7 +88,7 @@ bool fillWaveEnvelope(const float* wave, int n, int iLo, int iHi, int cols, doub
         return fillWaveEnvelopeExact(wave, n, iLo, iHi, cols, invSr, envX, envMin, envMax, work);
     }
 
-    ensureMinMaxPyramid(*pyr, wave, n, epoch, work);
+    ensureMinMaxPyramid(*pyr, wave, n, epoch, work, generation);
     if (pyr->n != n || pyr->blockMin.empty() ||
         pyr->blockMin.size() != pyr->blockMax.size()) {
         return fillWaveEnvelopeExact(wave, n, iLo, iHi, cols, invSr, envX, envMin, envMax, work);

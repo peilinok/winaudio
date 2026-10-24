@@ -27,6 +27,7 @@ inline float waveDbWarp(float x) {
 // Persistent min/max pyramid for one wave history buffer. Rebuild when epoch/n change.
 struct MinMaxPyramid {
     uint64_t epoch = UINT64_MAX;  // invalid until first build
+    uint64_t generation = UINT64_MAX;
     int      n     = 0;           // sample count at build
     std::vector<float> blockMin;
     std::vector<float> blockMax;
@@ -41,7 +42,7 @@ struct WaveEnvelopeWork {
 
 // Build / refresh a block min/max pyramid over wave[0, n). No-op when epoch and n match.
 void ensureMinMaxPyramid(MinMaxPyramid& pyr, const float* wave, int n, uint64_t epoch,
-                         WaveEnvelopeWork* work = nullptr);
+                         WaveEnvelopeWork* work = nullptr, uint64_t generation = 0);
 
 // Exact per-column min/max over wave[iLo..iHi] (inclusive), then waveDbWarp.
 // envX/envMin/envMax must hold cols entries. Returns false if nothing filled.
@@ -54,6 +55,6 @@ bool fillWaveEnvelopeExact(const float* wave, int n, int iLo, int iHi, int cols,
 // the same epoch, e.g. chart freeze + pan/zoom). Otherwise exact raw scan.
 bool fillWaveEnvelope(const float* wave, int n, int iLo, int iHi, int cols, double invSr,
                       MinMaxPyramid* pyr, uint64_t epoch, float* envX, float* envMin,
-                      float* envMax, WaveEnvelopeWork* work = nullptr);
+                      float* envMax, WaveEnvelopeWork* work = nullptr, uint64_t generation = 0);
 
 }  // namespace wa
