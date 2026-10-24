@@ -147,7 +147,9 @@ def summarize(path, warmup_seconds=0, duration_seconds=None, phases=None):
                                            for key in group['work']},
                            frame_budget_met=(main['p95'] <= 8 and main['p99'] <= 16)
                            if group['stage'] != 'teardown' else None,
-                           operation_budget_met=response['p95'] <= 100 if response['n'] else None))
+                           operation_budget_met=all(nearest_rank(values, .95) <= 100
+                                                    for values in group['operations_by_target'].values())
+                           if response['n'] else None))
     return dict(source=str(Path(path).resolve()), sha256=hashlib.sha256(data).hexdigest(),
                 run_count=len(runs), selected_run=len(runs), groups=output,
                 run_complete=completed_frame == ids[-1],
@@ -175,7 +177,9 @@ def main():
         raise SystemExit(2)
     if args.require_budget:
         budgets = [g['frame_budget_met'] for g in result['groups'] if g['frame_budget_met'] is not None]
-        if not budgets or not all(budgets):
+        operations = [g['operation_budget_met'] for g in result['groups']
+                      if g['frame_budget_met'] is not None and g['operation_budget_met'] is not None]
+        if not budgets or not all(budgets) or not all(operations) or result['pending_operations_at_end']:
             raise SystemExit(2)
 
 

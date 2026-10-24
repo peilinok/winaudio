@@ -57,12 +57,21 @@ class FrameSummaryTest(unittest.TestCase):
                 lines.append('kind=operation frame={} id={} target={} start={} end={} ticks={} '
                              'qpc_freq=1000\n'.format(frame, frame, target, start + 5 - latency,
                                                      start + 5, latency))
-            source.write_text(''.join(lines), encoding='utf-8')
+            source.write_text(''.join(lines) + '# End frame probe frame=100 complete=1\n', encoding='utf-8')
             group = summarize(source)['groups'][0]
             self.assertEqual(group['operation_response_ms']['p95'], 10)
             self.assertEqual(group['operations_by_target_ms']['save'],
                              dict(n=1, p50=250, p95=250, p99=250, maximum=250))
             self.assertEqual(group['operations_by_target_ms']['select']['n'], 99)
+            self.assertFalse(group['operation_budget_met'])
+            command = [sys.executable, str(Path(__file__).with_name('summarize.py')),
+                       str(source), '--warmup-seconds', '0', '--duration-seconds', '120',
+                       '--require-budget']
+            self.assertEqual(subprocess.run(command, stdout=subprocess.PIPE).returncode, 2)
+            source.write_text(source.read_text(encoding='utf-8').replace(
+                'target=save start=99755 end=100005 ticks=250',
+                'target=save start=99995 end=100005 ticks=10'), encoding='utf-8')
+            self.assertEqual(subprocess.run(command, stdout=subprocess.PIPE).returncode, 0)
 
     def test_work_distribution_sums_hits_and_keeps_idle_frames(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -2,6 +2,7 @@
 // This is a manual probe, not a device-dependent CI test.
 #include "OnDemandAttach.h"
 #include "HookedCallPod.h"
+#include "Log.h"
 #include <audioclient.h>
 #include <mmdeviceapi.h>
 #include <tlhelp32.h>
@@ -15,6 +16,24 @@
 namespace {
 using Microsoft::WRL::ComPtr;
 constexpr size_t kPhases = 7, kSamples = 4096;
+HRESULT observe(const char* operation, HRESULT hr) {
+    WA_LOG(FAILED(hr) ? wa::log::Level::Warn : wa::log::Level::Debug,
+           "HookAudioProbe", operation, "control", wa::log::hrName(hr));
+    return hr;
+}
+bool observeWin32(const char* operation, bool ok) {
+    const DWORD error = ok ? ERROR_SUCCESS : GetLastError();
+    observe(operation, ok ? S_OK : HRESULT_FROM_WIN32(error));
+    return ok;
+}
+struct ProbeLog {
+    ProbeLog() {
+        wa::log::init();
+        wa::log::setThreadName("probe");
+        wa::log::addStderrSink();
+    }
+    ~ProbeLog() { wa::log::shutdown(); }
+};
 struct AudioStats {
     uint64_t callbacks = 0, failures = 0, discontinuities = 0, capturedFrames = 0;
     uint64_t nonzeroBytes = 0;
@@ -40,22 +59,25 @@ struct Target {
         attach.stop();
         if (shared) {
             InterlockedExchange(&shared->stop, 1);
-            if (process) WaitForSingleObject(process, 10000);
-            UnmapViewOfFile(shared);
+            if (process) observe("WaitForSingleObject/cleanup",
+                WaitForSingleObject(process, 10000) == WAIT_OBJECT_0 ? S_OK : HRESULT_FROM_WIN32(ERROR_TIMEOUT));
+            observeWin32("UnmapViewOfFile/shared", UnmapViewOfFile(shared) != FALSE);
         }
-        if (process) CloseHandle(process);
-        if (map) CloseHandle(map);
-        if (ring) UnmapViewOfFile(ring);
-        if (ringMap) CloseHandle(ringMap);
+        if (process) observeWin32("CloseHandle/process", CloseHandle(process) != FALSE);
+        if (map) observeWin32("CloseHandle/map", CloseHandle(map) != FALSE);
+        if (ring) observeWin32("UnmapViewOfFile/ring", UnmapViewOfFile(ring) != FALSE);
+        if (ringMap) observeWin32("CloseHandle/ringMap", CloseHandle(ringMap) != FALSE);
     }
 };
 
 int victim(const wchar_t* name) {
     HANDLE map = OpenFileMappingW(FILE_MAP_ALL_ACCESS, FALSE, name);
-    if (!map) return 2;
+    if (!observeWin32("OpenFileMappingW/victim", map != nullptr)) return 2;
     auto* state = static_cast<Shared*>(MapViewOfFile(map, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(Shared)));
-    if (!state) { CloseHandle(map); return 3; }
-    const HRESULT com = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    if (!observeWin32("MapViewOfFile/victim", state != nullptr)) {
+        observeWin32("CloseHandle/victim", CloseHandle(map) != FALSE); return 3;
+    }
+    const HRESULT com = observe("CoInitializeEx", CoInitializeEx(nullptr, COINIT_MULTITHREADED));
     HRESULT hr = com;
     {
         ComPtr<IMMDeviceEnumerator> enumer;
@@ -65,14 +87,14 @@ int victim(const wchar_t* name) {
         ComPtr<IAudioCaptureClient> capture;
         WAVEFORMATEX* format = nullptr;
         UINT32 capacity = 0;
-        if (SUCCEEDED(hr)) hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
-            IID_PPV_ARGS(&enumer));
-        if (SUCCEEDED(hr)) hr = enumer->GetDefaultAudioEndpoint(eRender, eConsole, &device);
-        if (SUCCEEDED(hr)) hr = device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
-            reinterpret_cast<void**>(output.GetAddressOf()));
-        if (SUCCEEDED(hr)) hr = device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
-            reinterpret_cast<void**>(input.GetAddressOf()));
-        if (SUCCEEDED(hr)) hr = output->GetMixFormat(&format);
+        if (SUCCEEDED(hr)) hr = observe("CoCreateInstance", CoCreateInstance(__uuidof(MMDeviceEnumerator),
+            nullptr, CLSCTX_ALL, IID_PPV_ARGS(&enumer)));
+        if (SUCCEEDED(hr)) hr = observe("GetDefaultAudioEndpoint", enumer->GetDefaultAudioEndpoint(eRender, eConsole, &device));
+        if (SUCCEEDED(hr)) hr = observe("Activate/render", device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
+            reinterpret_cast<void**>(output.GetAddressOf())));
+        if (SUCCEEDED(hr)) hr = observe("Activate/capture", device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
+            reinterpret_cast<void**>(input.GetAddressOf())));
+        if (SUCCEEDED(hr)) hr = observe("GetMixFormat", output->GetMixFormat(&format));
         if (format) {
             state->sampleRate = format->nSamplesPerSec;
             state->channels = format->nChannels;
@@ -81,21 +103,23 @@ int victim(const wchar_t* name) {
         }
         if (device) {
             LPWSTR id = nullptr;
-            if (SUCCEEDED(device->GetId(&id)) && id) {
+            if (SUCCEEDED(observe("GetId", device->GetId(&id))) && id) {
                 wcsncpy_s(state->endpoint, id, _TRUNCATE);
                 CoTaskMemFree(id);
             }
         }
         const WORD alignment = format ? format->nBlockAlign : 0;
-        if (SUCCEEDED(hr)) hr = output->Initialize(AUDCLNT_SHAREMODE_SHARED, 0, 1000000, 0, format, nullptr);
-        if (SUCCEEDED(hr)) hr = input->Initialize(AUDCLNT_SHAREMODE_SHARED,
-            AUDCLNT_STREAMFLAGS_LOOPBACK, 1000000, 0, format, nullptr);
+        if (SUCCEEDED(hr)) hr = observe("Initialize/render", output->Initialize(
+            AUDCLNT_SHAREMODE_SHARED, 0, 1000000, 0, format, nullptr));
+        if (SUCCEEDED(hr)) hr = observe("Initialize/capture", input->Initialize(AUDCLNT_SHAREMODE_SHARED,
+            AUDCLNT_STREAMFLAGS_LOOPBACK, 1000000, 0, format, nullptr));
         if (format) CoTaskMemFree(format);
-        if (SUCCEEDED(hr)) hr = output->GetService(IID_PPV_ARGS(&render));
-        if (SUCCEEDED(hr)) hr = input->GetService(IID_PPV_ARGS(&capture));
-        if (SUCCEEDED(hr)) hr = output->GetBufferSize(&capacity);
-        if (SUCCEEDED(hr)) hr = output->Start();
-        if (SUCCEEDED(hr)) hr = input->Start();
+        if (SUCCEEDED(hr)) hr = observe("GetService/render", output->GetService(IID_PPV_ARGS(&render)));
+        if (SUCCEEDED(hr)) hr = observe("GetService/capture", input->GetService(IID_PPV_ARGS(&capture)));
+        if (SUCCEEDED(hr)) hr = observe("GetBufferSize", output->GetBufferSize(&capacity));
+        if (SUCCEEDED(hr)) hr = observe("Start/render", output->Start());
+        if (SUCCEEDED(hr)) hr = observe("Start/capture", input->Start());
+        WA_LOG(wa::log::Level::Info, "HookAudioProbe", "ready", std::to_string(GetCurrentProcessId()), wa::log::hrName(hr));
         state->error = hr;
         InterlockedExchange(&state->ready, 1);
         while (SUCCEEDED(hr) && !ReadAcquire(&state->stop)) {
@@ -132,20 +156,20 @@ int victim(const wchar_t* name) {
             else ++stats.sampleOverflow;
             // A low-frequency control call proves pump-off does not gate control.
             if (stats.callbacks % state->controlEvery == 0) {
-                output->GetBufferSize(&capacity);
+                observe("GetBufferSize/periodic", output->GetBufferSize(&capacity));
                 ComPtr<IAudioRenderClient> currentRender;
                 ComPtr<IAudioCaptureClient> currentCapture;
-                if (FAILED(output->GetService(IID_PPV_ARGS(&currentRender)))) ++stats.failures;
-                if (FAILED(input->GetService(IID_PPV_ARGS(&currentCapture)))) ++stats.failures;
+                if (FAILED(observe("GetService/render/periodic", output->GetService(IID_PPV_ARGS(&currentRender))))) ++stats.failures;
+                if (FAILED(observe("GetService/capture/periodic", input->GetService(IID_PPV_ARGS(&currentCapture))))) ++stats.failures;
             }
             Sleep(5);
         }
-        if (input) input->Stop();
-        if (output) output->Stop();
+        if (input) observe("Stop/capture", input->Stop());
+        if (output) observe("Stop/render", output->Stop());
     }
-    if (SUCCEEDED(com)) CoUninitialize();
-    UnmapViewOfFile(state);
-    CloseHandle(map);
+    if (SUCCEEDED(com)) { CoUninitialize(); observe("CoUninitialize", S_OK); }
+    observeWin32("UnmapViewOfFile/victim", UnmapViewOfFile(state) != FALSE);
+    observeWin32("CloseHandle/victim", CloseHandle(map) != FALSE);
     return FAILED(hr) ? 4 : 0;
 }
 
@@ -154,24 +178,27 @@ bool launch(Target& target, size_t index, uint32_t controlEvery = 20) {
                               L"-" + std::to_wstring(index);
     target.map = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0,
                                    static_cast<DWORD>(sizeof(Shared)), name.c_str());
-    if (!target.map) return false;
+    if (!observeWin32("CreateFileMappingW", target.map != nullptr)) return false;
     target.shared = static_cast<Shared*>(MapViewOfFile(target.map, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(Shared)));
-    if (!target.shared) return false;
+    if (!observeWin32("MapViewOfFile/controller", target.shared != nullptr)) return false;
     target.shared->controlEvery = controlEvery;
     wchar_t self[MAX_PATH]{};
-    GetModuleFileNameW(nullptr, self, MAX_PATH);
+    const DWORD pathLength = GetModuleFileNameW(nullptr, self, MAX_PATH);
+    observeWin32("GetModuleFileNameW", pathLength != 0);
     std::wstring command = L"\"" + std::wstring(self) + L"\" --victim \"" + name + L"\"";
     STARTUPINFOW startup{sizeof(startup)};
     PROCESS_INFORMATION info{};
-    if (!CreateProcessW(nullptr, command.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW,
-                        nullptr, nullptr, &startup, &info)) return false;
-    CloseHandle(info.hThread);
+    if (!observeWin32("CreateProcessW", CreateProcessW(nullptr, command.data(), nullptr, nullptr, FALSE,
+                        CREATE_NO_WINDOW, nullptr, nullptr, &startup, &info) != FALSE)) return false;
+    observeWin32("CloseHandle/thread", CloseHandle(info.hThread) != FALSE);
     target.process = info.hProcess;
     target.pid = info.dwProcessId;
     for (int i = 0; i < 200 && !ReadAcquire(&target.shared->ready); ++i) {
         if (WaitForSingleObject(target.process, 25) == WAIT_OBJECT_0) return false;
     }
-    return ReadAcquire(&target.shared->ready) && SUCCEEDED(target.shared->error);
+    const bool ready = ReadAcquire(&target.shared->ready) && SUCCEEDED(target.shared->error);
+    observe("target-ready", ready ? S_OK : target.shared->error == S_OK ? HRESULT_FROM_WIN32(ERROR_TIMEOUT) : target.shared->error);
+    return ready;
 }
 
 bool attach(Target& target) {
@@ -181,29 +208,33 @@ bool attach(Target& target) {
         wchar_t name[64]{};
         wa::hook_ipc::mapName(target.pid, name, 64);
         target.ringMap = OpenFileMappingW(FILE_MAP_READ, FALSE, name);
-        if (!target.ringMap) return false;
+        if (!observeWin32("OpenFileMappingW/ring", target.ringMap != nullptr)) return false;
         target.ring = static_cast<wa::hook_ipc::Ring*>(
             MapViewOfFile(target.ringMap, FILE_MAP_READ, 0, 0, sizeof(wa::hook_ipc::Ring)));
-        if (!target.ring) return false;
+        if (!observeWin32("MapViewOfFile/ring", target.ring != nullptr)) return false;
     }
     HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, target.pid);
+    observeWin32("CreateToolhelp32Snapshot", snapshot != INVALID_HANDLE_VALUE);
     bool found = false;
     if (snapshot != INVALID_HANDLE_VALUE) {
         MODULEENTRY32W module{};
         module.dwSize = sizeof(module);
-        if (Module32FirstW(snapshot, &module)) do {
+        if (observeWin32("Module32FirstW", Module32FirstW(snapshot, &module) != FALSE)) do {
             if (_wcsicmp(module.szModule, L"WinAudioHook-5.dll") == 0) {
                 std::wprintf(L"loaded pid=%lu path=%ls\n", target.pid, module.szExePath);
                 found = true;
             }
         } while (Module32NextW(snapshot, &module));
-        CloseHandle(snapshot);
+        const DWORD moduleError = GetLastError();
+        observe("Module32NextW", moduleError == ERROR_NO_MORE_FILES ? S_OK : HRESULT_FROM_WIN32(moduleError));
+        observeWin32("CloseHandle/snapshot", CloseHandle(snapshot) != FALSE);
     }
     return found;
 }
 }
 
 int wmain(int argc, wchar_t** argv) {
+    ProbeLog logging;
     if (argc == 3 && !std::wcscmp(argv[1], L"--victim")) return victim(argv[2]);
     if (argc == 3 && !std::wcscmp(argv[1], L"--continuous")) {
         const unsigned seconds = static_cast<unsigned>(std::wcstoul(argv[2], nullptr, 10));

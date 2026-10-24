@@ -237,3 +237,9 @@ Release 53／53、Debug 53／53 直接相关测试通过，涵盖 16 项 ChartDa
 全线规格评审指出 pollBackground 原来位于 beginFrame 之前，结果接收、join、日志和文件定位没有计入正常主线程帧，仅进入 interval。正常窗口改在 beginFrame 后处理；遮挡窗口只回收并暂存结果，通知在下一实际绘制帧完成。保存续接 Attach 仍在 draw 内执行，避免将控制工作移出帧预算。该修正后重新构建及验证，再冻结正式后测程序。
 
 完整 Release 测试曾在另一个目录的 Debug 构建期间运行，593 项中既有硬件音效用例与旧包络绝对计时用例失败。包络缓存查询在无并行构建时单跑为 244656 ns 并通过，记录 envelope-timing-isolated.log；后续完整测试与所有构建串行，正式性能采样仍严格隔离负载，不放宽原阈值。
+
+### 最终评审的验收门槛与探针日志修正
+
+规格评审发现 --require-budget 只检查帧预算。既有九十九次快速选择加一次慢保存的数据先得到错误的通过结果；增强失败回归后，operation_budget_met 按各 target 分别检查 p95≤100 ms，命令行同时拒绝帧超预算、任一种操作超预算或结束时仍有待完成操作。慢保存拒绝、同负载快保存通过，Python 八项回归通过，红绿输出为 summary-operation-red.log／summary-operation-green.log。
+
+规范评审发现 HookAudioProbe 控制路径多数失败只有退出码。给映射、进程创建、COM／WASAPI 初始化、服务获取和收尾加入 wa::log，默认成功 Debug 关闭、失败 Warn；前端初始化 stderr sink。正常音频计时段继续仅使用原固定计数，不加入逐回调日志或 I/O。历史 Hook 配对结果仍归属于当时的原二进制；新增日志只经本轮构建、短真实目标与后续 Inspector 真实会话核对，不回写旧性能归因。
