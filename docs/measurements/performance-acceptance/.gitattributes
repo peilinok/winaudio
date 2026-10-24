@@ -9,3 +9,12 @@ charts-overhead-before/*.csv text eol=lf
 charts-overhead-before/*.json text eol=lf
 inspector-before/*.csv text eol=lf
 inspector-before/*.json text eol=lf
+charts-after/*.csv text eol=lf
+charts-after/*.json text eol=lf
+inspector-after/*.csv text eol=lf
+inspector-after/*.json text eol=lf
+inspector-memory-after/*.csv text eol=lf
+inspector-memory-after/*.json text eol=lf
+inspector-growth-tail.json text eol=lf
+gui-checks/artifacts/*.json text eol=lf
+gui-checks/artifacts/*.gz -text

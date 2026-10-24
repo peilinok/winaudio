@@ -1,0 +1,890 @@
+{
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\charts-gui-final\\config.json": {
+    "artifact": "charts-gui-final-config.json.gz",
+    "source_sha256": "68094d6ab73fef206f22705a489a0fb8d9dd8c40d3d75cda0739fb2675d38fb7",
+    "content_sha256": "68094d6ab73fef206f22705a489a0fb8d9dd8c40d3d75cda0739fb2675d38fb7",
+    "artifact_sha256": "a60e0419f472b5e40459d268f28d2df13cd105bcb7569f658471f20168cdf160",
+    "source_bytes": 378,
+    "artifact_bytes": 281
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\charts-gui-final\\summary.json": {
+    "artifact": "charts-gui-final-summary.json.gz",
+    "source_sha256": "9762a0e501990f3414d24d613d310e8971def00f526420046fa049f8a9568ff2",
+    "content_sha256": "9762a0e501990f3414d24d613d310e8971def00f526420046fa049f8a9568ff2",
+    "artifact_sha256": "b49f0c9eb1e3bb00899701be10ea87f6e407fee03db8ae7d69d1517b4ab9c8c8",
+    "source_bytes": 131891,
+    "artifact_bytes": 8117
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\charts-gui-final\\frames.txt": {
+    "artifact": "charts-gui-final-frames.txt.gz",
+    "source_sha256": "fa313963bd2976d48947a16cb22d99dc6cd36143d484b987c2b1ed3f783a1aed",
+    "content_sha256": "fa313963bd2976d48947a16cb22d99dc6cd36143d484b987c2b1ed3f783a1aed",
+    "artifact_sha256": "4613d5d1fcb6d0034f2f1f8380cf9d20235092cd6f11a51e4012a2131851b3f2",
+    "source_bytes": 277533575,
+    "artifact_bytes": 10825908
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\charts-gui-final\\winaudio.log": {
+    "artifact": "charts-gui-final-winaudio.log.gz",
+    "source_sha256": "a38d9945890a21c30470f3c7facae91ba991cdf804be8c682c7afe1e5206172d",
+    "content_sha256": "a38d9945890a21c30470f3c7facae91ba991cdf804be8c682c7afe1e5206172d",
+    "artifact_sha256": "3f27a004068c9549b5a624fa22a6187d8b13e7697a8d472b258337b6e82fd590",
+    "source_bytes": 3722,
+    "artifact_bytes": 705
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\monitor-gui-final\\summary.json": {
+    "artifact": "monitor-gui-final-summary.json.gz",
+    "source_sha256": "9e408b461b07458efc9cdc305a876e613cda3b30e7eab6ac61413ad2a04edd07",
+    "content_sha256": "9e408b461b07458efc9cdc305a876e613cda3b30e7eab6ac61413ad2a04edd07",
+    "artifact_sha256": "4ce2693369ce6b57d7120de2e1a2b52049d29a5be596ae2dcc6b140865088ebc",
+    "source_bytes": 31021,
+    "artifact_bytes": 3083
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\monitor-gui-final\\frames.txt": {
+    "artifact": "monitor-gui-final-frames.txt.gz",
+    "source_sha256": "0d0fc44cbf651fe884829404a0ff284d91bcb89572112a3d629bd657226126d8",
+    "content_sha256": "0d0fc44cbf651fe884829404a0ff284d91bcb89572112a3d629bd657226126d8",
+    "artifact_sha256": "a6c669eb4ac607190b389c69c6106602c442846cbeaa7ab32708f9942d822955",
+    "source_bytes": 145420747,
+    "artifact_bytes": 5632551
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\monitor-gui-final\\winaudio.log": {
+    "artifact": "monitor-gui-final-winaudio.log.gz",
+    "source_sha256": "50bf988de2e63fa079b37aca213cda6fbace9f1231fa004d77ec07139a182bca",
+    "content_sha256": "50bf988de2e63fa079b37aca213cda6fbace9f1231fa004d77ec07139a182bca",
+    "artifact_sha256": "fcfa8c6e2e3835d2ba5873e8e9ba8a85eba3518298edea9628b5866ab7666da4",
+    "source_bytes": 10497,
+    "artifact_bytes": 1415
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\monitor-gui-final\\targets.txt": {
+    "artifact": "monitor-gui-final-targets.txt.gz",
+    "source_sha256": "29e7126529e30cf167fcc6f0496b22a462d580176f95d506e3444fe41cf85e6c",
+    "content_sha256": "29e7126529e30cf167fcc6f0496b22a462d580176f95d506e3444fe41cf85e6c",
+    "artifact_sha256": "e2eb1fae9e998048567354f9608c6eceb286c9f76a2c9311dc9ae982f386b68d",
+    "source_bytes": 256,
+    "artifact_bytes": 142
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\monitor-gui-final\\targets-error.txt": {
+    "artifact": "monitor-gui-final-targets-error.txt.gz",
+    "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "artifact_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+    "source_bytes": 0,
+    "artifact_bytes": 20
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\monitor-gui-final\\signal-out.txt": {
+    "artifact": "monitor-gui-final-signal-out.txt.gz",
+    "source_sha256": "65e5074da00932f1de4f76f1291322f9ab8fe5bdcffd0081cc57e2512032a6e8",
+    "content_sha256": "65e5074da00932f1de4f76f1291322f9ab8fe5bdcffd0081cc57e2512032a6e8",
+    "artifact_sha256": "6f58bc5240f661e1ad7e7fe1561838b8b28a3c7f7f4018a46098a39e21f4c4fc",
+    "source_bytes": 3272,
+    "artifact_bytes": 76
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\monitor-gui-final\\signal-error.txt": {
+    "artifact": "monitor-gui-final-signal-error.txt.gz",
+    "source_sha256": "9a9353d91ec839cb23df56490b9251e02e465d24eb6c53f76e95cefaf5423909",
+    "content_sha256": "9a9353d91ec839cb23df56490b9251e02e465d24eb6c53f76e95cefaf5423909",
+    "artifact_sha256": "2493b270da8d2bc7e3ce4129a1097fe84c9ed36c53069656acaa0551a10c51c1",
+    "source_bytes": 649,
+    "artifact_bytes": 249
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\gui-wait-idle\\config.json": {
+    "artifact": "gui-wait-idle-config.json.gz",
+    "source_sha256": "20e33b86cec9df07343a4f60a7a1ac3df5e62cff0c9d85794c0f22476ad2d1d5",
+    "content_sha256": "20e33b86cec9df07343a4f60a7a1ac3df5e62cff0c9d85794c0f22476ad2d1d5",
+    "artifact_sha256": "01a3b74f16a9d1c03e13a73727ad497352c4eff9c02978967d9c065936532504",
+    "source_bytes": 406,
+    "artifact_bytes": 306
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\gui-wait-idle\\frames.txt": {
+    "artifact": "gui-wait-idle-frames.txt.gz",
+    "source_sha256": "30f54bdd5b1d9357f6e4cf87759139a87dad73c9838c3769dff5bcb7a5089a64",
+    "content_sha256": "30f54bdd5b1d9357f6e4cf87759139a87dad73c9838c3769dff5bcb7a5089a64",
+    "artifact_sha256": "ca2d7d18819286115cee6860a8f54a049eb72c2560883796b3d805314c745f97",
+    "source_bytes": 18156553,
+    "artifact_bytes": 715602
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\gui-wait-idle\\winaudio.log": {
+    "artifact": "gui-wait-idle-winaudio.log.gz",
+    "source_sha256": "ed5387bd4f253fc2f19e1e0057bdffaecde3585ae5e645acd6e7671ca944b56a",
+    "content_sha256": "ed5387bd4f253fc2f19e1e0057bdffaecde3585ae5e645acd6e7671ca944b56a",
+    "artifact_sha256": "ebf38eb3863313b159efd1b0e638387c93b9a266d2cb6df0a52fc63edf9a4c0d",
+    "source_bytes": 2370,
+    "artifact_bytes": 560
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\gui-cancel\\config.json": {
+    "artifact": "gui-cancel-config.json.gz",
+    "source_sha256": "20e33b86cec9df07343a4f60a7a1ac3df5e62cff0c9d85794c0f22476ad2d1d5",
+    "content_sha256": "20e33b86cec9df07343a4f60a7a1ac3df5e62cff0c9d85794c0f22476ad2d1d5",
+    "artifact_sha256": "01a3b74f16a9d1c03e13a73727ad497352c4eff9c02978967d9c065936532504",
+    "source_bytes": 406,
+    "artifact_bytes": 306
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\gui-cancel\\frames.txt": {
+    "artifact": "gui-cancel-frames.txt.gz",
+    "source_sha256": "82cce016d65e6f96ec134ff7b1e4a8752417fa0e5600451ae58757e3386340fc",
+    "content_sha256": "82cce016d65e6f96ec134ff7b1e4a8752417fa0e5600451ae58757e3386340fc",
+    "artifact_sha256": "833ce81927604d50d2c169b58be80b5e78218219dbc890afd10b5d707ab0b588",
+    "source_bytes": 37480507,
+    "artifact_bytes": 1462660
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\gui-cancel\\winaudio.log": {
+    "artifact": "gui-cancel-winaudio.log.gz",
+    "source_sha256": "18bf5a2274cc279d6b4f4eeeb7127788690117862086c06f54899458b8aaad21",
+    "content_sha256": "18bf5a2274cc279d6b4f4eeeb7127788690117862086c06f54899458b8aaad21",
+    "artifact_sha256": "b18845bf221e7e45a70656b4a09c7de061437aac26e1a0abcb56e55bc1ab191f",
+    "source_bytes": 2799,
+    "artifact_bytes": 573
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\gui-export-fail\\config.json": {
+    "artifact": "gui-export-fail-config.json.gz",
+    "source_sha256": "5102459a1a7f646e200eca3838e66a244a00a0141b0ec798f32c16cb881bbfdd",
+    "content_sha256": "5102459a1a7f646e200eca3838e66a244a00a0141b0ec798f32c16cb881bbfdd",
+    "artifact_sha256": "a5751e7cf69ad91ef1f118da8274651d3201b4798ad5e0f08b5109512d7112ff",
+    "source_bytes": 375,
+    "artifact_bytes": 289
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\gui-export-fail\\frames.txt": {
+    "artifact": "gui-export-fail-frames.txt.gz",
+    "source_sha256": "af8893511e967d8cc10b5d150cf8fe8f9e8d7eb238cfe26f9a78b1b675a1b582",
+    "content_sha256": "af8893511e967d8cc10b5d150cf8fe8f9e8d7eb238cfe26f9a78b1b675a1b582",
+    "artifact_sha256": "68c87e9e9b0164b8a79e588f4ac13f93088899d754f4bb713497cf65cfbc8b92",
+    "source_bytes": 46615260,
+    "artifact_bytes": 1881939
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\gui-export-fail\\winaudio.log": {
+    "artifact": "gui-export-fail-winaudio.log.gz",
+    "source_sha256": "b884dfdada920506698de604a257a0539dc53d3d76ee5065f50b58d2c95ad838",
+    "content_sha256": "b884dfdada920506698de604a257a0539dc53d3d76ee5065f50b58d2c95ad838",
+    "artifact_sha256": "7d4501dc3a033ac0d946dc59c238a4a8a8a7f0f1c417374129176af88b0b2d66",
+    "source_bytes": 2267,
+    "artifact_bytes": 556
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\gui-live-export\\config.json": {
+    "artifact": "gui-live-export-config.json.gz",
+    "source_sha256": "35279f08c31a6df92f987d078341334364799c7e8eebb0b5803fb573d6114090",
+    "content_sha256": "35279f08c31a6df92f987d078341334364799c7e8eebb0b5803fb573d6114090",
+    "artifact_sha256": "b9c9fd329c1306abc2ceb374257bc8afc84dd3c39cbfe2e29e8291a120d31b55",
+    "source_bytes": 372,
+    "artifact_bytes": 289
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\gui-live-export\\frames.txt": {
+    "artifact": "gui-live-export-frames.txt.gz",
+    "source_sha256": "fc3a2bfd9135dc31e6a0c4dc5560861aafe6a4e0daa5dea74e00c3f26a6457a1",
+    "content_sha256": "fc3a2bfd9135dc31e6a0c4dc5560861aafe6a4e0daa5dea74e00c3f26a6457a1",
+    "artifact_sha256": "b45d109b6f24935d38b520bd3da653cf7383f9f9a75f5060da724c3a1ef7b9b2",
+    "source_bytes": 20430538,
+    "artifact_bytes": 774965
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\gui-live-export\\winaudio.log": {
+    "artifact": "gui-live-export-winaudio.log.gz",
+    "source_sha256": "6a6d65e8f5381d5cc0fa81ad566ed3530b28073afa16c4ab7ed53fbbbbfae9ff",
+    "content_sha256": "6a6d65e8f5381d5cc0fa81ad566ed3530b28073afa16c4ab7ed53fbbbbfae9ff",
+    "artifact_sha256": "a3d0904cdebe8ec60cd362326a0a8ef58afb82391c19bb2b1333a92fca31ddef",
+    "source_bytes": 5485,
+    "artifact_bytes": 1078
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\gui-production-boundaries\\config.json": {
+    "artifact": "gui-production-boundaries-config.json.gz",
+    "source_sha256": "0943b5f5af225817ffcf17bfbeab5bc28b30c5f7f55e7c6ff640865332ea28e0",
+    "content_sha256": "0943b5f5af225817ffcf17bfbeab5bc28b30c5f7f55e7c6ff640865332ea28e0",
+    "artifact_sha256": "453fd0f3927e60667d2b0ccc993efad9e831eb11261fe7b29c7619b2c0ac52fc",
+    "source_bytes": 362,
+    "artifact_bytes": 297
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\gui-production-boundaries\\frames.txt": {
+    "artifact": "gui-production-boundaries-frames.txt.gz",
+    "source_sha256": "efc72743ebe1985e3faf23948ec841a808b92c221d24b6a4f087a319174e4f2e",
+    "content_sha256": "efc72743ebe1985e3faf23948ec841a808b92c221d24b6a4f087a319174e4f2e",
+    "artifact_sha256": "257a44e3fe9455caea2cecea013eba86509b048e9fec6fe43c330053c2d942a1",
+    "source_bytes": 110399716,
+    "artifact_bytes": 4248655
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\gui-production-boundaries\\winaudio.log": {
+    "artifact": "gui-production-boundaries-winaudio.log.gz",
+    "source_sha256": "1989860b34dcd959218e54e51d9cd255f7755ac09d9e4f1c46dc75c7b020509f",
+    "content_sha256": "1989860b34dcd959218e54e51d9cd255f7755ac09d9e4f1c46dc75c7b020509f",
+    "artifact_sha256": "e38287cfe81fb0eed7ff8cf34bfd65076d4df7537d2ba2143052d55c98029c6a",
+    "source_bytes": 6374,
+    "artifact_bytes": 995
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\gui-production-boundaries\\targets.txt": {
+    "artifact": "gui-production-boundaries-targets.txt.gz",
+    "source_sha256": "ec07e414d784d82df4cb76a3c6690a7b8611af1ee56cbb336ed61e6425149a83",
+    "content_sha256": "ec07e414d784d82df4cb76a3c6690a7b8611af1ee56cbb336ed61e6425149a83",
+    "artifact_sha256": "78c14926c8b1ec19ef210201aafa12a6c318587113780e765595f079b38f42ff",
+    "source_bytes": 512,
+    "artifact_bytes": 239
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\gui-production-boundaries\\targets-error.txt": {
+    "artifact": "gui-production-boundaries-targets-error.txt.gz",
+    "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "artifact_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64",
+    "source_bytes": 0,
+    "artifact_bytes": 20
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\charts-pan-final\\config.json": {
+    "artifact": "charts-pan-final-config.json.gz",
+    "source_sha256": "6cb6b783f4fecc0da6d824cd8d7a33d4ca8f2048ea9200efb371ebf4b266c0f9",
+    "content_sha256": "6cb6b783f4fecc0da6d824cd8d7a33d4ca8f2048ea9200efb371ebf4b266c0f9",
+    "artifact_sha256": "a0804a667812d7429a72c58577368454acf39697071f9347d3ce33c9c8c54b68",
+    "source_bytes": 424,
+    "artifact_bytes": 322
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\charts-pan-final\\frames.txt": {
+    "artifact": "charts-pan-final-frames.txt.gz",
+    "source_sha256": "9490664fef17e278da4132ea67532d2724b45d4ffeff0d61040644e2689ec9d5",
+    "content_sha256": "9490664fef17e278da4132ea67532d2724b45d4ffeff0d61040644e2689ec9d5",
+    "artifact_sha256": "28b06f0763d45c02ed2067ae90a86d6114267b1bba219df8ca85410691c012fb",
+    "source_bytes": 352735760,
+    "artifact_bytes": 13868853
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\charts-pan-final\\winaudio.log": {
+    "artifact": "charts-pan-final-winaudio.log.gz",
+    "source_sha256": "e25d44e40757b17921a3b4c490c3bd11224cc81668f3d36b7f16c2aa219055f1",
+    "content_sha256": "e25d44e40757b17921a3b4c490c3bd11224cc81668f3d36b7f16c2aa219055f1",
+    "artifact_sha256": "aa5cb5471dab5489e82ea7e275c282eb3ba3628475b9ef25954d0c17bfbe2185",
+    "source_bytes": 3055,
+    "artifact_bytes": 625
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\monitor-nonzero-final\\config.json": {
+    "artifact": "monitor-nonzero-final-config.json.gz",
+    "source_sha256": "c80a826281064e012462590dd010d83cc5e725b4723fe263692f285a922f88c0",
+    "content_sha256": "c80a826281064e012462590dd010d83cc5e725b4723fe263692f285a922f88c0",
+    "artifact_sha256": "fde24faf85d098d3b88a226f8f45e8925c054cf841c0d9420c63794acf770a35",
+    "source_bytes": 325,
+    "artifact_bytes": 278
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\monitor-nonzero-final\\frames.txt": {
+    "artifact": "monitor-nonzero-final-frames.txt.gz",
+    "source_sha256": "bc26d532e370dde96c90ba903f66c796a1284e06f76da8e579b9803b70fe8feb",
+    "content_sha256": "bc26d532e370dde96c90ba903f66c796a1284e06f76da8e579b9803b70fe8feb",
+    "artifact_sha256": "93e65ea3c1dae410aed2db1e82996984126cfecb271dbffbb74e5b725bf4a2d3",
+    "source_bytes": 80919283,
+    "artifact_bytes": 3183913
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\monitor-nonzero-final\\winaudio.log": {
+    "artifact": "monitor-nonzero-final-winaudio.log.gz",
+    "source_sha256": "68bed1e764718ab9d1085b52523f8d84249a624b177a12ac57ba2f86ec52d460",
+    "content_sha256": "68bed1e764718ab9d1085b52523f8d84249a624b177a12ac57ba2f86ec52d460",
+    "artifact_sha256": "ac942578c30903a029094bcd5acf5301af71e9d6139d108e0b7ae86ebf62581b",
+    "source_bytes": 3160,
+    "artifact_bytes": 645
+  },
+  "C:\\Users\\peili\\AppData\\Local\\WinAudio\\pipeline-calls\\calls-multi-20261024-142214-19516-256479765-0.jsonl": {
+    "artifact": "calls-multi-20261024-142214-19516-256479765-0.jsonl.gz",
+    "source_sha256": "fa2c01207093b9cd0719819853578f32cb00ab59e80b139a50fa6b61125da733",
+    "content_sha256": "fa2c01207093b9cd0719819853578f32cb00ab59e80b139a50fa6b61125da733",
+    "artifact_sha256": "2d93ab52801a8463557d5f14c409040f2f7edf5a035b3cfa7da4e40b291376cb",
+    "source_bytes": 96810,
+    "artifact_bytes": 2188
+  },
+  "C:\\Users\\peili\\AppData\\Local\\WinAudio\\pipeline-calls\\calls-pid26324-20261024-162207-25932-263672593-0.jsonl": {
+    "artifact": "calls-pid26324-20261024-162207-25932-263672593-0.jsonl.gz",
+    "source_sha256": "b2839351b7e4b0787834cc12148c7aa35e0bb2f635e125e5ac25dcdacdcb7e6d",
+    "content_sha256": "b2839351b7e4b0787834cc12148c7aa35e0bb2f635e125e5ac25dcdacdcb7e6d",
+    "artifact_sha256": "3e6606a441574d80b5b3e37d6a45abae1c840c436b79f952ff6444d57e508e51",
+    "source_bytes": 14517,
+    "artifact_bytes": 676
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\build-release-acceptance.log": {
+    "artifact": "performance-vs18-build-release-acceptance.log.gz",
+    "source_sha256": "1a9086171ae3c6eb97d9f32d4e781b268a22950a6cade42d7fd07e60a716b811",
+    "content_sha256": "1a9086171ae3c6eb97d9f32d4e781b268a22950a6cade42d7fd07e60a716b811",
+    "artifact_sha256": "b291d0e6dc0a7b73120ab542250213efddb96590125847d12b2aa03064a1191f",
+    "source_bytes": 3610,
+    "artifact_bytes": 628
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\chart-boundaries-green-colormap-red.xml": {
+    "artifact": "performance-vs18-chart-boundaries-green-colormap-red.xml.gz",
+    "source_sha256": "0eb1c2de393ca2db16a911395eeb7571e3e3c869ac05b33cddfd5486d22de117",
+    "content_sha256": "0eb1c2de393ca2db16a911395eeb7571e3e3c869ac05b33cddfd5486d22de117",
+    "artifact_sha256": "6e2a860cbfc704765ac4637b673600bcaa3b4f565267a8a786694c03bee266da",
+    "source_bytes": 8461,
+    "artifact_bytes": 1104
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\chart-colormap-green.xml": {
+    "artifact": "performance-vs18-chart-colormap-green.xml.gz",
+    "source_sha256": "2cbc697caf687a6e48cd3395af78941705838763be07201cad486fc90daa83ba",
+    "content_sha256": "2cbc697caf687a6e48cd3395af78941705838763be07201cad486fc90daa83ba",
+    "artifact_sha256": "a1d9a2b01d06347b1cad1340b5b236208895f9b57363bd6d9271ad7574827f5d",
+    "source_bytes": 5237,
+    "artifact_bytes": 956
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\chart-counter-green.log": {
+    "artifact": "performance-vs18-chart-counter-green.log.gz",
+    "source_sha256": "f59b78107916513ff7ec04f626b213d81f474ebd578d3b88205af4b4cb5676ec",
+    "content_sha256": "f59b78107916513ff7ec04f626b213d81f474ebd578d3b88205af4b4cb5676ec",
+    "artifact_sha256": "d3dfae99bfbdc465872d28e6c8a7751396446cec965255f74a1213fa2e2ae7bf",
+    "source_bytes": 1858,
+    "artifact_bytes": 548
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\chart-counter-red.log": {
+    "artifact": "performance-vs18-chart-counter-red.log.gz",
+    "source_sha256": "565a5c9f37e7a9e02c2460080bf1564c7d3d3a96a5dc78a8d5a0b802426f2344",
+    "content_sha256": "565a5c9f37e7a9e02c2460080bf1564c7d3d3a96a5dc78a8d5a0b802426f2344",
+    "artifact_sha256": "7bc3239fb6a58a175bfa4e63b60e13fc13b4ca1abee1b350ab270bb783e0c3dc",
+    "source_bytes": 1732,
+    "artifact_bytes": 527
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\chart-failure-red.xml": {
+    "artifact": "performance-vs18-chart-failure-red.xml.gz",
+    "source_sha256": "3b90be0639c5a4f05a76c620185c6b2baeabc4065a29ce12f0ee19419fed9d37",
+    "content_sha256": "3b90be0639c5a4f05a76c620185c6b2baeabc4065a29ce12f0ee19419fed9d37",
+    "artifact_sha256": "c72dc11ac307af9ffd43c031802faf021a603ef91c0e3b2df67f523d84a54c48",
+    "source_bytes": 1670,
+    "artifact_bytes": 550
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\chart-green-texture-red.xml": {
+    "artifact": "performance-vs18-chart-green-texture-red.xml.gz",
+    "source_sha256": "726f298f0940994bfcfb69464eeeeb07804f3a00657f59e4e7819c4de123395c",
+    "content_sha256": "726f298f0940994bfcfb69464eeeeb07804f3a00657f59e4e7819c4de123395c",
+    "artifact_sha256": "fbfadbb72b3a3934216b2c832158f3223b0aed91208baea9193c94a611766e24",
+    "source_bytes": 10382,
+    "artifact_bytes": 1465
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\chart-texture-first-green.xml": {
+    "artifact": "performance-vs18-chart-texture-first-green.xml.gz",
+    "source_sha256": "1f83a291d69b992d4b09546aeb90e5d7de229dd24a7b9dcc12b28cca8927b421",
+    "content_sha256": "1f83a291d69b992d4b09546aeb90e5d7de229dd24a7b9dcc12b28cca8927b421",
+    "artifact_sha256": "82a8a0b4caaee65c8ba1347433580f95d1f2338e9b0d0cd0e732baed08b14343",
+    "source_bytes": 1046,
+    "artifact_bytes": 411
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\chart-textures-release-green.xml": {
+    "artifact": "performance-vs18-chart-textures-release-green.xml.gz",
+    "source_sha256": "d78123bb891054ee110343cc031a56d83054ad85dc0df513b9e3dae1308c4643",
+    "content_sha256": "d78123bb891054ee110343cc031a56d83054ad85dc0df513b9e3dae1308c4643",
+    "artifact_sha256": "79f6de2873d52773dade8851046a6dc1c4ed25fd2ec30a92c0a673fa5aa8b0ce",
+    "source_bytes": 9687,
+    "artifact_bytes": 1513
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\ctest-release-acceptance.log": {
+    "artifact": "performance-vs18-ctest-release-acceptance.log.gz",
+    "source_sha256": "d8eb91612a22544db808d370fa64b374e3695745230f76edeba039dc5b45198b",
+    "content_sha256": "d8eb91612a22544db808d370fa64b374e3695745230f76edeba039dc5b45198b",
+    "artifact_sha256": "3f81e2f098488a2eca8ef95256a76cd6f55717f459902a5f81b734d7413fcd3e",
+    "source_bytes": 237532,
+    "artifact_bytes": 21106
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\ctest-release-completion.log": {
+    "artifact": "performance-vs18-ctest-release-completion.log.gz",
+    "source_sha256": "c046dd5e44a977a8d834efb03aa7979926200a93d3c449ce36079ea0259c8ad8",
+    "content_sha256": "c046dd5e44a977a8d834efb03aa7979926200a93d3c449ce36079ea0259c8ad8",
+    "artifact_sha256": "4db74b03b27d9bff4d9d9f61bc09317781226052e0e27fc02a60bbb7b54cafbe",
+    "source_bytes": 118433,
+    "artifact_bytes": 17590
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\envelope-counter-green.log": {
+    "artifact": "performance-vs18-envelope-counter-green.log.gz",
+    "source_sha256": "570c872381e80fe0656a6293f613e84f681511c678f91bf5c8ada932e4b6151d",
+    "content_sha256": "570c872381e80fe0656a6293f613e84f681511c678f91bf5c8ada932e4b6151d",
+    "artifact_sha256": "0d817fac42c12c9f6340ec5a99e95abb08c1f83cf36987a67caf13d4968243a2",
+    "source_bytes": 1336,
+    "artifact_bytes": 385
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\envelope-counter-red.log": {
+    "artifact": "performance-vs18-envelope-counter-red.log.gz",
+    "source_sha256": "a22d1d0dfc2c1a6f2051141f564f85f844f3db527e2b988b0b3c9ac367350aca",
+    "content_sha256": "a22d1d0dfc2c1a6f2051141f564f85f844f3db527e2b988b0b3c9ac367350aca",
+    "artifact_sha256": "69227dc3bbb058e88e395c4f43713027d97abffebc4e7250c35cb8f4efff45f0",
+    "source_bytes": 36896,
+    "artifact_bytes": 1448
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\envelope-timing-isolated.log": {
+    "artifact": "performance-vs18-envelope-timing-isolated.log.gz",
+    "source_sha256": "98392f8b84879e578bc35e26b3ea5d43a43a2d1dc72867028bc6f94112632505",
+    "content_sha256": "98392f8b84879e578bc35e26b3ea5d43a43a2d1dc72867028bc6f94112632505",
+    "artifact_sha256": "2aaa812d6dc2854687bcf70218a99440b61eeb992f4b2fb1c258b85a716017a6",
+    "source_bytes": 1570,
+    "artifact_bytes": 471
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\gui-boundary-focused-tests.log": {
+    "artifact": "performance-vs18-gui-boundary-focused-tests.log.gz",
+    "source_sha256": "d4fb9c2062e45721b5bba4a2ac24ab038f5a06a583039e101ffc867b981a01bb",
+    "content_sha256": "d4fb9c2062e45721b5bba4a2ac24ab038f5a06a583039e101ffc867b981a01bb",
+    "artifact_sha256": "3d66734eec3624bbd7a11efd90eb1ad5463306a913e9c7fd717ff24f51e47e1e",
+    "source_bytes": 12660,
+    "artifact_bytes": 1781
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\gui-boundary-release-build.log": {
+    "artifact": "performance-vs18-gui-boundary-release-build.log.gz",
+    "source_sha256": "7d0229cdd148ee45c6b81fcd9d97f4aedcafbd847f827b1bf988c313627cf7c3",
+    "content_sha256": "7d0229cdd148ee45c6b81fcd9d97f4aedcafbd847f827b1bf988c313627cf7c3",
+    "artifact_sha256": "c9a26d58a564148178a13059f3ab8a85fef459975f2abc16fecfdfe5cfb934b0",
+    "source_bytes": 4348,
+    "artifact_bytes": 619
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-export-exit-red-build.log": {
+    "artifact": "performance-vs18-inspector-export-exit-red-build.log.gz",
+    "source_sha256": "4648cbd2064da868563fb3bb58349089b9b78596a7709e64e3a6369bce97a15a",
+    "content_sha256": "4648cbd2064da868563fb3bb58349089b9b78596a7709e64e3a6369bce97a15a",
+    "artifact_sha256": "9b43d2984c1309e04a9eb6ca57c0ccf971c1da4f81e5f448dfc04efe49dcc939",
+    "source_bytes": 10322,
+    "artifact_bytes": 995
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-export-final-green.xml": {
+    "artifact": "performance-vs18-inspector-export-final-green.xml.gz",
+    "source_sha256": "a0560745107cbb782f74700db60043cc1e1587b84c948050682caed86e8cd040",
+    "content_sha256": "a0560745107cbb782f74700db60043cc1e1587b84c948050682caed86e8cd040",
+    "artifact_sha256": "246c85d0c80c43781c1e1cf1c8e559da9435088c61cafba25f3c02ce3a2abe9c",
+    "source_bytes": 8653,
+    "artifact_bytes": 1377
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-export-final3-green.xml": {
+    "artifact": "performance-vs18-inspector-export-final3-green.xml.gz",
+    "source_sha256": "fc36dffc7233f2b966f2d89f301611a7040dfc59297b33ae8c218e6b8d044ad7",
+    "content_sha256": "fc36dffc7233f2b966f2d89f301611a7040dfc59297b33ae8c218e6b8d044ad7",
+    "artifact_sha256": "94e1e7f981d0d363ab64e3c0f529d8484f4234f1852e767ed8890a88094599d6",
+    "source_bytes": 8654,
+    "artifact_bytes": 1373
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-export-green-build.log": {
+    "artifact": "performance-vs18-inspector-export-green-build.log.gz",
+    "source_sha256": "54c0889fcfe7c1ad3a6c5629119b65eeb71394c3df96b8fda88ba319c1da6ff4",
+    "content_sha256": "54c0889fcfe7c1ad3a6c5629119b65eeb71394c3df96b8fda88ba319c1da6ff4",
+    "artifact_sha256": "6856abbb014714d4daa3ab3659e43eb0f86d186de219280d37b24eb892f3bfce",
+    "source_bytes": 2818,
+    "artifact_bytes": 788
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-export-green.xml": {
+    "artifact": "performance-vs18-inspector-export-green.xml.gz",
+    "source_sha256": "87ab072c097bb89c17761a9d092931e4c8e712d6882a0939f13e7e8a2a48816a",
+    "content_sha256": "87ab072c097bb89c17761a9d092931e4c8e712d6882a0939f13e7e8a2a48816a",
+    "artifact_sha256": "b689ca7eac16c989708fc60ec547b7ede2647fb4b293369a9605751edc77a5cb",
+    "source_bytes": 1671,
+    "artifact_bytes": 517
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-export-red-build.log": {
+    "artifact": "performance-vs18-inspector-export-red-build.log.gz",
+    "source_sha256": "d7979c9d09b0a20dd8b42f7f649ec439e3f88cb41f046251c2df2a1fd467498a",
+    "content_sha256": "d7979c9d09b0a20dd8b42f7f649ec439e3f88cb41f046251c2df2a1fd467498a",
+    "artifact_sha256": "98e7ee54006ace12ba545147be7424e19123bdc3274d8c078491e58ac3afc175",
+    "source_bytes": 2522,
+    "artifact_bytes": 681
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-graph-final-green.xml": {
+    "artifact": "performance-vs18-inspector-graph-final-green.xml.gz",
+    "source_sha256": "8ea68b55e8a8376bca51e07ca14a8ebcfe0354948a09cdbc8e31091b7ad30fe6",
+    "content_sha256": "8ea68b55e8a8376bca51e07ca14a8ebcfe0354948a09cdbc8e31091b7ad30fe6",
+    "artifact_sha256": "0e229f0d859ff8de8b91995c1565fd73ef0f591a5fc6aa2b2459e08e49cafd4b",
+    "source_bytes": 9605,
+    "artifact_bytes": 1369
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-graph-green-build.log": {
+    "artifact": "performance-vs18-inspector-graph-green-build.log.gz",
+    "source_sha256": "928acdaffa3a243f4c178af345164c33776eae799b9e428e461d729173c04f26",
+    "content_sha256": "928acdaffa3a243f4c178af345164c33776eae799b9e428e461d729173c04f26",
+    "artifact_sha256": "eb581bd554528e2ecb6de507c84a60581f68648ab5479a1bfab1abf7421e0a51",
+    "source_bytes": 6512,
+    "artifact_bytes": 1040
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-graph-green.xml": {
+    "artifact": "performance-vs18-inspector-graph-green.xml.gz",
+    "source_sha256": "a723502196a1716a6e6fdcfdc249fac516cb1ae287c960113feb9ebfef8469c1",
+    "content_sha256": "a723502196a1716a6e6fdcfdc249fac516cb1ae287c960113feb9ebfef8469c1",
+    "artifact_sha256": "a1d6bc15ef0325d18022908b4948254c6ce91464a5281a862fc9815375596d01",
+    "source_bytes": 10052,
+    "artifact_bytes": 1541
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-graph-red-build.log": {
+    "artifact": "performance-vs18-inspector-graph-red-build.log.gz",
+    "source_sha256": "cf617e5fe27835de0c07f3fdedc9e390d573b811e08a4142a4c808c718f548eb",
+    "content_sha256": "cf617e5fe27835de0c07f3fdedc9e390d573b811e08a4142a4c808c718f548eb",
+    "artifact_sha256": "2c1891c303e11e61991a732f861d5570d17caae626a9e020f5b47ffc1f9c1dac",
+    "source_bytes": 31446,
+    "artifact_bytes": 1463
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-hint-green-build.log": {
+    "artifact": "performance-vs18-inspector-hint-green-build.log.gz",
+    "source_sha256": "ede951d656453c27b000f9799705ccd5cea0ec95de26eeb4bbfa6d47b6669cbe",
+    "content_sha256": "ede951d656453c27b000f9799705ccd5cea0ec95de26eeb4bbfa6d47b6669cbe",
+    "artifact_sha256": "22ef585ff0d1234bd562a89a5a704954c3c08b397840db1d24ce25d9d6f3f1bc",
+    "source_bytes": 1896,
+    "artifact_bytes": 567
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-hint-green.xml": {
+    "artifact": "performance-vs18-inspector-hint-green.xml.gz",
+    "source_sha256": "6f081e63efe653ccd6480a247f4d2aa1f90b1b2a307b24618ec1aa1ee90e0c69",
+    "content_sha256": "6f081e63efe653ccd6480a247f4d2aa1f90b1b2a307b24618ec1aa1ee90e0c69",
+    "artifact_sha256": "ff65a02e07a4f49381d3c43da1cc2f948ea7d7eb97b3f959c136fa6cb57995ba",
+    "source_bytes": 7130,
+    "artifact_bytes": 1098
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-hint-red-build.log": {
+    "artifact": "performance-vs18-inspector-hint-red-build.log.gz",
+    "source_sha256": "66c7f43ec887d578b47fe8099b85403203a1498c610085f8201160f3835d38d6",
+    "content_sha256": "66c7f43ec887d578b47fe8099b85403203a1498c610085f8201160f3835d38d6",
+    "artifact_sha256": "239563225877e758acd7927cfbb43d8db9c491ffab035a79ef4f0cc94a9f26c8",
+    "source_bytes": 40656,
+    "artifact_bytes": 1615
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-history-first-green.xml": {
+    "artifact": "performance-vs18-inspector-history-first-green.xml.gz",
+    "source_sha256": "abe1d568ac90a9d9cf8addb3dd19913ffbcd89704ab2061bc9463a97a5eb7611",
+    "content_sha256": "abe1d568ac90a9d9cf8addb3dd19913ffbcd89704ab2061bc9463a97a5eb7611",
+    "artifact_sha256": "828208a4ca9a55942673c684badc4afae9fe84f61302ae25839fb9b2b51c092e",
+    "source_bytes": 11568,
+    "artifact_bytes": 1453
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-history-red.xml": {
+    "artifact": "performance-vs18-inspector-history-red.xml.gz",
+    "source_sha256": "bc1c883e71d1de3f7772ec33773838c893a6595dab18728e6e29164672c66430",
+    "content_sha256": "bc1c883e71d1de3f7772ec33773838c893a6595dab18728e6e29164672c66430",
+    "artifact_sha256": "2b9f495dceeb626fd31b396a92651c3977c6a5d878b804b3347a7718eaece210",
+    "source_bytes": 13110,
+    "artifact_bytes": 1727
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-lifecycle-core-green.xml": {
+    "artifact": "performance-vs18-inspector-lifecycle-core-green.xml.gz",
+    "source_sha256": "a994854f0bc3e1fea6f2678299ea293c05a65471bafec9f0a49dec1b5a473aa0",
+    "content_sha256": "a994854f0bc3e1fea6f2678299ea293c05a65471bafec9f0a49dec1b5a473aa0",
+    "artifact_sha256": "892140b18d090e3127f8202b78184d12e607a66e4a85615f694ac61022e8a843",
+    "source_bytes": 6813,
+    "artifact_bytes": 1090
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-memory-acceptance.log": {
+    "artifact": "performance-vs18-inspector-memory-acceptance.log.gz",
+    "source_sha256": "2f7e9c9640c9135108f15abd6602e0fbbc37a73831a511c2abcba4430954afb7",
+    "content_sha256": "2f7e9c9640c9135108f15abd6602e0fbbc37a73831a511c2abcba4430954afb7",
+    "artifact_sha256": "15bbf0390fa1f19ceeebcf1eb7928f272a2df181e676e1ac806454cff309af2d",
+    "source_bytes": 214,
+    "artifact_bytes": 91
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-meter-green.xml": {
+    "artifact": "performance-vs18-inspector-meter-green.xml.gz",
+    "source_sha256": "f1469499a5a4e8fe8322ad1d08b5317437e8a6888362d3c4ec124ac47c935f3b",
+    "content_sha256": "f1469499a5a4e8fe8322ad1d08b5317437e8a6888362d3c4ec124ac47c935f3b",
+    "artifact_sha256": "0df93b0ba33f45d26fd091898c793baad899d175a9bcee296c17bd84ff0233d3",
+    "source_bytes": 8895,
+    "artifact_bytes": 1256
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-pump-first-green.xml": {
+    "artifact": "performance-vs18-inspector-pump-first-green.xml.gz",
+    "source_sha256": "5c2a5f649c1b657e32d5e1aee5eb5f7998d1932ed1b36378a4ee3dc512073d3d",
+    "content_sha256": "5c2a5f649c1b657e32d5e1aee5eb5f7998d1932ed1b36378a4ee3dc512073d3d",
+    "artifact_sha256": "de55c32c0607b8f4df4b1df6fd2feb4d42233d7409bead02ab5456f81d962277",
+    "source_bytes": 14540,
+    "artifact_bytes": 1782
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-query-first-green.xml": {
+    "artifact": "performance-vs18-inspector-query-first-green.xml.gz",
+    "source_sha256": "f1676e6a8c7ded77b9a5f1238824b46fa5d7d001f1459b38cb1026c6db785d7a",
+    "content_sha256": "f1676e6a8c7ded77b9a5f1238824b46fa5d7d001f1459b38cb1026c6db785d7a",
+    "artifact_sha256": "806088a0e4463bfc9fe56bdbfec3a544fef75a545c31b8e507cf5c973dc78f85",
+    "source_bytes": 6773,
+    "artifact_bytes": 1069
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-query-green-build.log": {
+    "artifact": "performance-vs18-inspector-query-green-build.log.gz",
+    "source_sha256": "75fdf8ad67b42aff7bbfde45328046936cd06eaccf5fb865f4a8ac8a64c782b6",
+    "content_sha256": "75fdf8ad67b42aff7bbfde45328046936cd06eaccf5fb865f4a8ac8a64c782b6",
+    "artifact_sha256": "5d10d851072b6b133d679c79584cb3f799f0b9f6108f936040673fcc5628b46a",
+    "source_bytes": 1954,
+    "artifact_bytes": 580
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-query-green.xml": {
+    "artifact": "performance-vs18-inspector-query-green.xml.gz",
+    "source_sha256": "fd256061347f91ff49fb8bd0507c876eab2e19aaa229a5f19550315d66f43d38",
+    "content_sha256": "fd256061347f91ff49fb8bd0507c876eab2e19aaa229a5f19550315d66f43d38",
+    "artifact_sha256": "5cfc95c4f019def0d6b3ec3cb63a09e190898210126422c513412c39eddd3cab",
+    "source_bytes": 7031,
+    "artifact_bytes": 1102
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-query-red-build.log": {
+    "artifact": "performance-vs18-inspector-query-red-build.log.gz",
+    "source_sha256": "6d7c10d311c8c0c099c83ea09d0d35898054ded16ae6b761fa17ccc658bcfa0f",
+    "content_sha256": "6d7c10d311c8c0c099c83ea09d0d35898054ded16ae6b761fa17ccc658bcfa0f",
+    "artifact_sha256": "f83754195aa4b355651f2401627bcb9fa647f0868d5a8fc167ceadd7e2c1fbf7",
+    "source_bytes": 73544,
+    "artifact_bytes": 1834
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-range-green.xml": {
+    "artifact": "performance-vs18-inspector-range-green.xml.gz",
+    "source_sha256": "e7738ffd89f8031fc3756cb8c276cc330e210a0bad6f945672ba7e71cc18b87d",
+    "content_sha256": "e7738ffd89f8031fc3756cb8c276cc330e210a0bad6f945672ba7e71cc18b87d",
+    "artifact_sha256": "8ef50d6678ae1985bc92871738c0da0a12a2bd0d55dc801fedb5b4525b74a80e",
+    "source_bytes": 3140,
+    "artifact_bytes": 632
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-range-red.xml": {
+    "artifact": "performance-vs18-inspector-range-red.xml.gz",
+    "source_sha256": "78bf42a6bbdbcbf4e4ff19365b5e7c7330d49fcd956d9dc2e7a7c382fda690ba",
+    "content_sha256": "78bf42a6bbdbcbf4e4ff19365b5e7c7330d49fcd956d9dc2e7a7c382fda690ba",
+    "artifact_sha256": "a8b5ca55671e3af7fc2a3704c29d76c29c2284e74de392b052890ed20d07296f",
+    "source_bytes": 1673,
+    "artifact_bytes": 577
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-source-final-green.xml": {
+    "artifact": "performance-vs18-inspector-source-final-green.xml.gz",
+    "source_sha256": "77c25d886942d826a5f51a7d35a446f95093f607fbdf4469af444606e67cf6e3",
+    "content_sha256": "77c25d886942d826a5f51a7d35a446f95093f607fbdf4469af444606e67cf6e3",
+    "artifact_sha256": "91364077b7dfb472c10d0f63ac966ad8327e601e73b0323867b4d4510fc386b5",
+    "source_bytes": 14492,
+    "artifact_bytes": 1891
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-source-green.xml": {
+    "artifact": "performance-vs18-inspector-source-green.xml.gz",
+    "source_sha256": "9b91a0f7a9b40d819514ccbed903ee9c6e8dff3da1c8050b4dbc55238f522238",
+    "content_sha256": "9b91a0f7a9b40d819514ccbed903ee9c6e8dff3da1c8050b4dbc55238f522238",
+    "artifact_sha256": "ee26d9b3ee72485fe01d3a5d7d174e863ca9d9aaa2605710a2086be82473d0eb",
+    "source_bytes": 3396,
+    "artifact_bytes": 656
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-source-red-build.log": {
+    "artifact": "performance-vs18-inspector-source-red-build.log.gz",
+    "source_sha256": "287040a493743d5acc4d64da4fbd159a27faf839c385e6c825ce43052a970e44",
+    "content_sha256": "287040a493743d5acc4d64da4fbd159a27faf839c385e6c825ce43052a970e44",
+    "artifact_sha256": "88c5badac7618ddbba4cf4112a097ea7d43dc26fa413ed4654ff45579de96ea0",
+    "source_bytes": 23206,
+    "artifact_bytes": 1421
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\performance-calls-red.xml": {
+    "artifact": "performance-vs18-performance-calls-red.xml.gz",
+    "source_sha256": "d514b094466e364beebc0606a4b36135ade2fd4df48c10a16b4d95f69a3becb8",
+    "content_sha256": "d514b094466e364beebc0606a4b36135ade2fd4df48c10a16b4d95f69a3becb8",
+    "artifact_sha256": "c720b1b73368423cbde1826a0779050959345ed62e31b4886fa06d0f6f807ac5",
+    "source_bytes": 1035,
+    "artifact_bytes": 460
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\pump-reuse-red.xml": {
+    "artifact": "performance-vs18-pump-reuse-red.xml.gz",
+    "source_sha256": "51ec71a1b6ac86827853474e6db47698f6df2846d1103d2f6e3af8a6167d11c5",
+    "content_sha256": "51ec71a1b6ac86827853474e6db47698f6df2846d1103d2f6e3af8a6167d11c5",
+    "artifact_sha256": "36f233cedd192528c83bfbc513b7f1b1f3b17f29dc90f97645d3f5f0a8f14a02",
+    "source_bytes": 1453,
+    "artifact_bytes": 538
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\pump-store-green.xml": {
+    "artifact": "performance-vs18-pump-store-green.xml.gz",
+    "source_sha256": "9dd3b03c21ebd5f5d043c05c79ef88e944838c039fff2af54bb7f637061b1b7c",
+    "content_sha256": "9dd3b03c21ebd5f5d043c05c79ef88e944838c039fff2af54bb7f637061b1b7c",
+    "artifact_sha256": "0fad8a5eb3731f7711e199f1cdf43592dadfec6100af4987c58953d1b35be2a9",
+    "source_bytes": 8174,
+    "artifact_bytes": 1214
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\pump-store-red-build.log": {
+    "artifact": "performance-vs18-pump-store-red-build.log.gz",
+    "source_sha256": "d5a8599c4424750c7598ce2a994d412f0f7f1154fd296cc752e283b289a832ab",
+    "content_sha256": "d5a8599c4424750c7598ce2a994d412f0f7f1154fd296cc752e283b289a832ab",
+    "artifact_sha256": "2bbd09c47b3f2b63c0eabb0064144bba8a685f57cfe784430f4cf4fccc9de083",
+    "source_bytes": 18502,
+    "artifact_bytes": 1270
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\pump-window-red-build.log": {
+    "artifact": "performance-vs18-pump-window-red-build.log.gz",
+    "source_sha256": "723e482d180859043abbdddab48678fa0ebfb788318ed6f16415f3450c2daace",
+    "content_sha256": "723e482d180859043abbdddab48678fa0ebfb788318ed6f16415f3450c2daace",
+    "artifact_sha256": "853e7f4845534b8bb30ebac70a69c54b0c8eef65a2c33727121e0ecd98c19a5b",
+    "source_bytes": 3096,
+    "artifact_bytes": 811
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\python-completion.log": {
+    "artifact": "performance-vs18-python-completion.log.gz",
+    "source_sha256": "9209046428cfa85424ad9dcf541b2e9b9882a29968ab0654827c5cbf8e29c149",
+    "content_sha256": "9209046428cfa85424ad9dcf541b2e9b9882a29968ab0654827c5cbf8e29c149",
+    "artifact_sha256": "3659acf55584fdfdee9fee69e232e6bc1bb802f6f13f34a3d45b441d819971f7",
+    "source_bytes": 838,
+    "artifact_bytes": 314
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\round-transition-red-build.log": {
+    "artifact": "performance-vs18-round-transition-red-build.log.gz",
+    "source_sha256": "21805bf0f22ed65e548373c7532d4944750187e160bf9bd4eab6e7df56fd680d",
+    "content_sha256": "21805bf0f22ed65e548373c7532d4944750187e160bf9bd4eab6e7df56fd680d",
+    "artifact_sha256": "3da7631c6bbafaf646944043c1e31677dad32518f51f20d48830361dfd35d880",
+    "source_bytes": 27974,
+    "artifact_bytes": 1520
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\summary-operation-green.log": {
+    "artifact": "performance-vs18-summary-operation-green.log.gz",
+    "source_sha256": "5090a6c11a6363e20d795284375a6cbea694dd4683cb9c13f6699ac615194ec1",
+    "content_sha256": "5090a6c11a6363e20d795284375a6cbea694dd4683cb9c13f6699ac615194ec1",
+    "artifact_sha256": "e59c8f39b1aec8ad087ddc6e70dd8ef6d0ecb2ac7f353c6fcf5409352733563d",
+    "source_bytes": 838,
+    "artifact_bytes": 314
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\summary-operation-red.log": {
+    "artifact": "performance-vs18-summary-operation-red.log.gz",
+    "source_sha256": "01f7f0b7a9e217e30cdc3d9398918af018fb8dd37cb8266cbbd75d8dda4d0fb7",
+    "content_sha256": "01f7f0b7a9e217e30cdc3d9398918af018fb8dd37cb8266cbbd75d8dda4d0fb7",
+    "artifact_sha256": "96c16292cf671b1f8a56b524e2c93f416d309b764108f496c32c03e75c9f491e",
+    "source_bytes": 1904,
+    "artifact_bytes": 590
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\texture-device-red-verified.log": {
+    "artifact": "performance-vs18-texture-device-red-verified.log.gz",
+    "source_sha256": "126e73c4ac239861a560a8d55878fd5259bb7473998f5c836fa6574b2c8a17bb",
+    "content_sha256": "126e73c4ac239861a560a8d55878fd5259bb7473998f5c836fa6574b2c8a17bb",
+    "artifact_sha256": "7a6e1b995a83a9611850212d6592ef940d0d87216cd7a1be8b19bf68cdd79dd2",
+    "source_bytes": 2437,
+    "artifact_bytes": 785
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\texture-device-red-verified.xml": {
+    "artifact": "performance-vs18-texture-device-red-verified.xml.gz",
+    "source_sha256": "7d2374d0737fb68cddedc5a7d471ff1a5d0eb23dbe0b908b25247782b7b4ffc2",
+    "content_sha256": "7d2374d0737fb68cddedc5a7d471ff1a5d0eb23dbe0b908b25247782b7b4ffc2",
+    "artifact_sha256": "a5230cef7eb36ad8c80633cbdd4580582715b1abb58fbcc8102a177272101d17",
+    "source_bytes": 3276,
+    "artifact_bytes": 858
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\texture-device-red.xml": {
+    "artifact": "performance-vs18-texture-device-red.xml.gz",
+    "source_sha256": "86d500ea33b560ffa60279fd78c83da75703e5aa6ed4232665748d7e4085fd5a",
+    "content_sha256": "86d500ea33b560ffa60279fd78c83da75703e5aa6ed4232665748d7e4085fd5a",
+    "artifact_sha256": "2d62a93c0278c7f8ea95828c653075033f022db33e89ef9f5a3e360f8fd7ac6b",
+    "source_bytes": 13735472,
+    "artifact_bytes": 76889
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\texture-lifecycle-green-build.log": {
+    "artifact": "performance-vs18-texture-lifecycle-green-build.log.gz",
+    "source_sha256": "2e5d3bc966b7df36d863d06580fe89d52deefe0b4e5b179bc29e12db4c233d48",
+    "content_sha256": "2e5d3bc966b7df36d863d06580fe89d52deefe0b4e5b179bc29e12db4c233d48",
+    "artifact_sha256": "8937e4961ae8529fcdc55cf3628a0c56e0ffe67f7e95fe229f302f5192c89809",
+    "source_bytes": 5016,
+    "artifact_bytes": 650
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\texture-lifecycle-red-build.log": {
+    "artifact": "performance-vs18-texture-lifecycle-red-build.log.gz",
+    "source_sha256": "aba0ad3f9e85e7286d0e93c8eccfa3b636da1ced2ed5e9ea526f8901a882085e",
+    "content_sha256": "aba0ad3f9e85e7286d0e93c8eccfa3b636da1ced2ed5e9ea526f8901a882085e",
+    "artifact_sha256": "40ad323dd966b263dfbf558fcca47ceeb2eab18c22259038de74616500a659e0",
+    "source_bytes": 1674,
+    "artifact_bytes": 504
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\texture-lifecycle-red.xml": {
+    "artifact": "performance-vs18-texture-lifecycle-red.xml.gz",
+    "source_sha256": "1c1b651611a0e9dae0061abd0d8293350348fef059563c06e02c663d82d8f719",
+    "content_sha256": "1c1b651611a0e9dae0061abd0d8293350348fef059563c06e02c663d82d8f719",
+    "artifact_sha256": "c78c91f4ad664649e04b62b9bd0d3519fa296126a4fb9afccfabe457d843e066",
+    "source_bytes": 2650,
+    "artifact_bytes": 654
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\texture-lifecycle-release-green.xml": {
+    "artifact": "performance-vs18-texture-lifecycle-release-green.xml.gz",
+    "source_sha256": "e92ed25016e5b7419cbbc5a6a6e07b637caddeb408bc9d92917d23fba9cacc41",
+    "content_sha256": "e92ed25016e5b7419cbbc5a6a6e07b637caddeb408bc9d92917d23fba9cacc41",
+    "artifact_sha256": "1cd76c1c209ce72a7782aed5fe90d1ec8864ffad4d89ab2adbb5aff2b1757b12",
+    "source_bytes": 8894,
+    "artifact_bytes": 1434
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\work-summary-green.log": {
+    "artifact": "performance-vs18-work-summary-green.log.gz",
+    "source_sha256": "a6bbe6b1da70effd00ab28d29d596f5de2e568a943c9b93316ec234dc106a675",
+    "content_sha256": "a6bbe6b1da70effd00ab28d29d596f5de2e568a943c9b93316ec234dc106a675",
+    "artifact_sha256": "5aa11dce3a7cd82881e81f57950230a1041b11653fbe8f39aa88b2e92a17dee6",
+    "source_bytes": 830,
+    "artifact_bytes": 314
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\work-summary-red.log": {
+    "artifact": "performance-vs18-work-summary-red.log.gz",
+    "source_sha256": "ae4e224fcdf45e26c34b1bcd11d3ba1e4baa7c6b05ad9d46b1c5007db9cb2ea4",
+    "content_sha256": "ae4e224fcdf45e26c34b1bcd11d3ba1e4baa7c6b05ad9d46b1c5007db9cb2ea4",
+    "artifact_sha256": "b7fb65207cf82d2651188cca393b49de72959c15d911d39876eab5335946b06c",
+    "source_bytes": 1892,
+    "artifact_bytes": 581
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18-verify\\build-debug-acceptance.log": {
+    "artifact": "performance-vs18-verify-build-debug-acceptance.log.gz",
+    "source_sha256": "4f0de82716f042d3a2790469fb758ac02c90703a428ec07aa906155511385fe7",
+    "content_sha256": "4f0de82716f042d3a2790469fb758ac02c90703a428ec07aa906155511385fe7",
+    "artifact_sha256": "a20ef17b6fa4c1a51f55529961beaad2318fb11043cab9655c78b7047704e9fa",
+    "source_bytes": 3344,
+    "artifact_bytes": 466
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18-verify\\chart-textures-debug-green.xml": {
+    "artifact": "performance-vs18-verify-chart-textures-debug-green.xml.gz",
+    "source_sha256": "38f83c6467a4ea83692e073c1fb2811013cfbf2317987daabadbbf2edc09a238",
+    "content_sha256": "38f83c6467a4ea83692e073c1fb2811013cfbf2317987daabadbbf2edc09a238",
+    "artifact_sha256": "8a5ead9ab641ecc3c0d19e4282cf3c7b6652f186c1bd6ac69ad0ae8d22420bfa",
+    "source_bytes": 9694,
+    "artifact_bytes": 1531
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18-verify\\ctest-debug-acceptance.log": {
+    "artifact": "performance-vs18-verify-ctest-debug-acceptance.log.gz",
+    "source_sha256": "4eaef6f582ba241b8ae29f0213edc07f8f4a907f37a826b601057167511ac8db",
+    "content_sha256": "4eaef6f582ba241b8ae29f0213edc07f8f4a907f37a826b601057167511ac8db",
+    "artifact_sha256": "a531b89205431b22bc1d6970f0ada3bad0c9e5cf9f1c5050482984aa1305fa43",
+    "source_bytes": 237546,
+    "artifact_bytes": 21128
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18-verify\\ctest-debug-completion.log": {
+    "artifact": "performance-vs18-verify-ctest-debug-completion.log.gz",
+    "source_sha256": "d1404f3173d86a0f529397fc39df82495877b586817f61beec37705559f6f405",
+    "content_sha256": "d1404f3173d86a0f529397fc39df82495877b586817f61beec37705559f6f405",
+    "artifact_sha256": "f7be51ee8b92ee0aa6a2b7df91642ce819b978b9955b0e5f49b8307648e02243",
+    "source_bytes": 237538,
+    "artifact_bytes": 21111
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18-verify\\gui-boundary-debug-build.log": {
+    "artifact": "performance-vs18-verify-gui-boundary-debug-build.log.gz",
+    "source_sha256": "9c3f2dabddaa025407b84a04b3cbbadc6711afcb9ff405ea39efcd38bde6af01",
+    "content_sha256": "9c3f2dabddaa025407b84a04b3cbbadc6711afcb9ff405ea39efcd38bde6af01",
+    "artifact_sha256": "b5bf907657cd3e73dec5ae982190297b503e57a939f6f179e42780bb2a2aa8e4",
+    "source_bytes": 3762,
+    "artifact_bytes": 472
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18-verify\\inspector-meter-green.xml": {
+    "artifact": "performance-vs18-verify-inspector-meter-green.xml.gz",
+    "source_sha256": "bc31b48be475ad2270beb5e6437ae258466a9c9d14efd19a4b32656d32844534",
+    "content_sha256": "bc31b48be475ad2270beb5e6437ae258466a9c9d14efd19a4b32656d32844534",
+    "artifact_sha256": "e392cf8beb9c310f37f5205cfebfdbaa145211134b9dc50d740d8a01e9f34e9a",
+    "source_bytes": 8893,
+    "artifact_bytes": 1255
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18-verify\\texture-lifecycle-debug-green.xml": {
+    "artifact": "performance-vs18-verify-texture-lifecycle-debug-green.xml.gz",
+    "source_sha256": "8791ef6d66eea931f15da1fc8c896f1be13aa0f9518ab928cf3cfe0722c47094",
+    "content_sha256": "8791ef6d66eea931f15da1fc8c896f1be13aa0f9518ab928cf3cfe0722c47094",
+    "artifact_sha256": "d4871dd7426f024522a89e41a39520382d0f7190d218af04ed052e69ba723105",
+    "source_bytes": 8902,
+    "artifact_bytes": 1468
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18-verify\\texture-lifecycle-green-build.log": {
+    "artifact": "performance-vs18-verify-texture-lifecycle-green-build.log.gz",
+    "source_sha256": "6edd3cccc0efc96cb6ec4ee1065be7f7359e505516aed8fc59f0a6f6c91c825b",
+    "content_sha256": "6edd3cccc0efc96cb6ec4ee1065be7f7359e505516aed8fc59f0a6f6c91c825b",
+    "artifact_sha256": "cc6dadb2472db240667c31c92f901a1c6953b2e68b3d1496fe9d85ddf05ddfdf",
+    "source_bytes": 2616,
+    "artifact_bytes": 415
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\verify-inspector-acceptance.py": {
+    "artifact": "verify-inspector-acceptance.py.gz",
+    "source_sha256": "2680071d38bd9656023f5ec84bfc57adee44c884b91fa6c375bb96714e067a45",
+    "content_sha256": "2680071d38bd9656023f5ec84bfc57adee44c884b91fa6c375bb96714e067a45",
+    "artifact_sha256": "e3425eeb1f3312483635c09146d885607d05300adf44f3e90b821a1888565ac6",
+    "source_bytes": 5192,
+    "artifact_bytes": 2043
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\analyze-tail-growth.py": {
+    "artifact": "analyze-tail-growth.py.gz",
+    "source_sha256": "a60cfbe5522a26dc41b65514e1d29a8cc62c8dc3c92cceb6418f38fa6dc5d72d",
+    "content_sha256": "a60cfbe5522a26dc41b65514e1d29a8cc62c8dc3c92cceb6418f38fa6dc5d72d",
+    "artifact_sha256": "8c07bc205dc1b5fb6a8c53ed7726e5de69f9834cbdff2a3e408d6596b2606719",
+    "source_bytes": 4430,
+    "artifact_bytes": 1411
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\verify-inspector-acceptance.log": {
+    "artifact": "verify-inspector-acceptance.log.gz",
+    "source_sha256": "f2d20f237d6229152f5bd6f1e8e494955cec73bbcc02c3bfd24b0d6f9a144b3e",
+    "content_sha256": "f2d20f237d6229152f5bd6f1e8e494955cec73bbcc02c3bfd24b0d6f9a144b3e",
+    "artifact_sha256": "7d1a8fd3ed3a1bf95a9a64fbc3e37c45e9070f05cd0a727fa330f13d07112c59",
+    "source_bytes": 284,
+    "artifact_bytes": 176
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\inspector-acceptance-analysis.json": {
+    "artifact": "inspector-acceptance-analysis.json.gz",
+    "source_sha256": "0d9f8c476a93930bbe4cf5803af0b79fa406718365c566a2ce64a33e62e466a2",
+    "content_sha256": "0d9f8c476a93930bbe4cf5803af0b79fa406718365c566a2ce64a33e62e466a2",
+    "artifact_sha256": "b7376f29455f4940fdee2c709c5a2c96ec09acee263df6695e0d2635179c8bd9",
+    "source_bytes": 295213,
+    "artifact_bytes": 17851
+  },
+  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\archive-completion.py": {
+    "artifact": "archive-completion.py.gz",
+    "source_sha256": "a857cab5615cda99acb6070166cb4c0916e17134e66802384149e00da7a20054",
+    "content_sha256": "a857cab5615cda99acb6070166cb4c0916e17134e66802384149e00da7a20054",
+    "artifact_sha256": "eb8554a1505985407b4b5956f7f4553c3bcdab98890b73704a8febe78cbaa0a8",
+    "source_bytes": 4716,
+    "artifact_bytes": 1748
+  }
+}

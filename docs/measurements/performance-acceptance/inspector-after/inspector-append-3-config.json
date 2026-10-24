@@ -1,0 +1,29 @@
+{
+    "source":  "7c853b0af85a3bbe8e76933a7d0946e9356a723a",
+    "executable":  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\bin\\Release\\WinAudioPerformanceGui.exe",
+    "executable_sha256":  "4EC3DFBAF134D8ABBE4BB2AA1A0FA293CABFEAC1F9EA5D56CF113948792DA5D9",
+    "configuration":  {
+                          "name":  "inspector-append-3",
+                          "records":  10000,
+                          "pids":  2,
+                          "mode":  "append",
+                          "warmup":  30,
+                          "duration":  120
+                      },
+    "started":  "2026-10-24T14:56:24.9398715+08:00",
+    "workspace_status":  [
+                             " M docs/measurements/performance-acceptance/.gitattributes",
+                             " M docs/measurements/performance-acceptance/README.md",
+                             " M docs/measurements/performance-acceptance/implementation-log.md",
+                             " M docs/measurements/performance-acceptance/inspector-implementation-notes.md",
+                             "?? .archify/",
+                             "?? _shots/",
+                             "?? docs/measurements/performance-acceptance/charts-acceptance-report.md",
+                             "?? docs/measurements/performance-acceptance/charts-after/",
+                             "?? docs/measurements/performance-acceptance/gui-checks/",
+                             "?? docs/measurements/performance-acceptance/inspector-acceptance-report.md",
+                             "?? shots/"
+                         ],
+    "live_pids":  null,
+    "fixture_input_sha256":  "B7006AEFFB8AB782F37C4B8E960910750E81C2B5FF636D12F24B40A8E8AE3D4F"
+}

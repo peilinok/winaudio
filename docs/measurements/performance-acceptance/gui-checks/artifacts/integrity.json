@@ -1,0 +1,141 @@
+{
+  "charts-gui-final": [
+    {
+      "frames": 29023,
+      "first_frame": 1,
+      "last_frame": 29023,
+      "frame_gaps": 0,
+      "lost_slices": 0,
+      "lost_operations": 0,
+      "lost_work": 0,
+      "lost_frames": 0,
+      "complete": true,
+      "pending_operations_at_end": 0
+    }
+  ],
+  "monitor-gui-final": [
+    {
+      "frames": 43530,
+      "first_frame": 1,
+      "last_frame": 43530,
+      "frame_gaps": 0,
+      "lost_slices": 0,
+      "lost_operations": 0,
+      "lost_work": 0,
+      "lost_frames": 0,
+      "complete": true,
+      "pending_operations_at_end": 0
+    }
+  ],
+  "gui-wait-idle": [
+    {
+      "frames": 1364,
+      "first_frame": 1,
+      "last_frame": 1364,
+      "frame_gaps": 0,
+      "lost_slices": 0,
+      "lost_operations": 0,
+      "lost_work": 0,
+      "lost_frames": 0,
+      "complete": false,
+      "pending_operations_at_end": 0,
+      "truncated_before_next_header": true
+    },
+    {
+      "frames": 4481,
+      "first_frame": 1,
+      "last_frame": 4481,
+      "frame_gaps": 0,
+      "lost_slices": 0,
+      "lost_operations": 0,
+      "lost_work": 0,
+      "lost_frames": 0,
+      "complete": true,
+      "pending_operations_at_end": 0
+    }
+  ],
+  "gui-cancel": [
+    {
+      "frames": 12026,
+      "first_frame": 1,
+      "last_frame": 12026,
+      "frame_gaps": 0,
+      "lost_slices": 0,
+      "lost_operations": 0,
+      "lost_work": 0,
+      "lost_frames": 0,
+      "complete": true,
+      "pending_operations_at_end": 0
+    }
+  ],
+  "gui-export-fail": [
+    {
+      "frames": 14937,
+      "first_frame": 1,
+      "last_frame": 14937,
+      "frame_gaps": 0,
+      "lost_slices": 0,
+      "lost_operations": 0,
+      "lost_work": 0,
+      "lost_frames": 0,
+      "complete": true,
+      "pending_operations_at_end": 0
+    }
+  ],
+  "gui-live-export": [
+    {
+      "frames": 5975,
+      "first_frame": 1,
+      "last_frame": 5975,
+      "frame_gaps": 0,
+      "lost_slices": 0,
+      "lost_operations": 0,
+      "lost_work": 0,
+      "lost_frames": 0,
+      "complete": true,
+      "pending_operations_at_end": 0
+    }
+  ],
+  "gui-production-boundaries": [
+    {
+      "frames": 34615,
+      "first_frame": 1,
+      "last_frame": 34615,
+      "frame_gaps": 0,
+      "lost_slices": 0,
+      "lost_operations": 0,
+      "lost_work": 0,
+      "lost_frames": 0,
+      "complete": true,
+      "pending_operations_at_end": 0
+    }
+  ],
+  "charts-pan-final": [
+    {
+      "frames": 43065,
+      "first_frame": 1,
+      "last_frame": 43065,
+      "frame_gaps": 0,
+      "lost_slices": 0,
+      "lost_operations": 0,
+      "lost_work": 0,
+      "lost_frames": 0,
+      "complete": true,
+      "pending_operations_at_end": 0
+    }
+  ],
+  "monitor-nonzero-final": [
+    {
+      "frames": 33723,
+      "first_frame": 1,
+      "last_frame": 33723,
+      "frame_gaps": 0,
+      "lost_slices": 0,
+      "lost_operations": 0,
+      "lost_work": 0,
+      "lost_frames": 0,
+      "complete": true,
+      "pending_operations_at_end": 0
+    }
+  ]
+}

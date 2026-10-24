@@ -1,0 +1,74 @@
+{
+  "build\\performance-vs18\\inspector-memory-acceptance\\inspector-idle\\config.json": {
+    "artifact": "inspector-idle-config.json",
+    "source_sha256": "51b3ea63c759ec456fc6d11e8ebbc0669d77c6587ffa0fa23d98fba95efe1c06",
+    "content_sha256": "1ac48c9627fb7465eff364e578d317530d61fa047e24e2b0eaf6aeb717484a72",
+    "artifact_sha256": "1ac48c9627fb7465eff364e578d317530d61fa047e24e2b0eaf6aeb717484a72"
+  },
+  "build\\performance-vs18\\inspector-memory-acceptance\\inspector-idle\\fixture-input.jsonl": {
+    "artifact": "input-b7006aeffb8ab782f37c4b8e960910750e81c2b5ff636d12f24b40a8e8ae3d4f.jsonl.gz",
+    "source_sha256": "b7006aeffb8ab782f37c4b8e960910750e81c2b5ff636d12f24b40a8e8ae3d4f",
+    "content_sha256": "b7006aeffb8ab782f37c4b8e960910750e81c2b5ff636d12f24b40a8e8ae3d4f",
+    "artifact_sha256": "b6a6444cd377da15fd1ef674980c77a3da622cacba4decd3b2afdcb050388406"
+  },
+  "build\\performance-vs18\\inspector-memory-acceptance\\inspector-idle\\frames.txt": {
+    "artifact": "inspector-idle-frames.txt.gz",
+    "source_sha256": "af66122b0720b8849500bb0fd21371cc7778a9d0bce4baa2149ee93b50754baa",
+    "content_sha256": "af66122b0720b8849500bb0fd21371cc7778a9d0bce4baa2149ee93b50754baa",
+    "artifact_sha256": "12c75d32362a6ecd885e79759ebabedfc712a33760166f513fa2b041b5e75557"
+  },
+  "build\\performance-vs18\\inspector-memory-acceptance\\inspector-idle\\process.csv": {
+    "artifact": "inspector-idle-process.csv",
+    "source_sha256": "e3668c4d93cc6150867736fa8f3940cac9570bd1675758e8c625e779089f0146",
+    "content_sha256": "187b7f7f794f7bb15a5d085e928729de6740f0b4c39835573dcb53417db6ea6f",
+    "artifact_sha256": "187b7f7f794f7bb15a5d085e928729de6740f0b4c39835573dcb53417db6ea6f"
+  },
+  "build\\performance-vs18\\inspector-memory-acceptance\\inspector-idle\\summary.json": {
+    "artifact": "inspector-idle-summary.json",
+    "source_sha256": "a85bc45c3b6abb3a36bbeb68481ca26b994813966184929ef0f4db247d1833c6",
+    "content_sha256": "b7fd47ab2fb897bdb1d870e009df091a846432f9440ceda65af99fef6d5df1c7",
+    "artifact_sha256": "b7fd47ab2fb897bdb1d870e009df091a846432f9440ceda65af99fef6d5df1c7"
+  },
+  "build\\performance-vs18\\inspector-memory-acceptance\\inspector-idle\\winaudio.log": {
+    "artifact": "inspector-idle-winaudio.log.gz",
+    "source_sha256": "56bb3a975b9926145dadc8c3a36685ef7594a46d58502578a6197d1c52968e0b",
+    "content_sha256": "56bb3a975b9926145dadc8c3a36685ef7594a46d58502578a6197d1c52968e0b",
+    "artifact_sha256": "2caf708261069d652167a36800b1d30e16a9cf7ed3a00710e1c09825dfc0e553"
+  },
+  "build\\performance-vs18\\inspector-memory-acceptance\\inspector-memory\\config.json": {
+    "artifact": "inspector-memory-config.json",
+    "source_sha256": "2151c38172af7336e4177f71e7a52cded1a46d08f58cf6c9013ca36a9d323069",
+    "content_sha256": "74d86a5e4f7475e799fac854529435f0dc954cd2f8752d9a2041cc6955803acb",
+    "artifact_sha256": "74d86a5e4f7475e799fac854529435f0dc954cd2f8752d9a2041cc6955803acb"
+  },
+  "build\\performance-vs18\\inspector-memory-acceptance\\inspector-memory\\fixture-input.jsonl": {
+    "artifact": "input-b7006aeffb8ab782f37c4b8e960910750e81c2b5ff636d12f24b40a8e8ae3d4f.jsonl.gz",
+    "source_sha256": "b7006aeffb8ab782f37c4b8e960910750e81c2b5ff636d12f24b40a8e8ae3d4f",
+    "content_sha256": "b7006aeffb8ab782f37c4b8e960910750e81c2b5ff636d12f24b40a8e8ae3d4f",
+    "artifact_sha256": "b6a6444cd377da15fd1ef674980c77a3da622cacba4decd3b2afdcb050388406"
+  },
+  "build\\performance-vs18\\inspector-memory-acceptance\\inspector-memory\\frames.txt": {
+    "artifact": "inspector-memory-frames.txt.gz",
+    "source_sha256": "f9c2f5dd1c5898f24bdd88e644c2c48605aca903ee151d193bd47a0a18272b6b",
+    "content_sha256": "f9c2f5dd1c5898f24bdd88e644c2c48605aca903ee151d193bd47a0a18272b6b",
+    "artifact_sha256": "8e95347c4023d6b30d8debd2484932e164b360bfbb081d7abee6330ccb884c63"
+  },
+  "build\\performance-vs18\\inspector-memory-acceptance\\inspector-memory\\process.csv": {
+    "artifact": "inspector-memory-process.csv",
+    "source_sha256": "954540f7614130a1c6da81f52a7dda9403e57e5b44a9a9fcd1ad4898d5a1fe83",
+    "content_sha256": "b7a19f3f00cc82f1a152b8a20ae65541f12f5430055f726801d2ba50e93fc824",
+    "artifact_sha256": "b7a19f3f00cc82f1a152b8a20ae65541f12f5430055f726801d2ba50e93fc824"
+  },
+  "build\\performance-vs18\\inspector-memory-acceptance\\inspector-memory\\summary.json": {
+    "artifact": "inspector-memory-summary.json",
+    "source_sha256": "e7cdea8fa41b69bc2f7d0186384e20bc91bdf2a8c760b8190d78c129bd41240f",
+    "content_sha256": "1b6f5da39110db7a85833217f41c37502328cf804c5376c61d68b023492d1c64",
+    "artifact_sha256": "1b6f5da39110db7a85833217f41c37502328cf804c5376c61d68b023492d1c64"
+  },
+  "build\\performance-vs18\\inspector-memory-acceptance\\inspector-memory\\winaudio.log": {
+    "artifact": "inspector-memory-winaudio.log.gz",
+    "source_sha256": "6fe147490ad53daf423b09ad272043f4ee3757266712dc6b2aee577e0015c033",
+    "content_sha256": "6fe147490ad53daf423b09ad272043f4ee3757266712dc6b2aee577e0015c033",
+    "artifact_sha256": "e7c0c23bcfc78012c2223e25fdbded7c90e58e5d2a2c80b9c0571d45b28afc99"
+  }
+}

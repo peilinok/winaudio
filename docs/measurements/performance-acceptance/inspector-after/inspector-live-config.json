@@ -1,0 +1,34 @@
+{
+    "source":  "7c853b0af85a3bbe8e76933a7d0946e9356a723a",
+    "executable":  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\bin\\Release\\WinAudioPerformanceGui.exe",
+    "executable_sha256":  "4EC3DFBAF134D8ABBE4BB2AA1A0FA293CABFEAC1F9EA5D56CF113948792DA5D9",
+    "configuration":  {
+                          "name":  "inspector-live",
+                          "records":  0,
+                          "pids":  2,
+                          "mode":  "live",
+                          "warmup":  30,
+                          "duration":  620
+                      },
+    "started":  "2026-10-24T15:22:46.2086520+08:00",
+    "workspace_status":  [
+                             " M docs/measurements/performance-acceptance/.gitattributes",
+                             " M docs/measurements/performance-acceptance/README.md",
+                             " M docs/measurements/performance-acceptance/implementation-log.md",
+                             " M docs/measurements/performance-acceptance/inspector-implementation-notes.md",
+                             "?? .archify/",
+                             "?? _shots/",
+                             "?? docs/measurements/performance-acceptance/charts-acceptance-report.md",
+                             "?? docs/measurements/performance-acceptance/charts-after/",
+                             "?? docs/measurements/performance-acceptance/gui-checks/",
+                             "?? docs/measurements/performance-acceptance/inspector-acceptance-report.md",
+                             "?? shots/"
+                         ],
+    "live_pids":  "4228 27980",
+    "loaded_hook_hashes":  [
+                               {
+                                   "Path":  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\bin\\Release\\WinAudioHook-5.dll",
+                                   "Hash":  "3964B5CF4B029D7C601D53CD3FA688068A895D690B256BDA87389C0A112C49F3"
+                               }
+                           ]
+}
