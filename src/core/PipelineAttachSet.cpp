@@ -81,6 +81,13 @@ std::vector<HookedCall> PipelineAttachSet::pumpRingAll() const {
     return out;
 }
 
+uint64_t PipelineAttachSet::droppedControlCalls() const {
+    uint64_t total = 0;
+    for (const auto& kv : byPid_)
+        if (kv.second && kv.second->attached()) total += kv.second->droppedControlCalls();
+    return total;
+}
+
 uint32_t PipelineAttachSet::pumpXrunsSum() const {
     uint32_t sum = 0;
     for (const auto& kv : byPid_) {

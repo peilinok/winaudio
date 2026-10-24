@@ -230,6 +230,7 @@ struct OnDemandAttach::Impl {
     HANDLE map = nullptr;
     hook_ipc::Ring* ring = nullptr;
     uint32_t readIndex = 0;
+    uint64_t droppedControl = 0;
 };
 
 OnDemandAttach::OnDemandAttach() : impl_(std::make_unique<Impl>()) {}
@@ -252,6 +253,7 @@ void OnDemandAttach::stop() {
     }
     impl_->pid = 0;
     impl_->readIndex = 0;
+    impl_->droppedControl = 0;
 }
 
 bool OnDemandAttach::attached() const {
@@ -384,6 +386,7 @@ std::vector<HookedCall> OnDemandAttach::drain() {
     if (write < read) return out;
     uint32_t count = write - read;
     if (count > hook_ipc::kCap) {
+        impl_->droppedControl += count - hook_ipc::kCap;
         read = write - hook_ipc::kCap;
         count = hook_ipc::kCap;
     }
@@ -394,6 +397,10 @@ std::vector<HookedCall> OnDemandAttach::drain() {
     }
     impl_->readIndex = write;
     return out;
+}
+
+uint64_t OnDemandAttach::droppedControlCalls() const {
+    return impl_ ? impl_->droppedControl : 0;
 }
 
 std::vector<HookedCall> OnDemandAttach::pumpRing() const {

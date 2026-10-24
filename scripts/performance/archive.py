@@ -43,13 +43,14 @@ def archive(source, destination):
                 raise ValueError("Incomplete measurement: " + str(folder))
             run["groups"] = [g for g in parsed["groups"] if g["stage"] != "warmup"]
             run["raw_frame_sha256"] = parsed["sha256"]
-        elif config["configuration"].get("mode") != "off":
+        elif config["configuration"].get("probe", config["configuration"].get("mode")) != "off":
             raise ValueError("Missing completed summary: " + str(folder))
         run["process"] = process_summary((folder / "process.csv").read_bytes(),
                                          config["configuration"]["warmup"])
         for path in sorted(folder.iterdir()):
             if path.name not in ("config.json", "summary.json", "process.csv", "frames.txt",
-                                 "fixture-input.jsonl", "winaudio.log", "fixture-export.jsonl"):
+                                 "fixture-input.jsonl", "winaudio.log", "fixture-export.jsonl",
+                                 "targets.txt", "targets-error.txt"):
                 continue
             original = path.read_bytes()
             # Only normalize the review copies of textual configuration and CSV.

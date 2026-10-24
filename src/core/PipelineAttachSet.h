@@ -21,6 +21,7 @@ public:
     std::vector<uint32_t> attachedPids() const;  // sorted ascending
 
     std::vector<HookedCall> drainAll();
+    uint64_t droppedControlCalls() const;
     std::vector<HookedCall> pumpRingAll() const;
     uint32_t pumpXrunsSum() const;
 

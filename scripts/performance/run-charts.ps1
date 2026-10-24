@@ -31,6 +31,7 @@ foreach ($perfRun in $perfRuns) {
     $env:WINAUDIO_FRAME_PROBE_FLUSH = if ($perfRun.mode -eq 'flush') { '1' } else { '0' }
     $env:WINAUDIO_FRAME_PROBE_PATH = Join-Path $perfFolder 'frames.txt'
     $env:WINAUDIO_PERF_ENDPOINT = $EndpointId
+    $env:WINAUDIO_PERF_MODE = 'charts'
     $env:WINAUDIO_PERF_TRACKS = [string]$perfRun.tracks
     $env:WINAUDIO_PERF_WARMUP = [string]$perfRun.warmup
     $env:WINAUDIO_PERF_DURATION = [string]$perfRun.duration

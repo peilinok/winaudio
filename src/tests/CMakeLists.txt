@@ -49,6 +49,7 @@ add_executable(WinAudioTests
     test_cli_options.cpp
     test_dump_ui.cpp
     test_frame_probe.cpp
+    test_performance_calls.cpp
     test_page_probe.cpp
     test_os_sound_ui.cpp
     test_log_region_prefs.cpp
@@ -60,11 +61,13 @@ add_executable(WinAudioTests
     ${CMAKE_SOURCE_DIR}/src/gui/ChartDataPipeline.cpp
     ${CMAKE_SOURCE_DIR}/src/gui/DumpUi.cpp
     ${CMAKE_SOURCE_DIR}/src/gui/FrameProbe.cpp
+    ${CMAKE_SOURCE_DIR}/src/probe/PerformanceCalls.cpp
 )
 target_include_directories(WinAudioTests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/src/cli
     ${CMAKE_SOURCE_DIR}/src/gui                   # for Spectrogram.h
+    ${CMAKE_SOURCE_DIR}/src/probe
 )
 string(REPLACE "\\" "/" WA_CHANNEL_IDENT_DIR "${CMAKE_SOURCE_DIR}/assets/channel-idents")
 target_compile_definitions(WinAudioTests PRIVATE "WA_CHANNEL_IDENT_DIR=\"${WA_CHANNEL_IDENT_DIR}\"")

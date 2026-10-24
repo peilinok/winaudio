@@ -50,6 +50,7 @@ public:
     uint32_t pid() const;
     AttachBlock lastBlock() const;
     std::vector<HookedCall> drain();
+    uint64_t droppedControlCalls() const;
     std::vector<HookedCall> pumpRing() const;
     uint32_t pumpXruns() const;
     void setPumpEnabled(bool on);

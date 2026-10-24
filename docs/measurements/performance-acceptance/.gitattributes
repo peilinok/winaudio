@@ -3,3 +3,7 @@ hook-*.csv -text
 hook-audio-*.txt -text
 hook-codegen-*.txt -text
 meter-*.csv -text
+charts-before/*.csv text eol=lf
+charts-before/*.json text eol=lf
+charts-overhead-before/*.csv text eol=lf
+charts-overhead-before/*.json text eol=lf

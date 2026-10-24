@@ -473,6 +473,7 @@ void AppUi::applyLiveSessionCellPatches() {
 }
 
 void AppUi::applyPipelineJoin() {
+    wa::FrameBracket graph(frameProbe_, wa::FrameSlice::GraphHint);
     pipelineNodes_.clear();
     pipelineJoinStatus_ = {};
     if (pipelineSelected_ < 0 || pipelineSelected_ >= (int)pipelineSessions_.size())
@@ -615,7 +616,8 @@ void AppUi::runPipelineDetachAll() {
     applyPipelineJoin();
 }
 
-void AppUi::savePipelineCallLog() {
+void AppUi::savePipelineCallLog(const std::wstring& destination) {
+    wa::FrameBracket saving(frameProbe_, wa::FrameSlice::ExportStart);
     std::vector<wa::HookedCall> src = pipelineCallStore_.entries();
     if (src.empty()) src = pipelineCalls_;
     if (src.empty()) {
@@ -631,8 +633,8 @@ void AppUi::savePipelineCallLog() {
                              : (pipelineSelected_ >= 0 && pipelineSelected_ < (int)pipelineSessions_.size()
                                     ? pipelineSessions_[(size_t)pipelineSelected_].processId
                                     : 0u);
-    std::wstring path;
-    wa::Result r = tmp.saveDefaultJsonl(pid, path);
+    std::wstring path = destination;
+    wa::Result r = path.empty() ? tmp.saveDefaultJsonl(pid, path) : tmp.saveJsonl(path);
     if (!r) {
         logLines_.push_back("pipeline save calls failed: " + r.message);
         return;
@@ -640,7 +642,27 @@ void AppUi::savePipelineCallLog() {
     std::string narrow;
     for (wchar_t ch : path) narrow.push_back(ch < 128 ? static_cast<char>(ch) : '?');
     logLines_.push_back("pipeline saved calls: " + narrow + " (" + std::to_string(src.size()) + ")");
-    wa::dump_ui::revealDumpFile(path);
+    if (destination.empty()) wa::dump_ui::revealDumpFile(path);
+}
+
+void AppUi::setPipelineRecording(bool on) {
+    pipelineRecord_ = on;
+    pipelineCallStore_.setRecording(on);
+    if (on) {
+        pipelineCallStore_.clear();
+        if (!pipelineCalls_.empty()) pipelineCallStore_.append(pipelineCalls_);
+    }
+}
+
+void AppUi::receivePipelineCalls(std::vector<wa::HookedCall> calls) {
+    if (calls.empty()) return;
+    {
+        wa::FrameBracket receive(frameProbe_, wa::FrameSlice::CallReceive);
+        pipelineCalls_.insert(pipelineCalls_.end(), calls.begin(), calls.end());
+        if (pipelineRecord_) pipelineCallStore_.append(calls);
+        frameProbe_.addWork("control-received", calls.size());
+    }
+    applyPipelineJoin();
 }
 
 void AppUi::pushLog(int /*level*/, const std::string& line) {
@@ -1099,7 +1121,7 @@ void AppUi::draw() {
         }
         pageOpen = ImGui::BeginTabItem(wa::ui_text::id(wa::ui_text::kRenderTab), nullptr,
 #ifdef WA_PERFORMANCE_FIXTURE
-                                      ImGuiTabItemFlags_SetSelected
+                                      PerformanceFixture::inspector() ? ImGuiTabItemFlags_None : ImGuiTabItemFlags_SetSelected
 #else
                                       ImGuiTabItemFlags_None
 #endif
@@ -1109,7 +1131,13 @@ void AppUi::draw() {
             drawRenderPage();
             ImGui::EndTabItem();
         }
-        pageOpen = ImGui::BeginTabItem(wa::ui_text::id(wa::ui_text::kPipelineTab));
+        pageOpen = ImGui::BeginTabItem(wa::ui_text::id(wa::ui_text::kPipelineTab), nullptr,
+#ifdef WA_PERFORMANCE_FIXTURE
+                                      PerformanceFixture::inspector() ? ImGuiTabItemFlags_SetSelected : ImGuiTabItemFlags_None
+#else
+                                      ImGuiTabItemFlags_None
+#endif
+        );
         frameProbe_.pageState("Pipeline", ImGui::IsItemClicked(), pageOpen);
         if (pageOpen) {
             drawPipelinePage();
@@ -1271,6 +1299,10 @@ ImVec4 kindColor(wa::ObservationKind kind) {
 }  // namespace
 
 void AppUi::drawPipelinePage() {
+#ifdef WA_PERFORMANCE_FIXTURE
+    PerformanceFixture::prepareInspector(*this);
+    if (!PerformanceFixture::inspector() || PerformanceFixture::liveInspector()) {
+#endif
     if (!pipelineEtwStarted_) {
         pipelineEtwStarted_ = true;
         wa::Result etw = pipelineEtw_.start();
@@ -1296,13 +1328,18 @@ void AppUi::drawPipelinePage() {
         if (!etwHintEqual(hint, pipelineEtwHint_))
             applyPipelineJoin();
     }
+#ifdef WA_PERFORMANCE_FIXTURE
+    }
+#endif
     if (pipelineAttaches_.anyAttached()) {
-        auto more = pipelineAttaches_.drainAll();
-        if (!more.empty()) {
-            pipelineCalls_.insert(pipelineCalls_.end(), more.begin(), more.end());
-            if (pipelineRecord_) pipelineCallStore_.append(more);
-            applyPipelineJoin();
+        std::vector<wa::HookedCall> more;
+        {
+            wa::FrameBracket receive(frameProbe_, wa::FrameSlice::CallReceive);
+            more = pipelineAttaches_.drainAll();
         }
+        receivePipelineCalls(std::move(more));
+        frameProbe_.addWork("control-overrun-total", pipelineAttaches_.droppedControlCalls());
+        frameProbe_.addWork("pump-xrun-total", pipelineAttaches_.pumpXrunsSum());
     }
 
     const float logH = logRegionHeight();
@@ -1387,11 +1424,7 @@ void AppUi::drawPipelinePage() {
         }
         ImGui::SameLine();
         if (ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kPipelineRecord), &pipelineRecord_)) {
-            pipelineCallStore_.setRecording(pipelineRecord_);
-            if (pipelineRecord_) {
-                pipelineCallStore_.clear();
-                if (!pipelineCalls_.empty()) pipelineCallStore_.append(pipelineCalls_);
-            }
+            setPipelineRecording(pipelineRecord_);
         }
         ImGui::SameLine();
         const bool canSave = pipelineCallStore_.size() > 0 || !pipelineCalls_.empty();
@@ -1707,15 +1740,25 @@ void AppUi::drawPipelinePage() {
         const float callRowH = (std::max)(80.0f, ImGui::GetContentRegionAvail().y);
         ImGui::BeginChild("pipelineCallLog", ImVec2(0, callRowH), true);
         ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kPipelineCallLog));
-        std::vector<wa::HookedCall> callSrc = pipelineCalls_;
-        if (pipelinePump_ && pipelineAttaches_.anyAttached()) {
-            auto pump = pipelineAttaches_.pumpRingAll();
-            callSrc.insert(callSrc.end(), pump.begin(), pump.end());
-            ImGui::Text("%s: %u", wa::ui_text::get(wa::ui_text::kPipelineXruns),
-                        pipelineAttaches_.pumpXrunsSum());
+        std::vector<wa::HookedCall> callSrc;
+        wa::CallLogView callView;
+        {
+            wa::FrameBracket sort(frameProbe_, wa::FrameSlice::CallSort);
+            callSrc = pipelineCalls_;
+            if (pipelinePump_ && pipelineAttaches_.anyAttached()) {
+                auto pump = pipelineAttaches_.pumpRingAll();
+                callSrc.insert(callSrc.end(), pump.begin(), pump.end());
+                ImGui::Text("%s: %u", wa::ui_text::get(wa::ui_text::kPipelineXruns),
+                            pipelineAttaches_.pumpXrunsSum());
+            }
+            callView = wa::shapeCallLog(callSrc, pipelinePump_);
         }
-        const auto callView = wa::shapeCallLog(callSrc, pipelinePump_);
         const auto& callLog = callView.entries;
+        frameProbe_.addWork("control-total", pipelineCalls_.size());
+        frameProbe_.addWork("control-capacity", pipelineCalls_.capacity());
+        frameProbe_.addWork("recording-copy-total", pipelineCallStore_.size());
+        frameProbe_.addWork("presentation-copy-total", callLog.size());
+        frameProbe_.addWork("pump-total", callSrc.size() - pipelineCalls_.size());
         if (pipelineCallSelected_ >= (int)callLog.size())
             pipelineCallSelected_ = callLog.empty() ? -1 : (int)callLog.size() - 1;
 
@@ -1735,13 +1778,20 @@ void AppUi::drawPipelinePage() {
         bool filterEdited = ImGui::InputTextWithHint(
             "##pipelineCallFilter", wa::ui_text::get(wa::ui_text::kPipelineCallFilterHint),
             pipelineCallFilter_, sizeof(pipelineCallFilter_));
+#ifdef WA_PERFORMANCE_FIXTURE
+        filterEdited = PerformanceFixture::filterEdited() || filterEdited;
+#endif
 
         ImGui::SameLine();
         ImGui::AlignTextToFramePadding();
         ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineCallColIface));
         ImGui::SameLine();
         ImGui::SetNextItemWidth(ifaceComboW);
-        const auto ifaceChoices = wa::call_log_filter::uniqueIfaces(callLog);
+        std::vector<std::string> ifaceChoices;
+        {
+            wa::FrameBracket match(frameProbe_, wa::FrameSlice::CallMatch);
+            ifaceChoices = wa::call_log_filter::uniqueIfaces(callLog);
+        }
         const char* ifacePreview = pipelineCallIfaceFilter_[0]
                                        ? pipelineCallIfaceFilter_
                                        : wa::ui_text::get(wa::ui_text::kPipelineCallIfaceAll);
@@ -1773,8 +1823,13 @@ void AppUi::drawPipelinePage() {
         filterOpts.text = pipelineCallFilter_;
         filterOpts.iface = pipelineCallIfaceFilter_;
         filterOpts.failuresOnly = pipelineCallFailuresOnly_;
-        const std::vector<size_t> visible =
-            wa::call_log_filter::matchingIndices(callLog, filterOpts);
+        std::vector<size_t> visible;
+        {
+            wa::FrameBracket match(frameProbe_, wa::FrameSlice::CallMatch);
+            visible = wa::call_log_filter::matchingIndices(callLog, filterOpts);
+        }
+        frameProbe_.addWork("call-matching-total", visible.size());
+        frameProbe_.addWork("call-query-capacity", visible.capacity());
         const bool anyFilterActive = filterOpts.text.size() > 0 || filterOpts.iface.size() > 0
                                      || filterOpts.failuresOnly;
         if (filterEdited) {
@@ -1815,6 +1870,10 @@ void AppUi::drawPipelinePage() {
                                  ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg |
                                      ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingFixedFit |
                                      ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollX)) {
+                wa::FrameBracket rows(frameProbe_, wa::FrameSlice::CallRows);
+#ifdef WA_PERFORMANCE_FIXTURE
+                PerformanceFixture::scrollCalls();
+#endif
                 ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColPid),
                                         ImGuiTableColumnFlags_WidthFixed, 64.f);
                 ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColCall),
@@ -1826,6 +1885,7 @@ void AppUi::drawPipelinePage() {
                 ImGui::TableSetupColumn(wa::ui_text::id(wa::ui_text::kPipelineCallColStream),
                                         ImGuiTableColumnFlags_WidthFixed, 64.f);
                 ImGui::TableHeadersRow();
+                uint64_t visibleRows = 0;
                 for (size_t vi = 0; vi < visible.size(); ++vi) {
                     const size_t row = visible[vi];
                     const auto& call = callLog[row];
@@ -1840,6 +1900,7 @@ void AppUi::drawPipelinePage() {
                     if (ImGui::Selectable(pidLabel, selected, ImGuiSelectableFlags_SpanAllColumns)) {
                         pipelineCallSelected_ = (int)row;
                     }
+                    if (ImGui::IsItemVisible()) ++visibleRows;
                     if (selected && pipelineCallScrollToSelected_) {
                         ImGui::SetScrollHereY(0.25f);
                         pipelineCallScrollToSelected_ = false;
@@ -1853,6 +1914,8 @@ void AppUi::drawPipelinePage() {
                     ImGui::TableSetColumnIndex(4);
                     ImGui::Text("%u", call.streamId);
                 }
+                frameProbe_.addWork("call-row-submissions", visible.size());
+                frameProbe_.addWork("call-row-visible", visibleRows);
                 ImGui::EndTable();
             }
             ImGui::EndChild();
@@ -1880,6 +1943,9 @@ void AppUi::drawPipelinePage() {
             // Dedicated scroll child: table ScrollY without outer_size was clipping rows.
             ImGui::BeginChild("pipelineCallParamsBody", ImVec2(0, 0), false,
                               ImGuiWindowFlags_AlwaysVerticalScrollbar);
+#ifdef WA_PERFORMANCE_FIXTURE
+            PerformanceFixture::scrollParameters();
+#endif
             if (pipelineCallSelected_ < 0 || pipelineCallSelected_ >= (int)callLog.size()) {
                 ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineCallParamsSelectHint));
             } else {
@@ -1921,6 +1987,9 @@ void AppUi::drawPipelinePage() {
     ImGui::EndChild();
 
     drawLogRegion("pipelineLogRegion", "pipelineLog");
+#ifdef WA_PERFORMANCE_FIXTURE
+    PerformanceFixture::inspectorSubmitted(*this);
+#endif
 }
 
 void AppUi::beginDumpPick(DumpPickKind kind, wa::TrackId trackId) {

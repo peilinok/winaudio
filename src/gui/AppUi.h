@@ -95,7 +95,9 @@ private:
     void runPipelineAttach();
     void runPipelineDetach();
     void runPipelineDetachAll();
-    void savePipelineCallLog();
+    void savePipelineCallLog(const std::wstring& destination = {});
+    void setPipelineRecording(bool on);
+    void receivePipelineCalls(std::vector<wa::HookedCall> calls);
     wa::PipelineAttachUiState pipelineAttachUiFor(const wa::LiveSessionView& row) const;
     std::unordered_set<uint32_t> pipelineAttachedPidSet() const;
     void setPipelineAttachUi(const wa::LiveSessionView& row, wa::PipelineAttachUiState state,

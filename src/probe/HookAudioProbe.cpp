@@ -23,6 +23,7 @@ struct AudioStats {
 };
 struct Shared {
     LONG ready = 0, stop = 0, phase = 0;
+    uint32_t controlEvery = 20;
     HRESULT error = S_OK;
     DWORD sampleRate = 0;
     WORD channels = 0, bits = 0, formatTag = 0;
@@ -130,7 +131,7 @@ int victim(const wchar_t* name) {
             if (stats.count < kSamples) stats.ticks[stats.count++] = end.QuadPart - start.QuadPart;
             else ++stats.sampleOverflow;
             // A low-frequency control call proves pump-off does not gate control.
-            if (stats.callbacks % 20 == 0) {
+            if (stats.callbacks % state->controlEvery == 0) {
                 output->GetBufferSize(&capacity);
                 ComPtr<IAudioRenderClient> currentRender;
                 ComPtr<IAudioCaptureClient> currentCapture;
@@ -148,7 +149,7 @@ int victim(const wchar_t* name) {
     return FAILED(hr) ? 4 : 0;
 }
 
-bool launch(Target& target, size_t index) {
+bool launch(Target& target, size_t index, uint32_t controlEvery = 20) {
     const std::wstring name = L"Local\\WinAudioHookAudioProbe-" + std::to_wstring(GetCurrentProcessId()) +
                               L"-" + std::to_wstring(index);
     target.map = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0,
@@ -156,6 +157,7 @@ bool launch(Target& target, size_t index) {
     if (!target.map) return false;
     target.shared = static_cast<Shared*>(MapViewOfFile(target.map, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(Shared)));
     if (!target.shared) return false;
+    target.shared->controlEvery = controlEvery;
     wchar_t self[MAX_PATH]{};
     GetModuleFileNameW(nullptr, self, MAX_PATH);
     std::wstring command = L"\"" + std::wstring(self) + L"\" --victim \"" + name + L"\"";
@@ -203,6 +205,36 @@ bool attach(Target& target) {
 
 int wmain(int argc, wchar_t** argv) {
     if (argc == 3 && !std::wcscmp(argv[1], L"--victim")) return victim(argv[2]);
+    if (argc == 3 && !std::wcscmp(argv[1], L"--continuous")) {
+        const unsigned seconds = static_cast<unsigned>(std::wcstoul(argv[2], nullptr, 10));
+        if (!seconds) return 20;
+        std::array<Target, 2> targets;
+        for (size_t i = 0; i < targets.size(); ++i) {
+            if (!launch(targets[i], i, 400)) return 21;
+            const auto& s = *targets[i].shared;
+            std::printf("ready target=%zu pid=%lu sample_rate=%lu channels=%u bits=%u endpoint=%ls\n",
+                        i, targets[i].pid, s.sampleRate, s.channels, s.bits, s.endpoint);
+        }
+        std::fflush(stdout);
+        // This mode owns the targets but does not attach; the production GUI does.
+        for (unsigned i = 0; i < seconds; ++i) {
+            Sleep(1000);
+            for (auto& t : targets)
+                if (WaitForSingleObject(t.process, 0) == WAIT_OBJECT_0) return 22;
+        }
+        for (auto& t : targets) InterlockedExchange(&t.shared->stop, 1);
+        bool ok = true;
+        for (auto& t : targets) {
+            if (WaitForSingleObject(t.process, 10000) != WAIT_OBJECT_0) return 23;
+            const auto& s = t.shared->stats[0];
+            std::printf("done pid=%lu callbacks=%llu failures=%llu discontinuities=%llu captured_frames=%llu "
+                        "timing_samples=%u timing_overflow=%u\n", t.pid, s.callbacks, s.failures,
+                        s.discontinuities, s.capturedFrames, s.count, s.sampleOverflow);
+            // The bounded timing reservoir is not an IPC or audio overflow counter.
+            if (!s.callbacks || !s.capturedFrames || s.failures) ok = false;
+        }
+        return ok ? 0 : 24;
+    }
     constexpr const char* names[kPhases] = {"no-attach", "capture-off", "pump-off", "pump-on",
                                           "detached", "reattached", "other-pid-detached"};
     std::array<Target, 2> targets;

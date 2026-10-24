@@ -1,0 +1,12 @@
+{
+  "purpose": "Behavior only; compilation ran concurrently, excluded from performance budgets",
+  "source": "2536b15 plus the uncommitted Inspector fixture and manual-scroll switch; chart algorithms unchanged",
+  "binary_hash": "Not captured before the binary was rebuilt; not used for paired timing",
+  "raw_sha256": "a81cabe645fe02b7a691f3c250819950dc05fb2f86c801782f8d1ccf58fe7dba",
+  "archive_sha256": "8a77020f0c411ce064e31c007a96d2f67eb9893344e32283c1c047edb70981ed",
+  "frames_with_requests": 7337,
+  "frozen_first_frame": 1651,
+  "frozen_last_frame": 5667,
+  "first_track_frozen_while_second_refreshes": 4017,
+  "last_line": "# End frame probe frame=7338 complete=1"
+}
