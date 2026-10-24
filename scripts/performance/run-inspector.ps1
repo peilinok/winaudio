@@ -83,7 +83,8 @@ foreach ($perfRun in $perfRuns) {
     $perfProcess = Start-Process -FilePath $perfExecutable -WorkingDirectory $perfFolder -PassThru
     $perfSamples = @()
     $perfClock = [Diagnostics.Stopwatch]::StartNew()
-    while (!$perfProcess.WaitForExit(1000)) {
+    # Leave headroom for process-property reads to keep at least one sample per second.
+    while (!$perfProcess.WaitForExit(900)) {
         $perfProcess.Refresh()
         $perfSamples += [pscustomobject]@{elapsed_s=$perfClock.Elapsed.TotalSeconds;
             qpc_tick=[Diagnostics.Stopwatch]::GetTimestamp();
