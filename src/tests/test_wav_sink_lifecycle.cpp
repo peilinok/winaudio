@@ -194,6 +194,92 @@ void drainObserved(const WavSink* sink, bool active) {
 }
 } // namespace wa::wavSinkTest
 
+static void sourceEndsDuringStart(Point point) {
+    Schedule schedule;
+    schedule.point = point;
+    WavSink sink;
+    schedule.sink = &sink;
+    current = &schedule;
+    std::atomic<uint64_t> version{71};
+    const auto path = tempPath(L"source_cancel");
+    Result started;
+    std::thread starter([&] {
+        started = sink.startExact(path, AudioFormat{48000, 2, 16, false}, 71, &version);
+    });
+    EXPECT_TRUE(schedule.wait([&] { return schedule.paused; }));
+    version.store(0, std::memory_order_seq_cst);
+    sink.requestStop(71);
+    schedule.releaseProducer();
+    starter.join();
+    current = nullptr;
+    EXPECT_FALSE(started) << "ended source was published Ready";
+    const int16_t pcm[]{7, -7};
+    EXPECT_EQ(sink.push(pcm, sizeof(pcm), 71), 0u);
+    sink.stop();
+    EXPECT_EQ(sink.poll().phase, WavDumpPhase::Cancelled);
+    DeleteFileW(path.c_str());
+}
+
+TEST(WavSinkLifecycle, SourceEndsBeforePreparing) {
+    sourceEndsDuringStart(Point::BeforePreparing);
+}
+
+TEST(WavSinkLifecycle, SourceEndsBeforeReady) {
+    sourceEndsDuringStart(Point::BeforeReady);
+}
+
+TEST(WavSinkLifecycle, SourceEndsAfterReady) {
+    sourceEndsDuringStart(Point::AfterReady);
+}
+
+TEST(WavSinkLifecycle, CompletionIsSeparateFromAdmissionAndKeepsItsGeneration) {
+    Schedule s;
+    WavSink sink([&] { return std::make_unique<ScheduledOutput>(s); });
+    const auto path = tempPath(L"completion");
+    ASSERT_TRUE(sink.startExact(path, AudioFormat{48000, 2, 16, false}, 91));
+    const auto started = sink.poll();
+    EXPECT_GT(started.generation, 0u);
+    EXPECT_EQ(started.phase, WavDumpPhase::Accepting);
+    sink.requestStop(91);
+    EXPECT_TRUE(s.wait([&] { return s.closeEntered; }));
+    EXPECT_FALSE(sink.isRunning());
+    const auto closing = sink.poll();
+    EXPECT_EQ(closing.phase, WavDumpPhase::Finalizing);
+    EXPECT_EQ(closing.generation, started.generation);
+    EXPECT_EQ(closing.source, 91u);
+    s.releaseClose();
+    EXPECT_TRUE(sink.stop());
+    const auto finished = sink.poll();
+    EXPECT_EQ(finished.phase, WavDumpPhase::Success);
+    EXPECT_EQ(finished.generation, started.generation);
+    EXPECT_EQ(finished.path, path);
+    DeleteFileW(path.c_str());
+}
+
+TEST(WavSinkLifecycle, DelayedOldSourceStopCannotCloseTheNextDump) {
+    WavSink sink;
+    const auto oldPath = tempPath(L"old_stop");
+    const auto newPath = tempPath(L"new_stop");
+    ASSERT_TRUE(sink.startExact(oldPath, AudioFormat{48000, 2, 16, false}, 81));
+    Schedule schedule;
+    schedule.sink = &sink;
+    schedule.point = Point::BeforeStopAdmission;
+    current = &schedule;
+    std::thread requester([&] { sink.requestStop(81); });
+    EXPECT_TRUE(schedule.wait([&] { return schedule.paused; }));
+    EXPECT_TRUE(sink.stop());
+    EXPECT_TRUE(sink.startExact(newPath, AudioFormat{48000, 2, 16, false}, 82));
+    schedule.releaseProducer();
+    requester.join();
+    current = nullptr;
+    const std::vector<int16_t> pcm{17, -17};
+    EXPECT_EQ(sink.push(pcm.data(), pcm.size() * 2, 82), pcm.size() * 2);
+    EXPECT_EQ(sink.poll().phase, WavDumpPhase::Accepting);
+    EXPECT_TRUE(sink.stop());
+    expectPcm(newPath, pcm);
+    DeleteFileW(oldPath.c_str());
+}
+
 static void stopWhilePaused(Point point) {
     Schedule s;
     s.point = point;

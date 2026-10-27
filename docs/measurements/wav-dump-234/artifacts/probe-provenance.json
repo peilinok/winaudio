@@ -1,0 +1,127 @@
+{
+  "workspace": "E:\\WORK\\vibecoding\\winaudio",
+  "build_kind": "Git archive source snapshots; not worktrees",
+  "architecture": "x64",
+  "configuration": "Release",
+  "generator": "Visual Studio 18 2026",
+  "host": "Windows-10-10.0.26100-SP0",
+  "python": "3.7.3 (v3.7.3:ef4ec6ed12, Mar 25 2019, 22:22:05) [MSC v.1916 64 bit (AMD64)]",
+  "driver_revision": "649015e15576d570aa06f1b5636dffe2c053010f",
+  "preflight_policy": "Builder result.csv excluded from formal comparison; may overlap GUI or compilation",
+  "snapshots": {
+    "before": {
+      "source_pin": "9360b232513b22a41014fec19eb0c536c9e3689f\nspdlog=6fa36017cfd5731d617e1a934f0e5ea9c4445b13\n",
+      "binaries": {
+        "WavDumpDeviceSmoke.exe": {
+          "path": "E:\\WORK\\vibecoding\\winaudio\\.scratch\\wav-dump-234\\performance-before\\build\\bin\\Release\\WavDumpDeviceSmoke.exe",
+          "sha256": "6f5c2159e54011c0891baef7e4c300a138e76993b44681eacea5c8bf4eee3a80"
+        },
+        "WavSinkProbe.exe": {
+          "path": "E:\\WORK\\vibecoding\\winaudio\\.scratch\\wav-dump-234\\performance-before\\build\\bin\\Release\\WavSinkProbe.exe",
+          "sha256": "e09361fc11dfc632743719e12bfe1043eea53ecccb95cc06e4c132765acbd4ba"
+        },
+        "WinAudioPerformanceGui.exe": {
+          "path": "E:\\WORK\\vibecoding\\winaudio\\.scratch\\wav-dump-234\\performance-before\\build\\bin\\Release\\WinAudioPerformanceGui.exe",
+          "sha256": "94e82256a8e9a749c500bd47c993b1e900648cc55222e1295ad054cedbc88c4d"
+        }
+      },
+      "production_sources": {
+        "src/core/WavSink.cpp": "f96ceb24e821964dbfa7fe6fd9d9a9c1fcf87b3d134cd85c39685caa9acf48d3",
+        "src/core/WavSink.h": "f206f7a3e252f95798f3eb8fb438b25453b7730d30afa3806631cb60984efce6",
+        "src/core/MonitorEngine.cpp": "502ada1ef13aae337e42cdd4f8db702bcceb73047556d901a9719b164a15991f",
+        "src/core/MonitorEngine.h": "ff82000bbb30aab4c72ea628281720c378befae6ebf7a82cacb389f6ae50e4b7",
+        "src/gui/AppUi.cpp": "f01976319307419403da80e75fa5d5893789c8525881e1cbc8d9504c9fa33df2",
+        "src/gui/PerformanceFixture.cpp": "526fa0c60787536f336099d3757132fd5473ab178d0a9a349d482a1ec0e31596"
+      },
+      "preflight_csv_sha256": "2c334e096ea24107704faa6285776cf4a3240465f88b66eb29889c8ea4bbf202",
+      "cmake_cache_sha256": "b3bfb5050e9fe59b4290ebab7cafd227aa26654a041eaafeb8c38cc35bf8e056"
+    },
+    "after": {
+      "source_pin": "649015e15576d570aa06f1b5636dffe2c053010f\nspdlog=6fa36017cfd5731d617e1a934f0e5ea9c4445b13\n",
+      "binaries": {
+        "WavDumpDeviceSmoke.exe": {
+          "path": "E:\\WORK\\vibecoding\\winaudio\\.scratch\\wav-dump-234\\performance-after\\build\\bin\\Release\\WavDumpDeviceSmoke.exe",
+          "sha256": "2495556df6c76eb783ec181336d574af3325cbccc4109d2cde6df5eec52b0926"
+        },
+        "WavMonitorDeviceSmoke.exe": {
+          "path": "E:\\WORK\\vibecoding\\winaudio\\.scratch\\wav-dump-234\\performance-after\\build\\bin\\Release\\WavMonitorDeviceSmoke.exe",
+          "sha256": "c48aa743c85756097598b16d28e16d7b060f48639b2a60e6f676e21e0417aba7"
+        },
+        "WavSinkProbe.exe": {
+          "path": "E:\\WORK\\vibecoding\\winaudio\\.scratch\\wav-dump-234\\performance-after\\build\\bin\\Release\\WavSinkProbe.exe",
+          "sha256": "213528abd766cdcc3fcf507354ccf449e9046ad7d772425683cb848ad459f1f0"
+        },
+        "WinAudioPerformanceGui.exe": {
+          "path": "E:\\WORK\\vibecoding\\winaudio\\.scratch\\wav-dump-234\\performance-after\\build\\bin\\Release\\WinAudioPerformanceGui.exe",
+          "sha256": "e1bde001b20a298998e47236872d8fa740ef097040df37beb24e7791a9f067f4"
+        }
+      },
+      "production_sources": {
+        "src/core/WavSink.cpp": "75de3dd7265abc17ba2f78c8abe00334d0f6ed165f617ab810505ff1c142b3fb",
+        "src/core/WavSink.h": "982741275274124bebbe7fec18a27e59a44ae8d4c94812024267c7be6adab6fa",
+        "src/core/MonitorEngine.cpp": "267616e340286df732375617e5cc3b884b675543f17d87290acc908129fcfc07",
+        "src/core/MonitorEngine.h": "2f4949d982a9811b36cd0d35706dbd45af56d1fcf85864ea1d3e45c0ee2af8ea",
+        "src/gui/AppUi.cpp": "f197ef915b38823146b90574208c2604896f386d8f23999b7caee4187a4dfdf3",
+        "src/gui/PerformanceFixture.cpp": "e657e3075ae9b6e2a48f1b364933355a378d9becaa2568bab1f0c48bd8a6b812"
+      },
+      "preflight_csv_sha256": "be4ef5285041f57de9693f8e74434fe944ebbc3934f9c48c78b9cd837b7c54a0",
+      "cmake_cache_sha256": "5bbb4d758ec80edf9865e4b855e0067867a396797daa44162d3e34dbf135bb5b"
+    }
+  },
+  "drivers": {
+    "scripts/performance/build-wav-sink-probe.ps1": {
+      "worktree_sha256": "5de5ce4d297db0ada52b6312c41e2bef6f7b13825c5ca1688390a37896e04034",
+      "git_blob_content_sha256": "d3033570764171e5bceedde4e2ef8e63c1bd93dbdaf7d329cc85ffda4ffdfd86",
+      "normalized_equal": true,
+      "note": "core.autocrlf=true; copied probe bytes use worktree line endings"
+    },
+    "scripts/performance/wav-sink-probe.cpp": {
+      "worktree_sha256": "f9ec69fb5b9be6ab3f45a9ae1afbd37f8cd89e1629b09942d7cbbcdc59cd3b7d",
+      "git_blob_content_sha256": "a39995dc0d4e13178d691cb0bca2613a7fc1d56d7d7cdfdace8c9abb9cd983e3",
+      "normalized_equal": true,
+      "note": "core.autocrlf=true; copied probe bytes use worktree line endings"
+    },
+    "scripts/performance/wav-dump-device-smoke.cpp": {
+      "worktree_sha256": "4d8bd3c887bf167e4b87d6adc1271bfa014de70fb699650737bb6e6a19efb5aa",
+      "git_blob_content_sha256": "7bd3cf23ab9f2cf5640c3d87c784623e373093385b422c12126abd84f9b20679",
+      "normalized_equal": true,
+      "note": "core.autocrlf=true; copied probe bytes use worktree line endings"
+    },
+    "scripts/performance/wav-monitor-device-smoke.cpp": {
+      "worktree_sha256": "f37e23bf5d76a03504765bebc9d37b573c9274ab99a89a207e70a0c85c875ad1",
+      "git_blob_content_sha256": "f37e23bf5d76a03504765bebc9d37b573c9274ab99a89a207e70a0c85c875ad1",
+      "normalized_equal": true,
+      "note": "core.autocrlf=true; copied probe bytes use worktree line endings"
+    }
+  },
+  "build_logs": [
+    {
+      "original": "build-performance-before.log",
+      "original_sha256": "dabf9325f5d139041aff04e11f75cc49fffbb11f8e5eb9f7e69186675a0f7c2d",
+      "original_encoding": "utf-16",
+      "artifact": "probe-build-before.txt",
+      "artifact_sha256": "e14eb0da851316d634decc38d50b7218eaff613cdfa64bfc7f2bb277c208d9eb"
+    },
+    {
+      "original": "build-performance-gui-before.log",
+      "original_sha256": "354a9a66c7003de22e88c1374d5487be28e36a2247ada37b9e24499eea06879f",
+      "original_encoding": "utf-16",
+      "artifact": "probe-gui-build-before.txt",
+      "artifact_sha256": "a2fb887414b9c75a43af53a6cdb4e93017d0e889030ac03ca9ffedfa0ddf3794"
+    },
+    {
+      "original": "build-performance-after.log",
+      "original_sha256": "a9da05de6200c15eb09a89bdcf88a45126a42b5fb56b3ddb17893ccc2073081b",
+      "original_encoding": "utf-16",
+      "artifact": "probe-build-after.txt",
+      "artifact_sha256": "7887ce360a79b442d842e7ee265755b36a595977e9284973689614196d594033"
+    },
+    {
+      "original": "build-performance-gui-after.log",
+      "original_sha256": "b19cbb802ad985ee9616de54812e27adfd299ed248efe0905ea9d153ce3c70d5",
+      "original_encoding": "utf-16",
+      "artifact": "probe-gui-build-after.txt",
+      "artifact_sha256": "000e0d0dc17b55434c189b7f7aea2d57f3463a291c78c7352be5c5565ae68ea3"
+    }
+  ]
+}

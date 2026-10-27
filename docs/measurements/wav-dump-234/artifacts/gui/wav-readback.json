@@ -1,0 +1,41 @@
+[
+  {
+    "name": "monitor-cap_192000_2ch_32f_20261027_110437.wav",
+    "bytes": 469601336,
+    "tag": 3,
+    "rate": 192000,
+    "channels": 2,
+    "bits": 32,
+    "frames": 58700160,
+    "seconds": 305.73,
+    "nonzero_pcm": false,
+    "sha256": "5ed72ef234fdb98bff7e08833659a51f205813594aed5a7bc12ae460060216b7",
+    "validation": "RIFF size, format, complete frames and EOF passed"
+  },
+  {
+    "name": "monitor-ren_192000_2ch_32f_20261027_110536.wav",
+    "bytes": 20505656,
+    "tag": 3,
+    "rate": 192000,
+    "channels": 2,
+    "bits": 32,
+    "frames": 2563200,
+    "seconds": 13.35,
+    "nonzero_pcm": false,
+    "sha256": "f949f9ca32608742ba6d5c6c5651ce4b2875a2e9a363102e345d329e2e746fd6",
+    "validation": "RIFF size, format, complete frames and EOF passed"
+  },
+  {
+    "name": "monitor-ren_192000_2ch_32f_20261027_110906.wav",
+    "bytes": 56801336,
+    "tag": 3,
+    "rate": 192000,
+    "channels": 2,
+    "bits": 32,
+    "frames": 7100160,
+    "seconds": 36.98,
+    "nonzero_pcm": false,
+    "sha256": "76409ec7721e7aab16e85b87796d3e53bad928b6034d7e9ba73e83bac50ed888",
+    "validation": "RIFF size, format, complete frames and EOF passed"
+  }
+]

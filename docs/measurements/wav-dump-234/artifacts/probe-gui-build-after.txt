@@ -1,0 +1,33 @@
+适用于 .NET Framework MSBuild 版本 18.10.1-1.26427.6+3cd27c13e
+
+  Building Custom Rule E:/WORK/vibecoding/winaudio/.scratch/wav-dump-234/performance-after/source/third_party/CMakeLists.txt
+  WinAudioCore.vcxproj -> E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\performance-after\build\lib\Release\WinAudioCore.lib
+  imgui.cpp
+  imgui_draw.cpp
+  imgui_tables.cpp
+  imgui_widgets.cpp
+  imgui_impl_win32.cpp
+  imgui_impl_dx11.cpp
+  imgui.vcxproj -> E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\performance-after\build\lib\Release\imgui.lib
+  Building Custom Rule E:/WORK/vibecoding/winaudio/.scratch/wav-dump-234/performance-after/source/third_party/CMakeLists.txt
+  implot.cpp
+  implot_items.cpp
+  implot.vcxproj -> E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\performance-after\build\lib\Release\implot.lib
+  Building Custom Rule E:/WORK/vibecoding/winaudio/.scratch/wav-dump-234/performance-after/source/src/gui/CMakeLists.txt
+  AppUi.cpp
+  ChartDataPipeline.cpp
+  DumpUi.cpp
+  FrameProbe.cpp
+  GuiGpu.cpp
+  HeatmapRgba.cpp
+  HeatmapTexture.cpp
+  WaveEnvelope.cpp
+  main.cpp
+  Spectrogram.cpp
+  PerformanceFixture.cpp
+  PerformanceCalls.cpp
+  正在生成代码
+  Previous IPDB not found, fall back to full compilation.
+  All 16026 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  已完成代码的生成
+  WinAudioPerformanceGui.vcxproj -> E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\performance-after\build\bin\Release\WinAudioPerformanceGui.exe

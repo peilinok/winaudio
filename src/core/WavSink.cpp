@@ -104,26 +104,30 @@ WavSink::WavSink(WavSinkOutputFactory outputFactory)
 WavSink::~WavSink() { stop(); }
 
 Result WavSink::start(const std::wstring& folder, const std::wstring& prefix,
-                      const AudioFormat& fmt, uint64_t source) {
+                      const AudioFormat& fmt, uint64_t source,
+                      const std::atomic<uint64_t>* sourceVersion) {
     std::lock_guard<std::mutex> control(controlMtx_);
     if (folder.empty() || prefix.empty())
         return Result::Fail(-1, "WavSink: folder and prefix required");
     SYSTEMTIME st{};
     GetLocalTime(&st);
-    return begin(uniqueWavPath(folder, autoStem(prefix, fmt, st)), fmt, source);
+    return begin(uniqueWavPath(folder, autoStem(prefix, fmt, st)), fmt, source, sourceVersion);
 }
 
 Result WavSink::start(const std::wstring& folder, const char* prefix,
-                      const AudioFormat& fmt, uint64_t source) {
-    return start(folder, wideAscii(prefix), fmt, source);
+                      const AudioFormat& fmt, uint64_t source,
+                      const std::atomic<uint64_t>* sourceVersion) {
+    return start(folder, wideAscii(prefix), fmt, source, sourceVersion);
 }
 
-Result WavSink::startExact(const std::wstring& path, const AudioFormat& fmt, uint64_t source) {
+Result WavSink::startExact(const std::wstring& path, const AudioFormat& fmt, uint64_t source,
+                          const std::atomic<uint64_t>* sourceVersion) {
     std::lock_guard<std::mutex> control(controlMtx_);
-    return begin(path, fmt, source);
+    return begin(path, fmt, source, sourceVersion);
 }
 
-Result WavSink::begin(const std::wstring& path, const AudioFormat& fmt, uint64_t source) {
+Result WavSink::begin(const std::wstring& path, const AudioFormat& fmt, uint64_t source,
+                      const std::atomic<uint64_t>* sourceVersion) {
     if ((gate_.load(std::memory_order_seq_cst) & (kReady | kClosed)) == kReady)
         return Result::Fail(-1, "WavSink: already running");
     if (path.empty()) return Result::Fail(-1, "WavSink: empty path");
@@ -132,27 +136,29 @@ Result WavSink::begin(const std::wstring& path, const AudioFormat& fmt, uint64_t
         return Result::Fail(-1, "WavSink: generation exhausted");
 
     stopLocked();
-    failure_.store(Failure::None, std::memory_order_seq_cst);
-    state_.store(WavSinkState::Idle, std::memory_order_release);
-    {
-        std::lock_guard<std::mutex> lk(mtx_);
-        message_.clear();
-        prepared_ = false;
-        preparedReady_ = false;
-    }
+#ifdef WA_WAV_SINK_TESTING
+    wavSinkTest::checkpoint(wavSinkTest::Point::BeforePreparing, this);
+#endif
     try {
         fmt_ = fmt;
-        source_.store(source, std::memory_order_seq_cst);
+        sourceVersion_ = sourceVersion;
         {
             std::lock_guard<std::mutex> lk(mtx_);
             path_ = path;
             fileName_ = fileNameOf(path);
+            message_.clear();
+            prepared_ = false;
+            preparedReady_ = false;
+            failure_.store(Failure::None, std::memory_order_seq_cst);
+            // Poll sees path, source and generation as one round. Source end
+            // can race this reservation; the writer checks the live version.
+            source_.store(source, std::memory_order_seq_cst);
+            gate_.store(++generation_ * kGenerationStep, std::memory_order_seq_cst);
         }
 #ifdef WA_WAV_SINK_TESTING
         wavSinkTest::prepare(wavSinkTest::Preparation::Ring);
 #endif
         ring_ = std::make_unique<RingBuffer>(ringBytesFor(fmt));
-        gate_.store(++generation_ * kGenerationStep, std::memory_order_seq_cst);
 #ifdef WA_WAV_SINK_TESTING
         wavSinkTest::prepare(wavSinkTest::Preparation::Thread);
 #endif
@@ -161,9 +167,10 @@ Result WavSink::begin(const std::wstring& path, const AudioFormat& fmt, uint64_t
         gate_.fetch_or(kClosed, std::memory_order_seq_cst);
         ring_.reset();
         failure_.store(Failure::Output, std::memory_order_seq_cst);
-        state_.store(WavSinkState::Error, std::memory_order_release);
         std::lock_guard<std::mutex> lk(mtx_);
         message_ = e.what();
+        completedGeneration_ = generation_;
+        completedPhase_ = WavDumpPhase::Failure;
         prepared_ = true;
         readyCv_.notify_all();
         return Result::Fail(-1, message_);
@@ -215,6 +222,9 @@ void WavSink::requestStop(uint64_t source) {
     for (;;) {
         if ((observed & kClosed) != 0 || source_.load(std::memory_order_seq_cst) != source)
             return;
+#ifdef WA_WAV_SINK_TESTING
+        wavSinkTest::checkpoint(wavSinkTest::Point::BeforeStopAdmission, this);
+#endif
         if (gate_.compare_exchange_strong(observed, observed | kClosed,
                                          std::memory_order_seq_cst)) return;
         if (observed / kGenerationStep != generation) return;
@@ -236,25 +246,31 @@ Result WavSink::stopLocked() {
     ring_.reset();
     const bool failed = hasFailed();
     if (failed) {
-        state_.store(WavSinkState::Error, std::memory_order_release);
         WA_LOG(wa::log::Level::Info, "WavSink", "stop",
                wa::narrowAscii(path_), "error");
         return Result::Fail(-1, message_.empty() ? "WavSink: failed" : message_);
     }
-    state_.store(WavSinkState::Idle, std::memory_order_release);
     if (!path_.empty())
         WA_LOG(wa::log::Level::Info, "WavSink", "stop", wa::narrowAscii(path_), "ok");
     return Result::Ok();
 }
 
 bool WavSink::isRunning() const {
-    return state_.load(std::memory_order_acquire) == WavSinkState::Running;
+    return (gate_.load(std::memory_order_seq_cst) & (kReady | kClosed)) == kReady;
 }
 
 WavSinkStatus WavSink::poll() const {
     WavSinkStatus s;
-    s.state = state_.load(std::memory_order_acquire);
     std::lock_guard<std::mutex> lk(mtx_);
+    const uint64_t gate = gate_.load(std::memory_order_seq_cst);
+    s.generation = gate / kGenerationStep;
+    s.source = source_.load(std::memory_order_seq_cst);
+    if (s.generation == completedGeneration_) s.phase = completedPhase_;
+    else if ((gate & kClosed) != 0) s.phase = WavDumpPhase::Finalizing;
+    else if ((gate & kReady) != 0) s.phase = WavDumpPhase::Accepting;
+    else s.phase = WavDumpPhase::Preparing;
+    s.state = s.phase == WavDumpPhase::Accepting ? WavSinkState::Running
+            : s.phase == WavDumpPhase::Failure ? WavSinkState::Error : WavSinkState::Idle;
     s.path = path_;
     s.fileName = fileName_;
     s.message = message_;
@@ -268,6 +284,7 @@ void WavSink::joinWriter() {
 void WavSink::writerLoop() {
     wa::log::setThreadName("wav");
     std::unique_ptr<WavSinkOutput> writer;
+    bool accepted = false;
     auto notifyPrepared = [this](bool ready = false) {
         std::lock_guard<std::mutex> lk(mtx_);
         preparedReady_ = preparedReady_ || ready;
@@ -298,11 +315,28 @@ void WavSink::writerLoop() {
             wavSinkTest::prepare(wavSinkTest::Preparation::Scratch);
 #endif
             std::vector<uint8_t> chunk(kFlushBytes);
+#ifdef WA_WAV_SINK_TESTING
+            wavSinkTest::checkpoint(wavSinkTest::Point::BeforeReady, this);
+#endif
+            // An end request can precede reservation of Preparing. In that case
+            // it saw the old Closed gate; the source version still rejects it.
+            if (sourceVersion_ && sourceVersion_->load(std::memory_order_seq_cst) !=
+                                      source_.load(std::memory_order_seq_cst))
+                requestStop(source_.load(std::memory_order_seq_cst));
             uint64_t preparing = generation_ * kGenerationStep;
             if (gate_.compare_exchange_strong(preparing, preparing | kReady,
                                               std::memory_order_seq_cst)) {
-                state_.store(WavSinkState::Running, std::memory_order_release);
-                notifyPrepared(true);
+#ifdef WA_WAV_SINK_TESTING
+                wavSinkTest::checkpoint(wavSinkTest::Point::AfterReady, this);
+#endif
+                const bool current = !sourceVersion_ ||
+                    sourceVersion_->load(std::memory_order_seq_cst) ==
+                        source_.load(std::memory_order_seq_cst);
+                if (!current) requestStop(source_.load(std::memory_order_seq_cst));
+                else {
+                    accepted = true;
+                    notifyPrepared(true);
+                }
                 for (;;) {
                     const uint64_t gate = gate_.load(std::memory_order_seq_cst);
                     const bool drain = (gate & kClosed) != 0;
@@ -348,11 +382,13 @@ void WavSink::writerLoop() {
         }
     }
     const bool failed = hasFailed();
-    if (failed) {
+    {
         std::lock_guard<std::mutex> lk(mtx_);
-        if (message_.empty()) message_ = "WavSink: ring overflow";
+        if (failed && message_.empty()) message_ = "WavSink: ring overflow";
+        completedGeneration_ = generation_;
+        completedPhase_ = failed ? WavDumpPhase::Failure
+                                : accepted ? WavDumpPhase::Success : WavDumpPhase::Cancelled;
     }
-    state_.store(failed ? WavSinkState::Error : WavSinkState::Idle, std::memory_order_release);
     notifyPrepared();
 }
 

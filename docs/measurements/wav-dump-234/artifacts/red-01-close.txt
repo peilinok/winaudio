@@ -1,0 +1,36 @@
+Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.SlowRenderCloseDoesNotBlockPlaybackOffOrCaptureDump
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.SlowRenderCloseDoesNotBlockPlaybackOffOrCaptureDump
+E:\WORK\vibecoding\winaudio\src\tests\test_monitorengine.cpp(1191): error: Value of: waitFor([&] { return eng.poll().renderState == StreamState::Idle; })
+  Actual: false
+Expected: true
+render waited for the blocked file close
+
+E:\WORK\vibecoding\winaudio\src\tests\test_monitorengine.cpp(1195): error: Value of: waitFor([&] { return eng.capWritten() == before + 5000; })
+  Actual: false
+Expected: true
+capture waited for the blocked Render Dump
+
+E:\WORK\vibecoding\winaudio\src\tests\test_monitorengine.cpp(1204): error: Expected equality of these values:
+  cap.read(bytes.data(), bytes.size())
+    Which is: 20000
+  bytes.size()
+    Which is: 40000
+
+E:\WORK\vibecoding\winaudio\src\tests\test_monitorengine.cpp(1206): error: Value of: std::equal(bytes.begin() + pcm.size(), bytes.end(), pcm.begin())
+  Actual: false
+Expected: true
+
+[  FAILED  ] MonitorEngine.SlowRenderCloseDoesNotBlockPlaybackOffOrCaptureDump (6077 ms)
+[----------] 1 test from MonitorEngine (6077 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (6077 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] MonitorEngine.SlowRenderCloseDoesNotBlockPlaybackOffOrCaptureDump
+
+ 1 FAILED TEST

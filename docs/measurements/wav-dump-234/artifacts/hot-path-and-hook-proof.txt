@@ -1,0 +1,18 @@
+﻿Architecture: x64 Debug
+Production WinAudioCore.lib wavSinkTest symbols: 0
+Dedicated WavSink.obj wavSinkTest symbols: 3
+Both objects built from src/core/WavSink.cpp.
+WavSink gate/source/failure and Monitor source/format compile-time lock-free assertions passed.
+Source source/gate operations remain seq_cst; push has one admission strong CAS, no retry.
+Production push/requestStop contain only atomics and bounded ring copy, with no file calls, blocking locks, per-block ownership or allocations.
+8B3 00000000 UNDEF  notype ()    External     | ?checkpoint@wavSinkTest@wa@@YAXW4Point@12@PEBVWavSink@2@@Z (void __cdecl wa::wavSinkTest::checkpoint(enum wa::wavSinkTest::Point,class wa::WavSink const *))
+8B4 00000000 UNDEF  notype ()    External     | ?drainObserved@wavSinkTest@wa@@YAXPEBVWavSink@2@_N@Z (void __cdecl wa::wavSinkTest::drainObserved(class wa::WavSink const *,bool))
+8B5 00000000 UNDEF  notype ()    External     | ?prepare@wavSinkTest@wa@@YAXW4Preparation@12@@Z (void __cdecl wa::wavSinkTest::prepare(enum wa::wavSinkTest::Preparation))
+
+Architecture: x86 Debug
+Production WinAudioCore.lib wavSinkTest symbols: 0
+Dedicated WavSink.obj wavSinkTest symbols: 3
+All gate/source/failure/format lock-free and eight-byte alignment compile-time assertions passed on Win32.
+8B4 00000000 UNDEF  notype ()    External     | ?checkpoint@wavSinkTest@wa@@YAXW4Point@12@PBVWavSink@2@@Z (void __cdecl wa::wavSinkTest::checkpoint(enum wa::wavSinkTest::Point,class wa::WavSink const *))
+8B5 00000000 UNDEF  notype ()    External     | ?drainObserved@wavSinkTest@wa@@YAXPBVWavSink@2@_N@Z (void __cdecl wa::wavSinkTest::drainObserved(class wa::WavSink const *,bool))
+8B6 00000000 UNDEF  notype ()    External     | ?prepare@wavSinkTest@wa@@YAXW4Preparation@12@@Z (void __cdecl wa::wavSinkTest::prepare(enum wa::wavSinkTest::Preparation))

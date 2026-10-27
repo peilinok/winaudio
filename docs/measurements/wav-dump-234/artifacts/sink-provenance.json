@@ -1,0 +1,322 @@
+{
+  "workspace": "E:\\WORK\\vibecoding\\winaudio",
+  "method": "before1, after1, before2, after2, before3, after3; separate normal and closed phases",
+  "formal": true,
+  "complete": true,
+  "started_utc": "2026-10-27T03:13:13.472034+00:00",
+  "snapshots": {
+    "before": {
+      "source_pin": "9360b232513b22a41014fec19eb0c536c9e3689f\nspdlog=6fa36017cfd5731d617e1a934f0e5ea9c4445b13\n",
+      "executable": "E:\\WORK\\vibecoding\\winaudio\\.scratch\\wav-dump-234\\performance-before\\build\\bin\\Release\\WavSinkProbe.exe",
+      "executable_sha256": "e09361fc11dfc632743719e12bfe1043eea53ecccb95cc06e4c132765acbd4ba",
+      "probe_source_sha256": "f9ec69fb5b9be6ab3f45a9ae1afbd37f8cd89e1629b09942d7cbbcdc59cd3b7d"
+    },
+    "after": {
+      "source_pin": "649015e15576d570aa06f1b5636dffe2c053010f\nspdlog=6fa36017cfd5731d617e1a934f0e5ea9c4445b13\n",
+      "executable": "E:\\WORK\\vibecoding\\winaudio\\.scratch\\wav-dump-234\\performance-after\\build\\bin\\Release\\WavSinkProbe.exe",
+      "executable_sha256": "213528abd766cdcc3fcf507354ccf449e9046ad7d772425683cb848ad459f1f0",
+      "probe_source_sha256": "f9ec69fb5b9be6ab3f45a9ae1afbd37f8cd89e1629b09942d7cbbcdc59cd3b7d"
+    }
+  },
+  "runs": [
+    {
+      "label": "before-1",
+      "started_utc": "2026-10-27T03:13:13.477032+00:00",
+      "ended_utc": "2026-10-27T03:13:33.519227+00:00",
+      "exit_code": 0,
+      "csv_sha256": "27df673242ad67918d311af2729266c0f11b206f8ffadc156c4cae6d7cf47b37",
+      "wav": {
+        "file": "sink-before-1.wav",
+        "bytes": 3840056,
+        "data_bytes": 3840000,
+        "sha256": "9458508cb8a0ac635618d9bcc924c0f280ae75e3ce25074f317265b003d584f7",
+        "readback": "all 1000 blocks equal expected Float32 PCM"
+      },
+      "rows": [
+        {
+          "phase": "normal",
+          "calls": "1000",
+          "offered_bytes": "3840000",
+          "accepted_bytes": "3840000",
+          "wall_s": "10.002426",
+          "calls_per_s": "99.976",
+          "accepted_bytes_per_s": "383906.876",
+          "offered_bytes_per_timed_push_s": "2614201102.866",
+          "p50_ns": "1100",
+          "p95_ns": "1900",
+          "p99_ns": "13500"
+        },
+        {
+          "phase": "closed",
+          "calls": "1000",
+          "offered_bytes": "3840000",
+          "accepted_bytes": "0",
+          "wall_s": "9.997822",
+          "calls_per_s": "100.022",
+          "accepted_bytes_per_s": "0.000",
+          "offered_bytes_per_timed_push_s": "34625788999.098",
+          "p50_ns": "100",
+          "p95_ns": "200",
+          "p99_ns": "400"
+        }
+      ]
+    },
+    {
+      "label": "after-1",
+      "started_utc": "2026-10-27T03:13:33.528241+00:00",
+      "ended_utc": "2026-10-27T03:13:53.578205+00:00",
+      "exit_code": 0,
+      "csv_sha256": "a18d57a3777f7d1fd79f55d33352db0d084bca35fb7264c11b0810830064e058",
+      "wav": {
+        "file": "sink-after-1.wav",
+        "bytes": 3840056,
+        "data_bytes": 3840000,
+        "sha256": "9458508cb8a0ac635618d9bcc924c0f280ae75e3ce25074f317265b003d584f7",
+        "readback": "all 1000 blocks equal expected Float32 PCM"
+      },
+      "rows": [
+        {
+          "phase": "normal",
+          "calls": "1000",
+          "offered_bytes": "3840000",
+          "accepted_bytes": "3840000",
+          "wall_s": "10.003217",
+          "calls_per_s": "99.968",
+          "accepted_bytes_per_s": "383876.503",
+          "offered_bytes_per_timed_push_s": "2310191312.718",
+          "p50_ns": "1100",
+          "p95_ns": "2000",
+          "p99_ns": "26000"
+        },
+        {
+          "phase": "closed",
+          "calls": "1000",
+          "offered_bytes": "3840000",
+          "accepted_bytes": "0",
+          "wall_s": "10.004422",
+          "calls_per_s": "99.956",
+          "accepted_bytes_per_s": "0.000",
+          "offered_bytes_per_timed_push_s": "30548926014.320",
+          "p50_ns": "100",
+          "p95_ns": "200",
+          "p99_ns": "500"
+        }
+      ]
+    },
+    {
+      "label": "before-2",
+      "started_utc": "2026-10-27T03:13:53.584239+00:00",
+      "ended_utc": "2026-10-27T03:14:13.637292+00:00",
+      "exit_code": 0,
+      "csv_sha256": "5c4f57497ed8e15759516a1278641ef83c2f3d409304fe85406dcd591cb33928",
+      "wav": {
+        "file": "sink-before-2.wav",
+        "bytes": 3840056,
+        "data_bytes": 3840000,
+        "sha256": "9458508cb8a0ac635618d9bcc924c0f280ae75e3ce25074f317265b003d584f7",
+        "readback": "all 1000 blocks equal expected Float32 PCM"
+      },
+      "rows": [
+        {
+          "phase": "normal",
+          "calls": "1000",
+          "offered_bytes": "3840000",
+          "accepted_bytes": "3840000",
+          "wall_s": "9.997890",
+          "calls_per_s": "100.021",
+          "accepted_bytes_per_s": "384081.026",
+          "offered_bytes_per_timed_push_s": "2609759412.804",
+          "p50_ns": "1200",
+          "p95_ns": "1900",
+          "p99_ns": "22600"
+        },
+        {
+          "phase": "closed",
+          "calls": "1000",
+          "offered_bytes": "3840000",
+          "accepted_bytes": "0",
+          "wall_s": "9.996873",
+          "calls_per_s": "100.031",
+          "accepted_bytes_per_s": "0.000",
+          "offered_bytes_per_timed_push_s": "40083507306.889",
+          "p50_ns": "100",
+          "p95_ns": "200",
+          "p99_ns": "400"
+        }
+      ]
+    },
+    {
+      "label": "after-2",
+      "started_utc": "2026-10-27T03:14:13.644294+00:00",
+      "ended_utc": "2026-10-27T03:14:33.702255+00:00",
+      "exit_code": 0,
+      "csv_sha256": "98c06d8e5b9cd2acecbc0e354ef1d5ba0e5ee1a38b96a62c69d1205112cff761",
+      "wav": {
+        "file": "sink-after-2.wav",
+        "bytes": 3840056,
+        "data_bytes": 3840000,
+        "sha256": "9458508cb8a0ac635618d9bcc924c0f280ae75e3ce25074f317265b003d584f7",
+        "readback": "all 1000 blocks equal expected Float32 PCM"
+      },
+      "rows": [
+        {
+          "phase": "normal",
+          "calls": "1000",
+          "offered_bytes": "3840000",
+          "accepted_bytes": "3840000",
+          "wall_s": "10.003303",
+          "calls_per_s": "99.967",
+          "accepted_bytes_per_s": "383873.207",
+          "offered_bytes_per_timed_push_s": "2333920865.496",
+          "p50_ns": "1200",
+          "p95_ns": "1900",
+          "p99_ns": "29600"
+        },
+        {
+          "phase": "closed",
+          "calls": "1000",
+          "offered_bytes": "3840000",
+          "accepted_bytes": "0",
+          "wall_s": "10.000792",
+          "calls_per_s": "99.992",
+          "accepted_bytes_per_s": "0.000",
+          "offered_bytes_per_timed_push_s": "35955056179.775",
+          "p50_ns": "100",
+          "p95_ns": "200",
+          "p99_ns": "400"
+        }
+      ]
+    },
+    {
+      "label": "before-3",
+      "started_utc": "2026-10-27T03:14:33.709348+00:00",
+      "ended_utc": "2026-10-27T03:14:53.761848+00:00",
+      "exit_code": 0,
+      "csv_sha256": "41c7ff729805e54e1a27c3866c07861ca7a777342690c846a36d99d18c4d14b8",
+      "wav": {
+        "file": "sink-before-3.wav",
+        "bytes": 3840056,
+        "data_bytes": 3840000,
+        "sha256": "9458508cb8a0ac635618d9bcc924c0f280ae75e3ce25074f317265b003d584f7",
+        "readback": "all 1000 blocks equal expected Float32 PCM"
+      },
+      "rows": [
+        {
+          "phase": "normal",
+          "calls": "1000",
+          "offered_bytes": "3840000",
+          "accepted_bytes": "3840000",
+          "wall_s": "9.994287",
+          "calls_per_s": "100.057",
+          "accepted_bytes_per_s": "384219.512",
+          "offered_bytes_per_timed_push_s": "2415398163.291",
+          "p50_ns": "1200",
+          "p95_ns": "2000",
+          "p99_ns": "25100"
+        },
+        {
+          "phase": "closed",
+          "calls": "1000",
+          "offered_bytes": "3840000",
+          "accepted_bytes": "0",
+          "wall_s": "10.004311",
+          "calls_per_s": "99.957",
+          "accepted_bytes_per_s": "0.000",
+          "offered_bytes_per_timed_push_s": "49104859335.038",
+          "p50_ns": "100",
+          "p95_ns": "200",
+          "p99_ns": "300"
+        }
+      ]
+    },
+    {
+      "label": "after-3",
+      "started_utc": "2026-10-27T03:14:53.767851+00:00",
+      "ended_utc": "2026-10-27T03:15:13.821499+00:00",
+      "exit_code": 0,
+      "csv_sha256": "efa698fdea0cbd026d43f780f7d796fef5aaffd9132566f26b536233b8b46573",
+      "wav": {
+        "file": "sink-after-3.wav",
+        "bytes": 3840056,
+        "data_bytes": 3840000,
+        "sha256": "9458508cb8a0ac635618d9bcc924c0f280ae75e3ce25074f317265b003d584f7",
+        "readback": "all 1000 blocks equal expected Float32 PCM"
+      },
+      "rows": [
+        {
+          "phase": "normal",
+          "calls": "1000",
+          "offered_bytes": "3840000",
+          "accepted_bytes": "3840000",
+          "wall_s": "9.996278",
+          "calls_per_s": "100.037",
+          "accepted_bytes_per_s": "384142.963",
+          "offered_bytes_per_timed_push_s": "2949761868.183",
+          "p50_ns": "1100",
+          "p95_ns": "1900",
+          "p99_ns": "11300"
+        },
+        {
+          "phase": "closed",
+          "calls": "1000",
+          "offered_bytes": "3840000",
+          "accepted_bytes": "0",
+          "wall_s": "9.999817",
+          "calls_per_s": "100.002",
+          "accepted_bytes_per_s": "0.000",
+          "offered_bytes_per_timed_push_s": "26759581881.533",
+          "p50_ns": "100",
+          "p95_ns": "200",
+          "p99_ns": "400"
+        }
+      ]
+    }
+  ],
+  "ended_utc": "2026-10-27T03:15:13.828496+00:00",
+  "artifacts": [
+    {
+      "file": "sink-before-1.wav",
+      "artifact": "sink-before-1.wav.gz",
+      "source_bytes": 3840056,
+      "source_sha256": "9458508cb8a0ac635618d9bcc924c0f280ae75e3ce25074f317265b003d584f7",
+      "gzip_sha256": "62ad98b3d226d332af72359111b6763562dd42628f9d74ccbd955798037f2f7b"
+    },
+    {
+      "file": "sink-after-1.wav",
+      "artifact": "sink-after-1.wav.gz",
+      "source_bytes": 3840056,
+      "source_sha256": "9458508cb8a0ac635618d9bcc924c0f280ae75e3ce25074f317265b003d584f7",
+      "gzip_sha256": "62ad98b3d226d332af72359111b6763562dd42628f9d74ccbd955798037f2f7b"
+    },
+    {
+      "file": "sink-before-2.wav",
+      "artifact": "sink-before-2.wav.gz",
+      "source_bytes": 3840056,
+      "source_sha256": "9458508cb8a0ac635618d9bcc924c0f280ae75e3ce25074f317265b003d584f7",
+      "gzip_sha256": "62ad98b3d226d332af72359111b6763562dd42628f9d74ccbd955798037f2f7b"
+    },
+    {
+      "file": "sink-after-2.wav",
+      "artifact": "sink-after-2.wav.gz",
+      "source_bytes": 3840056,
+      "source_sha256": "9458508cb8a0ac635618d9bcc924c0f280ae75e3ce25074f317265b003d584f7",
+      "gzip_sha256": "62ad98b3d226d332af72359111b6763562dd42628f9d74ccbd955798037f2f7b"
+    },
+    {
+      "file": "sink-before-3.wav",
+      "artifact": "sink-before-3.wav.gz",
+      "source_bytes": 3840056,
+      "source_sha256": "9458508cb8a0ac635618d9bcc924c0f280ae75e3ce25074f317265b003d584f7",
+      "gzip_sha256": "62ad98b3d226d332af72359111b6763562dd42628f9d74ccbd955798037f2f7b"
+    },
+    {
+      "file": "sink-after-3.wav",
+      "artifact": "sink-after-3.wav.gz",
+      "source_bytes": 3840056,
+      "source_sha256": "9458508cb8a0ac635618d9bcc924c0f280ae75e3ce25074f317265b003d584f7",
+      "gzip_sha256": "62ad98b3d226d332af72359111b6763562dd42628f9d74ccbd955798037f2f7b"
+    }
+  ],
+  "preconditions": "Parent confirmed GUI exited, no root audio/build/disk load; local competing target process check was empty. MSBuild node-reuse servers remained idle.",
+  "runner_sha256": "dd7a0e99f41e96068f1c949db52e10939f40e205d6fd3ef50d686c827fef7b9b"
+}

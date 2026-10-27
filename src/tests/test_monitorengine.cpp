@@ -8,10 +8,13 @@
 #endif
 #include <windows.h>
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <thread>
 #include <vector>
 #include "MonitorEngine.h"
@@ -174,6 +177,68 @@ bool waitFor(Pred pred, int timeoutMs = 3000) {
     }
     return pred();
 }
+
+// A file-system gate fixes the interleaving; deadlines only diagnose deadlocks.
+struct FileGate {
+    std::mutex mtx;
+    std::condition_variable cv;
+    bool entered = false;
+    bool released = false;
+    void block() {
+        std::unique_lock<std::mutex> lk(mtx);
+        entered = true;
+        cv.notify_all();
+        cv.wait(lk, [&] { return released; });
+    }
+    bool wait() {
+        std::unique_lock<std::mutex> lk(mtx);
+        return cv.wait_for(lk, std::chrono::seconds(3), [&] { return entered; });
+    }
+    void release() {
+        std::lock_guard<std::mutex> lk(mtx);
+        released = true;
+        cv.notify_all();
+    }
+};
+
+struct ReleaseFileGate {
+    FileGate& gate;
+    ~ReleaseFileGate() { gate.release(); }
+};
+
+enum class FileFailure { None, Open, WriteAndClose, Close };
+
+class ControlledWavOutput : public WavSinkOutput {
+public:
+    ControlledWavOutput(FileGate* open = nullptr, FileGate* write = nullptr,
+                        FileGate* close = nullptr, FileFailure failure = FileFailure::None)
+        : open_(open), write_(write), close_(close), failure_(failure) {}
+    Result open(const std::wstring& path, const AudioFormat& fmt) override {
+        if (open_) open_->block();
+        if (failure_ == FileFailure::Open) return Result::Fail(301, "Monitor fake open failed");
+        return writer_.open(path, fmt);
+    }
+    Result setBuffer(size_t bytes) override { return writer_.setStdioBuffer(bytes); }
+    Result write(const void* data, size_t bytes) override {
+        if (write_) write_->block();
+        if (failure_ == FileFailure::WriteAndClose)
+            return Result::Fail(302, "Monitor fake write failed");
+        return writer_.write(data, bytes);
+    }
+    Result close() override {
+        if (close_) close_->block();
+        const auto closed = writer_.close();
+        if (failure_ == FileFailure::WriteAndClose || failure_ == FileFailure::Close)
+            return Result::Fail(303, "Monitor fake close failed");
+        return closed;
+    }
+private:
+    FileGate* open_;
+    FileGate* write_;
+    FileGate* close_;
+    FileFailure failure_;
+    WavWriter writer_;
+};
 
 } // namespace
 
@@ -1107,9 +1172,296 @@ TEST(MonitorEngine, PlaybackOffFinalizesRenderDump) {
     auto pcm2 = makeRampPcm(more, rig.capFmt.channels);
     rig.capPtr->pushPcm(pcm2.data(), pcm2.size());
     ASSERT_TRUE(waitFor([&] { return eng.poll().renderState == StreamState::Idle; }));
+    ASSERT_TRUE(waitFor([&] { return eng.poll().renderDump.phase == WavDumpPhase::Success; }));
     WavReader r;
     ASSERT_TRUE(r.open(path));
     r.close();
     DeleteFileW(path.c_str());
     eng.stop();
+}
+
+TEST(MonitorEngine, SlowRenderCloseDoesNotBlockPlaybackOffOrCaptureDump) {
+    FakeRig rig;
+    FileGate close;
+    MonitorEngine eng(rig.factory(), {}, {}, [&] {
+        return std::make_unique<ControlledWavOutput>(nullptr, nullptr, &close);
+    });
+    ReleaseFileGate release{close};
+    ASSERT_TRUE(eng.start(BackendKind::WasapiShared, L"", L"", 0));
+    wchar_t dir[MAX_PATH]{};
+    GetTempPathW(MAX_PATH, dir);
+    ASSERT_TRUE(eng.startDumpCapture(dir));
+    ASSERT_TRUE(eng.startDumpRender(dir));
+    const auto capPath = eng.poll().capDumpPath;
+    const auto renderPath = eng.poll().renderDumpPath;
+    auto pcm = makeRampPcm(std::vector<int16_t>(5000, 41), 2);
+    rig.capPtr->pushPcm(pcm.data(), pcm.size());
+    ASSERT_TRUE(waitFor([&] { return eng.renderWritten() > 0; }));
+    eng.setPlaybackEnabled(false);
+    ASSERT_TRUE(close.wait());
+    EXPECT_TRUE(waitFor([&] { return eng.poll().renderState == StreamState::Idle; }))
+        << "render waited for the blocked file close";
+    const auto before = eng.capWritten();
+    rig.capPtr->pushPcm(pcm.data(), pcm.size());
+    EXPECT_TRUE(waitFor([&] { return eng.capWritten() == before + 5000; }))
+        << "capture waited for the blocked Render Dump";
+    EXPECT_TRUE(eng.poll().capDumping);
+    EXPECT_FALSE(rig.capStopped.load());
+    close.release();
+    eng.stop();
+    WavReader cap;
+    ASSERT_TRUE(cap.open(capPath));
+    std::vector<uint8_t> bytes(pcm.size() * 2);
+    EXPECT_EQ(cap.read(bytes.data(), bytes.size()), bytes.size());
+    EXPECT_TRUE(std::equal(bytes.begin(), bytes.begin() + pcm.size(), pcm.begin()));
+    EXPECT_TRUE(std::equal(bytes.begin() + pcm.size(), bytes.end(), pcm.begin()));
+    cap.close();
+    DeleteFileW(capPath.c_str());
+    DeleteFileW(renderPath.c_str());
+}
+
+TEST(MonitorEngine, ReengageDuringOldCloseUsesANewSourceAndConsistentFormat) {
+    FakeRig rig;
+    FileGate close;
+    unsigned outputs = 0;
+    MonitorEngine eng(rig.factory(), {}, {}, [&] {
+        return std::make_unique<ControlledWavOutput>(nullptr, nullptr,
+                                                     outputs++ == 0 ? &close : nullptr);
+    });
+    ReleaseFileGate release{close};
+    ASSERT_TRUE(eng.start(BackendKind::WasapiShared, L"", L"", 0));
+    wchar_t dir[MAX_PATH]{};
+    GetTempPathW(MAX_PATH, dir);
+    ASSERT_TRUE(eng.startDumpRender(dir));
+    const auto old = eng.poll().renderDump;
+    auto pcm = makeRampPcm(std::vector<int16_t>(5000, 41), 2);
+    rig.capPtr->pushPcm(pcm.data(), pcm.size());
+    ASSERT_TRUE(waitFor([&] { return eng.renderWritten() > 0; }));
+    const auto oldFrames = eng.renderWritten();
+    eng.setPlaybackEnabled(false);
+    ASSERT_TRUE(close.wait());
+    ASSERT_TRUE(waitFor([&] { return eng.poll().renderState == StreamState::Idle; }));
+    rig.renderFmt = {48000, 1, 32, true};
+    eng.setPlaybackEnabled(true);
+    ASSERT_TRUE(waitFor([&] { return eng.poll().renderState == StreamState::Running; }));
+    rig.capPtr->pushPcm(pcm.data(), pcm.size());
+    ASSERT_TRUE(waitFor([&] { return eng.renderWritten() > oldFrames; }));
+    EXPECT_EQ(eng.poll().renderDump.phase, WavDumpPhase::Finalizing);
+    close.release();
+    ASSERT_TRUE(waitFor([&] { return eng.poll().renderDump.phase == WavDumpPhase::Success; }));
+    ASSERT_TRUE(eng.startDumpRender(dir));
+    const auto fresh = eng.poll().renderDump;
+    EXPECT_NE(fresh.source, old.source);
+    EXPECT_GT(fresh.generation, old.generation);
+    rig.capPtr->pushPcm(pcm.data(), pcm.size());
+    ASSERT_TRUE(waitFor([&] { return eng.capWritten() == 15000u; }));
+    ASSERT_TRUE(eng.stopDumpRender());
+    WavReader reader;
+    ASSERT_TRUE(reader.open(old.path));
+    EXPECT_EQ(reader.format().channels, 2);
+    EXPECT_FALSE(reader.format().isFloat);
+    std::vector<int16_t> bytes(static_cast<size_t>(oldFrames) * 2);
+    EXPECT_EQ(reader.read(bytes.data(), bytes.size() * 2), bytes.size() * 2);
+    EXPECT_TRUE(std::all_of(bytes.begin(), bytes.end(), [](int16_t v) { return v == 41; }));
+    uint8_t extra{};
+    EXPECT_EQ(reader.read(&extra, 1), 0u) << "new source bytes entered the old file";
+    reader.close();
+    ASSERT_TRUE(reader.open(fresh.path));
+    EXPECT_EQ(reader.format().channels, 1);
+    EXPECT_EQ(reader.format().bitsPerSample, 32);
+    EXPECT_TRUE(reader.format().isFloat);
+    float sample{};
+    EXPECT_EQ(reader.read(&sample, sizeof(sample)), sizeof(sample));
+    EXPECT_NEAR(sample, 41.f / 32768.f, 1e-6f);
+    reader.close();
+    eng.stop();
+    DeleteFileW(old.path.c_str());
+    DeleteFileW(fresh.path.c_str());
+}
+
+TEST(MonitorEngine, SlowRenderWriteAllowsIndependentCaptureCompletion) {
+    FakeRig rig;
+    FileGate write;
+    MonitorEngine eng(rig.factory(), {}, {}, [&] {
+        return std::make_unique<ControlledWavOutput>(nullptr, &write);
+    });
+    ReleaseFileGate release{write};
+    ASSERT_TRUE(eng.start(BackendKind::WasapiShared, L"", L"", 0));
+    wchar_t dir[MAX_PATH]{};
+    GetTempPathW(MAX_PATH, dir);
+    ASSERT_TRUE(eng.startDumpCapture(dir));
+    ASSERT_TRUE(eng.startDumpRender(dir));
+    const auto capPath = eng.poll().capDump.path;
+    const auto renderPath = eng.poll().renderDump.path;
+    auto first = makeRampPcm(std::vector<int16_t>(75000, 19), 2);
+    rig.capPtr->pushPcm(first.data(), first.size());
+    ASSERT_TRUE(write.wait());
+    ASSERT_TRUE(waitFor([&] { return eng.capWritten() == 75000u; }));
+    eng.setPlaybackEnabled(false);
+    ASSERT_TRUE(waitFor([&] { return eng.poll().renderState == StreamState::Idle; }));
+    const auto renderFrames = eng.renderWritten();
+    auto second = makeRampPcm(std::vector<int16_t>(64, 27), 2);
+    rig.capPtr->pushPcm(second.data(), second.size());
+    ASSERT_TRUE(waitFor([&] { return eng.capWritten() == 75064u; }));
+    EXPECT_EQ(eng.poll().renderDump.phase, WavDumpPhase::Finalizing);
+    ASSERT_TRUE(eng.stopDumpCapture());
+    WavReader reader;
+    ASSERT_TRUE(reader.open(capPath));
+    std::vector<uint8_t> bytes(first.size() + second.size());
+    EXPECT_EQ(reader.read(bytes.data(), bytes.size()), bytes.size());
+    EXPECT_TRUE(std::equal(first.begin(), first.end(), bytes.begin()));
+    EXPECT_TRUE(std::equal(second.begin(), second.end(), bytes.begin() + first.size()));
+    reader.close();
+    EXPECT_FALSE(rig.capStopped.load());
+    write.release();
+    eng.stop();
+    ASSERT_TRUE(reader.open(renderPath));
+    std::vector<int16_t> rendered(static_cast<size_t>(renderFrames) * 2);
+    EXPECT_EQ(reader.read(rendered.data(), rendered.size() * 2), rendered.size() * 2);
+    EXPECT_TRUE(std::all_of(rendered.begin(), rendered.end(), [](int16_t v) { return v == 19; }));
+    uint8_t extra{};
+    EXPECT_EQ(reader.read(&extra, 1), 0u);
+    reader.close();
+    DeleteFileW(capPath.c_str());
+    DeleteFileW(renderPath.c_str());
+}
+
+TEST(MonitorEngine, SlowOpenCancelledBySourceEndCannotFollowReengage) {
+    FakeRig rig;
+    FileGate open;
+    unsigned outputs = 0;
+    MonitorEngine eng(rig.factory(), {}, {}, [&] {
+        return std::make_unique<ControlledWavOutput>(outputs++ == 0 ? &open : nullptr);
+    });
+    ReleaseFileGate release{open};
+    ASSERT_TRUE(eng.start(BackendKind::WasapiShared, L"", L"", 0));
+    wchar_t dir[MAX_PATH]{};
+    GetTempPathW(MAX_PATH, dir);
+    Result started;
+    std::thread starter([&] { started = eng.startDumpRender(dir); });
+    EXPECT_TRUE(open.wait());
+    const auto preparing = eng.poll().renderDump;
+    EXPECT_EQ(preparing.phase, WavDumpPhase::Preparing);
+    eng.setPlaybackEnabled(false);
+    EXPECT_TRUE(waitFor([&] { return eng.poll().renderState == StreamState::Idle; }));
+    rig.renderFmt = {48000, 1, 32, true};
+    eng.setPlaybackEnabled(true);
+    EXPECT_TRUE(waitFor([&] { return eng.poll().renderState == StreamState::Running; }));
+    open.release();
+    starter.join();
+    EXPECT_FALSE(started);
+    EXPECT_EQ(eng.poll().renderDump.phase, WavDumpPhase::Cancelled);
+    EXPECT_EQ(eng.poll().renderDump.generation, preparing.generation);
+    EXPECT_EQ(eng.poll().overall, StreamState::Running);
+    ASSERT_TRUE(eng.startDumpRender(dir));
+    const auto fresh = eng.poll().renderDump;
+    EXPECT_NE(fresh.source, preparing.source);
+    EXPECT_GT(fresh.generation, preparing.generation);
+    eng.stop();
+    WavReader reader;
+    ASSERT_TRUE(reader.open(preparing.path));
+    uint8_t byte{};
+    EXPECT_EQ(reader.read(&byte, 1), 0u);
+    reader.close();
+    ASSERT_TRUE(reader.open(fresh.path));
+    EXPECT_TRUE(reader.format().isFloat);
+    EXPECT_EQ(reader.format().channels, 1);
+    reader.close();
+    DeleteFileW(preparing.path.c_str());
+    DeleteFileW(fresh.path.c_str());
+}
+
+TEST(MonitorEngine, CaptureSourceChangesPerSessionWhileDumpGenerationKeepsIncreasing) {
+    FakeRig rig;
+    MonitorEngine eng(rig.factory());
+    wchar_t dir[MAX_PATH]{};
+    GetTempPathW(MAX_PATH, dir);
+    ASSERT_TRUE(eng.start(BackendKind::WasapiShared, L"", L"", 0, false));
+    ASSERT_TRUE(eng.startDumpCapture(dir));
+    const auto first = eng.poll().capDump;
+    eng.stop();
+    EXPECT_EQ(eng.poll().capDump.phase, WavDumpPhase::Success);
+    ASSERT_TRUE(eng.start(BackendKind::WasapiShared, L"", L"", 0, false));
+    ASSERT_TRUE(eng.startDumpCapture(dir));
+    const auto second = eng.poll().capDump;
+    EXPECT_GT(second.source, first.source);
+    EXPECT_GT(second.generation, first.generation);
+    eng.stop();
+    DeleteFileW(first.path.c_str());
+    DeleteFileW(second.path.c_str());
+}
+
+TEST(MonitorEngine, OptionalRenderFailuresKeepCaptureAcceptingAndAllowRetry) {
+    for (const auto failure : {FileFailure::Open, FileFailure::WriteAndClose, FileFailure::Close}) {
+        FakeRig rig;
+        unsigned outputs = 0;
+        MonitorEngine eng(rig.factory(), {}, {}, [&] {
+            return std::make_unique<ControlledWavOutput>(nullptr, nullptr, nullptr,
+                outputs++ == 0 ? failure : FileFailure::None);
+        });
+        ASSERT_TRUE(eng.start(BackendKind::WasapiShared, L"", L"", 0));
+        wchar_t dir[MAX_PATH]{};
+        GetTempPathW(MAX_PATH, dir);
+        ASSERT_TRUE(eng.startDumpCapture(dir));
+        const auto started = eng.startDumpRender(dir);
+        EXPECT_EQ(started.ok, failure != FileFailure::Open);
+        auto pcm = makeRampPcm(std::vector<int16_t>(5000, 51), 2);
+        rig.capPtr->pushPcm(pcm.data(), pcm.size());
+        ASSERT_TRUE(waitFor([&] { return eng.capWritten() == 5000u; }));
+        EXPECT_FALSE(eng.stopDumpRender());
+        const auto failed = eng.poll().renderDump;
+        EXPECT_EQ(failed.phase, WavDumpPhase::Failure);
+        EXPECT_EQ(failed.message, failure == FileFailure::Open ? "Monitor fake open failed"
+                                 : failure == FileFailure::Close ? "Monitor fake close failed"
+                                 : "Monitor fake write failed");
+        EXPECT_EQ(eng.poll().overall, StreamState::Running);
+        EXPECT_EQ(eng.poll().capDump.phase, WavDumpPhase::Accepting);
+        EXPECT_EQ(eng.poll().renderState, StreamState::Running);
+        ASSERT_TRUE(eng.startDumpRender(dir));
+        const auto retry = eng.poll().renderDump;
+        EXPECT_GT(retry.generation, failed.generation);
+        EXPECT_EQ(retry.source, failed.source);
+        rig.capPtr->pushPcm(pcm.data(), pcm.size());
+        ASSERT_TRUE(waitFor([&] { return eng.capWritten() == 10000u; }));
+        eng.stop();
+        const auto completed = eng.poll();
+        EXPECT_EQ(completed.capDump.phase, WavDumpPhase::Success);
+        EXPECT_EQ(completed.renderDump.phase, WavDumpPhase::Success);
+        DeleteFileW(completed.capDump.path.c_str());
+        DeleteFileW(failed.path.c_str());
+        DeleteFileW(retry.path.c_str());
+    }
+}
+
+TEST(MonitorEngine, StopWaitsForAnAlreadyFinalizingFileAndCompletesBothSinks) {
+    FakeRig rig;
+    FileGate close;
+    MonitorEngine eng(rig.factory(), {}, {}, [&] {
+        return std::make_unique<ControlledWavOutput>(nullptr, nullptr, &close);
+    });
+    ReleaseFileGate release{close};
+    ASSERT_TRUE(eng.start(BackendKind::WasapiShared, L"", L"", 0));
+    wchar_t dir[MAX_PATH]{};
+    GetTempPathW(MAX_PATH, dir);
+    ASSERT_TRUE(eng.startDumpCapture(dir));
+    ASSERT_TRUE(eng.startDumpRender(dir));
+    const auto first = eng.poll();
+    eng.setPlaybackEnabled(false);
+    ASSERT_TRUE(close.wait());
+    ASSERT_TRUE(waitFor([&] { return eng.poll().renderState == StreamState::Idle; }));
+    std::atomic<bool> returned{false};
+    std::thread stopper([&] { eng.stop(); returned.store(true); });
+    EXPECT_TRUE(waitFor([&] { return eng.poll().capDump.phase == WavDumpPhase::Success; }));
+    EXPECT_FALSE(returned.load());
+    close.release();
+    stopper.join();
+    const auto finished = eng.poll();
+    EXPECT_EQ(finished.capDump.phase, WavDumpPhase::Success);
+    EXPECT_EQ(finished.renderDump.phase, WavDumpPhase::Success);
+    EXPECT_EQ(finished.capDump.generation, first.capDump.generation);
+    EXPECT_EQ(finished.renderDump.generation, first.renderDump.generation);
+    EXPECT_TRUE(rig.capStopped.load());
+    EXPECT_TRUE(rig.renderStopped.load());
+    DeleteFileW(first.capDump.path.c_str());
+    DeleteFileW(first.renderDump.path.c_str());
 }

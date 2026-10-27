@@ -1,0 +1,8 @@
+﻿{
+    "executable":  "build/bin/Release/WinAudioPerformanceGui.exe",
+    "sha256":  "499D65CE2B6E662238569DD1A7B9FD22B7C6F22F4D7CBA94DFD71D021DDC4769",
+    "source":  "39d0047981596e7abb03b921f4e6354316f6e092",
+    "source_equivalent_to":  "649015e15576d570aa06f1b5636dffe2c053010f",
+    "fixture":  "monitor-dump",
+    "no_production_source_changes":  true
+}

@@ -1,0 +1,174 @@
+{
+  "plan": "smoke: two Render tracks, eight channels each; 3s warmup + four 10s stages",
+  "endpoint": "{0.0.0.00000000}.{09793ccf-e246-4dbf-800b-a7cf44856994}",
+  "visible": "Both windows observed and activated with Computer Use; after screenshot archived. No concurrent compilation or audio tests.",
+  "source_field_note": "config.json source is the driver checkout HEAD; use source_pin for the executable revision.",
+  "runs": [
+    {
+      "version": "before",
+      "source_pin": "9360b232513b22a41014fec19eb0c536c9e3689f",
+      "executable": "E:\\WORK\\vibecoding\\winaudio\\.scratch\\wav-dump-234\\performance-before\\build\\bin\\Release\\WinAudioPerformanceGui.exe",
+      "executable_sha256": "94e82256a8e9a749c500bd47c993b1e900648cc55222e1295ad054cedbc88c4d",
+      "frames_sha256": "6ee4da241c8c704c313a2413c404acc02af67f402d4d5da2989e4a29a6ff5b93",
+      "archive_sha256": "b8b4ed34dbedee9e4478d908b496ff491ebee9e8e3c8bf1a2a84f288895fad87",
+      "files": [
+        {
+          "file": "summary.json",
+          "sha256": "c9ce7b1bd1f7f67107689de8b4e3eef520ca598dd90c51a9dedc48ecaf21484c"
+        },
+        {
+          "file": "config.json",
+          "sha256": "b2f7636f1d2b07b6c6258a56a21503a88430234b9458869ca5a5d6503fd7a3dc"
+        },
+        {
+          "file": "process.csv",
+          "sha256": "0fefd7ea470cf208495bb7c901532bfed331beb78899503347f8d923f0658c2b"
+        },
+        {
+          "file": "winaudio.log",
+          "sha256": "2ee66048e51eae29721f51d08a36b44b3843fdea13425b2280392c83b8e751d9",
+          "original_sha256": "7b5458d415c5a22e60ad6a5c90b22a2cd3831bcfc684b6bbafc027facf321e49",
+          "readable_sha256": "2ee66048e51eae29721f51d08a36b44b3843fdea13425b2280392c83b8e751d9",
+          "raw_archive": "winaudio.log.raw.gz",
+          "raw_archive_sha256": "7647a6ec9cfdc23086b61ddde1472929e26c5c046171dd8a4dc0b36883bbd7e2",
+          "note": "Readable UTF-8 copy strips trailing whitespace; gzip retains original bytes."
+        }
+      ],
+      "run_complete": true,
+      "stable_budget_met": true,
+      "stable": [
+        {
+          "stage": "track1-wave",
+          "frame_count": 600,
+          "main_thread_ms": {
+            "n": 600,
+            "p50": 5.4075,
+            "p95": 6.0037,
+            "p99": 6.8186,
+            "maximum": 8.0529
+          },
+          "frame_budget_met": true
+        },
+        {
+          "stage": "track1-spec",
+          "frame_count": 598,
+          "main_thread_ms": {
+            "n": 598,
+            "p50": 3.9644,
+            "p95": 4.5136,
+            "p99": 4.9268,
+            "maximum": 5.1804
+          },
+          "frame_budget_met": true
+        },
+        {
+          "stage": "track2-wave",
+          "frame_count": 599,
+          "main_thread_ms": {
+            "n": 599,
+            "p50": 5.3971,
+            "p95": 5.9408,
+            "p99": 6.4643,
+            "maximum": 7.0294
+          },
+          "frame_budget_met": true
+        },
+        {
+          "stage": "track2-spec",
+          "frame_count": 598,
+          "main_thread_ms": {
+            "n": 598,
+            "p50": 3.9491,
+            "p95": 4.4156,
+            "p99": 4.8713,
+            "maximum": 5.29
+          },
+          "frame_budget_met": true
+        }
+      ]
+    },
+    {
+      "version": "after",
+      "source_pin": "649015e15576d570aa06f1b5636dffe2c053010f",
+      "executable": "E:\\WORK\\vibecoding\\winaudio\\.scratch\\wav-dump-234\\performance-after\\build\\bin\\Release\\WinAudioPerformanceGui.exe",
+      "executable_sha256": "e1bde001b20a298998e47236872d8fa740ef097040df37beb24e7791a9f067f4",
+      "frames_sha256": "f2f090974b70d28491cd8a45f6b49429f85cb8aceefa9725288fc10a4c1cc7e7",
+      "archive_sha256": "32304be74d904e5a24e074db2620fe18c084c231f9e0fde030e93899697c7b77",
+      "files": [
+        {
+          "file": "summary.json",
+          "sha256": "3f015ca1494bb13094335d574608b3ad9695cb9b55796f8563b133ca3802ac34"
+        },
+        {
+          "file": "config.json",
+          "sha256": "3f7ad85b55f7b4cfe8ec17e99b28daa014fb676c559b90cb42756631441c1606"
+        },
+        {
+          "file": "process.csv",
+          "sha256": "7d6fb621b7cea5a22af1b7f5da0a6bb8b0ae565456adfbf2f5638ec4b68b499a"
+        },
+        {
+          "file": "winaudio.log",
+          "sha256": "9a483a80e8dcb10cd1b1bb750854c96a7f0cb236eea6b9ca8866acfc8870f968",
+          "original_sha256": "558bc3cb0b04f3f3443cf57d40a883a01525ba518fca47af5252e2d27a20a75f",
+          "readable_sha256": "9a483a80e8dcb10cd1b1bb750854c96a7f0cb236eea6b9ca8866acfc8870f968",
+          "raw_archive": "winaudio.log.raw.gz",
+          "raw_archive_sha256": "6fc8dd9e21aa994f9f723a1ca635c79b1223bbd24fedce24ab43e51e6770058d",
+          "note": "Readable UTF-8 copy strips trailing whitespace; gzip retains original bytes."
+        }
+      ],
+      "run_complete": true,
+      "stable_budget_met": true,
+      "stable": [
+        {
+          "stage": "track1-wave",
+          "frame_count": 599,
+          "main_thread_ms": {
+            "n": 599,
+            "p50": 5.3915,
+            "p95": 5.9603,
+            "p99": 6.8096,
+            "maximum": 7.5251
+          },
+          "frame_budget_met": true
+        },
+        {
+          "stage": "track1-spec",
+          "frame_count": 599,
+          "main_thread_ms": {
+            "n": 599,
+            "p50": 3.9364,
+            "p95": 4.4186,
+            "p99": 5.0962,
+            "maximum": 6.1478
+          },
+          "frame_budget_met": true
+        },
+        {
+          "stage": "track2-wave",
+          "frame_count": 598,
+          "main_thread_ms": {
+            "n": 598,
+            "p50": 5.3745,
+            "p95": 5.9056,
+            "p99": 6.6009,
+            "maximum": 7.6689
+          },
+          "frame_budget_met": true
+        },
+        {
+          "stage": "track2-spec",
+          "frame_count": 599,
+          "main_thread_ms": {
+            "n": 599,
+            "p50": 3.9603,
+            "p95": 4.5842,
+            "p99": 5.4172,
+            "maximum": 6.3821
+          },
+          "frame_budget_met": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,219 @@
+
+  1>Checking Build System
+  Building Custom Rule E:/WORK/vibecoding/winaudio/src/core/CMakeLists.txt
+  Building Custom Rule E:/WORK/vibecoding/winaudio/src/probe/CMakeLists.txt
+  Building Custom Rule E:/WORK/vibecoding/winaudio/src/hook/CMakeLists.txt
+  Building Custom Rule E:/WORK/vibecoding/winaudio/third_party/googletest/googletest/CMakeLists.txt
+  DelayFifo.cpp
+  HookBufferProbe.cpp
+  WinAudioHook.cpp
+  Building Custom Rule E:/WORK/vibecoding/winaudio/third_party/CMakeLists.txt
+  gtest-all.cc
+  imgui.cpp
+  AudioFormat.cpp
+  imgui_draw.cpp
+  WinAudioHook.vcxproj -> E:\WORK\vibecoding\winaudio\build\bin\Debug\WinAudioHook.dll
+  Fft.cpp
+  imgui_tables.cpp
+  HookBufferProbe.vcxproj -> E:\WORK\vibecoding\winaudio\build\bin\Debug\HookBufferProbe.exe
+  imgui_widgets.cpp
+  RingBuffer.cpp
+  imgui_impl_win32.cpp
+  SampleConvert.cpp
+  imgui_impl_dx11.cpp
+  WavFile.cpp
+  正在生成代码...
+  gtest.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Debug\gtest.lib
+  Building Custom Rule E:/WORK/vibecoding/winaudio/third_party/googletest/googletest/CMakeLists.txt
+  gtest_main.cc
+  imgui.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Debug\imgui.lib
+  Building Custom Rule E:/WORK/vibecoding/winaudio/third_party/CMakeLists.txt
+  implot.cpp
+  WavSink.cpp
+  implot_items.cpp
+  gtest_main.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Debug\gtest_main.lib
+  Building Custom Rule E:/WORK/vibecoding/winaudio/src/tests/CMakeLists.txt
+  test_hook_buffer.cpp
+  AudioSessionEnumerator.cpp
+  正在生成代码...
+  implot.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Debug\implot.lib
+  ApplicationLoopbackCapture.cpp
+  WinAudioHookTests.vcxproj -> E:\WORK\vibecoding\winaudio\build\bin\Debug\WinAudioHookTests.exe
+  DeviceEnumerator.cpp
+  WasapiStream.cpp
+  StreamInit.cpp
+  Engine.cpp
+  FormatSpec.cpp
+  MonitorEngine.cpp
+  CaptureTrackList.cpp
+  RenderTrackList.cpp
+  PhraseCatalog.cpp
+  Capabilities.cpp
+  Log.cpp
+  正在生成代码...
+  正在编译...
+  PipelineGraph.cpp
+  LiveSessionEnumerator.cpp
+  LiveSessionWatch.cpp
+  UserProcessEnumerator.cpp
+  EndpointGraphReader.cpp
+  SharedProbe.cpp
+  AudioEffects.cpp
+  EndpointEnhancements.cpp
+  PolicyConfig.cpp
+  Elevate.cpp
+  EtwInitialize.cpp
+  HookedCall.cpp
+  CallLogStore.cpp
+  CallLogExportJob.cpp
+  OnDemandAttach.cpp
+  PipelineAttachSet.cpp
+  PumpWindow.cpp
+  正在生成代码...
+  WinAudioCore.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Debug\WinAudioCore.lib
+  Building Custom Rule E:/WORK/vibecoding/winaudio/src/tests/CMakeLists.txt
+  Building Custom Rule E:/WORK/vibecoding/winaudio/src/probe/CMakeLists.txt
+  Building Custom Rule E:/WORK/vibecoding/winaudio/src/cli/CMakeLists.txt
+  AttachSmoke.cpp
+  main.cpp
+  test_wav_sink_lifecycle.cpp
+  Building Custom Rule E:/WORK/vibecoding/winaudio/src/tests/CMakeLists.txt
+  Building Custom Rule E:/WORK/vibecoding/winaudio/src/probe/CMakeLists.txt
+  LoopbackTreeProbe.cpp
+  test_delayfifo.cpp
+  Building Custom Rule E:/WORK/vibecoding/winaudio/src/probe/CMakeLists.txt
+  HookAudioProbe.cpp
+  AttachSmoke.vcxproj -> E:\WORK\vibecoding\winaudio\build\bin\Debug\AttachSmoke.exe
+  LoopbackTreeProbe.vcxproj -> E:\WORK\vibecoding\winaudio\build\bin\Debug\LoopbackTreeProbe.exe
+  test_streamparams.cpp
+  HookAudioProbe.vcxproj -> E:\WORK\vibecoding\winaudio\build\bin\Debug\HookAudioProbe.exe
+  Building Custom Rule E:/WORK/vibecoding/winaudio/src/gui/CMakeLists.txt
+  AppUi.cpp
+  WinAudioCli.vcxproj -> E:\WORK\vibecoding\winaudio\build\bin\Debug\WinAudioCli.exe
+  test_wav_sink.cpp
+  test_stream_init.cpp
+  test_capture_track_list.cpp
+  ChartDataPipeline.cpp
+  DumpUi.cpp
+  test_smoke.cpp
+  WavSink.cpp
+  FrameProbe.cpp
+  test_audioformat.cpp
+  GuiGpu.cpp
+  HeatmapRgba.cpp
+  HeatmapTexture.cpp
+  RingBuffer.cpp
+  正在生成代码...
+  test_fft.cpp
+  WaveEnvelope.cpp
+  main.cpp
+  WinAudioWavLifecycleTests.vcxproj -> E:\WORK\vibecoding\winaudio\build\bin\Debug\WinAudioWavLifecycleTests.exe
+  test_ringbuffer.cpp
+  test_sampleconvert.cpp
+  Spectrogram.cpp
+  正在生成代码...
+  test_wavfile.cpp
+  WinAudioGui.vcxproj -> E:\WORK\vibecoding\winaudio\build\bin\Debug\WinAudioGui.exe
+  test_wav_sink.cpp
+  test_formatspec.cpp
+  test_scopebuffer.cpp
+  test_scope_reader.cpp
+  test_analysis.cpp
+  test_monitorengine.cpp
+  test_capture_track_list.cpp
+  test_render_track_list.cpp
+  test_production_catalog.cpp
+  test_spectrogram.cpp
+  test_heatmap_rgba.cpp
+  正在生成代码...
+  正在编译...
+  test_heatmap_texture.cpp
+  test_wave_envelope.cpp
+E:\WORK\vibecoding\winaudio\src\tests\test_wave_envelope.cpp(1,1): warning C4828: 文件包含在偏移 0x7aa 处开始的字符，该字符在当前源字符集中无效(代码页 65001)。 [E:\WORK\vibecoding\winaudio\build\src\tests\WinAudioTests.vcxproj]
+E:\WORK\vibecoding\winaudio\src\tests\test_wave_envelope.cpp(1,1): warning C4828: 文件包含在偏移 0x851 处开始的字符，该字符在当前源字符集中无效(代码页 65001)。 [E:\WORK\vibecoding\winaudio\build\src\tests\WinAudioTests.vcxproj]
+  test_capture_channel_view.cpp
+  test_charts_freeze.cpp
+  test_charts_time_zoom.cpp
+  test_chart_data_pipeline.cpp
+  test_chart_host.cpp
+  test_capabilities.cpp
+  test_device_enhancements.cpp
+  test_audio_effects.cpp
+  test_log.cpp
+  test_loopback.cpp
+  test_audio_session_enumerator.cpp
+  test_pipeline_graph.cpp
+  test_live_session_list.cpp
+  test_shared_probe.cpp
+  test_etw_initialize.cpp
+  test_hooked_call.cpp
+  test_call_log_store.cpp
+  test_call_log_export.cpp
+  正在生成代码...
+  正在编译...
+  test_call_log_filter.cpp
+  test_pipeline_split.cpp
+  test_user_process_tree.cpp
+  test_call_arg_blob.cpp
+  test_runtime_fault.cpp
+  test_on_demand_attach.cpp
+  test_pipeline_attach_ui_model.cpp
+  test_pipeline_attach_set.cpp
+  test_pump_window.cpp
+  test_cli_options.cpp
+  test_dump_ui.cpp
+  test_frame_probe.cpp
+  test_performance_calls.cpp
+  test_page_probe.cpp
+  test_os_sound_ui.cpp
+  test_log_region_prefs.cpp
+  test_gui_language.cpp
+  test_create_recipe.cpp
+  Spectrogram.cpp
+  HeatmapRgba.cpp
+  正在生成代码...
+  正在编译...
+  HeatmapTexture.cpp
+  GuiGpu.cpp
+  WaveEnvelope.cpp
+  ChartDataPipeline.cpp
+  DumpUi.cpp
+  FrameProbe.cpp
+  PerformanceCalls.cpp
+  正在生成代码...
+  WinAudioTests.vcxproj -> E:\WORK\vibecoding\winaudio\build\bin\Debug\WinAudioTests.exe
+  Building Custom Rule E:/WORK/vibecoding/winaudio/CMakeLists.txt
+
+已成功生成。
+
+E:\WORK\vibecoding\winaudio\src\tests\test_wave_envelope.cpp(1,1): warning C4828: 文件包含在偏移 0x7aa 处开始的字符，该字符在当前源字符集中无效(代码页 65001)。 [E:\WORK\vibecoding\winaudio\build\src\tests\WinAudioTests.vcxproj]
+E:\WORK\vibecoding\winaudio\src\tests\test_wave_envelope.cpp(1,1): warning C4828: 文件包含在偏移 0x851 处开始的字符，该字符在当前源字符集中无效(代码页 65001)。 [E:\WORK\vibecoding\winaudio\build\src\tests\WinAudioTests.vcxproj]
+    2 个警告
+    0 个错误
+
+已用时间 00:02:21.40
+
+  imgui.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Debug\imgui.lib
+  WinAudioCore.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Debug\WinAudioCore.lib
+  implot.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Debug\implot.lib
+  Building Custom Rule E:/WORK/vibecoding/winaudio/src/gui/CMakeLists.txt
+  AppUi.cpp
+  ChartDataPipeline.cpp
+  DumpUi.cpp
+  FrameProbe.cpp
+  GuiGpu.cpp
+  HeatmapRgba.cpp
+  HeatmapTexture.cpp
+  WaveEnvelope.cpp
+  main.cpp
+  Spectrogram.cpp
+  PerformanceFixture.cpp
+  PerformanceCalls.cpp
+  正在生成代码...
+  WinAudioPerformanceGui.vcxproj -> E:\WORK\vibecoding\winaudio\build\bin\Debug\WinAudioPerformanceGui.exe
+
+已成功生成。
+    0 个警告
+    0 个错误
+
+已用时间 00:00:13.08

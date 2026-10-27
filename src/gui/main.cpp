@@ -123,7 +123,7 @@ int main(int, char**)
 
     // WinAudio: UI (owns both engine and monitor engine)
 #ifdef WA_PERFORMANCE_FIXTURE
-    static AppUi ui(PerformanceFixture::exportWriter());
+    static AppUi ui(PerformanceFixture::exportWriter(), PerformanceFixture::monitorRenderOutput());
 #else
     static AppUi ui;
 #endif

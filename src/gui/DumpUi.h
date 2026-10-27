@@ -3,6 +3,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include "WavSink.h"
 
 namespace wa::dump_ui {
 
@@ -12,6 +13,17 @@ std::wstring loadDumpFolder();            // existing dir, else Downloads
 void         saveDumpFolder(const std::wstring& folder);
 bool         pickDumpFolder(std::wstring& folder); // blocking; false = cancel
 void         revealDumpFile(const std::wstring& path);
+bool         canStart(const WavSinkStatus& status, bool sourceAvailable, bool picking);
+const char*  statusText(WavDumpPhase phase);
+
+// GUI-thread consumption: a newer round makes every older completion stale.
+class Completion {
+public:
+    bool take(const WavSinkStatus& status);
+private:
+    uint64_t latest_ = 0;
+    uint64_t consumed_ = 0;
+};
 
 // Native folder dialog on a dedicated STA thread so the GUI frame loop
 // (and capture pumps) keep running. Show() is not given an owner HWND,

@@ -5,8 +5,8 @@
 //   * Capture/render backends only move bytes between the device and a RingBuffer.
 //   * The pump waits on capBackend->dataReadyEvent() (the capture stream signals
 //     it after each ring write); on stop we SetEvent that same handle to wake it.
-//   * Status fields are plain atomics (relaxed) so poll() never blocks the audio
-//     path and never takes a lock.
+//   * Stream status is atomic; file status snapshots lock only their control
+//     metadata. The pump never polls or locks the WAV sinks.
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -22,6 +22,7 @@
 #include <windows.h>
 #include <algorithm>
 #include <exception>
+#include <limits>
 #include "Log.h"
 #include "AudioFormatStr.h"
 
@@ -31,6 +32,11 @@ namespace {
 constexpr size_t kRingBytes      = 1u << 20; // 1 MiB per ring (>> 3x device period)
 constexpr size_t kMaxChunkFrames = 4096;     // pump scratch / read granularity
 constexpr DWORD  kPumpWaitMs     = 20;       // wake-up timeout fallback
+static_assert(std::atomic<uint64_t>::is_always_lock_free, "Source versions must be lock-free");
+static_assert(alignof(MonitorEngine) >= 8, "Source versions must be eight-byte aligned");
+static_assert(std::atomic<uint32_t>::is_always_lock_free &&
+              std::atomic<uint16_t>::is_always_lock_free &&
+              std::atomic<bool>::is_always_lock_free, "Source formats must be lock-free");
 
 // Read only whole frames: returns the number of frames actually read (a multiple
 // of frameBytes). Never returns a partial frame, even if the ring holds one.
@@ -64,8 +70,10 @@ Result sameRenderEndpoint(const DeviceId& a, const DeviceId& b, bool& same) {
 }
 } // namespace
 
-MonitorEngine::MonitorEngine(BackendFactory factory, SilentRenderFactory silentFactory)
-    : factory_(std::move(factory)), silentFactory_(std::move(silentFactory)) {}
+MonitorEngine::MonitorEngine(BackendFactory factory, SilentRenderFactory silentFactory,
+                             WavSinkOutputFactory capOutput, WavSinkOutputFactory renderOutput)
+    : factory_(std::move(factory)), silentFactory_(std::move(silentFactory)),
+      capSink_(std::move(capOutput)), renderSink_(std::move(renderOutput)) {}
 MonitorEngine::~MonitorEngine() { teardown(); }
 
 std::unique_ptr<IAudioBackend> MonitorEngine::makeBackend(DataFlow flow, BackendKind kind,
@@ -259,6 +267,10 @@ Result MonitorEngine::start(BackendKind kind, const CaptureSource& capSource,
     captureChannels_.store(capCh_, std::memory_order_relaxed);
     delayMsAtomic_.store(delayMs, std::memory_order_relaxed);
     capDataReadyEvent_ = capBackend_->dataReadyEvent();
+    if (capGeneration_ == (std::numeric_limits<uint64_t>::max)())
+        return rollback(StreamState::Error, MonitorError::CaptureStart, -1,
+                        "MonitorEngine: capture source generation exhausted");
+    capSourceVersion_.store(++capGeneration_, std::memory_order_seq_cst);
 
     // Optional render at start. Capture stays up if render cannot engage.
     wantPlayback_.store(playbackEnabled, std::memory_order_relaxed);
@@ -303,6 +315,8 @@ Result MonitorEngine::start(BackendKind kind, const CaptureSource& capSource,
 }
 
 Result MonitorEngine::engageRender() {
+    if (renderGeneration_ == (std::numeric_limits<uint64_t>::max)())
+        return Result::Fail(-1, "MonitorEngine: render source generation exhausted");
     if (Result r = guardLoopbackFeedback(); !r) return r;
     StreamParams rp;
     { std::lock_guard<std::mutex> lk(paramsMtx_); rp = renderParams_; }
@@ -357,6 +371,16 @@ Result MonitorEngine::engageRender() {
     renderXruns_.store(0, std::memory_order_relaxed);
     renderLevel_.store(0.f, std::memory_order_relaxed);
     prefilled_.store(false, std::memory_order_relaxed);          // this engage's fill not done yet
+    // All fields are atomic: checking the version twice alone would not make
+    // concurrent reads of the pump's ordinary renderFmt_ legal in C++.
+    renderSource_.version.store(0, std::memory_order_seq_cst);
+    renderSource_.sampleRate.store(renderFmt_.sampleRate, std::memory_order_seq_cst);
+    renderSource_.channels.store(renderFmt_.channels, std::memory_order_seq_cst);
+    renderSource_.bits.store(renderFmt_.bitsPerSample, std::memory_order_seq_cst);
+    renderSource_.isFloat.store(renderFmt_.isFloat, std::memory_order_seq_cst);
+    renderSource_.validBits.store(renderFmt_.validBitsPerSample, std::memory_order_seq_cst);
+    renderSource_.channelMask.store(renderFmt_.channelMask, std::memory_order_seq_cst);
+    renderSource_.version.store(++renderGeneration_, std::memory_order_seq_cst);
     renderState_.store(StreamState::Running, std::memory_order_relaxed); // device up (fills, then pops)
     WA_LOG(wa::log::Level::Info, "MonitorEngine", "render.engaged",
            "dev=" + wa::narrowAscii(renderId_) +
@@ -366,7 +390,7 @@ Result MonitorEngine::engageRender() {
 
 void MonitorEngine::disengageRender() {
     WA_LOG(wa::log::Level::Info, "MonitorEngine", "render.disengaged", "", "");
-    renderSink_.stop();
+    endRenderSource();
     if (renderBackend_) renderBackend_->stop();
     renderBackend_.reset();
     renderRing_.reset();
@@ -380,21 +404,44 @@ void MonitorEngine::disengageRender() {
     // NOTE: renderScope_ is session-lifetime -> NOT touched here (GUI reads it every frame).
 }
 
+void MonitorEngine::endCaptureSource() {
+    const uint64_t source = capSourceVersion_.exchange(0, std::memory_order_seq_cst);
+    if (source != 0) capSink_.requestStop(source);
+}
+
+void MonitorEngine::endRenderSource() {
+    const uint64_t source = renderSource_.version.exchange(0, std::memory_order_seq_cst);
+    if (source != 0) renderSink_.requestStop(source);
+}
+
+bool MonitorEngine::snapshotRenderSource(AudioFormat& format, uint64_t& source) const {
+    source = renderSource_.version.load(std::memory_order_seq_cst);
+    if (source == 0) return false;
+    format.sampleRate = renderSource_.sampleRate.load(std::memory_order_seq_cst);
+    format.channels = renderSource_.channels.load(std::memory_order_seq_cst);
+    format.bitsPerSample = renderSource_.bits.load(std::memory_order_seq_cst);
+    format.isFloat = renderSource_.isFloat.load(std::memory_order_seq_cst);
+    format.validBitsPerSample = renderSource_.validBits.load(std::memory_order_seq_cst);
+    format.channelMask = renderSource_.channelMask.load(std::memory_order_seq_cst);
+    return source == renderSource_.version.load(std::memory_order_seq_cst);
+}
+
 void MonitorEngine::setPlaybackEnabled(bool enabled) {
     wantPlayback_.store(enabled, std::memory_order_release);   // pump converges to this next iteration
 }
 
 Result MonitorEngine::startDumpCapture(const std::wstring& folder) {
-    if (capState_.load(std::memory_order_acquire) != StreamState::Running)
+    const uint64_t source = capSourceVersion_.load(std::memory_order_seq_cst);
+    if (source == 0 || capState_.load(std::memory_order_acquire) != StreamState::Running)
         return Result::Fail(-1, "MonitorEngine: capture not running");
-    Result r = capSink_.start(folder, "monitor-cap", capFmt_);
+    Result r = capSink_.start(folder, "monitor-cap", capFmt_, source, &capSourceVersion_);
     WA_LOG(r ? wa::log::Level::Info : wa::log::Level::Err, "MonitorEngine", "dump.cap.start",
            "", r ? "ok" : r.message);
     return r;
 }
 
 Result MonitorEngine::stopDumpCapture() {
-    const bool was = capSink_.isRunning();
+    const bool was = capSink_.poll().generation != 0;
     Result r = capSink_.stop();
     if (!was && r) return Result::Fail(-1, "MonitorEngine: capture dump not running");
     WA_LOG(r ? wa::log::Level::Info : wa::log::Level::Err, "MonitorEngine", "dump.cap.stop",
@@ -403,16 +450,18 @@ Result MonitorEngine::stopDumpCapture() {
 }
 
 Result MonitorEngine::startDumpRender(const std::wstring& folder) {
-    if (renderState_.load(std::memory_order_acquire) != StreamState::Running)
+    AudioFormat format;
+    uint64_t source = 0;
+    if (!snapshotRenderSource(format, source))
         return Result::Fail(-1, "MonitorEngine: render not running");
-    Result r = renderSink_.start(folder, "monitor-ren", renderFmt_);
+    Result r = renderSink_.start(folder, "monitor-ren", format, source, &renderSource_.version);
     WA_LOG(r ? wa::log::Level::Info : wa::log::Level::Err, "MonitorEngine", "dump.ren.start",
            "", r ? "ok" : r.message);
     return r;
 }
 
 Result MonitorEngine::stopDumpRender() {
-    const bool was = renderSink_.isRunning();
+    const bool was = renderSink_.poll().generation != 0;
     Result r = renderSink_.stop();
     if (!was && r) return Result::Fail(-1, "MonitorEngine: render dump not running");
     WA_LOG(r ? wa::log::Level::Info : wa::log::Level::Err, "MonitorEngine", "dump.ren.stop",
@@ -433,6 +482,7 @@ void MonitorEngine::pumpLoop() {
     const uint32_t capFrameBytes = capFrameBytes_;
     const uint32_t sr            = capFmt_.sampleRate;
     const size_t   maxFrames     = maxChunkFrames_;
+    const uint64_t capSource = capSourceVersion_.load(std::memory_order_seq_cst);
     HANDLE         evt           = static_cast<HANDLE>(capDataReadyEvent_);
 
     while (running_.load(std::memory_order_acquire)) {
@@ -468,6 +518,7 @@ void MonitorEngine::pumpLoop() {
             WA_LOG(wa::log::Level::Err, "MonitorEngine", "capture.runtime", "",
                    wa::log::hrName(capBackend_->stats().runtimeError));
             capState_.store(StreamState::Error, std::memory_order_relaxed);
+            endCaptureSource();
             overall_.store(StreamState::Error, std::memory_order_relaxed);
             errorCode_.store(static_cast<uint32_t>(MonitorError::CaptureStart),
                              std::memory_order_relaxed);
@@ -486,6 +537,7 @@ void MonitorEngine::pumpLoop() {
             WA_LOG(wa::log::Level::Err, "MonitorEngine", "render.runtime", "",
                    wa::log::hrName(renderBackend_->stats().runtimeError));
             renderState_.store(StreamState::Error, std::memory_order_relaxed);
+            endRenderSource();
             overall_.store(StreamState::Error, std::memory_order_relaxed);
             errorCode_.store(static_cast<uint32_t>(MonitorError::RenderStart),
                              std::memory_order_relaxed);
@@ -495,6 +547,7 @@ void MonitorEngine::pumpLoop() {
             && renderState_.load(std::memory_order_relaxed) != StreamState::Error;
         const uint16_t renderCh         = renderCh_;
         const uint32_t renderFrameBytes = renderFrameBytes_;
+        const uint64_t renderSource = renderGeneration_;
 
         // --- Drain capture in whole frames (capture path ALWAYS runs) ---
         for (;;) {
@@ -506,8 +559,7 @@ void MonitorEngine::pumpLoop() {
             downmixMono(capFloat_.data(), frames, capCh, capMono_.data());
             captureScope_->pushInterleaved(capFloat_.data(), frames);
             capLevel_.store(peakLevel(capMono_.data(), frames), std::memory_order_relaxed);
-            if (capSink_.isRunning())
-                capSink_.push(capScratch_.data(), frames * capFrameBytes);
+            capSink_.push(capScratch_.data(), frames * capFrameBytes, capSource);
 
             if (!renderActive) continue;   // capture-only: do not touch FIFO / render
 
@@ -523,9 +575,8 @@ void MonitorEngine::pumpLoop() {
                     renderLevel_.store(peakLevel(renderMono_.data(), popped), std::memory_order_relaxed);
                     adaptChannels(popBuf_.data(), capCh, renderAdapt_.data(), renderCh, popped);
                     floatToPcm(renderAdapt_.data(), popped, renderFmt_, renderBytes_.data());
-                    if (renderSink_.isRunning())
-                        renderSink_.push(renderBytes_.data(),
-                                         popped * static_cast<size_t>(renderFrameBytes));
+                    renderSink_.push(renderBytes_.data(),
+                                     popped * static_cast<size_t>(renderFrameBytes), renderSource);
                     const size_t wantBytes = static_cast<size_t>(popped) * renderFrameBytes;
                     const size_t freeBytes = renderRing_->availableWrite();
                     const size_t safeBytes = (std::min(wantBytes, freeBytes) / renderFrameBytes) * renderFrameBytes;
@@ -545,8 +596,8 @@ void MonitorEngine::pumpLoop() {
                 renderXruns_.store(renderDropped_.load(std::memory_order_relaxed), std::memory_order_relaxed);
         }
     }
-    capSink_.requestStop();
-    renderSink_.requestStop();
+    endCaptureSource();
+    endRenderSource();
 }
 
 void MonitorEngine::teardown() {
@@ -556,6 +607,9 @@ void MonitorEngine::teardown() {
         if (void* e = capBackend_->dataReadyEvent()) SetEvent(static_cast<HANDLE>(e));
     }
     if (pump_.joinable()) pump_.join();
+    // Rollback can reach teardown before a pump was launched.
+    endCaptureSource();
+    endRenderSource();
     capSink_.stop();
     renderSink_.stop();
 
@@ -608,11 +662,13 @@ MonitorStatus MonitorEngine::poll() {
     s.errorCode   = errorCode_.load(std::memory_order_relaxed);
     {
         const WavSinkStatus cs = capSink_.poll();
+        s.capDump = cs;
         s.capDumping = cs.state == WavSinkState::Running;
         s.capDumpError = cs.state == WavSinkState::Error;
         s.capDumpPath = cs.path;
         s.capDumpFileName = cs.fileName;
         const WavSinkStatus rs = renderSink_.poll();
+        s.renderDump = rs;
         s.renderDumping = rs.state == WavSinkState::Running;
         s.renderDumpError = rs.state == WavSinkState::Error;
         s.renderDumpPath = rs.path;

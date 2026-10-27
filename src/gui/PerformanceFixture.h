@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <memory>
+#include "WavSinkOutput.h"
 class AppUi;
 namespace wa { class CallLogWriter; }
 
@@ -8,6 +9,8 @@ namespace wa { class CallLogWriter; }
 class PerformanceFixture {
 public:
     static std::shared_ptr<wa::CallLogWriter> exportWriter();
+    static wa::WavSinkOutputFactory monitorRenderOutput();
+    static bool monitorDump();
     static bool start(AppUi& ui);
     static bool advance(AppUi& ui);
     static void scrollCharts(AppUi& ui);

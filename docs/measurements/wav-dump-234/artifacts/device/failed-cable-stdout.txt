@@ -1,0 +1,6 @@
+WavMonitorDeviceSmoke.exe : FAILED: real capture and delayed render PCM
+所在位置 行:2 字符: 206
++ ... | Out-Null; & .scratch/wav-dump-234/performance-after/build/bin/Relea ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (FAILED: real ca...ayed render PCM:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError

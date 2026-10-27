@@ -1,0 +1,299 @@
+{
+  "source_render_endpoint": "{0.0.0.00000000}.{09793ccf-e246-4dbf-800b-a7cf44856994}",
+  "failed_destination": "{0.0.0.00000000}.{38a33ff5-6929-4608-8859-e17e9732f9ad}",
+  "successful_destination": "{0.0.0.00000000}.{07eb2780-45a9-42b2-aef9-6604815fa189}",
+  "source_mix": "48000 Hz / 8 channels / Float32",
+  "destination_mix": "48000 Hz / 2 channels / Float32",
+  "requested_and_actual_application_render_format": "48000 Hz / 8 channels / Float32 (Shared auto conversion)",
+  "failed_attempt": {
+    "exit_code": 8,
+    "result": "Capture opened; render Initialize(shared,requested) returned AUDCLNT_E_DEVICE_IN_USE (0x8889000A); real-render PCM prerequisite timed out. No Dump file created.",
+    "root_cause": "Not established; do not infer exclusive owner or driver conflict from HRESULT alone."
+  },
+  "successful_attempt": {
+    "exit_code": 0,
+    "wav_count": 7,
+    "playback_off_request_ns": 100,
+    "render_idle_us": 15420,
+    "capture_frames_during_playback_off": 9600,
+    "timing_limit": "Single-run observations, not bounds or real-time guarantees."
+  },
+  "scope": "Actual WASAPI shared virtual endpoint I/O with synthetic nonzero Float32 PCM. No physical microphone/speaker validation; no default device, format, volume or enhancement changes.",
+  "logs": [
+    {
+      "source": ".scratch\\wav-dump-234\\monitor-device\\stdout.txt",
+      "source_sha256": "897f146c029d75a0abf80a79e85371bef84dae849372ec1feec030108e27bbe4",
+      "source_encoding": "utf-16",
+      "artifact": "device/failed-cable-stdout.txt",
+      "artifact_sha256": "bb2fa813f9e757a8feb582b0dc139e9d6aa17757541d1c9f9cd2c702b1ac2181",
+      "raw_artifact": {
+        "file": "stdout.txt",
+        "artifact": "device/failed-cable-stdout.raw.gz",
+        "source_bytes": 822,
+        "source_sha256": "897f146c029d75a0abf80a79e85371bef84dae849372ec1feec030108e27bbe4",
+        "gzip_sha256": "8077dd52f99b12885a398c816336d1eb3effacae66189e6dcebc1b7c3dafdfd2"
+      },
+      "note": "Readable UTF-8 copy strips trailing whitespace and final blank lines; gzip retains original bytes."
+    },
+    {
+      "source": ".scratch\\wav-dump-234\\monitor-device\\runtime.txt",
+      "source_sha256": "c6f4bbf45907c1244f5c64fc630b1d9b08addb4c6c96e3f2ff82bf0bfd3a71ed",
+      "source_encoding": "utf-8-sig",
+      "artifact": "device/failed-cable-runtime.txt",
+      "artifact_sha256": "f93615c0befe52a3f8918d80dea5613343b96bd0f68f549ff76387cce022396f",
+      "raw_artifact": {
+        "file": "runtime.txt",
+        "artifact": "device/failed-cable-runtime.raw.gz",
+        "source_bytes": 1961,
+        "source_sha256": "c6f4bbf45907c1244f5c64fc630b1d9b08addb4c6c96e3f2ff82bf0bfd3a71ed",
+        "gzip_sha256": "475883e92b03355660759dc3dc6e0d5cd624979f27c44b55a7c219032ace7cd3"
+      },
+      "note": "Readable UTF-8 copy strips trailing whitespace and final blank lines; gzip retains original bytes."
+    },
+    {
+      "source": ".scratch\\wav-dump-234\\monitor-device\\cable-caps.txt",
+      "source_sha256": "48586a99d5e57bd5f9cc0e2dbeea06c7099eb76aee82a9804f73c81047caa8ab",
+      "source_encoding": "utf-16",
+      "artifact": "device/cable-caps.txt",
+      "artifact_sha256": "4f8378cf3e55fb1dfb664524d13fa7537baadea38f160e153646c59e027d76d8",
+      "raw_artifact": {
+        "file": "cable-caps.txt",
+        "artifact": "device/cable-caps.raw.gz",
+        "source_bytes": 77102,
+        "source_sha256": "48586a99d5e57bd5f9cc0e2dbeea06c7099eb76aee82a9804f73c81047caa8ab",
+        "gzip_sha256": "3929b96685c66795ed6cedc67aa34e029b6f74830e304201d4dc872fa473f4a0"
+      },
+      "note": "Readable UTF-8 copy strips trailing whitespace and final blank lines; gzip retains original bytes."
+    },
+    {
+      "source": ".scratch\\wav-dump-234\\monitor-device\\cable-caps-runtime.txt",
+      "source_sha256": "3d2d7b1d3b829c761c0841a777649bd7e52f37e35a35f7984dc38a21c5cc3721",
+      "source_encoding": "utf-8-sig",
+      "artifact": "device/cable-caps-runtime.txt",
+      "artifact_sha256": "4745ad6f205d3cc4056224e71aacd9fc744827307b06d0892089a7095d2208a4",
+      "raw_artifact": {
+        "file": "cable-caps-runtime.txt",
+        "artifact": "device/cable-caps-runtime.raw.gz",
+        "source_bytes": 33177,
+        "source_sha256": "3d2d7b1d3b829c761c0841a777649bd7e52f37e35a35f7984dc38a21c5cc3721",
+        "gzip_sha256": "9ee090d50c3253bc7803227b7df874f104c94f5f8e4494268c6d92916fd703b7"
+      },
+      "note": "Readable UTF-8 copy strips trailing whitespace and final blank lines; gzip retains original bytes."
+    },
+    {
+      "source": ".scratch\\wav-dump-234\\monitor-device\\dubbing-caps.txt",
+      "source_sha256": "798e4748ae444c43c166360775eef518d6166bbe09e12d1018b879b90340c3cc",
+      "source_encoding": "utf-16",
+      "artifact": "device/dubbing-caps.txt",
+      "artifact_sha256": "515f227443000e9a757f2b2c7cbcf90b0514338d21c02075d8bb2ee80c3f9971",
+      "raw_artifact": {
+        "file": "dubbing-caps.txt",
+        "artifact": "device/dubbing-caps.raw.gz",
+        "source_bytes": 79850,
+        "source_sha256": "798e4748ae444c43c166360775eef518d6166bbe09e12d1018b879b90340c3cc",
+        "gzip_sha256": "e10f4a9b74a2c46212e46f98b9574c6eff3da6e6cc911182a53a35d214b02848"
+      },
+      "note": "Readable UTF-8 copy strips trailing whitespace and final blank lines; gzip retains original bytes."
+    },
+    {
+      "source": ".scratch\\wav-dump-234\\monitor-device\\dubbing-caps-runtime.txt",
+      "source_sha256": "df9c66e926da2e10a8886fe6dbe6d0738de9cf432e24d0d73547e41d6d1e4a55",
+      "source_encoding": "utf-8-sig",
+      "artifact": "device/dubbing-caps-runtime.txt",
+      "artifact_sha256": "da625c646b3e412af213bf4e4cd30f00150e4d2e75ac2e01aa47f1fdbcf4815b",
+      "raw_artifact": {
+        "file": "dubbing-caps-runtime.txt",
+        "artifact": "device/dubbing-caps-runtime.raw.gz",
+        "source_bytes": 34557,
+        "source_sha256": "df9c66e926da2e10a8886fe6dbe6d0738de9cf432e24d0d73547e41d6d1e4a55",
+        "gzip_sha256": "cac8eb5fcf2c44a5beebe84f074092c99d969be29accb28d7917b89457dc8a40"
+      },
+      "note": "Readable UTF-8 copy strips trailing whitespace and final blank lines; gzip retains original bytes."
+    },
+    {
+      "source": ".scratch\\wav-dump-234\\monitor-device-dubbing\\stdout.txt",
+      "source_sha256": "cd9dee215cb5776ce15d06c48654ddfeefa2cfe8c4107b44ecb8a0aef6cbee79",
+      "source_encoding": "utf-8-sig",
+      "artifact": "device/stdout.txt",
+      "artifact_sha256": "4dd1153bd063fcb888ff04bf7b0aa731af046b57c3b0d437e5026e8afb53ca4a",
+      "raw_artifact": {
+        "file": "stdout.txt",
+        "artifact": "device/stdout.raw.gz",
+        "source_bytes": 1921,
+        "source_sha256": "cd9dee215cb5776ce15d06c48654ddfeefa2cfe8c4107b44ecb8a0aef6cbee79",
+        "gzip_sha256": "96a0c90ea09a0543c2eb9e9a5c809d54616a2a02599efcb3456911b5fcac653a"
+      },
+      "note": "Readable UTF-8 copy strips trailing whitespace and final blank lines; gzip retains original bytes."
+    },
+    {
+      "source": ".scratch\\wav-dump-234\\monitor-device-dubbing\\stderr.txt",
+      "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "source_encoding": "utf-8-sig",
+      "artifact": "device/stderr.txt",
+      "artifact_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "raw_artifact": {
+        "file": "stderr.txt",
+        "artifact": "device/stderr.raw.gz",
+        "source_bytes": 0,
+        "source_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "gzip_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+      },
+      "note": "Readable UTF-8 copy strips trailing whitespace and final blank lines; gzip retains original bytes."
+    },
+    {
+      "source": ".scratch\\wav-dump-234\\monitor-device-dubbing\\runtime.txt",
+      "source_sha256": "ba3184ab140f47bd84313e0bc42fbfc8385c909140ec8bb7076f838d4efbf02a",
+      "source_encoding": "utf-8-sig",
+      "artifact": "device/runtime.txt",
+      "artifact_sha256": "b4e030d22d6cc6261570cb2fcd46e4cc61c9e70afc8858deab3d83949d92c2ec",
+      "raw_artifact": {
+        "file": "runtime.txt",
+        "artifact": "device/runtime.raw.gz",
+        "source_bytes": 10736,
+        "source_sha256": "ba3184ab140f47bd84313e0bc42fbfc8385c909140ec8bb7076f838d4efbf02a",
+        "gzip_sha256": "fb39025bda039d629a4990b37c21275f2cf8d6e906cd3fa8aa0cc7ecf2d8fd9a"
+      },
+      "note": "Readable UTF-8 copy strips trailing whitespace and final blank lines; gzip retains original bytes."
+    }
+  ],
+  "wavs": [
+    {
+      "file": "monitor-cap_48000_8ch_32f_20261027_111746.wav",
+      "artifact": "device/monitor-cap_48000_8ch_32f_20261027_111746.wav.gz",
+      "source_bytes": 1182800,
+      "source_sha256": "16d7938c8b977cf690b594a60e1c0fee0c32c2b9e5b32867743db008d22e930a",
+      "gzip_sha256": "ad508b69379a7a7921bf4c6428e50ccab91a3d7b124103621790f77e91766424",
+      "riff_size_verified": true,
+      "data_bytes": 1182720,
+      "frames": 36960,
+      "sample_rate": 48000,
+      "channels": 8,
+      "bits": 32,
+      "float": true,
+      "channel_mask": 1599,
+      "nonzero_samples": 295680,
+      "peak_abs": 0.00103759765625,
+      "all_samples_finite": true,
+      "eof_verified_by_production_reader": true
+    },
+    {
+      "file": "monitor-cap_48000_8ch_32f_20261027_111746_2.wav",
+      "artifact": "device/monitor-cap_48000_8ch_32f_20261027_111746_2.wav.gz",
+      "source_bytes": 307280,
+      "source_sha256": "d8dd34c4ab86cf38f887ae8b4bd57a60c44e0cb766db81a91a4f42602af4e499",
+      "gzip_sha256": "199b926c5b3142326ab89d0c31155d7add85abceca2771ac2ed7e05fef3401a5",
+      "riff_size_verified": true,
+      "data_bytes": 307200,
+      "frames": 9600,
+      "sample_rate": 48000,
+      "channels": 8,
+      "bits": 32,
+      "float": true,
+      "channel_mask": 1599,
+      "nonzero_samples": 76800,
+      "peak_abs": 0.00103759765625,
+      "all_samples_finite": true,
+      "eof_verified_by_production_reader": true
+    },
+    {
+      "file": "monitor-cap_48000_8ch_32f_20261027_111747.wav",
+      "artifact": "device/monitor-cap_48000_8ch_32f_20261027_111747.wav.gz",
+      "source_bytes": 445520,
+      "source_sha256": "fa3a42a8c107ef8d0c25fad9de412f1883886b10a9a5284099779deb3f145ed6",
+      "gzip_sha256": "3810ffd9dc8941404f340f00ff9798830cd4e964513a84c4192b74d983ad778e",
+      "riff_size_verified": true,
+      "data_bytes": 445440,
+      "frames": 13920,
+      "sample_rate": 48000,
+      "channels": 8,
+      "bits": 32,
+      "float": true,
+      "channel_mask": 1599,
+      "nonzero_samples": 111360,
+      "peak_abs": 0.00103759765625,
+      "all_samples_finite": true,
+      "eof_verified_by_production_reader": true
+    },
+    {
+      "file": "monitor-ren_48000_8ch_32f_20261027_111746.wav",
+      "artifact": "device/monitor-ren_48000_8ch_32f_20261027_111746.wav.gz",
+      "source_bytes": 322640,
+      "source_sha256": "5d8ee6f9ee523e3f46320a82d75dab2f46696e36422decd2a16abebec8fb3668",
+      "gzip_sha256": "5f95506749b8d283790dd39be665769cdcfc9ab03cc1c9f15319290f65243e73",
+      "riff_size_verified": true,
+      "data_bytes": 322560,
+      "frames": 10080,
+      "sample_rate": 48000,
+      "channels": 8,
+      "bits": 32,
+      "float": true,
+      "channel_mask": 1599,
+      "nonzero_samples": 60614,
+      "peak_abs": 0.00103759765625,
+      "all_samples_finite": true,
+      "eof_verified_by_production_reader": true
+    },
+    {
+      "file": "monitor-ren_48000_8ch_32f_20261027_111746_2.wav",
+      "artifact": "device/monitor-ren_48000_8ch_32f_20261027_111746_2.wav.gz",
+      "source_bytes": 307280,
+      "source_sha256": "ad0dddf3d9a02db6bb1dbdd9cc17fca0e7919c159f189fa95ac3e8764e92f591",
+      "gzip_sha256": "04b71c9cea1a983407bcc820b2b9781997bc950b3fcd17a9b300a59ce72eb2e0",
+      "riff_size_verified": true,
+      "data_bytes": 307200,
+      "frames": 9600,
+      "sample_rate": 48000,
+      "channels": 8,
+      "bits": 32,
+      "float": true,
+      "channel_mask": 1599,
+      "nonzero_samples": 76800,
+      "peak_abs": 0.00103759765625,
+      "all_samples_finite": true,
+      "eof_verified_by_production_reader": true
+    },
+    {
+      "file": "monitor-ren_48000_8ch_32f_20261027_111746_3.wav",
+      "artifact": "device/monitor-ren_48000_8ch_32f_20261027_111746_3.wav.gz",
+      "source_bytes": 307280,
+      "source_sha256": "03c477848073a0db21e53061e491e53bc10f99e5861c02b597f6d67c984d142b",
+      "gzip_sha256": "f3dfa620baa4e848aed66449835a428b05d349964ab34cb06f09f1df53c21dd0",
+      "riff_size_verified": true,
+      "data_bytes": 307200,
+      "frames": 9600,
+      "sample_rate": 48000,
+      "channels": 8,
+      "bits": 32,
+      "float": true,
+      "channel_mask": 1599,
+      "nonzero_samples": 76800,
+      "peak_abs": 0.00103759765625,
+      "all_samples_finite": true,
+      "eof_verified_by_production_reader": true
+    },
+    {
+      "file": "monitor-ren_48000_8ch_32f_20261027_111747.wav",
+      "artifact": "device/monitor-ren_48000_8ch_32f_20261027_111747.wav.gz",
+      "source_bytes": 307280,
+      "source_sha256": "5c25acdb82a1ab69d17c5ce74b9372272525e06c0ea7801eb453358c37ede2d4",
+      "gzip_sha256": "ae32d08ed9adc375f1894579db72740d3b365819c1c420c361cccea3bb3bc7eb",
+      "riff_size_verified": true,
+      "data_bytes": 307200,
+      "frames": 9600,
+      "sample_rate": 48000,
+      "channels": 8,
+      "bits": 32,
+      "float": true,
+      "channel_mask": 1599,
+      "nonzero_samples": 76800,
+      "peak_abs": 0.00103759765625,
+      "all_samples_finite": true,
+      "eof_verified_by_production_reader": true
+    }
+  ],
+  "executable": {
+    "path": "E:\\WORK\\vibecoding\\winaudio\\.scratch\\wav-dump-234\\performance-after\\build\\bin\\Release\\WavMonitorDeviceSmoke.exe",
+    "sha256": "c48aa743c85756097598b16d28e16d7b060f48639b2a60e6f676e21e0417aba7"
+  },
+  "source_pin": "649015e15576d570aa06f1b5636dffe2c053010f\nspdlog=6fa36017cfd5731d617e1a934f0e5ea9c4445b13\n"
+}

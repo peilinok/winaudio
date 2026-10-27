@@ -1,0 +1,90 @@
+Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.*
+[==========] Running 40 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 40 tests from MonitorEngine
+[ RUN      ] MonitorEngine.RateMismatchFails
+[       OK ] MonitorEngine.RateMismatchFails (3 ms)
+[ RUN      ] MonitorEngine.PrefillThenRunning
+[       OK ] MonitorEngine.PrefillThenRunning (10 ms)
+[ RUN      ] MonitorEngine.CaptureScopePopulated
+[       OK ] MonitorEngine.CaptureScopePopulated (15 ms)
+[ RUN      ] MonitorEngine.CaptureChannelSnapshotsExposeActualChannels
+[       OK ] MonitorEngine.CaptureChannelSnapshotsExposeActualChannels (15 ms)
+[ RUN      ] MonitorEngine.CaptureChannelSnapshotAtUsesRequestedEndIndex
+[       OK ] MonitorEngine.CaptureChannelSnapshotAtUsesRequestedEndIndex (15 ms)
+[ RUN      ] MonitorEngine.CaptureSnapshotAtDownmixUsesRequestedEndIndex
+[       OK ] MonitorEngine.CaptureSnapshotAtDownmixUsesRequestedEndIndex (15 ms)
+[ RUN      ] MonitorEngine.StartRollbackOnRenderFail
+[       OK ] MonitorEngine.StartRollbackOnRenderFail (3 ms)
+[ RUN      ] MonitorEngine.StopJoinsCleanly
+[       OK ] MonitorEngine.StopJoinsCleanly (13 ms)
+[ RUN      ] MonitorEngine.InvalidDelayRejected
+[       OK ] MonitorEngine.InvalidDelayRejected (0 ms)
+[ RUN      ] MonitorEngine.PlaybackStartsDisabled
+[       OK ] MonitorEngine.PlaybackStartsDisabled (3 ms)
+[ RUN      ] MonitorEngine.EnablePlaybackEngagesRender
+[       OK ] MonitorEngine.EnablePlaybackEngagesRender (12 ms)
+[ RUN      ] MonitorEngine.DisablePlaybackStopsRender
+[       OK ] MonitorEngine.DisablePlaybackStopsRender (31 ms)
+[ RUN      ] MonitorEngine.EnablePlaybackRateMismatch
+[       OK ] MonitorEngine.EnablePlaybackRateMismatch (15 ms)
+[ RUN      ] MonitorEngine.StreamParamsReachBackends
+[       OK ] MonitorEngine.StreamParamsReachBackends (2 ms)
+[ RUN      ] MonitorEngine.SetRenderParamsAppliesOnReengage
+[       OK ] MonitorEngine.SetRenderParamsAppliesOnReengage (76 ms)
+[ RUN      ] MonitorEngine.CaptureFormatReachesBackend
+[       OK ] MonitorEngine.CaptureFormatReachesBackend (2 ms)
+[ RUN      ] MonitorEngine.LegacyStartUsesEndpointCaptureSource
+[       OK ] MonitorEngine.LegacyStartUsesEndpointCaptureSource (2 ms)
+[ RUN      ] MonitorEngine.LoopbackCaptureSourceReachesFactory
+[       OK ] MonitorEngine.LoopbackCaptureSourceReachesFactory (2 ms)
+[ RUN      ] MonitorEngine.ApplicationLoopbackCaptureSourceReachesFactory
+[       OK ] MonitorEngine.ApplicationLoopbackCaptureSourceReachesFactory (2 ms)
+[ RUN      ] MonitorEngine.ApplicationLoopbackExcludeTreeModeReachesFactory
+[       OK ] MonitorEngine.ApplicationLoopbackExcludeTreeModeReachesFactory (2 ms)
+[ RUN      ] MonitorEngine.ApplicationLoopbackDoesNotStartSilentRender
+[       OK ] MonitorEngine.ApplicationLoopbackDoesNotStartSilentRender (2 ms)
+[ RUN      ] MonitorEngine.ApplicationLoopbackDefaultFactoryRejectsZeroPid
+[       OK ] MonitorEngine.ApplicationLoopbackDefaultFactoryRejectsZeroPid (0 ms)
+[ RUN      ] MonitorEngine.LoopbackStartsSilentRenderByDefault
+[       OK ] MonitorEngine.LoopbackStartsSilentRenderByDefault (2 ms)
+[ RUN      ] MonitorEngine.SilentRenderRuntimeFaultIsReportedWithoutStoppingCapture
+[       OK ] MonitorEngine.SilentRenderRuntimeFaultIsReportedWithoutStoppingCapture (44 ms)
+[ RUN      ] MonitorEngine.PollExposesCaptureProgressAndLoopbackSilenceFrames
+[       OK ] MonitorEngine.PollExposesCaptureProgressAndLoopbackSilenceFrames (15 ms)
+[ RUN      ] MonitorEngine.LoopbackCanDisableSilentRender
+[       OK ] MonitorEngine.LoopbackCanDisableSilentRender (2 ms)
+[ RUN      ] MonitorEngine.SilentRenderFailureDoesNotFailLoopbackCapture
+[       OK ] MonitorEngine.SilentRenderFailureDoesNotFailLoopbackCapture (2 ms)
+[ RUN      ] MonitorEngine.SilentRenderOpenFailureDoesNotFailLoopbackCapture
+[       OK ] MonitorEngine.SilentRenderOpenFailureDoesNotFailLoopbackCapture (2 ms)
+[ RUN      ] MonitorEngine.LoopbackPlaybackRejectsSameRenderDevice
+[       OK ] MonitorEngine.LoopbackPlaybackRejectsSameRenderDevice (0 ms)
+[ RUN      ] MonitorEngine.LoopbackPlaybackRejectsBothDefaultRenderDevices
+[       OK ] MonitorEngine.LoopbackPlaybackRejectsBothDefaultRenderDevices (0 ms)
+[ RUN      ] MonitorEngine.LoopbackRuntimePlaybackRejectsSameRenderDevice
+[       OK ] MonitorEngine.LoopbackRuntimePlaybackRejectsSameRenderDevice (8 ms)
+[ RUN      ] MonitorEngine.RuntimeCaptureErrorDoesNotStopRender
+[       OK ] MonitorEngine.RuntimeCaptureErrorDoesNotStopRender (31 ms)
+[ RUN      ] MonitorEngine.RuntimeRenderErrorDoesNotStopCaptureOrFifo
+[       OK ] MonitorEngine.RuntimeRenderErrorDoesNotStopCaptureOrFifo (31 ms)
+[ RUN      ] MonitorEngine.CaptureDumpWritesPcmBeforeDelay
+[       OK ] MonitorEngine.CaptureDumpWritesPcmBeforeDelay (17 ms)
+[ RUN      ] MonitorEngine.RenderDumpRejectedWhenPlaybackOff
+[       OK ] MonitorEngine.RenderDumpRejectedWhenPlaybackOff (2 ms)
+[ RUN      ] MonitorEngine.RenderDumpWritesAfterDelay
+[       OK ] MonitorEngine.RenderDumpWritesAfterDelay (37 ms)
+[ RUN      ] MonitorEngine.SessionStopFinalizesCaptureDump
+[       OK ] MonitorEngine.SessionStopFinalizesCaptureDump (21 ms)
+[ RUN      ] MonitorEngine.PlaybackOffFinalizesRenderDump
+[       OK ] MonitorEngine.PlaybackOffFinalizesRenderDump (46 ms)
+[ RUN      ] MonitorEngine.SlowRenderCloseDoesNotBlockPlaybackOffOrCaptureDump
+[       OK ] MonitorEngine.SlowRenderCloseDoesNotBlockPlaybackOffOrCaptureDump (83 ms)
+[ RUN      ] MonitorEngine.ReengageDuringOldCloseUsesANewSourceAndConsistentFormat
+[       OK ] MonitorEngine.ReengageDuringOldCloseUsesANewSourceAndConsistentFormat (127 ms)
+[----------] 40 tests from MonitorEngine (728 ms total)
+
+[----------] Global test environment tear-down
+[==========] 40 tests from 1 test suite ran. (729 ms total)
+[  PASSED  ] 40 tests.

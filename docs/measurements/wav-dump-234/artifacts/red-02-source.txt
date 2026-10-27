@@ -1,0 +1,27 @@
+Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSinkLifecycle.SourceEndsBeforePreparing
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.SourceEndsBeforePreparing
+E:\WORK\vibecoding\winaudio\src\tests\test_wav_sink_lifecycle.cpp(215): error: Value of: started
+  Actual: true
+Expected: false
+ended source was published Ready
+
+E:\WORK\vibecoding\winaudio\src\tests\test_wav_sink_lifecycle.cpp(217): error: Expected equality of these values:
+  sink.push(pcm, sizeof(pcm), 71)
+    Which is: 4
+  0u
+    Which is: 0
+
+[  FAILED  ] WavSinkLifecycle.SourceEndsBeforePreparing (7 ms)
+[----------] 1 test from WavSinkLifecycle (7 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (7 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] WavSinkLifecycle.SourceEndsBeforePreparing
+
+ 1 FAILED TEST

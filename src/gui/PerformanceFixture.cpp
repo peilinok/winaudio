@@ -3,6 +3,8 @@
 #include "Log.h"
 #include "GuiGpu.h"
 #include "PerformanceCalls.h"
+#include "WavFile.h"
+#include "ComUtil.h"
 #include <d3d11.h>
 #include <tlhelp32.h>
 #include "imgui.h"
@@ -67,6 +69,55 @@ public:
 private:
     bool fail_, first_ = true;
 };
+
+// Wrap the real WAV writer; only this opt-in executable can delay file close.
+// A named event lets the smoke driver release the writer after inspecting the
+// production Monitor controls. The pump and GUI never wait on this event.
+class ControlledMonitorOutput : public wa::WavSinkOutput {
+public:
+    explicit ControlledMonitorOutput(const std::wstring& eventName) : eventName_(eventName) {}
+    wa::Result open(const std::wstring& path, const wa::AudioFormat& format) override {
+        const wa::Result result = writer_.open(path, format);
+        opened_ = result.ok;
+        return result;
+    }
+    wa::Result setBuffer(size_t bytes) override { return writer_.setStdioBuffer(bytes); }
+    wa::Result write(const void* data, size_t bytes) override { return writer_.write(data, bytes); }
+    wa::Result close() override {
+        if (!opened_) return writer_.close();
+        opened_ = false;
+        wa::Result gate = wa::Result::Ok();
+        HANDLE event = CreateEventW(nullptr, TRUE, FALSE, eventName_.c_str());
+        const DWORD createError = event ? ERROR_SUCCESS : GetLastError();
+        WA_LOG(wa::log::Level::Debug, "PerformanceFixture", "CreateEventW",
+               "Monitor WAV close gate", wa::log::hrName(HRESULT_FROM_WIN32(createError)));
+        if (!event) {
+            gate = wa::HrToResult(HRESULT_FROM_WIN32(createError), "Monitor close gate CreateEventW");
+        } else {
+            WA_LOG(wa::log::Level::Info, "PerformanceFixture", "monitor-close-wait",
+                   "real WAV; bounded event wait", "writer only");
+            const DWORD waited = WaitForSingleObject(event, 180000);
+            const DWORD waitError = waited == WAIT_FAILED ? GetLastError() : ERROR_SUCCESS;
+            WA_LOG(wa::log::Level::Info, "PerformanceFixture", "WaitForSingleObject",
+                   "Monitor WAV close gate", std::to_string(waited));
+            if (waited == WAIT_FAILED)
+                gate = wa::HrToResult(HRESULT_FROM_WIN32(waitError), "Monitor close gate wait");
+            else if (waited != WAIT_OBJECT_0)
+                gate = wa::Result::Fail(-1, "Monitor close gate timed out (test only)");
+            const BOOL released = CloseHandle(event);
+            const DWORD closeError = released ? ERROR_SUCCESS : GetLastError();
+            WA_LOG(released ? wa::log::Level::Debug : wa::log::Level::Warn,
+                   "PerformanceFixture", "CloseHandle", "Monitor WAV close gate",
+                   wa::log::hrName(HRESULT_FROM_WIN32(closeError)));
+        }
+        const wa::Result closed = writer_.close();
+        return gate ? closed : gate;
+    }
+private:
+    wa::WavWriter writer_;
+    std::wstring eventName_;
+    bool opened_ = false;
+};
 }
 
 std::shared_ptr<wa::CallLogWriter> PerformanceFixture::exportWriter() {
@@ -75,6 +126,16 @@ std::shared_ptr<wa::CallLogWriter> PerformanceFixture::exportWriter() {
         return std::make_shared<ControlledExportWriter>(std::strcmp(mode, "fail") == 0);
     return {};
 }
+
+wa::WavSinkOutputFactory PerformanceFixture::monitorRenderOutput() {
+    const wchar_t* eventName = _wgetenv(L"WINAUDIO_PERF_MONITOR_CLOSE_EVENT");
+    if (!eventName || !*eventName) return {};
+    return [name = std::wstring(eventName)] {
+        return std::make_unique<ControlledMonitorOutput>(name);
+    };
+}
+
+bool PerformanceFixture::monitorDump() { return scenario == "monitor-dump"; }
 
 bool PerformanceFixture::start(AppUi& ui) {
     if (const char* value = std::getenv("WINAUDIO_PERF_MANUAL")) manualCharts = std::strcmp(value, "1") == 0;
@@ -85,7 +146,12 @@ bool PerformanceFixture::start(AppUi& ui) {
     ui.logCollapsed_ = false;
     if (const char* value = std::getenv("WINAUDIO_PERF_MODE")) scenario = value;
     if (scenario != "charts" && scenario != "browse" && scenario != "idle" &&
-        scenario != "append" && scenario != "memory" && scenario != "save" && scenario != "live") return false;
+        scenario != "append" && scenario != "memory" && scenario != "save" && scenario != "live" &&
+        scenario != "monitor-dump") return false;
+    if (monitorDump()) {
+        started = std::chrono::steady_clock::now();
+        return true;
+    }
     if (inspector()) {
         if (!startInspector(ui)) return false;
     } else {
@@ -147,6 +213,10 @@ bool PerformanceFixture::start(AppUi& ui) {
 bool PerformanceFixture::advance(AppUi& ui) {
     const double elapsed = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
     if (elapsed >= warmup + duration) return false;
+    if (monitorDump()) {
+        ui.frameProbe_.setStage("monitor-dump");
+        return true;
+    }
     if (inspector()) {
         warming = elapsed < warmup;
         ui.frameProbe_.setStage(warming ? "warmup" : scenario.c_str());
@@ -174,7 +244,7 @@ void PerformanceFixture::chartPosition(uint64_t source, bool spectrum) {
     positions[static_cast<size_t>(source - 1)][spectrum ? 1u : 0u] = ImGui::GetCursorPosY();
 }
 
-bool PerformanceFixture::inspector() { return scenario != "charts"; }
+bool PerformanceFixture::inspector() { return scenario != "charts" && !monitorDump(); }
 bool PerformanceFixture::liveInspector() { return scenario == "live"; }
 
 bool PerformanceFixture::startInspector(AppUi& ui) {

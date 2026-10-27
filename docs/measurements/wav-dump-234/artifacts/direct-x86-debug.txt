@@ -1,0 +1,451 @@
+Test project E:/WORK/vibecoding/winaudio/build-x86
+        Start   1: DelayFifo.BasicPushPop
+  1/223 Test   #1: DelayFifo.BasicPushPop ........................................................................   Passed    0.03 sec
+        Start   2: DelayFifo.AbsorbsSustainedDriftWithoutRunaway
+  2/223 Test   #2: DelayFifo.AbsorbsSustainedDriftWithoutRunaway .................................................   Passed    0.04 sec
+        Start   3: DelayFifo.DuplicatesWhenStarved
+  3/223 Test   #3: DelayFifo.DuplicatesWhenStarved ...............................................................   Passed    0.04 sec
+        Start  31: AudioFormat.DerivedFields
+  4/223 Test  #31: AudioFormat.DerivedFields .....................................................................   Passed    0.03 sec
+        Start  32: AudioFormat.RoundTripPcm16
+  5/223 Test  #32: AudioFormat.RoundTripPcm16 ....................................................................   Passed    0.03 sec
+        Start  33: AudioFormat.RoundTripFloat32
+  6/223 Test  #33: AudioFormat.RoundTripFloat32 ..................................................................   Passed    0.03 sec
+        Start  34: AudioFormat.ParsePlainPcmWaveFormatEx
+  7/223 Test  #34: AudioFormat.ParsePlainPcmWaveFormatEx .........................................................   Passed    0.03 sec
+        Start  35: AudioFormat.ChannelMaskForCommonLayouts
+  8/223 Test  #35: AudioFormat.ChannelMaskForCommonLayouts .......................................................   Passed    0.03 sec
+        Start  36: AudioFormat.PreservesExtensibleValidBitsAndChannelMask
+  9/223 Test  #36: AudioFormat.PreservesExtensibleValidBitsAndChannelMask ........................................   Passed    0.03 sec
+        Start  49: SampleConvert.Int16BoundsRoundTrip
+ 10/223 Test  #49: SampleConvert.Int16BoundsRoundTrip ............................................................   Passed    0.03 sec
+        Start  50: SampleConvert.FloatToPcmClampsOverflow
+ 11/223 Test  #50: SampleConvert.FloatToPcmClampsOverflow ........................................................   Passed    0.03 sec
+        Start  51: SampleConvert.Int24NegativeSignExtend
+ 12/223 Test  #51: SampleConvert.Int24NegativeSignExtend .........................................................   Passed    0.03 sec
+        Start  52: SampleConvert.DownmixAverages
+ 13/223 Test  #52: SampleConvert.DownmixAverages .................................................................   Passed    0.03 sec
+        Start  53: SampleConvert.PeakLevel
+ 14/223 Test  #53: SampleConvert.PeakLevel .......................................................................   Passed    0.03 sec
+        Start  54: SampleConvert.FloatToPcmInt32ClampsOverflow
+ 15/223 Test  #54: SampleConvert.FloatToPcmInt32ClampsOverflow ...................................................   Passed    0.03 sec
+        Start  55: WavFile.RoundTrip16BitStereo
+ 16/223 Test  #55: WavFile.RoundTrip16BitStereo ..................................................................   Passed    0.03 sec
+        Start  56: WavFile.OpenMissingFileFails
+ 17/223 Test  #56: WavFile.OpenMissingFileFails ..................................................................   Passed    0.03 sec
+        Start  57: WavFile.RejectsTruncatedHeader
+ 18/223 Test  #57: WavFile.RejectsTruncatedHeader ................................................................   Passed    0.03 sec
+        Start  58: WavFile.ReadsExtensibleFloatHeader
+ 19/223 Test  #58: WavFile.ReadsExtensibleFloatHeader ............................................................   Passed    0.04 sec
+        Start  59: WavFile.WritesExtensible7Point1FloatWithFactChunk
+ 20/223 Test  #59: WavFile.WritesExtensible7Point1FloatWithFactChunk .............................................   Passed    0.03 sec
+        Start  60: WavFile.BuffersPartialFramesAcrossWrites
+ 21/223 Test  #60: WavFile.BuffersPartialFramesAcrossWrites ......................................................   Passed    0.04 sec
+        Start  61: WavFile.RejectsUnsupportedFormatAtOpen
+ 22/223 Test  #61: WavFile.RejectsUnsupportedFormatAtOpen ........................................................   Passed    0.03 sec
+        Start  62: WavFile.CloseRejectsIncompleteFinalFrame
+ 23/223 Test  #62: WavFile.CloseRejectsIncompleteFinalFrame ......................................................   Passed    0.04 sec
+        Start  63: WavFile.ReaderRejectsUnknownExtensibleSubFormat
+ 24/223 Test  #63: WavFile.ReaderRejectsUnknownExtensibleSubFormat ...............................................   Passed    0.04 sec
+        Start  64: WavFile.ReaderRejectsExtensibleCbSizeBeyondFmtChunk
+ 25/223 Test  #64: WavFile.ReaderRejectsExtensibleCbSizeBeyondFmtChunk ...........................................   Passed    0.05 sec
+        Start  65: WavFile.ReaderRejectsChannelMaskThatDoesNotMatchChannels
+ 26/223 Test  #65: WavFile.ReaderRejectsChannelMaskThatDoesNotMatchChannels ......................................   Passed    0.04 sec
+        Start  66: WavFile.ReaderSkipsOddSizedUnknownChunkWithPadding
+ 27/223 Test  #66: WavFile.ReaderSkipsOddSizedUnknownChunkWithPadding ............................................   Passed    0.03 sec
+        Start  67: WavFile.RoundTripsPcm24ValidBitsIn32BitContainer
+ 28/223 Test  #67: WavFile.RoundTripsPcm24ValidBitsIn32BitContainer ..............................................   Passed    0.03 sec
+        Start  68: WavFile.WritesOddSizedEightBitMonoDataWithPadByte
+ 29/223 Test  #68: WavFile.WritesOddSizedEightBitMonoDataWithPadByte .............................................   Passed    0.04 sec
+        Start  69: WavFile.WriterRejectsDestinationThatCannotPatchHeader
+ 30/223 Test  #69: WavFile.WriterRejectsDestinationThatCannotPatchHeader .........................................   Passed    0.03 sec
+        Start  70: WavFile.ReaderReuseDoesNotKeepExtensibleMetadata
+ 31/223 Test  #70: WavFile.ReaderReuseDoesNotKeepExtensibleMetadata ..............................................   Passed    0.04 sec
+        Start  71: WavSink.ExactPathRoundTrip16BitStereo
+ 32/223 Test  #71: WavSink.ExactPathRoundTrip16BitStereo .........................................................   Passed    0.07 sec
+        Start  72: WavSink.ExactPathRoundTripFloat32Stereo
+ 33/223 Test  #72: WavSink.ExactPathRoundTripFloat32Stereo .......................................................   Passed    0.05 sec
+        Start  73: WavSink.ExactPathKeepsCallerName
+ 34/223 Test  #73: WavSink.ExactPathKeepsCallerName ..............................................................   Passed    0.05 sec
+        Start  74: WavSink.InvalidPathFailsWithoutThrowing
+ 35/223 Test  #74: WavSink.InvalidPathFailsWithoutThrowing .......................................................   Passed    0.03 sec
+        Start  75: WavSink.AutoNameUsesPrefixFormatAndTimestamp
+ 36/223 Test  #75: WavSink.AutoNameUsesPrefixFormatAndTimestamp ..................................................   Passed    0.05 sec
+        Start  76: WavSink.AutoNameKeepsCallerPrefixTokens
+ 37/223 Test  #76: WavSink.AutoNameKeepsCallerPrefixTokens .......................................................   Passed    0.05 sec
+        Start  77: WavSink.AutoNameCollisionGetsNumericSuffix
+ 38/223 Test  #77: WavSink.AutoNameCollisionGetsNumericSuffix ....................................................   Passed    0.06 sec
+        Start  78: WavSink.OverflowFailsSinkAndPatchesHeader
+ 39/223 Test  #78: WavSink.OverflowFailsSinkAndPatchesHeader .....................................................   Passed    0.05 sec
+        Start  79: WavSink.TwoSinksDoNotMixBytes
+ 40/223 Test  #79: WavSink.TwoSinksDoNotMixBytes .................................................................   Passed    0.07 sec
+        Start  87: ScopeBuffer.NotEnoughYet
+ 41/223 Test  #87: ScopeBuffer.NotEnoughYet ......................................................................   Passed    0.03 sec
+        Start  88: ScopeBuffer.ReturnsRecentWindow
+ 42/223 Test  #88: ScopeBuffer.ReturnsRecentWindow ...............................................................   Passed    0.03 sec
+        Start  89: ScopeBuffer.RejectsWindowLargerThanHalfCapacity
+ 43/223 Test  #89: ScopeBuffer.RejectsWindowLargerThanHalfCapacity ...............................................   Passed    0.03 sec
+        Start  90: ScopeBuffer.SnapshotsInterleavedChannelsAndMonoDownmix
+ 44/223 Test  #90: ScopeBuffer.SnapshotsInterleavedChannelsAndMonoDownmix ........................................   Passed    0.03 sec
+        Start  91: ScopeBuffer.SnapshotChannelEndingAtUsesRequestedWindow
+ 45/223 Test  #91: ScopeBuffer.SnapshotChannelEndingAtUsesRequestedWindow ........................................   Passed    0.03 sec
+        Start  92: ScopeBuffer.SnapshotEndingAtDownmixUsesRequestedWindow
+ 46/223 Test  #92: ScopeBuffer.SnapshotEndingAtDownmixUsesRequestedWindow ........................................   Passed    0.03 sec
+        Start  93: ScopeBuffer.SnapshotEndingAtMonoMatchesLatestWindow
+ 47/223 Test  #93: ScopeBuffer.SnapshotEndingAtMonoMatchesLatestWindow ...........................................   Passed    0.03 sec
+        Start  94: ScopeBuffer.ConcurrentSpscConsistency
+ 48/223 Test  #94: ScopeBuffer.ConcurrentSpscConsistency .........................................................   Passed    0.03 sec
+        Start 104: MonitorEngine.RateMismatchFails
+ 49/223 Test #104: MonitorEngine.RateMismatchFails ...............................................................   Passed    0.04 sec
+        Start 105: MonitorEngine.PrefillThenRunning
+ 50/223 Test #105: MonitorEngine.PrefillThenRunning ..............................................................   Passed    0.04 sec
+        Start 106: MonitorEngine.CaptureScopePopulated
+ 51/223 Test #106: MonitorEngine.CaptureScopePopulated ...........................................................   Passed    0.05 sec
+        Start 107: MonitorEngine.CaptureChannelSnapshotsExposeActualChannels
+ 52/223 Test #107: MonitorEngine.CaptureChannelSnapshotsExposeActualChannels .....................................   Passed    0.05 sec
+        Start 108: MonitorEngine.CaptureChannelSnapshotAtUsesRequestedEndIndex
+ 53/223 Test #108: MonitorEngine.CaptureChannelSnapshotAtUsesRequestedEndIndex ...................................   Passed    0.05 sec
+        Start 109: MonitorEngine.CaptureSnapshotAtDownmixUsesRequestedEndIndex
+ 54/223 Test #109: MonitorEngine.CaptureSnapshotAtDownmixUsesRequestedEndIndex ...................................   Passed    0.05 sec
+        Start 110: MonitorEngine.StartRollbackOnRenderFail
+ 55/223 Test #110: MonitorEngine.StartRollbackOnRenderFail .......................................................   Passed    0.04 sec
+        Start 111: MonitorEngine.StopJoinsCleanly
+ 56/223 Test #111: MonitorEngine.StopJoinsCleanly ................................................................   Passed    0.04 sec
+        Start 112: MonitorEngine.InvalidDelayRejected
+ 57/223 Test #112: MonitorEngine.InvalidDelayRejected ............................................................   Passed    0.03 sec
+        Start 113: MonitorEngine.PlaybackStartsDisabled
+ 58/223 Test #113: MonitorEngine.PlaybackStartsDisabled ..........................................................   Passed    0.04 sec
+        Start 114: MonitorEngine.EnablePlaybackEngagesRender
+ 59/223 Test #114: MonitorEngine.EnablePlaybackEngagesRender .....................................................   Passed    0.04 sec
+        Start 115: MonitorEngine.DisablePlaybackStopsRender
+ 60/223 Test #115: MonitorEngine.DisablePlaybackStopsRender ......................................................   Passed    0.06 sec
+        Start 116: MonitorEngine.EnablePlaybackRateMismatch
+ 61/223 Test #116: MonitorEngine.EnablePlaybackRateMismatch ......................................................   Passed    0.05 sec
+        Start 117: MonitorEngine.StreamParamsReachBackends
+ 62/223 Test #117: MonitorEngine.StreamParamsReachBackends .......................................................   Passed    0.04 sec
+        Start 118: MonitorEngine.SetRenderParamsAppliesOnReengage
+ 63/223 Test #118: MonitorEngine.SetRenderParamsAppliesOnReengage ................................................   Passed    0.12 sec
+        Start 119: MonitorEngine.CaptureFormatReachesBackend
+ 64/223 Test #119: MonitorEngine.CaptureFormatReachesBackend .....................................................   Passed    0.04 sec
+        Start 120: MonitorEngine.LegacyStartUsesEndpointCaptureSource
+ 65/223 Test #120: MonitorEngine.LegacyStartUsesEndpointCaptureSource ............................................   Passed    0.04 sec
+        Start 121: MonitorEngine.LoopbackCaptureSourceReachesFactory
+ 66/223 Test #121: MonitorEngine.LoopbackCaptureSourceReachesFactory .............................................   Passed    0.04 sec
+        Start 122: MonitorEngine.ApplicationLoopbackCaptureSourceReachesFactory
+ 67/223 Test #122: MonitorEngine.ApplicationLoopbackCaptureSourceReachesFactory ..................................   Passed    0.04 sec
+        Start 123: MonitorEngine.ApplicationLoopbackExcludeTreeModeReachesFactory
+ 68/223 Test #123: MonitorEngine.ApplicationLoopbackExcludeTreeModeReachesFactory ................................   Passed    0.04 sec
+        Start 124: MonitorEngine.ApplicationLoopbackDoesNotStartSilentRender
+ 69/223 Test #124: MonitorEngine.ApplicationLoopbackDoesNotStartSilentRender .....................................   Passed    0.04 sec
+        Start 125: MonitorEngine.ApplicationLoopbackDefaultFactoryRejectsZeroPid
+ 70/223 Test #125: MonitorEngine.ApplicationLoopbackDefaultFactoryRejectsZeroPid .................................   Passed    0.03 sec
+        Start 126: MonitorEngine.LoopbackStartsSilentRenderByDefault
+ 71/223 Test #126: MonitorEngine.LoopbackStartsSilentRenderByDefault .............................................   Passed    0.04 sec
+        Start 127: MonitorEngine.SilentRenderRuntimeFaultIsReportedWithoutStoppingCapture
+ 72/223 Test #127: MonitorEngine.SilentRenderRuntimeFaultIsReportedWithoutStoppingCapture ........................   Passed    0.06 sec
+        Start 128: MonitorEngine.PollExposesCaptureProgressAndLoopbackSilenceFrames
+ 73/223 Test #128: MonitorEngine.PollExposesCaptureProgressAndLoopbackSilenceFrames ..............................   Passed    0.05 sec
+        Start 129: MonitorEngine.LoopbackCanDisableSilentRender
+ 74/223 Test #129: MonitorEngine.LoopbackCanDisableSilentRender ..................................................   Passed    0.04 sec
+        Start 130: MonitorEngine.SilentRenderFailureDoesNotFailLoopbackCapture
+ 75/223 Test #130: MonitorEngine.SilentRenderFailureDoesNotFailLoopbackCapture ...................................   Passed    0.04 sec
+        Start 131: MonitorEngine.SilentRenderOpenFailureDoesNotFailLoopbackCapture
+ 76/223 Test #131: MonitorEngine.SilentRenderOpenFailureDoesNotFailLoopbackCapture ...............................   Passed    0.04 sec
+        Start 132: MonitorEngine.LoopbackPlaybackRejectsSameRenderDevice
+ 77/223 Test #132: MonitorEngine.LoopbackPlaybackRejectsSameRenderDevice .........................................   Passed    0.03 sec
+        Start 133: MonitorEngine.LoopbackPlaybackRejectsBothDefaultRenderDevices
+ 78/223 Test #133: MonitorEngine.LoopbackPlaybackRejectsBothDefaultRenderDevices .................................   Passed    0.03 sec
+        Start 134: MonitorEngine.LoopbackRuntimePlaybackRejectsSameRenderDevice
+ 79/223 Test #134: MonitorEngine.LoopbackRuntimePlaybackRejectsSameRenderDevice ..................................   Passed    0.05 sec
+        Start 135: MonitorEngine.RuntimeCaptureErrorDoesNotStopRender
+ 80/223 Test #135: MonitorEngine.RuntimeCaptureErrorDoesNotStopRender ............................................   Passed    0.06 sec
+        Start 136: MonitorEngine.RuntimeRenderErrorDoesNotStopCaptureOrFifo
+ 81/223 Test #136: MonitorEngine.RuntimeRenderErrorDoesNotStopCaptureOrFifo ......................................   Passed    0.06 sec
+        Start 137: MonitorEngine.CaptureDumpWritesPcmBeforeDelay
+ 82/223 Test #137: MonitorEngine.CaptureDumpWritesPcmBeforeDelay .................................................   Passed    0.07 sec
+        Start 138: MonitorEngine.RenderDumpRejectedWhenPlaybackOff
+ 83/223 Test #138: MonitorEngine.RenderDumpRejectedWhenPlaybackOff ...............................................   Passed    0.04 sec
+        Start 139: MonitorEngine.RenderDumpWritesAfterDelay
+ 84/223 Test #139: MonitorEngine.RenderDumpWritesAfterDelay ......................................................   Passed    0.08 sec
+        Start 140: MonitorEngine.SessionStopFinalizesCaptureDump
+ 85/223 Test #140: MonitorEngine.SessionStopFinalizesCaptureDump .................................................   Passed    0.07 sec
+        Start 141: MonitorEngine.PlaybackOffFinalizesRenderDump
+ 86/223 Test #141: MonitorEngine.PlaybackOffFinalizesRenderDump ..................................................   Passed    0.08 sec
+        Start 142: MonitorEngine.SlowRenderCloseDoesNotBlockPlaybackOffOrCaptureDump
+ 87/223 Test #142: MonitorEngine.SlowRenderCloseDoesNotBlockPlaybackOffOrCaptureDump .............................   Passed    0.11 sec
+        Start 143: MonitorEngine.ReengageDuringOldCloseUsesANewSourceAndConsistentFormat
+ 88/223 Test #143: MonitorEngine.ReengageDuringOldCloseUsesANewSourceAndConsistentFormat .........................   Passed    0.19 sec
+        Start 144: MonitorEngine.SlowRenderWriteAllowsIndependentCaptureCompletion
+ 89/223 Test #144: MonitorEngine.SlowRenderWriteAllowsIndependentCaptureCompletion ...............................   Passed    0.15 sec
+        Start 145: MonitorEngine.SlowOpenCancelledBySourceEndCannotFollowReengage
+ 90/223 Test #145: MonitorEngine.SlowOpenCancelledBySourceEndCannotFollowReengage ................................   Passed    0.13 sec
+        Start 146: MonitorEngine.CaptureSourceChangesPerSessionWhileDumpGenerationKeepsIncreasing
+ 91/223 Test #146: MonitorEngine.CaptureSourceChangesPerSessionWhileDumpGenerationKeepsIncreasing ................   Passed    0.06 sec
+        Start 147: MonitorEngine.OptionalRenderFailuresKeepCaptureAcceptingAndAllowRetry
+ 92/223 Test #147: MonitorEngine.OptionalRenderFailuresKeepCaptureAcceptingAndAllowRetry .........................   Passed    0.19 sec
+        Start 148: MonitorEngine.StopWaitsForAnAlreadyFinalizingFileAndCompletesBothSinks
+ 93/223 Test #148: MonitorEngine.StopWaitsForAnAlreadyFinalizingFileAndCompletesBothSinks ........................   Passed    0.11 sec
+        Start 149: MonitorScopeReader.CaptureAdapterMatchesEngineSnapshotAt
+ 94/223 Test #149: MonitorScopeReader.CaptureAdapterMatchesEngineSnapshotAt ......................................   Passed    0.05 sec
+        Start 150: MonitorScopeReader.RenderSideIsMonoOnly
+ 95/223 Test #150: MonitorScopeReader.RenderSideIsMonoOnly .......................................................   Passed    0.04 sec
+        Start 151: CaptureTrackList.CreateStartsLiveTrack
+ 96/223 Test #151: CaptureTrackList.CreateStartsLiveTrack ........................................................   Passed    0.03 sec
+        Start 152: CaptureTrackList.DestroyRemovesTrackAndStopsBackend
+ 97/223 Test #152: CaptureTrackList.DestroyRemovesTrackAndStopsBackend ...........................................   Passed    0.03 sec
+        Start 153: CaptureTrackList.RuntimeBackendFaultMarksTrackError
+ 98/223 Test #153: CaptureTrackList.RuntimeBackendFaultMarksTrackError ...........................................   Passed    0.05 sec
+        Start 154: CaptureTrackList.RuntimeFaultStillFinalizesCreateTimeWav
+ 99/223 Test #154: CaptureTrackList.RuntimeFaultStillFinalizesCreateTimeWav ......................................   Passed    0.11 sec
+        Start 155: CaptureTrackList.SilentRenderRuntimeFaultKeepsCaptureRunning
+100/223 Test #155: CaptureTrackList.SilentRenderRuntimeFaultKeepsCaptureRunning ..................................   Passed    0.06 sec
+        Start 156: CaptureTrackList.DestroyAllClearsEveryMember
+101/223 Test #156: CaptureTrackList.DestroyAllClearsEveryMember ..................................................   Passed    0.05 sec
+        Start 157: CaptureTrackList.FailedOpenDoesNotLeaveMember
+102/223 Test #157: CaptureTrackList.FailedOpenDoesNotLeaveMember .................................................   Passed    0.03 sec
+        Start 158: CaptureTrackList.FailedStartDoesNotLeaveMember
+103/223 Test #158: CaptureTrackList.FailedStartDoesNotLeaveMember ................................................   Passed    0.03 sec
+        Start 159: CaptureTrackList.EqualSourcesMayBothBeLive
+104/223 Test #159: CaptureTrackList.EqualSourcesMayBothBeLive ....................................................   Passed    0.05 sec
+        Start 160: CaptureTrackList.CreateAllowedWhileSiblingStillListed
+105/223 Test #160: CaptureTrackList.CreateAllowedWhileSiblingStillListed .........................................   Passed    0.06 sec
+        Start 161: CaptureTrackList.WavOpenFailureDoesNotDestroySibling
+106/223 Test #161: CaptureTrackList.WavOpenFailureDoesNotDestroySibling ..........................................   Passed    0.05 sec
+        Start 162: CaptureTrackList.ExclusiveLoopbackRejected
+107/223 Test #162: CaptureTrackList.ExclusiveLoopbackRejected ....................................................   Passed    0.03 sec
+        Start 163: CaptureTrackList.ExclusiveApplicationLoopbackRejected
+108/223 Test #163: CaptureTrackList.ExclusiveApplicationLoopbackRejected .........................................   Passed    0.03 sec
+        Start 164: CaptureTrackList.ApplicationLoopbackPreservesPidAndMode
+109/223 Test #164: CaptureTrackList.ApplicationLoopbackPreservesPidAndMode .......................................   Passed    0.08 sec
+        Start 165: CaptureTrackList.CreateFailureDoesNotDestroySibling
+110/223 Test #165: CaptureTrackList.CreateFailureDoesNotDestroySibling ...........................................   Passed    0.03 sec
+        Start 166: CaptureTrackList.SecondListUnaffectedByDestroyAll
+111/223 Test #166: CaptureTrackList.SecondListUnaffectedByDestroyAll .............................................   Passed    0.05 sec
+        Start 167: CaptureTrackList.TapsAreIndependent
+112/223 Test #167: CaptureTrackList.TapsAreIndependent ...........................................................   Passed    0.08 sec
+        Start 168: CaptureTrackList.CreateTimeWavWritesPushedPcm
+113/223 Test #168: CaptureTrackList.CreateTimeWavWritesPushedPcm .................................................   Passed    0.08 sec
+        Start 169: CaptureTrackList.LiveDumpWritesPushedPcm
+114/223 Test #169: CaptureTrackList.LiveDumpWritesPushedPcm ......................................................   Passed    0.09 sec
+        Start 170: CaptureTrackList.AppLoopbackDumpNameIncludesPidAndProcessName
+115/223 Test #170: CaptureTrackList.AppLoopbackDumpNameIncludesPidAndProcessName .................................   Passed    0.06 sec
+        Start 171: CaptureTrackList.LiveDumpRejectedWhenAlreadyDumping
+116/223 Test #171: CaptureTrackList.LiveDumpRejectedWhenAlreadyDumping ...........................................   Passed    0.06 sec
+        Start 172: CaptureTrackList.LiveDumpRejectedWhenTrackNotRunning
+117/223 Test #172: CaptureTrackList.LiveDumpRejectedWhenTrackNotRunning ..........................................   Passed    0.03 sec
+        Start 173: CaptureTrackList.LiveDumpOpenFailureLeavesTrackRunning
+118/223 Test #173: CaptureTrackList.LiveDumpOpenFailureLeavesTrackRunning ........................................   Passed    0.05 sec
+        Start 174: CaptureTrackList.DestroyWhileDumpingFinalizesWav
+119/223 Test #174: CaptureTrackList.DestroyWhileDumpingFinalizesWav ..............................................   Passed    0.08 sec
+        Start 175: CaptureTrackList.OptionalWavStillRuns
+120/223 Test #175: CaptureTrackList.OptionalWavStillRuns .........................................................   Passed    0.03 sec
+        Start 176: CaptureTrackList.DefaultCreateOpensWithDefaultStreamParamsAndNoRequestedFormat
+121/223 Test #176: CaptureTrackList.DefaultCreateOpensWithDefaultStreamParamsAndNoRequestedFormat ................   Passed    0.03 sec
+        Start 177: CaptureTrackList.CreatePassesRequestedFormatToBackend
+122/223 Test #177: CaptureTrackList.CreatePassesRequestedFormatToBackend .........................................   Passed    0.03 sec
+        Start 178: CaptureTrackList.CreatePassesStreamParamsToOpen
+123/223 Test #178: CaptureTrackList.CreatePassesStreamParamsToOpen ...............................................   Passed    0.03 sec
+        Start 179: CaptureTrackList.SystemAndApplicationLoopbackBothPassStreamParams
+124/223 Test #179: CaptureTrackList.SystemAndApplicationLoopbackBothPassStreamParams .............................   Passed    0.06 sec
+        Start 180: CaptureTrackList.SilentRenderOpenStaysDefaultWhenCaptureHasStreamParams
+125/223 Test #180: CaptureTrackList.SilentRenderOpenStaysDefaultWhenCaptureHasStreamParams .......................   Passed    0.03 sec
+        Start 181: CaptureTrackList.RequiredWavAsyncFailureMarksOnlyItsTrackWithoutMorePcm
+126/223 Test #181: CaptureTrackList.RequiredWavAsyncFailureMarksOnlyItsTrackWithoutMorePcm .......................   Passed    0.11 sec
+        Start 182: CaptureTrackList.BothLoopbackKindsKeepCapturingAcrossThreeIndependentDumps
+127/223 Test #182: CaptureTrackList.BothLoopbackKindsKeepCapturingAcrossThreeIndependentDumps ....................   Passed    0.47 sec
+        Start 183: CaptureTrackList.OptionalOpenWriteAndCloseFailuresKeepBothTracksAndTapsRunning
+128/223 Test #183: CaptureTrackList.OptionalOpenWriteAndCloseFailuresKeepBothTracksAndTapsRunning ................   Passed    0.25 sec
+        Start 184: CaptureTrackList.DestroyAllAndDestructorFinalizeEveryAcceptedByte
+129/223 Test #184: CaptureTrackList.DestroyAllAndDestructorFinalizeEveryAcceptedByte .............................   Passed    0.20 sec
+        Start 185: CaptureTrackList.SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing
+130/223 Test #185: CaptureTrackList.SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing .........................   Passed    0.14 sec
+        Start 186: CaptureTrackList.OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix
+131/223 Test #186: CaptureTrackList.OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix .....................   Passed    2.58 sec
+        Start 187: CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown
+132/223 Test #187: CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown ..............................   Passed    0.11 sec
+        Start 530: DumpUi.FolderPickerTakeEmptyWhenIdle
+133/223 Test #530: DumpUi.FolderPickerTakeEmptyWhenIdle ..........................................................   Passed    0.03 sec
+        Start 531: DumpUi.DownloadsFolderIsNonEmpty
+134/223 Test #531: DumpUi.DownloadsFolderIsNonEmpty ..............................................................   Passed    0.04 sec
+        Start 532: DumpUi.FinalizingDisablesNewDumpAndOnlySuccessfulGenerationsRevealOnce
+135/223 Test #532: DumpUi.FinalizingDisablesNewDumpAndOnlySuccessfulGenerationsRevealOnce ........................   Passed    0.03 sec
+        Start 533: DumpUi.EveryDumpPhaseHasEnglishAndChineseText
+136/223 Test #533: DumpUi.EveryDumpPhaseHasEnglishAndChineseText .................................................   Passed    0.03 sec
+        Start 534: DumpUi.RegistryRoundTripDoesNotRewriteBadPath
+137/223 Test #534: DumpUi.RegistryRoundTripDoesNotRewriteBadPath .................................................   Passed    0.03 sec
+        Start 572: GuiLanguage.UserInterfacePrimaryChineseIncludesTraditionalAndHongKong
+138/223 Test #572: GuiLanguage.UserInterfacePrimaryChineseIncludesTraditionalAndHongKong .........................   Passed    0.03 sec
+        Start 573: GuiLanguage.MissingFileFollowsInjectedDisplayLanguage
+139/223 Test #573: GuiLanguage.MissingFileFollowsInjectedDisplayLanguage .........................................   Passed    0.03 sec
+        Start 574: GuiLanguage.MissingKeyEmptyAndIllegalValuesFollowDisplayLanguage
+140/223 Test #574: GuiLanguage.MissingKeyEmptyAndIllegalValuesFollowDisplayLanguage ..............................   Passed    0.03 sec
+        Start 575: GuiLanguage.StoredEnAndZhCnWinOverDisplayLanguage
+141/223 Test #575: GuiLanguage.StoredEnAndZhCnWinOverDisplayLanguage .............................................   Passed    0.03 sec
+        Start 576: GuiLanguage.LastLanguageValueWinsAndIllegalLastFollowsDisplay
+142/223 Test #576: GuiLanguage.LastLanguageValueWinsAndIllegalLastFollowsDisplay .................................   Passed    0.03 sec
+        Start 577: GuiLanguage.BareLogCollapsedStillLoadsAndIllegalLanguageKeepsIt
+143/223 Test #577: GuiLanguage.BareLogCollapsedStillLoadsAndIllegalLanguageKeepsIt ...............................   Passed    0.03 sec
+        Start 578: GuiLanguage.GuiSectionLanguageDoesNotDropLogBit
+144/223 Test #578: GuiLanguage.GuiSectionLanguageDoesNotDropLogBit ...............................................   Passed    0.03 sec
+        Start 579: GuiLanguage.SavingLanguageKeepsLogCollapsed
+145/223 Test #579: GuiLanguage.SavingLanguageKeepsLogCollapsed ...................................................   Passed    0.04 sec
+        Start 580: GuiLanguage.SavingLogBeforeAnyLanguageChoiceDoesNotCreateLanguage
+146/223 Test #580: GuiLanguage.SavingLogBeforeAnyLanguageChoiceDoesNotCreateLanguage .............................   Passed    0.03 sec
+        Start 581: GuiLanguage.UnreadablePathReportsFailure
+147/223 Test #581: GuiLanguage.UnreadablePathReportsFailure ......................................................   Passed    0.03 sec
+        Start 582: GuiLanguage.PipelineTrustBannersHaveEnglishAndChinese
+148/223 Test #582: GuiLanguage.PipelineTrustBannersHaveEnglishAndChinese .........................................   Passed    0.03 sec
+        Start 583: GuiLanguageText.EnglishLanguageReturnsTheEnglishPointer
+149/223 Test #583: GuiLanguageText.EnglishLanguageReturnsTheEnglishPointer .......................................   Passed    0.03 sec
+        Start 584: GuiLanguageText.ChineseReturnsFilledSlotAndFallsBackWhenMissing
+150/223 Test #584: GuiLanguageText.ChineseReturnsFilledSlotAndFallsBackWhenMissing ...............................   Passed    0.03 sec
+        Start 585: GuiLanguageText.LookupNeverReturnsNullAndPassesUnknownPointersThrough
+151/223 Test #585: GuiLanguageText.LookupNeverReturnsNullAndPassesUnknownPointersThrough .........................   Passed    0.03 sec
+        Start 586: GuiLanguageText.SharedLabelsExistForLaterPages
+152/223 Test #586: GuiLanguageText.SharedLabelsExistForLaterPages ................................................   Passed    0.03 sec
+        Start 587: GuiLanguageText.HelpersThatReturnCatalogConstantsFollowLanguage
+153/223 Test #587: GuiLanguageText.HelpersThatReturnCatalogConstantsFollowLanguage ...............................   Passed    0.03 sec
+        Start 588: GuiLanguageText.MonitorLeftoverRowsEnglishPointerAndChineseSlot
+154/223 Test #588: GuiLanguageText.MonitorLeftoverRowsEnglishPointerAndChineseSlot ...............................   Passed    0.03 sec
+        Start 589: GuiLanguageText.CapabilityOriginAndSupportWordsFollowLanguage
+155/223 Test #589: GuiLanguageText.CapabilityOriginAndSupportWordsFollowLanguage .................................   Passed    0.03 sec
+        Start 590: GuiLanguageText.LoopbackLeftoverRowsEnglishPointerAndChineseSlot
+156/223 Test #590: GuiLanguageText.LoopbackLeftoverRowsEnglishPointerAndChineseSlot ..............................   Passed    0.03 sec
+        Start 591: GuiLanguageText.ChannelPhraseLabelsFollowLanguage
+157/223 Test #591: GuiLanguageText.ChannelPhraseLabelsFollowLanguage .............................................   Passed    0.03 sec
+        Start 592: GuiLanguageText.LiveSessionTooltipFragmentsFollowLanguage
+158/223 Test #592: GuiLanguageText.LiveSessionTooltipFragmentsFollowLanguage .....................................   Passed    0.03 sec
+        Start 593: GuiLanguageText.RenderAndPipelineLeftoverLabelsFollowLanguage
+159/223 Test #593: GuiLanguageText.RenderAndPipelineLeftoverLabelsFollowLanguage .................................   Passed    0.03 sec
+        Start 610: WavLifecycle.WavSinkLifecycle.SourceEndsBeforePreparing
+160/223 Test #610: WavLifecycle.WavSinkLifecycle.SourceEndsBeforePreparing .......................................   Passed    0.02 sec
+        Start 611: WavLifecycle.WavSinkLifecycle.SourceEndsBeforeReady
+161/223 Test #611: WavLifecycle.WavSinkLifecycle.SourceEndsBeforeReady ...........................................   Passed    0.02 sec
+        Start 612: WavLifecycle.WavSinkLifecycle.SourceEndsAfterReady
+162/223 Test #612: WavLifecycle.WavSinkLifecycle.SourceEndsAfterReady ............................................   Passed    0.02 sec
+        Start 613: WavLifecycle.WavSinkLifecycle.CompletionIsSeparateFromAdmissionAndKeepsItsGeneration
+163/223 Test #613: WavLifecycle.WavSinkLifecycle.CompletionIsSeparateFromAdmissionAndKeepsItsGeneration ..........   Passed    0.03 sec
+        Start 614: WavLifecycle.WavSinkLifecycle.DelayedOldSourceStopCannotCloseTheNextDump
+164/223 Test #614: WavLifecycle.WavSinkLifecycle.DelayedOldSourceStopCannotCloseTheNextDump ......................   Passed    0.05 sec
+        Start 615: WavLifecycle.WavSinkLifecycle.StopWaitsForAdmittedPushAndKeepsItsBytes
+165/223 Test #615: WavLifecycle.WavSinkLifecycle.StopWaitsForAdmittedPushAndKeepsItsBytes ........................   Passed    0.05 sec
+        Start 616: WavLifecycle.WavSinkLifecycle.EmptyRingDoesNotFinalizeBeforeLastPublication
+166/223 Test #616: WavLifecycle.WavSinkLifecycle.EmptyRingDoesNotFinalizeBeforeLastPublication ...................   Passed    0.04 sec
+        Start 617: WavLifecycle.WavSinkLifecycle.OldSnapshotCannotWriteIntoRestartedFile
+167/223 Test #617: WavLifecycle.WavSinkLifecycle.OldSnapshotCannotWriteIntoRestartedFile .........................   Passed    0.05 sec
+        Start 618: WavLifecycle.WavSinkLifecycle.WriteFailureSurvivesCloseFailureAndRepeatedStop
+168/223 Test #618: WavLifecycle.WavSinkLifecycle.WriteFailureSurvivesCloseFailureAndRepeatedStop .................   Passed    0.03 sec
+        Start 619: WavLifecycle.WavSinkLifecycle.PreparationExceptionClosesOutputAndAllowsRetry
+169/223 Test #619: WavLifecycle.WavSinkLifecycle.PreparationExceptionClosesOutputAndAllowsRetry ..................   Passed    0.03 sec
+        Start 620: WavLifecycle.WavSinkLifecycle.DifferentSourceCannotWriteIntoCurrentFile
+170/223 Test #620: WavLifecycle.WavSinkLifecycle.DifferentSourceCannotWriteIntoCurrentFile .......................   Passed    0.04 sec
+        Start 621: WavLifecycle.WavSinkLifecycle.OverflowRemainsFirstFailureWhenOutputAlsoFails
+171/223 Test #621: WavLifecycle.WavSinkLifecycle.OverflowRemainsFirstFailureWhenOutputAlsoFails ..................   Passed    0.02 sec
+        Start 622: WavLifecycle.WavSinkLifecycle.StopRequestDuringPreparationCannotPublishReady
+172/223 Test #622: WavLifecycle.WavSinkLifecycle.StopRequestDuringPreparationCannotPublishReady ..................   Passed    0.02 sec
+        Start 623: WavLifecycle.WavSinkLifecycle.AllocationAndThreadLaunchFailuresReleaseResourcesForRetry
+173/223 Test #623: WavLifecycle.WavSinkLifecycle.AllocationAndThreadLaunchFailuresReleaseResourcesForRetry .......   Passed    0.06 sec
+        Start 624: WavLifecycle.WavSinkLifecycle.NormalRejectionAndWrongSourceStopAreNotFileFailures
+174/223 Test #624: WavLifecycle.WavSinkLifecycle.NormalRejectionAndWrongSourceStopAreNotFileFailures .............   Passed    0.03 sec
+        Start 625: WavLifecycle.WavSinkLifecycle.OverflowAndStopDrainAcceptedPrefixAfterPublication
+175/223 Test #625: WavLifecycle.WavSinkLifecycle.OverflowAndStopDrainAcceptedPrefixAfterPublication ..............   Passed    0.06 sec
+        Start 626: WavLifecycle.WavSinkLifecycle.WriterBatchBoundariesPreserveMultichannelFrames
+176/223 Test #626: WavLifecycle.WavSinkLifecycle.WriterBatchBoundariesPreserveMultichannelFrames .................   Passed    0.04 sec
+        Start 627: WavLifecycle.WavSinkLifecycle.IncompleteTailRemainsAFailureAndFileIsRetained
+177/223 Test #627: WavLifecycle.WavSinkLifecycle.IncompleteTailRemainsAFailureAndFileIsRetained ..................   Passed    0.04 sec
+        Start 628: WavLifecycle.WavSink.ExactPathRoundTrip16BitStereo
+178/223 Test #628: WavLifecycle.WavSink.ExactPathRoundTrip16BitStereo ............................................   Passed    0.03 sec
+        Start 629: WavLifecycle.WavSink.ExactPathRoundTripFloat32Stereo
+179/223 Test #629: WavLifecycle.WavSink.ExactPathRoundTripFloat32Stereo ..........................................   Passed    0.03 sec
+        Start 630: WavLifecycle.WavSink.ExactPathKeepsCallerName
+180/223 Test #630: WavLifecycle.WavSink.ExactPathKeepsCallerName .................................................   Passed    0.03 sec
+        Start 631: WavLifecycle.WavSink.InvalidPathFailsWithoutThrowing
+181/223 Test #631: WavLifecycle.WavSink.InvalidPathFailsWithoutThrowing ..........................................   Passed    0.02 sec
+        Start 632: WavLifecycle.WavSink.AutoNameUsesPrefixFormatAndTimestamp
+182/223 Test #632: WavLifecycle.WavSink.AutoNameUsesPrefixFormatAndTimestamp .....................................   Passed    0.03 sec
+        Start 633: WavLifecycle.WavSink.AutoNameKeepsCallerPrefixTokens
+183/223 Test #633: WavLifecycle.WavSink.AutoNameKeepsCallerPrefixTokens ..........................................   Passed    0.03 sec
+        Start 634: WavLifecycle.WavSink.AutoNameCollisionGetsNumericSuffix
+184/223 Test #634: WavLifecycle.WavSink.AutoNameCollisionGetsNumericSuffix .......................................   Passed    0.05 sec
+        Start 635: WavLifecycle.WavSink.OverflowFailsSinkAndPatchesHeader
+185/223 Test #635: WavLifecycle.WavSink.OverflowFailsSinkAndPatchesHeader ........................................   Passed    0.04 sec
+        Start 636: WavLifecycle.WavSink.TwoSinksDoNotMixBytes
+186/223 Test #636: WavLifecycle.WavSink.TwoSinksDoNotMixBytes ....................................................   Passed    0.06 sec
+        Start 637: WavLifecycle.CaptureTrackList.CreateStartsLiveTrack
+187/223 Test #637: WavLifecycle.CaptureTrackList.CreateStartsLiveTrack ...........................................   Passed    0.02 sec
+        Start 638: WavLifecycle.CaptureTrackList.DestroyRemovesTrackAndStopsBackend
+188/223 Test #638: WavLifecycle.CaptureTrackList.DestroyRemovesTrackAndStopsBackend ..............................   Passed    0.02 sec
+        Start 639: WavLifecycle.CaptureTrackList.RuntimeBackendFaultMarksTrackError
+189/223 Test #639: WavLifecycle.CaptureTrackList.RuntimeBackendFaultMarksTrackError ..............................   Passed    0.04 sec
+        Start 640: WavLifecycle.CaptureTrackList.RuntimeFaultStillFinalizesCreateTimeWav
+190/223 Test #640: WavLifecycle.CaptureTrackList.RuntimeFaultStillFinalizesCreateTimeWav .........................   Passed    0.06 sec
+        Start 641: WavLifecycle.CaptureTrackList.SilentRenderRuntimeFaultKeepsCaptureRunning
+191/223 Test #641: WavLifecycle.CaptureTrackList.SilentRenderRuntimeFaultKeepsCaptureRunning .....................   Passed    0.04 sec
+        Start 642: WavLifecycle.CaptureTrackList.DestroyAllClearsEveryMember
+192/223 Test #642: WavLifecycle.CaptureTrackList.DestroyAllClearsEveryMember .....................................   Passed    0.03 sec
+        Start 643: WavLifecycle.CaptureTrackList.FailedOpenDoesNotLeaveMember
+193/223 Test #643: WavLifecycle.CaptureTrackList.FailedOpenDoesNotLeaveMember ....................................   Passed    0.02 sec
+        Start 644: WavLifecycle.CaptureTrackList.FailedStartDoesNotLeaveMember
+194/223 Test #644: WavLifecycle.CaptureTrackList.FailedStartDoesNotLeaveMember ...................................   Passed    0.02 sec
+        Start 645: WavLifecycle.CaptureTrackList.EqualSourcesMayBothBeLive
+195/223 Test #645: WavLifecycle.CaptureTrackList.EqualSourcesMayBothBeLive .......................................   Passed    0.04 sec
+        Start 646: WavLifecycle.CaptureTrackList.CreateAllowedWhileSiblingStillListed
+196/223 Test #646: WavLifecycle.CaptureTrackList.CreateAllowedWhileSiblingStillListed ............................   Passed    0.05 sec
+        Start 647: WavLifecycle.CaptureTrackList.WavOpenFailureDoesNotDestroySibling
+197/223 Test #647: WavLifecycle.CaptureTrackList.WavOpenFailureDoesNotDestroySibling .............................   Passed    0.03 sec
+        Start 648: WavLifecycle.CaptureTrackList.ExclusiveLoopbackRejected
+198/223 Test #648: WavLifecycle.CaptureTrackList.ExclusiveLoopbackRejected .......................................   Passed    0.02 sec
+        Start 649: WavLifecycle.CaptureTrackList.ExclusiveApplicationLoopbackRejected
+199/223 Test #649: WavLifecycle.CaptureTrackList.ExclusiveApplicationLoopbackRejected ............................   Passed    0.02 sec
+        Start 650: WavLifecycle.CaptureTrackList.ApplicationLoopbackPreservesPidAndMode
+200/223 Test #650: WavLifecycle.CaptureTrackList.ApplicationLoopbackPreservesPidAndMode ..........................   Passed    0.06 sec
+        Start 651: WavLifecycle.CaptureTrackList.CreateFailureDoesNotDestroySibling
+201/223 Test #651: WavLifecycle.CaptureTrackList.CreateFailureDoesNotDestroySibling ..............................   Passed    0.02 sec
+        Start 652: WavLifecycle.CaptureTrackList.SecondListUnaffectedByDestroyAll
+202/223 Test #652: WavLifecycle.CaptureTrackList.SecondListUnaffectedByDestroyAll ................................   Passed    0.03 sec
+        Start 653: WavLifecycle.CaptureTrackList.TapsAreIndependent
+203/223 Test #653: WavLifecycle.CaptureTrackList.TapsAreIndependent ..............................................   Passed    0.06 sec
+        Start 654: WavLifecycle.CaptureTrackList.CreateTimeWavWritesPushedPcm
+204/223 Test #654: WavLifecycle.CaptureTrackList.CreateTimeWavWritesPushedPcm ....................................   Passed    0.05 sec
+        Start 655: WavLifecycle.CaptureTrackList.LiveDumpWritesPushedPcm
+205/223 Test #655: WavLifecycle.CaptureTrackList.LiveDumpWritesPushedPcm .........................................   Passed    0.08 sec
+        Start 656: WavLifecycle.CaptureTrackList.AppLoopbackDumpNameIncludesPidAndProcessName
+206/223 Test #656: WavLifecycle.CaptureTrackList.AppLoopbackDumpNameIncludesPidAndProcessName ....................   Passed    0.05 sec
+        Start 657: WavLifecycle.CaptureTrackList.LiveDumpRejectedWhenAlreadyDumping
+207/223 Test #657: WavLifecycle.CaptureTrackList.LiveDumpRejectedWhenAlreadyDumping ..............................   Passed    0.05 sec
+        Start 658: WavLifecycle.CaptureTrackList.LiveDumpRejectedWhenTrackNotRunning
+208/223 Test #658: WavLifecycle.CaptureTrackList.LiveDumpRejectedWhenTrackNotRunning .............................   Passed    0.02 sec
+        Start 659: WavLifecycle.CaptureTrackList.LiveDumpOpenFailureLeavesTrackRunning
+209/223 Test #659: WavLifecycle.CaptureTrackList.LiveDumpOpenFailureLeavesTrackRunning ...........................   Passed    0.03 sec
+        Start 660: WavLifecycle.CaptureTrackList.DestroyWhileDumpingFinalizesWav
+210/223 Test #660: WavLifecycle.CaptureTrackList.DestroyWhileDumpingFinalizesWav .................................   Passed    0.06 sec
+        Start 661: WavLifecycle.CaptureTrackList.OptionalWavStillRuns
+211/223 Test #661: WavLifecycle.CaptureTrackList.OptionalWavStillRuns ............................................   Passed    0.02 sec
+        Start 662: WavLifecycle.CaptureTrackList.DefaultCreateOpensWithDefaultStreamParamsAndNoRequestedFormat
+212/223 Test #662: WavLifecycle.CaptureTrackList.DefaultCreateOpensWithDefaultStreamParamsAndNoRequestedFormat ...   Passed    0.02 sec
+        Start 663: WavLifecycle.CaptureTrackList.CreatePassesRequestedFormatToBackend
+213/223 Test #663: WavLifecycle.CaptureTrackList.CreatePassesRequestedFormatToBackend ............................   Passed    0.02 sec
+        Start 664: WavLifecycle.CaptureTrackList.CreatePassesStreamParamsToOpen
+214/223 Test #664: WavLifecycle.CaptureTrackList.CreatePassesStreamParamsToOpen ..................................   Passed    0.02 sec
+        Start 665: WavLifecycle.CaptureTrackList.SystemAndApplicationLoopbackBothPassStreamParams
+215/223 Test #665: WavLifecycle.CaptureTrackList.SystemAndApplicationLoopbackBothPassStreamParams ................   Passed    0.03 sec
+        Start 666: WavLifecycle.CaptureTrackList.SilentRenderOpenStaysDefaultWhenCaptureHasStreamParams
+216/223 Test #666: WavLifecycle.CaptureTrackList.SilentRenderOpenStaysDefaultWhenCaptureHasStreamParams ..........   Passed    0.02 sec
+        Start 667: WavLifecycle.CaptureTrackList.RequiredWavAsyncFailureMarksOnlyItsTrackWithoutMorePcm
+217/223 Test #667: WavLifecycle.CaptureTrackList.RequiredWavAsyncFailureMarksOnlyItsTrackWithoutMorePcm ..........   Passed    0.10 sec
+        Start 668: WavLifecycle.CaptureTrackList.BothLoopbackKindsKeepCapturingAcrossThreeIndependentDumps
+218/223 Test #668: WavLifecycle.CaptureTrackList.BothLoopbackKindsKeepCapturingAcrossThreeIndependentDumps .......   Passed    0.39 sec
+        Start 669: WavLifecycle.CaptureTrackList.OptionalOpenWriteAndCloseFailuresKeepBothTracksAndTapsRunning
+219/223 Test #669: WavLifecycle.CaptureTrackList.OptionalOpenWriteAndCloseFailuresKeepBothTracksAndTapsRunning ...   Passed    0.28 sec
+        Start 670: WavLifecycle.CaptureTrackList.DestroyAllAndDestructorFinalizeEveryAcceptedByte
+220/223 Test #670: WavLifecycle.CaptureTrackList.DestroyAllAndDestructorFinalizeEveryAcceptedByte ................   Passed    0.17 sec
+        Start 671: WavLifecycle.CaptureTrackList.SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing
+221/223 Test #671: WavLifecycle.CaptureTrackList.SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing ............   Passed    0.13 sec
+        Start 672: WavLifecycle.CaptureTrackList.OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix
+222/223 Test #672: WavLifecycle.CaptureTrackList.OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix ........   Passed    2.62 sec
+        Start 673: WavLifecycle.CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown
+223/223 Test #673: WavLifecycle.CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown .................   Passed    0.09 sec
+
+100% tests passed out of 223
+
+Total Test time (real) =  16.86 sec

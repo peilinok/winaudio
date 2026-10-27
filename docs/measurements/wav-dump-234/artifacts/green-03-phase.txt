@@ -1,0 +1,65 @@
+Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSinkLifecycle.*:WavSink.*
+[==========] Running 26 tests from 2 test suites.
+[----------] Global test environment set-up.
+[----------] 17 tests from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.SourceEndsBeforePreparing
+[       OK ] WavSinkLifecycle.SourceEndsBeforePreparing (1 ms)
+[ RUN      ] WavSinkLifecycle.SourceEndsBeforeReady
+[       OK ] WavSinkLifecycle.SourceEndsBeforeReady (1 ms)
+[ RUN      ] WavSinkLifecycle.SourceEndsAfterReady
+[       OK ] WavSinkLifecycle.SourceEndsAfterReady (1 ms)
+[ RUN      ] WavSinkLifecycle.CompletionIsSeparateFromAdmissionAndKeepsItsGeneration
+[       OK ] WavSinkLifecycle.CompletionIsSeparateFromAdmissionAndKeepsItsGeneration (9 ms)
+[ RUN      ] WavSinkLifecycle.StopWaitsForAdmittedPushAndKeepsItsBytes
+[       OK ] WavSinkLifecycle.StopWaitsForAdmittedPushAndKeepsItsBytes (35 ms)
+[ RUN      ] WavSinkLifecycle.EmptyRingDoesNotFinalizeBeforeLastPublication
+[       OK ] WavSinkLifecycle.EmptyRingDoesNotFinalizeBeforeLastPublication (28 ms)
+[ RUN      ] WavSinkLifecycle.OldSnapshotCannotWriteIntoRestartedFile
+[       OK ] WavSinkLifecycle.OldSnapshotCannotWriteIntoRestartedFile (34 ms)
+[ RUN      ] WavSinkLifecycle.WriteFailureSurvivesCloseFailureAndRepeatedStop
+[       OK ] WavSinkLifecycle.WriteFailureSurvivesCloseFailureAndRepeatedStop (10 ms)
+[ RUN      ] WavSinkLifecycle.PreparationExceptionClosesOutputAndAllowsRetry
+[       OK ] WavSinkLifecycle.PreparationExceptionClosesOutputAndAllowsRetry (15 ms)
+[ RUN      ] WavSinkLifecycle.DifferentSourceCannotWriteIntoCurrentFile
+[       OK ] WavSinkLifecycle.DifferentSourceCannotWriteIntoCurrentFile (21 ms)
+[ RUN      ] WavSinkLifecycle.OverflowRemainsFirstFailureWhenOutputAlsoFails
+[       OK ] WavSinkLifecycle.OverflowRemainsFirstFailureWhenOutputAlsoFails (11 ms)
+[ RUN      ] WavSinkLifecycle.StopRequestDuringPreparationCannotPublishReady
+[       OK ] WavSinkLifecycle.StopRequestDuringPreparationCannotPublishReady (1 ms)
+[ RUN      ] WavSinkLifecycle.AllocationAndThreadLaunchFailuresReleaseResourcesForRetry
+[       OK ] WavSinkLifecycle.AllocationAndThreadLaunchFailuresReleaseResourcesForRetry (45 ms)
+[ RUN      ] WavSinkLifecycle.NormalRejectionAndWrongSourceStopAreNotFileFailures
+[       OK ] WavSinkLifecycle.NormalRejectionAndWrongSourceStopAreNotFileFailures (19 ms)
+[ RUN      ] WavSinkLifecycle.OverflowAndStopDrainAcceptedPrefixAfterPublication
+[       OK ] WavSinkLifecycle.OverflowAndStopDrainAcceptedPrefixAfterPublication (33 ms)
+[ RUN      ] WavSinkLifecycle.WriterBatchBoundariesPreserveMultichannelFrames
+[       OK ] WavSinkLifecycle.WriterBatchBoundariesPreserveMultichannelFrames (13 ms)
+[ RUN      ] WavSinkLifecycle.IncompleteTailRemainsAFailureAndFileIsRetained
+[       OK ] WavSinkLifecycle.IncompleteTailRemainsAFailureAndFileIsRetained (9 ms)
+[----------] 17 tests from WavSinkLifecycle (295 ms total)
+
+[----------] 9 tests from WavSink
+[ RUN      ] WavSink.ExactPathRoundTrip16BitStereo
+[       OK ] WavSink.ExactPathRoundTrip16BitStereo (16 ms)
+[ RUN      ] WavSink.ExactPathRoundTripFloat32Stereo
+[       OK ] WavSink.ExactPathRoundTripFloat32Stereo (15 ms)
+[ RUN      ] WavSink.ExactPathKeepsCallerName
+[       OK ] WavSink.ExactPathKeepsCallerName (15 ms)
+[ RUN      ] WavSink.InvalidPathFailsWithoutThrowing
+[       OK ] WavSink.InvalidPathFailsWithoutThrowing (0 ms)
+[ RUN      ] WavSink.AutoNameUsesPrefixFormatAndTimestamp
+[       OK ] WavSink.AutoNameUsesPrefixFormatAndTimestamp (14 ms)
+[ RUN      ] WavSink.AutoNameKeepsCallerPrefixTokens
+[       OK ] WavSink.AutoNameKeepsCallerPrefixTokens (16 ms)
+[ RUN      ] WavSink.AutoNameCollisionGetsNumericSuffix
+[       OK ] WavSink.AutoNameCollisionGetsNumericSuffix (31 ms)
+[ RUN      ] WavSink.OverflowFailsSinkAndPatchesHeader
+[       OK ] WavSink.OverflowFailsSinkAndPatchesHeader (20 ms)
+[ RUN      ] WavSink.TwoSinksDoNotMixBytes
+[       OK ] WavSink.TwoSinksDoNotMixBytes (27 ms)
+[----------] 9 tests from WavSink (158 ms total)
+
+[----------] Global test environment tear-down
+[==========] 26 tests from 2 test suites ran. (454 ms total)
+[  PASSED  ] 26 tests.

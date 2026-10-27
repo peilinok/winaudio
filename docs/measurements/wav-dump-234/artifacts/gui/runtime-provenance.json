@@ -1,0 +1,7 @@
+{
+  "original_sha256": "73f1bff3f8bcbe603270af75b9468b542ae29aa6b1e4731aa68d810c64a6c953",
+  "readable_sha256": "3a519795f89b743b1bbbaec12f378ffeeb0bdf7c9aabd226859c0cf1579b7504",
+  "raw_archive": "runtime.log.raw.gz",
+  "raw_archive_sha256": "3725875c425397c67d82f844475a20f303d03b9c3c9d1fd0d513be9b329104ab",
+  "note": "Readable UTF-8 copy strips trailing whitespace; gzip retains original bytes."
+}

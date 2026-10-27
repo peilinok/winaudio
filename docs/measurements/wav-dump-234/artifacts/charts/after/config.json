@@ -1,0 +1,14 @@
+﻿{
+    "source":  "9483853322706f6ab06b3de635ac5e40bc06b980",
+    "executable":  "E:\\WORK\\vibecoding\\winaudio\\.scratch\\wav-dump-234\\performance-after\\build\\bin\\Release\\WinAudioPerformanceGui.exe",
+    "executable_sha256":  "E1BDE001B20A298998E47236872D8FA740EF097040DF37BEB24E7791A9F067F4",
+    "endpoint":  "{0.0.0.00000000}.{09793ccf-e246-4dbf-800b-a7cf44856994}",
+    "configuration":  {
+                          "name":  "charts-smoke",
+                          "tracks":  2,
+                          "mode":  "buffered",
+                          "warmup":  3,
+                          "duration":  40
+                      },
+    "started":  "2026-10-27T11:24:07.7867170+08:00"
+}
