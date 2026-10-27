@@ -40,7 +40,7 @@
 - [x] 英文及中文文案测试；实际 GUI 冒烟仍由总控后验。
 - [x] 直接回归、生产热路径核对、四配置构建与锁自由。
 - [x] 正式 sink 配对性能和真实虚拟 WASAPI 设备冒烟，原始结果、WAV 与失败尝试均归档。
-- [ ] GUI 与图表后测由总控汇总，另存证据；不能以这里的单元测试或设备探针代替。
+- [x] 总控实际 GUI 慢 close、播放切换、重启与两语言状态验证通过；图表前后四场景均满足 p95≤8 ms / p99≤16 ms，独立证据见总记录。
 - [x] Standards / Spec 两轴审查及修复，最终两轴均为 0 项，见[审查记录](review.md)。
 
 本地只运行目标和直接相关测试；CI 保持既有完整检查。真实设备、GUI 与性能不借用 #233 的旧结果。
@@ -105,3 +105,11 @@ ctest --test-dir <build> -C <config> --output-on-failure -R '<上方过滤器>' 
 七个文件全部 Success，生产 WavReader 验证实际应用流格式、channel mask、完整帧和 EOF；独立 RIFF 解析再次验证长度、48000/8ch/Float32、mask=0x63F、非零且全部有限的样本，并保存 gzip、原始/压缩 SHA-256。见[逐文件设备溯源](artifacts/device/device-provenance.json)、[运行输出](artifacts/device/stdout.txt)及[完整日志](artifacts/device/runtime.txt)。本轮播放关闭请求观测 100 ns、render Idle 观测 15.42 ms，停播期间 capture 继续 9600 帧；这些是单轮观测，不是时延上限。
 
 这是虚拟 WASAPI 端点验证，不代表物理麦克风/扬声器。实际慢 close GUI、截图与图表预算由总控另行记录在[性能与设备总记录](performance-and-device.md)，单独区分可证明的范围。
+
+## 总控本地验收收据
+
+2026-10-27，总控完成实际 AppUi 慢关闭演示、3 份 GUI WAV 读回、偏好恢复，以及固定前后快照的图表冒烟。Render close 等待 135.306 秒期间，设备可先停用、capture 继续，重新 engage 不自动重开文件；成功关闭后才揭示同代结果。Monitor stop 仍等待两侧文件完成。GUI 截图、原始日志、WAV gzip 和二进制溯源均已提交到 `artifacts/gui/`。
+
+前后图表均运行 3 秒 warmup + 40 秒稳定场景；新版四个稳定场景最高 p95=5.9603 ms、最高 p99=6.8096 ms，均通过。warmup、transition、teardown 分开保留；原始帧、config、进程采样和 SHA256 位于 `artifacts/charts/`。没有并行构建或音频测试。总控独立核对 3 份 GUI 与 7 份设备压缩 WAV 的原始/归档 SHA256，图表原始帧解压后逐字节相同，文档相对链接均存在。
+
+固定后测为 `649015e`；后续 `9483853` 及最终总控证据提交仅添加文档/测量文件，发布前再次核对 `src/`、`scripts/performance/` 和构建配置无增量。两轴代码审查无遗留；远端 CI、squash 合并和 issue 关闭由总控继续核验，不以本地通过代替远端交付。

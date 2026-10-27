@@ -1,0 +1,43 @@
+11:02:30.783 [I] [main] GuiLanguage::resolve                           args: en                                     ret: override
+11:02:30.962 [I] [main] DeviceEnum::enumerate                          args: flow=capture                           ret: start
+11:02:30.966 [I] [main] DeviceEnum::GetDefaultAudioEndpoint            args: defaultId                              ret: selected
+11:02:30.967 [W] [main] DeviceEnum::IMMDeviceCollection::GetCount      args: count=6                                ret: S_OK
+11:02:30.975 [I] [main] DeviceEnum::enumerate                          args: flow=render                            ret: start
+11:02:30.977 [I] [main] DeviceEnum::GetDefaultAudioEndpoint            args: defaultId                              ret: selected
+11:02:30.978 [W] [main] DeviceEnum::IMMDeviceCollection::GetCount      args: count=7                                ret: S_OK
+11:03:50.021 [I] [main] MonitorEngine::start                           args: cap={0.0.1.00000000}.{bd3a5c06-b951-4df1-924f-8d7e6244a38a} source=endpoint ren={0.0.0.00000000}.{38a33ff5-6929-4608-8859-e17e9732f9ad} delay=100ms playback=1 ret:
+11:03:50.021 [I] [?   ] WasapiStream::threadMain                       args: worker thread started                  ret:
+11:03:50.068 [I] [?   ] WasapiStream::Start                            args: stream started                         ret:
+11:03:50.068 [I] [capW] WasapiStream::runLoop                          args: capture loop started                   ret:
+11:03:50.068 [I] [main] MonitorEngine::capture.started                 args: dev={0.0.1.00000000}.{bd3a5c06-b951-4df1-924f-8d7e6244a38a} fmt=192000/32f/2 ret: ok
+11:03:50.071 [I] [?   ] WasapiStream::threadMain                       args: worker thread started                  ret:
+11:03:50.090 [I] [?   ] WasapiStream::Start                            args: stream started                         ret:
+11:03:50.090 [I] [renW] WasapiStream::runLoop                          args: render loop started                    ret:
+11:03:50.091 [I] [main] MonitorEngine::render.engaged                  args: dev={0.0.0.00000000}.{38a33ff5-6929-4608-8859-e17e9732f9ad} fmt=192000/32f/2 ret: ok
+11:03:50.091 [I] [main] MonitorEngine::engine.running                  args: cap={0.0.1.00000000}.{bd3a5c06-b951-4df1-924f-8d7e6244a38a} ren={0.0.0.00000000}.{38a33ff5-6929-4608-8859-e17e9732f9ad} sr=192000 ret: ok
+11:03:50.091 [I] [main] MonitorEngine::start                           args: pump ready                             ret: ok
+11:04:37.629 [I] [main] WavSink::start                                 args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\gui-smoke\wav\monitor-cap_192000_2ch_32f_20261027_110437.wav fmt=192000/32f/2 ret: ok
+11:04:37.629 [I] [main] MonitorEngine::dump.cap.start                  args: -                                      ret: ok
+11:05:36.728 [I] [main] WavSink::start                                 args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\gui-smoke\wav\monitor-ren_192000_2ch_32f_20261027_110536.wav fmt=192000/32f/2 ret: ok
+11:05:36.728 [I] [main] MonitorEngine::dump.ren.start                  args: -                                      ret: ok
+11:05:50.079 [I] [pump] MonitorEngine::render.disengaged               args: -                                      ret:
+11:05:50.092 [I] [wav ] PerformanceFixture::monitor-close-wait         args: real WAV; bounded event wait           ret: writer only
+11:06:48.409 [I] [?   ] WasapiStream::threadMain                       args: worker thread started                  ret:
+11:06:48.422 [I] [?   ] WasapiStream::Start                            args: stream started                         ret:
+11:06:48.422 [I] [renW] WasapiStream::runLoop                          args: render loop started                    ret:
+11:06:48.422 [I] [pump] MonitorEngine::render.engaged                  args: dev={0.0.0.00000000}.{38a33ff5-6929-4608-8859-e17e9732f9ad} fmt=192000/32f/2 ret: ok
+11:08:05.398 [I] [wav ] PerformanceFixture::WaitForSingleObject        args: Monitor WAV close gate                 ret: 0
+11:09:06.369 [I] [main] WavSink::stop                                  args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\gui-smoke\wav\monitor-ren_192000_2ch_32f_20261027_110536.wav ret: ok
+11:09:06.371 [I] [main] WavSink::start                                 args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\gui-smoke\wav\monitor-ren_192000_2ch_32f_20261027_110906.wav fmt=192000/32f/2 ret: ok
+11:09:06.371 [I] [main] MonitorEngine::dump.ren.start                  args: -                                      ret: ok
+11:09:43.349 [I] [main] MonitorEngine::stop                            args: -                                      ret:
+11:09:43.351 [I] [wav ] PerformanceFixture::monitor-close-wait         args: real WAV; bounded event wait           ret: writer only
+11:09:43.352 [I] [main] WavSink::stop                                  args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\gui-smoke\wav\monitor-cap_192000_2ch_32f_20261027_110437.wav ret: ok
+11:09:57.354 [I] [wav ] PerformanceFixture::WaitForSingleObject        args: Monitor WAV close gate                 ret: 0
+11:09:57.355 [I] [main] WavSink::stop                                  args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\gui-smoke\wav\monitor-ren_192000_2ch_32f_20261027_110906.wav ret: ok
+11:10:38.630 [I] [main] MonitorEngine::stop                            args: -                                      ret:
+11:10:38.630 [I] [main] WavSink::stop                                  args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\gui-smoke\wav\monitor-cap_192000_2ch_32f_20261027_110437.wav ret: ok
+11:10:38.630 [I] [main] WavSink::stop                                  args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\gui-smoke\wav\monitor-ren_192000_2ch_32f_20261027_110906.wav ret: ok
+11:10:38.630 [I] [main] CaptureTrackList::destroyAll                   args: n=0                                    ret:
+11:10:38.630 [I] [main] CaptureTrackList::destroyAll                   args: n=0                                    ret:
+11:10:38.630 [I] [main] RenderTrackList::destroyAll                    args: n=0                                    ret:

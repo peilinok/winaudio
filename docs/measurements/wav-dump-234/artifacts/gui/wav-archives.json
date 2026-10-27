@@ -1,0 +1,23 @@
+[
+  {
+    "file": "monitor-cap_192000_2ch_32f_20261027_110437.wav",
+    "original_bytes": 469601336,
+    "archive": "monitor-cap_192000_2ch_32f_20261027_110437.wav.gz",
+    "archive_bytes": 456530,
+    "archive_sha256": "6b63935744c1932ba90de9169ee0d414ae06309771d72703541dbef7b36087a8"
+  },
+  {
+    "file": "monitor-ren_192000_2ch_32f_20261027_110536.wav",
+    "original_bytes": 20505656,
+    "archive": "monitor-ren_192000_2ch_32f_20261027_110536.wav.gz",
+    "archive_bytes": 20020,
+    "archive_sha256": "2f631bbd9ad6daf6e0e282cb6edae9a2334ed43e1d0e51e707c87ef4b681533d"
+  },
+  {
+    "file": "monitor-ren_192000_2ch_32f_20261027_110906.wav",
+    "original_bytes": 56801336,
+    "archive": "monitor-ren_192000_2ch_32f_20261027_110906.wav.gz",
+    "archive_bytes": 55299,
+    "archive_sha256": "49d92fd5a6eac7f1578acdfa1c80191f14f7e57e3da779f9ab663fed5e5a395d"
+  }
+]
