@@ -1260,7 +1260,7 @@ TEST(MonitorEngine, ReengageDuringOldCloseUsesANewSourceAndConsistentFormat) {
     ASSERT_TRUE(reader.open(old.path));
     EXPECT_EQ(reader.format().channels, 2);
     EXPECT_FALSE(reader.format().isFloat);
-    std::vector<int16_t> bytes(oldFrames * 2);
+    std::vector<int16_t> bytes(static_cast<size_t>(oldFrames) * 2);
     EXPECT_EQ(reader.read(bytes.data(), bytes.size() * 2), bytes.size() * 2);
     EXPECT_TRUE(std::all_of(bytes.begin(), bytes.end(), [](int16_t v) { return v == 41; }));
     uint8_t extra{};
@@ -1316,7 +1316,7 @@ TEST(MonitorEngine, SlowRenderWriteAllowsIndependentCaptureCompletion) {
     write.release();
     eng.stop();
     ASSERT_TRUE(reader.open(renderPath));
-    std::vector<int16_t> rendered(renderFrames * 2);
+    std::vector<int16_t> rendered(static_cast<size_t>(renderFrames) * 2);
     EXPECT_EQ(reader.read(rendered.data(), rendered.size() * 2), rendered.size() * 2);
     EXPECT_TRUE(std::all_of(rendered.begin(), rendered.end(), [](int16_t v) { return v == 19; }));
     uint8_t extra{};
