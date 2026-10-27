@@ -39,7 +39,8 @@
 - [x] 保留采样位置、格式、单侧设备错误与文件失败隔离。
 - [x] 英文及中文文案测试；实际 GUI 冒烟仍由总控后验。
 - [x] 直接回归、生产热路径核对、四配置构建与锁自由。
-- [ ] 配对性能、真实设备 / GUI 与图表后测由总控执行，另存证据。
+- [x] 正式 sink 配对性能和真实虚拟 WASAPI 设备冒烟，原始结果、WAV 与失败尝试均归档。
+- [ ] GUI 与图表后测由总控汇总，另存证据；不能以这里的单元测试或设备探针代替。
 - [x] Standards / Spec 两轴审查及修复，最终两轴均为 0 项，见[审查记录](review.md)。
 
 本地只运行目标和直接相关测试；CI 保持既有完整检查。真实设备、GUI 与性能不借用 #233 的旧结果。
@@ -76,4 +77,31 @@ ctest --test-dir <build> -C <config> --output-on-failure -R '<上方过滤器>' 
 
 四配置编译均通过原子 lock-free/alignment 静态断言。核对唯一 WavSink 的 gate、ring 与 writer：保留 `seq_cst`、每次 push 至多一次 strong CAS；未新增锁、分配、通知或 I/O 热路径。x64/x86 Debug 的 `dumpbin` 核对显示：生产 `WinAudioCore.lib` 中 `wavSinkTest` 符号为 0，专用同源 `WavSink.obj` 中为 3。计数及符号输出见[热路径与测试钩子证明](artifacts/hot-path-and-hook-proof.txt)。
 
-[证据索引](artifacts/evidence-index.json)固定验证提交、原日志 SHA-256 与归档 SHA-256。MSBuild 的 UTF-16 日志转为可审查的 UTF-8；内容保留，行为红测、构建红测和最终绿测分别存档。真实 GUI、设备、性能与图表后测仍需新结果，不能以这里的单元测试代替。
+[证据索引](artifacts/evidence-index.json)固定验证提交、原日志 SHA-256 与归档 SHA-256。MSBuild 的 UTF-16 日志转为可审查的 UTF-8；内容保留，行为红测、构建红测和最终绿测分别存档。真实 GUI、设备、性能与图表使用各自的新结果，不能以这里的单元测试代替。
+
+## 固定版本探针与正式配对
+
+在原目录下用既有 `build-wav-sink-probe.ps1` 导出源码快照，不创建 worktree。基线固定为 `9360b232513b22a41014fec19eb0c536c9e3689f`，候选固定为 `649015e15576d570aa06f1b5636dffe2c053010f`；候选生产源码与完成四配置回归的 `39d0047` 相同。两个快照均为 x64 Release、同一工具链和 `spdlog=6fa36017cfd5731d617e1a934f0e5ea9c4445b13`，额外构建了 `WinAudioPerformanceGui`，候选加 `-Monitor` 构建实际 Monitor 探针。源码、依赖、驱动脚本、exe SHA-256 和四份构建日志见[探针溯源](artifacts/probe-provenance.json)。构建脚本自带 `result.csv` 仅为预检，排除在正式比较外。
+
+总控明确确认 GUI 已退出、没有其他音频/构建/磁盘负载后，按旧 1、新 1、旧 2、新 2、旧 3、新 3 顺序运行。每轮正常和关闭路径各 1000 次 push，48000 Hz / 2ch / Float32、480 帧、10 ms 固定供给周期，使用真实文件 writer；每轮约 20 秒。每轮使用独立 WAV/CSV，生产 WavReader 和额外独立解析均验证全部 1000 块逐字节一致；正常路径均接收 3,840,000 字节，关闭路径接收 0。全部六个 WAV 的原始 SHA-256 相同；gzip 解压后再次核对原始字节。见[六轮 CSV、WAV 哈希与时间记录](artifacts/sink-provenance.json)和[正式运行脚本](artifacts/sink-runner.py)。
+
+| 版本/轮次 | 正常 p50 / µs | p95 / µs | p99 / µs | 实际接收 / byte/s | stop / ms |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 旧 1 | 1.1 | 1.9 | 13.5 | 383906.876 | 0.5791 |
+| 新 1 | 1.1 | 2.0 | 26.0 | 383876.503 | 0.6614 |
+| 旧 2 | 1.2 | 1.9 | 22.6 | 384081.026 | 16.1464 |
+| 新 2 | 1.2 | 1.9 | 29.6 | 383873.207 | 16.5329 |
+| 旧 3 | 1.2 | 2.0 | 25.1 | 384219.512 | 15.7837 |
+| 新 3 | 1.1 | 1.9 | 11.3 | 384142.963 | 16.3025 |
+
+关闭路径六轮 p50=0.1 µs、p95=0.2 µs，p99 为旧 0.4/0.4/0.3 µs、新 0.5/0.4/0.4 µs。计时包含两次时钟读取，结果呈约 0.1 µs 粒度。正常 p99 有波动且新版前两轮较高，保留所有结果，不宣称加速、吞吐上限或硬实时保证；stop 也受到 writer 轮询和 Windows 调度影响。
+
+## 真实虚拟端点 Monitor 冒烟
+
+固定候选探针直接运行生产 MonitorEngine/WavSink，源为 CABLE Input `{0.0.0.00000000}.{09793ccf-e246-4dbf-800b-a7cf44856994}`，mix=48000 Hz / 8ch / Float32。首次目的端 CABLE In 16ch `{0.0.0.00000000}.{38a33ff5-6929-4608-8859-e17e9732f9ad}`（mix=192000 Hz / 8ch）在 render `Initialize(shared,requested)` 请求 48000 Hz / 8ch / Float32 时返回 `AUDCLNT_E_DEVICE_IN_USE`，采集已打开但没有进入 Dump，探针 exit=8。保留[首次失败日志](artifacts/device/failed-cable-runtime.txt)及两端 caps；该 HRESULT 不足以证明独占持有者或共用驱动冲突的根因。
+
+只把命令行目的端换为已枚举的 Dubbing Speaker `{0.0.0.00000000}.{07eb2780-45a9-42b2-aef9-6604815fa189}`（mix=48000 Hz / 2ch），同一 exe 运行 exit=0。Shared 应用 render 请求并成功使用 48000 Hz / 8ch / Float32。没有修改生产源码、系统默认设备、设备格式、音量或增强设置。实际 WASAPI 流传输合成非零 PCM，覆盖播放停用后 Capture Dump 继续、Render Dump 单独完成、显式重启新代次、Monitor stop 同步收尾与下一 session 来源推进。
+
+七个文件全部 Success，生产 WavReader 验证实际应用流格式、channel mask、完整帧和 EOF；独立 RIFF 解析再次验证长度、48000/8ch/Float32、mask=0x63F、非零且全部有限的样本，并保存 gzip、原始/压缩 SHA-256。见[逐文件设备溯源](artifacts/device/device-provenance.json)、[运行输出](artifacts/device/stdout.txt)及[完整日志](artifacts/device/runtime.txt)。本轮播放关闭请求观测 100 ns、render Idle 观测 15.42 ms，停播期间 capture 继续 9600 帧；这些是单轮观测，不是时延上限。
+
+这是虚拟 WASAPI 端点验证，不代表物理麦克风/扬声器。实际慢 close GUI、截图与图表预算由总控另行记录在[性能与设备总记录](performance-and-device.md)，单独区分可证明的范围。

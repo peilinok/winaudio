@@ -1,0 +1,13 @@
+11:15:28.781 [I] [?   ] WasapiStream::threadMain                       args: worker thread started                  ret:
+11:15:28.827 [I] [?   ] WasapiStream::Start                            args: stream started                         ret:
+11:15:28.827 [I] [renW] WasapiStream::runLoop                          args: render loop started                    ret:
+11:15:28.827 [I] [?   ] MonitorEngine::start                           args: cap={0.0.0.00000000}.{09793ccf-e246-4dbf-800b-a7cf44856994} source=loopback ren={0.0.0.00000000}.{38a33ff5-6929-4608-8859-e17e9732f9ad} delay=50ms playback=1 ret:
+11:15:28.827 [I] [?   ] WasapiStream::threadMain                       args: worker thread started                  ret:
+11:15:28.834 [I] [?   ] WasapiStream::Start                            args: stream started                         ret:
+11:15:28.834 [I] [capW] WasapiStream::runLoop                          args: capture loop started                   ret:
+11:15:28.834 [I] [?   ] MonitorEngine::capture.started                 args: dev={0.0.0.00000000}.{09793ccf-e246-4dbf-800b-a7cf44856994} fmt=48000/32f/8 ret: ok
+11:15:28.839 [I] [?   ] WasapiStream::threadMain                       args: worker thread started                  ret:
+11:15:28.850 [E] [?   ] StreamInit::Initialize(shared,requested)       args: fmt=48000/32f/8 flags=0x88040000       ret: AUDCLNT_E_DEVICE_IN_USE
+11:15:28.850 [E] [?   ] MonitorEngine::start.engageRender              args: playback=1                             ret: WasapiStream: Initialize(shared, requested) failed: hr=0x8889000A
+11:15:28.850 [I] [?   ] MonitorEngine::engine.error                    args: cap={0.0.0.00000000}.{09793ccf-e246-4dbf-800b-a7cf44856994} ren={0.0.0.00000000}.{38a33ff5-6929-4608-8859-e17e9732f9ad} sr=48000 ret: render-failed-capture-up
+11:15:28.850 [I] [?   ] MonitorEngine::start                           args: pump ready                             ret: ok

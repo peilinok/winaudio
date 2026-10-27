@@ -1,0 +1,65 @@
+11:17:45.707 [I] [?   ] WasapiStream::threadMain                       args: worker thread started                  ret:
+11:17:45.727 [I] [?   ] WasapiStream::Start                            args: stream started                         ret:
+11:17:45.727 [I] [renW] WasapiStream::runLoop                          args: render loop started                    ret:
+11:17:45.727 [I] [?   ] MonitorEngine::start                           args: cap={0.0.0.00000000}.{09793ccf-e246-4dbf-800b-a7cf44856994} source=loopback ren={0.0.0.00000000}.{07eb2780-45a9-42b2-aef9-6604815fa189} delay=50ms playback=1 ret:
+11:17:45.727 [I] [?   ] WasapiStream::threadMain                       args: worker thread started                  ret:
+11:17:45.734 [I] [?   ] WasapiStream::Start                            args: stream started                         ret:
+11:17:45.734 [I] [capW] WasapiStream::runLoop                          args: capture loop started                   ret:
+11:17:45.734 [I] [?   ] MonitorEngine::capture.started                 args: dev={0.0.0.00000000}.{09793ccf-e246-4dbf-800b-a7cf44856994} fmt=48000/32f/8 ret: ok
+11:17:45.739 [I] [?   ] WasapiStream::threadMain                       args: worker thread started                  ret:
+11:17:45.823 [I] [?   ] WasapiStream::Start                            args: stream started                         ret:
+11:17:45.823 [I] [renW] WasapiStream::runLoop                          args: render loop started                    ret:
+11:17:45.823 [I] [?   ] MonitorEngine::render.engaged                  args: dev={0.0.0.00000000}.{07eb2780-45a9-42b2-aef9-6604815fa189} fmt=48000/32f/8 ret: ok
+11:17:45.823 [I] [?   ] MonitorEngine::engine.running                  args: cap={0.0.0.00000000}.{09793ccf-e246-4dbf-800b-a7cf44856994} ren={0.0.0.00000000}.{07eb2780-45a9-42b2-aef9-6604815fa189} sr=48000 ret: ok
+11:17:45.823 [I] [?   ] MonitorEngine::start                           args: pump ready                             ret: ok
+11:17:46.100 [I] [?   ] WavSink::start                                 args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-cap_48000_8ch_32f_20261027_111746.wav fmt=48000/32f/8 ret: ok
+11:17:46.100 [I] [?   ] MonitorEngine::dump.cap.start                  args: -                                      ret: ok
+11:17:46.101 [I] [?   ] WavSink::start                                 args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-ren_48000_8ch_32f_20261027_111746.wav fmt=48000/32f/8 ret: ok
+11:17:46.101 [I] [?   ] MonitorEngine::dump.ren.start                  args: -                                      ret: ok
+11:17:46.318 [I] [pump] MonitorEngine::render.disengaged               args: -                                      ret:
+11:17:46.529 [I] [?   ] WasapiStream::threadMain                       args: worker thread started                  ret:
+11:17:46.596 [I] [?   ] WasapiStream::Start                            args: stream started                         ret:
+11:17:46.596 [I] [renW] WasapiStream::runLoop                          args: render loop started                    ret:
+11:17:46.596 [I] [pump] MonitorEngine::render.engaged                  args: dev={0.0.0.00000000}.{07eb2780-45a9-42b2-aef9-6604815fa189} fmt=48000/32f/8 ret: ok
+11:17:46.601 [I] [?   ] WavSink::stop                                  args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-ren_48000_8ch_32f_20261027_111746.wav ret: ok
+11:17:46.602 [I] [?   ] WavSink::start                                 args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-ren_48000_8ch_32f_20261027_111746_2.wav fmt=48000/32f/8 ret: ok
+11:17:46.602 [I] [?   ] MonitorEngine::dump.ren.start                  args: -                                      ret: ok
+11:17:46.871 [I] [?   ] WavSink::stop                                  args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-ren_48000_8ch_32f_20261027_111746_2.wav ret: ok
+11:17:46.871 [I] [?   ] MonitorEngine::dump.ren.stop                   args: -                                      ret: ok
+11:17:46.886 [I] [?   ] WavSink::stop                                  args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-cap_48000_8ch_32f_20261027_111746.wav ret: ok
+11:17:46.886 [I] [?   ] MonitorEngine::dump.cap.stop                   args: -                                      ret: ok
+11:17:46.892 [I] [?   ] WavSink::stop                                  args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-cap_48000_8ch_32f_20261027_111746.wav ret: ok
+11:17:46.894 [I] [?   ] WavSink::start                                 args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-cap_48000_8ch_32f_20261027_111746_2.wav fmt=48000/32f/8 ret: ok
+11:17:46.894 [I] [?   ] MonitorEngine::dump.cap.start                  args: -                                      ret: ok
+11:17:46.894 [I] [?   ] WavSink::stop                                  args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-ren_48000_8ch_32f_20261027_111746_2.wav ret: ok
+11:17:46.895 [I] [?   ] WavSink::start                                 args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-ren_48000_8ch_32f_20261027_111746_3.wav fmt=48000/32f/8 ret: ok
+11:17:46.895 [I] [?   ] MonitorEngine::dump.ren.start                  args: -                                      ret: ok
+11:17:47.095 [I] [?   ] MonitorEngine::stop                            args: -                                      ret:
+11:17:47.112 [I] [?   ] WavSink::stop                                  args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-cap_48000_8ch_32f_20261027_111746_2.wav ret: ok
+11:17:47.112 [I] [?   ] WavSink::stop                                  args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-ren_48000_8ch_32f_20261027_111746_3.wav ret: ok
+11:17:47.120 [I] [?   ] WavSink::stop                                  args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-cap_48000_8ch_32f_20261027_111746_2.wav ret: ok
+11:17:47.120 [I] [?   ] WavSink::stop                                  args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-ren_48000_8ch_32f_20261027_111746_3.wav ret: ok
+11:17:47.120 [I] [?   ] MonitorEngine::start                           args: cap={0.0.0.00000000}.{09793ccf-e246-4dbf-800b-a7cf44856994} source=loopback ren={0.0.0.00000000}.{07eb2780-45a9-42b2-aef9-6604815fa189} delay=50ms playback=1 ret:
+11:17:47.120 [I] [?   ] WasapiStream::threadMain                       args: worker thread started                  ret:
+11:17:47.128 [I] [?   ] WasapiStream::Start                            args: stream started                         ret:
+11:17:47.128 [I] [capW] WasapiStream::runLoop                          args: capture loop started                   ret:
+11:17:47.128 [I] [?   ] MonitorEngine::capture.started                 args: dev={0.0.0.00000000}.{09793ccf-e246-4dbf-800b-a7cf44856994} fmt=48000/32f/8 ret: ok
+11:17:47.133 [I] [?   ] WasapiStream::threadMain                       args: worker thread started                  ret:
+11:17:47.198 [I] [?   ] WasapiStream::Start                            args: stream started                         ret:
+11:17:47.198 [I] [renW] WasapiStream::runLoop                          args: render loop started                    ret:
+11:17:47.198 [I] [?   ] MonitorEngine::render.engaged                  args: dev={0.0.0.00000000}.{07eb2780-45a9-42b2-aef9-6604815fa189} fmt=48000/32f/8 ret: ok
+11:17:47.198 [I] [?   ] MonitorEngine::engine.running                  args: cap={0.0.0.00000000}.{09793ccf-e246-4dbf-800b-a7cf44856994} ren={0.0.0.00000000}.{07eb2780-45a9-42b2-aef9-6604815fa189} sr=48000 ret: ok
+11:17:47.198 [I] [?   ] MonitorEngine::start                           args: pump ready                             ret: ok
+11:17:47.198 [I] [?   ] WavSink::stop                                  args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-cap_48000_8ch_32f_20261027_111746_2.wav ret: ok
+11:17:47.200 [I] [?   ] WavSink::start                                 args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-cap_48000_8ch_32f_20261027_111747.wav fmt=48000/32f/8 ret: ok
+11:17:47.200 [I] [?   ] MonitorEngine::dump.cap.start                  args: -                                      ret: ok
+11:17:47.200 [I] [?   ] WavSink::stop                                  args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-ren_48000_8ch_32f_20261027_111746_3.wav ret: ok
+11:17:47.201 [I] [?   ] WavSink::start                                 args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-ren_48000_8ch_32f_20261027_111747.wav fmt=48000/32f/8 ret: ok
+11:17:47.201 [I] [?   ] MonitorEngine::dump.ren.start                  args: -                                      ret: ok
+11:17:47.496 [I] [?   ] MonitorEngine::stop                            args: -                                      ret:
+11:17:47.512 [I] [?   ] WavSink::stop                                  args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-cap_48000_8ch_32f_20261027_111747.wav ret: ok
+11:17:47.512 [I] [?   ] WavSink::stop                                  args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-ren_48000_8ch_32f_20261027_111747.wav ret: ok
+11:17:47.520 [I] [?   ] WavSink::stop                                  args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-cap_48000_8ch_32f_20261027_111747.wav ret: ok
+11:17:47.520 [I] [?   ] WavSink::stop                                  args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-ren_48000_8ch_32f_20261027_111747.wav ret: ok
+11:17:47.520 [I] [?   ] WavSink::stop                                  args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-ren_48000_8ch_32f_20261027_111747.wav ret: ok
+11:17:47.520 [I] [?   ] WavSink::stop                                  args: E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-cap_48000_8ch_32f_20261027_111747.wav ret: ok

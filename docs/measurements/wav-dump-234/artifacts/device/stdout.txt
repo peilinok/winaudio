@@ -1,0 +1,9 @@
+stage=playback-off-render generation=1 source=1 rate=48000 channels=8 bits=32 float=1 bytes=322560 nonzero_bytes=115270 file=E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-ren_48000_8ch_32f_20261027_111746.wav
+playback_off_request_ns=100 render_idle_us=15420 capture_frames_during_off=9600
+stage=explicit-stop-render generation=2 source=2 rate=48000 channels=8 bits=32 float=1 bytes=307200 nonzero_bytes=153600 file=E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-ren_48000_8ch_32f_20261027_111746_2.wav
+stage=explicit-stop-capture generation=1 source=1 rate=48000 channels=8 bits=32 float=1 bytes=1182720 nonzero_bytes=591360 file=E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-cap_48000_8ch_32f_20261027_111746.wav
+stage=monitor-stop-capture generation=2 source=1 rate=48000 channels=8 bits=32 float=1 bytes=307200 nonzero_bytes=153600 file=E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-cap_48000_8ch_32f_20261027_111746_2.wav
+stage=monitor-stop-render generation=3 source=2 rate=48000 channels=8 bits=32 float=1 bytes=307200 nonzero_bytes=153600 file=E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-ren_48000_8ch_32f_20261027_111746_3.wav
+stage=next-session-capture generation=3 source=2 rate=48000 channels=8 bits=32 float=1 bytes=445440 nonzero_bytes=222720 file=E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-cap_48000_8ch_32f_20261027_111747.wav
+stage=next-session-render generation=4 source=3 rate=48000 channels=8 bits=32 float=1 bytes=307200 nonzero_bytes=153600 file=E:\WORK\vibecoding\winaudio\.scratch\wav-dump-234\monitor-device-dubbing\monitor-ren_48000_8ch_32f_20261027_111747.wav
+Monitor device smoke passed: 7 completed WAV files, playback toggle, Dump restart, session restart, clean stop.

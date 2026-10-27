@@ -1,0 +1,624 @@
+WinAudioCli.exe : 11:17:12.911 [D] [main] DeviceEnum::CoCreateInstance                   args: clsid=MMDeviceEnumerator
+               ret: S_OK
+所在位置 行:2 字符: 1
++ & build/bin/Release/WinAudioCli.exe caps --render --device '{0.0.0.00 ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (11:17:12.911 [D...      ret: S_OK:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+
+11:17:12.911 [D] [main] DeviceEnum::GetDevice                          args: id={0.0.0.00000000}.{07eb2780-45a9-42b2-ae
+f9-6604815fa189} ret: S_OK
+11:17:12.913 [D] [main] DeviceEnum::IMMDevice::Activate                args: iid=IAudioClient                       ret
+: S_OK
+11:17:12.914 [D] [main] DeviceEnum::IAudioClient::GetMixFormat         args: -                                      ret
+: S_OK
+11:17:12.914 [D] [main] DeviceEnum::IMMDevice::OpenPropertyStore       args: mode=STGM_READ                         ret
+: S_OK
+11:17:12.914 [D] [main] DeviceEnum::IPropertyStore::GetValue           args: key=format                             ret
+: S_OK
+11:17:12.914 [D] [main] DeviceEnum::IPropertyStore::GetValue           args: key=format                             ret
+: S_OK
+11:17:12.918 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/32f/2 shared                     ret
+: S_OK
+11:17:12.919 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/32f/2 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.921 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/16/2 shared                      ret
+: S_OK
+11:17:12.922 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/16/2 excl                        ret
+: S_OK
+11:17:12.923 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/16/1 shared                      ret
+: S_FALSE
+11:17:12.924 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/16/1 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.925 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/16/2 shared                      ret
+: S_FALSE
+11:17:12.925 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/16/2 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.927 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/16/4 shared                      ret
+: S_FALSE
+11:17:12.927 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/16/4 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.928 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/16/6 shared                      ret
+: S_FALSE
+11:17:12.928 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/16/6 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.930 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/16/8 shared                      ret
+: S_FALSE
+11:17:12.930 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/16/8 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.932 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/24/1 shared                      ret
+: S_FALSE
+11:17:12.932 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/24/1 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.933 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/24/2 shared                      ret
+: S_FALSE
+11:17:12.934 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/24/2 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.935 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/24/4 shared                      ret
+: S_FALSE
+11:17:12.935 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/24/4 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.937 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/24/6 shared                      ret
+: S_FALSE
+11:17:12.937 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/24/6 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.938 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/24/8 shared                      ret
+: S_FALSE
+11:17:12.939 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/24/8 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.940 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/32/1 shared                      ret
+: S_FALSE
+11:17:12.940 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/32/1 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.942 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/32/2 shared                      ret
+: S_FALSE
+11:17:12.942 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/32/2 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.943 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/32/4 shared                      ret
+: S_FALSE
+11:17:12.944 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/32/4 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.945 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/32/6 shared                      ret
+: S_FALSE
+11:17:12.945 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/32/6 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.947 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/32/8 shared                      ret
+: S_FALSE
+11:17:12.947 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/32/8 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.948 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/32f/1 shared                     ret
+: S_FALSE
+11:17:12.949 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/32f/1 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.950 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/32f/2 shared                     ret
+: S_FALSE
+11:17:12.950 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/32f/2 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.952 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/32f/4 shared                     ret
+: S_FALSE
+11:17:12.952 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/32f/4 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.953 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/32f/6 shared                     ret
+: S_FALSE
+11:17:12.954 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/32f/6 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.955 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/32f/8 shared                     ret
+: S_FALSE
+11:17:12.955 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 44100/32f/8 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.957 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/16/1 shared                      ret
+: S_FALSE
+11:17:12.957 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/16/1 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.958 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/16/4 shared                      ret
+: S_OK
+11:17:12.958 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/16/4 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.960 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/16/6 shared                      ret
+: S_OK
+11:17:12.960 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/16/6 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.961 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/16/8 shared                      ret
+: S_OK
+11:17:12.962 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/16/8 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.963 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/24/1 shared                      ret
+: S_FALSE
+11:17:12.964 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/24/1 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.966 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/24/2 shared                      ret
+: S_OK
+11:17:12.966 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/24/2 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.967 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/24/4 shared                      ret
+: S_OK
+11:17:12.968 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/24/4 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.969 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/24/6 shared                      ret
+: S_OK
+11:17:12.969 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/24/6 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.971 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/24/8 shared                      ret
+: S_OK
+11:17:12.971 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/24/8 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.973 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/32/1 shared                      ret
+: S_FALSE
+11:17:12.973 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/32/1 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.975 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/32/2 shared                      ret
+: S_OK
+11:17:12.975 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/32/2 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.977 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/32/4 shared                      ret
+: S_OK
+11:17:12.977 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/32/4 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.978 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/32/6 shared                      ret
+: S_OK
+11:17:12.979 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/32/6 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.980 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/32/8 shared                      ret
+: S_OK
+11:17:12.981 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/32/8 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.982 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/32f/1 shared                     ret
+: S_FALSE
+11:17:12.982 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/32f/1 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.984 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/32f/4 shared                     ret
+: S_OK
+11:17:12.984 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/32f/4 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.986 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/32f/6 shared                     ret
+: S_OK
+11:17:12.986 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/32f/6 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.987 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/32f/8 shared                     ret
+: S_OK
+11:17:12.987 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 48000/32f/8 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.989 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/16/1 shared                      ret
+: S_FALSE
+11:17:12.989 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/16/1 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.991 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/16/2 shared                      ret
+: S_FALSE
+11:17:12.992 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/16/2 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.993 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/16/4 shared                      ret
+: S_FALSE
+11:17:12.994 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/16/4 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.995 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/16/6 shared                      ret
+: S_FALSE
+11:17:12.995 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/16/6 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.997 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/16/8 shared                      ret
+: S_FALSE
+11:17:12.997 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/16/8 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:12.999 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/24/1 shared                      ret
+: S_FALSE
+11:17:12.999 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/24/1 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.000 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/24/2 shared                      ret
+: S_FALSE
+11:17:13.001 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/24/2 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.002 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/24/4 shared                      ret
+: S_FALSE
+11:17:13.002 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/24/4 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.004 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/24/6 shared                      ret
+: S_FALSE
+11:17:13.004 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/24/6 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.005 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/24/8 shared                      ret
+: S_FALSE
+11:17:13.005 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/24/8 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.007 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/32/1 shared                      ret
+: S_FALSE
+11:17:13.007 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/32/1 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.009 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/32/2 shared                      ret
+: S_FALSE
+11:17:13.009 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/32/2 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.011 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/32/4 shared                      ret
+: S_FALSE
+11:17:13.011 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/32/4 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.013 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/32/6 shared                      ret
+: S_FALSE
+11:17:13.013 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/32/6 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.015 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/32/8 shared                      ret
+: S_FALSE
+11:17:13.015 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/32/8 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.017 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/32f/1 shared                     ret
+: S_FALSE
+11:17:13.017 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/32f/1 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.018 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/32f/2 shared                     ret
+: S_FALSE
+11:17:13.018 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/32f/2 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.020 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/32f/4 shared                     ret
+: S_FALSE
+11:17:13.020 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/32f/4 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.022 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/32f/6 shared                     ret
+: S_FALSE
+11:17:13.022 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/32f/6 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.024 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/32f/8 shared                     ret
+: S_FALSE
+11:17:13.024 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 88200/32f/8 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.026 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/16/1 shared                      ret
+: S_FALSE
+11:17:13.026 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/16/1 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.027 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/16/2 shared                      ret
+: S_FALSE
+11:17:13.028 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/16/2 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.029 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/16/4 shared                      ret
+: S_FALSE
+11:17:13.029 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/16/4 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.031 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/16/6 shared                      ret
+: S_FALSE
+11:17:13.031 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/16/6 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.032 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/16/8 shared                      ret
+: S_FALSE
+11:17:13.033 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/16/8 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.034 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/24/1 shared                      ret
+: S_FALSE
+11:17:13.034 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/24/1 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.036 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/24/2 shared                      ret
+: S_FALSE
+11:17:13.036 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/24/2 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.037 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/24/4 shared                      ret
+: S_FALSE
+11:17:13.038 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/24/4 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.039 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/24/6 shared                      ret
+: S_FALSE
+11:17:13.039 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/24/6 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.041 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/24/8 shared                      ret
+: S_FALSE
+11:17:13.041 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/24/8 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.042 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/32/1 shared                      ret
+: S_FALSE
+11:17:13.043 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/32/1 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.044 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/32/2 shared                      ret
+: S_FALSE
+11:17:13.044 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/32/2 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.046 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/32/4 shared                      ret
+: S_FALSE
+11:17:13.046 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/32/4 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.047 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/32/6 shared                      ret
+: S_FALSE
+11:17:13.047 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/32/6 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.049 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/32/8 shared                      ret
+: S_FALSE
+11:17:13.049 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/32/8 excl                        ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.050 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/32f/1 shared                     ret
+: S_FALSE
+11:17:13.051 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/32f/1 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.052 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/32f/2 shared                     ret
+: S_FALSE
+11:17:13.052 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/32f/2 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.054 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/32f/4 shared                     ret
+: S_FALSE
+11:17:13.054 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/32f/4 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.055 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/32f/6 shared                     ret
+: S_FALSE
+11:17:13.055 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/32f/6 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.057 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/32f/8 shared                     ret
+: S_FALSE
+11:17:13.057 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 96000/32f/8 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.058 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/16/1 shared                     ret
+: S_FALSE
+11:17:13.059 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/16/1 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.060 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/16/2 shared                     ret
+: S_FALSE
+11:17:13.060 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/16/2 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.062 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/16/4 shared                     ret
+: S_FALSE
+11:17:13.062 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/16/4 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.063 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/16/6 shared                     ret
+: S_FALSE
+11:17:13.063 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/16/6 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.065 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/16/8 shared                     ret
+: S_FALSE
+11:17:13.065 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/16/8 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.066 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/24/1 shared                     ret
+: S_FALSE
+11:17:13.066 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/24/1 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.068 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/24/2 shared                     ret
+: S_FALSE
+11:17:13.068 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/24/2 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.069 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/24/4 shared                     ret
+: S_FALSE
+11:17:13.070 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/24/4 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.071 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/24/6 shared                     ret
+: S_FALSE
+11:17:13.071 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/24/6 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.072 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/24/8 shared                     ret
+: S_FALSE
+11:17:13.073 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/24/8 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.074 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/32/1 shared                     ret
+: S_FALSE
+11:17:13.074 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/32/1 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.076 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/32/2 shared                     ret
+: S_FALSE
+11:17:13.076 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/32/2 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.077 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/32/4 shared                     ret
+: S_FALSE
+11:17:13.077 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/32/4 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.079 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/32/6 shared                     ret
+: S_FALSE
+11:17:13.079 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/32/6 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.080 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/32/8 shared                     ret
+: S_FALSE
+11:17:13.081 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/32/8 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.082 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/32f/1 shared                    ret
+: S_FALSE
+11:17:13.082 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/32f/1 excl                      ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.083 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/32f/2 shared                    ret
+: S_FALSE
+11:17:13.084 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/32f/2 excl                      ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.085 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/32f/4 shared                    ret
+: S_FALSE
+11:17:13.085 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/32f/4 excl                      ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.087 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/32f/6 shared                    ret
+: S_FALSE
+11:17:13.087 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/32f/6 excl                      ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.088 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/32f/8 shared                    ret
+: S_FALSE
+11:17:13.088 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 176400/32f/8 excl                      ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.090 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/16/1 shared                     ret
+: S_FALSE
+11:17:13.090 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/16/1 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.091 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/16/2 shared                     ret
+: S_FALSE
+11:17:13.092 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/16/2 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.093 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/16/4 shared                     ret
+: S_FALSE
+11:17:13.093 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/16/4 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.095 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/16/6 shared                     ret
+: S_FALSE
+11:17:13.095 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/16/6 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.096 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/16/8 shared                     ret
+: S_FALSE
+11:17:13.096 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/16/8 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.098 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/24/1 shared                     ret
+: S_FALSE
+11:17:13.098 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/24/1 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.099 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/24/2 shared                     ret
+: S_FALSE
+11:17:13.099 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/24/2 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.101 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/24/4 shared                     ret
+: S_FALSE
+11:17:13.101 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/24/4 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.102 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/24/6 shared                     ret
+: S_FALSE
+11:17:13.103 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/24/6 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.104 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/24/8 shared                     ret
+: S_FALSE
+11:17:13.104 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/24/8 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.106 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/32/1 shared                     ret
+: S_FALSE
+11:17:13.106 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/32/1 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.107 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/32/2 shared                     ret
+: S_FALSE
+11:17:13.107 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/32/2 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.109 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/32/4 shared                     ret
+: S_FALSE
+11:17:13.109 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/32/4 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.110 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/32/6 shared                     ret
+: S_FALSE
+11:17:13.111 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/32/6 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.112 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/32/8 shared                     ret
+: S_FALSE
+11:17:13.112 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/32/8 excl                       ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.113 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/32f/1 shared                    ret
+: S_FALSE
+11:17:13.114 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/32f/1 excl                      ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.115 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/32f/2 shared                    ret
+: S_FALSE
+11:17:13.115 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/32f/2 excl                      ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.117 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/32f/4 shared                    ret
+: S_FALSE
+11:17:13.117 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/32f/4 excl                      ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.118 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/32f/6 shared                    ret
+: S_FALSE
+11:17:13.118 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/32f/6 excl                      ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+11:17:13.120 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/32f/8 shared                    ret
+: S_FALSE
+11:17:13.120 [D] [main] DeviceEnum::IAudioClient::IsFormatSupported    args: 192000/32f/8 excl                      ret
+: AUDCLNT_E_UNSUPPORTED_FORMAT
+Mix: 48000/32/2f
+Device: 48000/16/2
+OEM: (none)
+Format           Shared   Exclusive
+48000/32/2f      exact    -
+48000/16/2       exact    exact
+44100/16/1       closest  -
+44100/16/2       closest  -
+44100/16/4       closest  -
+44100/16/6       closest  -
+44100/16/8       closest  -
+44100/24/1       closest  -
+44100/24/2       closest  -
+44100/24/4       closest  -
+44100/24/6       closest  -
+44100/24/8       closest  -
+44100/32/1       closest  -
+44100/32/2       closest  -
+44100/32/4       closest  -
+44100/32/6       closest  -
+44100/32/8       closest  -
+44100/32/1f      closest  -
+44100/32/2f      closest  -
+44100/32/4f      closest  -
+44100/32/6f      closest  -
+44100/32/8f      closest  -
+48000/16/1       closest  -
+48000/16/4       exact    -
+48000/16/6       exact    -
+48000/16/8       exact    -
+48000/24/1       closest  -
+48000/24/2       exact    -
+48000/24/4       exact    -
+48000/24/6       exact    -
+48000/24/8       exact    -
+48000/32/1       closest  -
+48000/32/2       exact    -
+48000/32/4       exact    -
+48000/32/6       exact    -
+48000/32/8       exact    -
+48000/32/1f      closest  -
+48000/32/4f      exact    -
+48000/32/6f      exact    -
+48000/32/8f      exact    -
+88200/16/1       closest  -
+88200/16/2       closest  -
+88200/16/4       closest  -
+88200/16/6       closest  -
+88200/16/8       closest  -
+88200/24/1       closest  -
+88200/24/2       closest  -
+88200/24/4       closest  -
+88200/24/6       closest  -
+88200/24/8       closest  -
+88200/32/1       closest  -
+88200/32/2       closest  -
+88200/32/4       closest  -
+88200/32/6       closest  -
+88200/32/8       closest  -
+88200/32/1f      closest  -
+88200/32/2f      closest  -
+88200/32/4f      closest  -
+88200/32/6f      closest  -
+88200/32/8f      closest  -
+96000/16/1       closest  -
+96000/16/2       closest  -
+96000/16/4       closest  -
+96000/16/6       closest  -
+96000/16/8       closest  -
+96000/24/1       closest  -
+96000/24/2       closest  -
+96000/24/4       closest  -
+96000/24/6       closest  -
+96000/24/8       closest  -
+96000/32/1       closest  -
+96000/32/2       closest  -
+96000/32/4       closest  -
+96000/32/6       closest  -
+96000/32/8       closest  -
+96000/32/1f      closest  -
+96000/32/2f      closest  -
+96000/32/4f      closest  -
+96000/32/6f      closest  -
+96000/32/8f      closest  -
+176400/16/1      closest  -
+176400/16/2      closest  -
+176400/16/4      closest  -
+176400/16/6      closest  -
+176400/16/8      closest  -
+176400/24/1      closest  -
+176400/24/2      closest  -
+176400/24/4      closest  -
+176400/24/6      closest  -
+176400/24/8      closest  -
+176400/32/1      closest  -
+176400/32/2      closest  -
+176400/32/4      closest  -
+176400/32/6      closest  -
+176400/32/8      closest  -
+176400/32/1f     closest  -
+176400/32/2f     closest  -
+176400/32/4f     closest  -
+176400/32/6f     closest  -
+176400/32/8f     closest  -
+192000/16/1      closest  -
+192000/16/2      closest  -
+192000/16/4      closest  -
+192000/16/6      closest  -
+192000/16/8      closest  -
+192000/24/1      closest  -
+192000/24/2      closest  -
+192000/24/4      closest  -
+192000/24/6      closest  -
+192000/24/8      closest  -
+192000/32/1      closest  -
+192000/32/2      closest  -
+192000/32/4      closest  -
+192000/32/6      closest  -
+192000/32/8      closest  -
+192000/32/1f     closest  -
+192000/32/2f     closest  -
+192000/32/4f     closest  -
+192000/32/6f     closest  -
+192000/32/8f     closest  -
