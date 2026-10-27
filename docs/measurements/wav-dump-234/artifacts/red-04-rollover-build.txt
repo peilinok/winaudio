@@ -1,0 +1,18 @@
+
+  gtest.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Release\gtest.lib
+  imgui.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Release\imgui.lib
+  WinAudioCore.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Release\WinAudioCore.lib
+  gtest_main.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Release\gtest_main.lib
+  test_monitorengine.cpp
+  正在生成代码
+  888 of 25674 functions ( 3.5%) were compiled, the rest were copied from previous compilation.
+    72 functions were new in current compilation
+    425 functions had inline decision re-evaluated but remain unchanged
+  已完成代码的生成
+  WinAudioTests.vcxproj -> E:\WORK\vibecoding\winaudio\build\bin\Release\WinAudioTests.exe
+
+已成功生成。
+    0 个警告
+    0 个错误
+
+已用时间 00:00:13.82

@@ -1,0 +1,271 @@
+Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.*:DumpUi.*:WavSink.*:WavFile.*:CaptureTrackList.*:GuiLanguageText.*
+[==========] Running 123 tests from 6 test suites.
+[----------] Global test environment set-up.
+[----------] 16 tests from WavFile
+[ RUN      ] WavFile.RoundTrip16BitStereo
+[       OK ] WavFile.RoundTrip16BitStereo (1 ms)
+[ RUN      ] WavFile.OpenMissingFileFails
+[       OK ] WavFile.OpenMissingFileFails (0 ms)
+[ RUN      ] WavFile.RejectsTruncatedHeader
+[       OK ] WavFile.RejectsTruncatedHeader (1 ms)
+[ RUN      ] WavFile.ReadsExtensibleFloatHeader
+[       OK ] WavFile.ReadsExtensibleFloatHeader (1 ms)
+[ RUN      ] WavFile.WritesExtensible7Point1FloatWithFactChunk
+[       OK ] WavFile.WritesExtensible7Point1FloatWithFactChunk (7 ms)
+[ RUN      ] WavFile.BuffersPartialFramesAcrossWrites
+[       OK ] WavFile.BuffersPartialFramesAcrossWrites (2 ms)
+[ RUN      ] WavFile.RejectsUnsupportedFormatAtOpen
+[       OK ] WavFile.RejectsUnsupportedFormatAtOpen (0 ms)
+[ RUN      ] WavFile.CloseRejectsIncompleteFinalFrame
+[       OK ] WavFile.CloseRejectsIncompleteFinalFrame (0 ms)
+[ RUN      ] WavFile.ReaderRejectsUnknownExtensibleSubFormat
+[       OK ] WavFile.ReaderRejectsUnknownExtensibleSubFormat (1 ms)
+[ RUN      ] WavFile.ReaderRejectsExtensibleCbSizeBeyondFmtChunk
+[       OK ] WavFile.ReaderRejectsExtensibleCbSizeBeyondFmtChunk (1 ms)
+[ RUN      ] WavFile.ReaderRejectsChannelMaskThatDoesNotMatchChannels
+[       OK ] WavFile.ReaderRejectsChannelMaskThatDoesNotMatchChannels (1 ms)
+[ RUN      ] WavFile.ReaderSkipsOddSizedUnknownChunkWithPadding
+[       OK ] WavFile.ReaderSkipsOddSizedUnknownChunkWithPadding (0 ms)
+[ RUN      ] WavFile.RoundTripsPcm24ValidBitsIn32BitContainer
+[       OK ] WavFile.RoundTripsPcm24ValidBitsIn32BitContainer (1 ms)
+[ RUN      ] WavFile.WritesOddSizedEightBitMonoDataWithPadByte
+[       OK ] WavFile.WritesOddSizedEightBitMonoDataWithPadByte (1 ms)
+[ RUN      ] WavFile.WriterRejectsDestinationThatCannotPatchHeader
+[       OK ] WavFile.WriterRejectsDestinationThatCannotPatchHeader (0 ms)
+[ RUN      ] WavFile.ReaderReuseDoesNotKeepExtensibleMetadata
+[       OK ] WavFile.ReaderReuseDoesNotKeepExtensibleMetadata (1 ms)
+[----------] 16 tests from WavFile (22 ms total)
+
+[----------] 9 tests from WavSink
+[ RUN      ] WavSink.ExactPathRoundTrip16BitStereo
+[       OK ] WavSink.ExactPathRoundTrip16BitStereo (17 ms)
+[ RUN      ] WavSink.ExactPathRoundTripFloat32Stereo
+[       OK ] WavSink.ExactPathRoundTripFloat32Stereo (15 ms)
+[ RUN      ] WavSink.ExactPathKeepsCallerName
+[       OK ] WavSink.ExactPathKeepsCallerName (15 ms)
+[ RUN      ] WavSink.InvalidPathFailsWithoutThrowing
+[       OK ] WavSink.InvalidPathFailsWithoutThrowing (0 ms)
+[ RUN      ] WavSink.AutoNameUsesPrefixFormatAndTimestamp
+[       OK ] WavSink.AutoNameUsesPrefixFormatAndTimestamp (14 ms)
+[ RUN      ] WavSink.AutoNameKeepsCallerPrefixTokens
+[       OK ] WavSink.AutoNameKeepsCallerPrefixTokens (15 ms)
+[ RUN      ] WavSink.AutoNameCollisionGetsNumericSuffix
+[       OK ] WavSink.AutoNameCollisionGetsNumericSuffix (30 ms)
+[ RUN      ] WavSink.OverflowFailsSinkAndPatchesHeader
+[       OK ] WavSink.OverflowFailsSinkAndPatchesHeader (22 ms)
+[ RUN      ] WavSink.TwoSinksDoNotMixBytes
+[       OK ] WavSink.TwoSinksDoNotMixBytes (24 ms)
+[----------] 9 tests from WavSink (157 ms total)
+
+[----------] 45 tests from MonitorEngine
+[ RUN      ] MonitorEngine.RateMismatchFails
+[       OK ] MonitorEngine.RateMismatchFails (3 ms)
+[ RUN      ] MonitorEngine.PrefillThenRunning
+[       OK ] MonitorEngine.PrefillThenRunning (11 ms)
+[ RUN      ] MonitorEngine.CaptureScopePopulated
+[       OK ] MonitorEngine.CaptureScopePopulated (15 ms)
+[ RUN      ] MonitorEngine.CaptureChannelSnapshotsExposeActualChannels
+[       OK ] MonitorEngine.CaptureChannelSnapshotsExposeActualChannels (14 ms)
+[ RUN      ] MonitorEngine.CaptureChannelSnapshotAtUsesRequestedEndIndex
+[       OK ] MonitorEngine.CaptureChannelSnapshotAtUsesRequestedEndIndex (15 ms)
+[ RUN      ] MonitorEngine.CaptureSnapshotAtDownmixUsesRequestedEndIndex
+[       OK ] MonitorEngine.CaptureSnapshotAtDownmixUsesRequestedEndIndex (15 ms)
+[ RUN      ] MonitorEngine.StartRollbackOnRenderFail
+[       OK ] MonitorEngine.StartRollbackOnRenderFail (2 ms)
+[ RUN      ] MonitorEngine.StopJoinsCleanly
+[       OK ] MonitorEngine.StopJoinsCleanly (13 ms)
+[ RUN      ] MonitorEngine.InvalidDelayRejected
+[       OK ] MonitorEngine.InvalidDelayRejected (0 ms)
+[ RUN      ] MonitorEngine.PlaybackStartsDisabled
+[       OK ] MonitorEngine.PlaybackStartsDisabled (2 ms)
+[ RUN      ] MonitorEngine.EnablePlaybackEngagesRender
+[       OK ] MonitorEngine.EnablePlaybackEngagesRender (13 ms)
+[ RUN      ] MonitorEngine.DisablePlaybackStopsRender
+[       OK ] MonitorEngine.DisablePlaybackStopsRender (31 ms)
+[ RUN      ] MonitorEngine.EnablePlaybackRateMismatch
+[       OK ] MonitorEngine.EnablePlaybackRateMismatch (15 ms)
+[ RUN      ] MonitorEngine.StreamParamsReachBackends
+[       OK ] MonitorEngine.StreamParamsReachBackends (3 ms)
+[ RUN      ] MonitorEngine.SetRenderParamsAppliesOnReengage
+[       OK ] MonitorEngine.SetRenderParamsAppliesOnReengage (74 ms)
+[ RUN      ] MonitorEngine.CaptureFormatReachesBackend
+[       OK ] MonitorEngine.CaptureFormatReachesBackend (2 ms)
+[ RUN      ] MonitorEngine.LegacyStartUsesEndpointCaptureSource
+[       OK ] MonitorEngine.LegacyStartUsesEndpointCaptureSource (2 ms)
+[ RUN      ] MonitorEngine.LoopbackCaptureSourceReachesFactory
+[       OK ] MonitorEngine.LoopbackCaptureSourceReachesFactory (2 ms)
+[ RUN      ] MonitorEngine.ApplicationLoopbackCaptureSourceReachesFactory
+[       OK ] MonitorEngine.ApplicationLoopbackCaptureSourceReachesFactory (2 ms)
+[ RUN      ] MonitorEngine.ApplicationLoopbackExcludeTreeModeReachesFactory
+[       OK ] MonitorEngine.ApplicationLoopbackExcludeTreeModeReachesFactory (2 ms)
+[ RUN      ] MonitorEngine.ApplicationLoopbackDoesNotStartSilentRender
+[       OK ] MonitorEngine.ApplicationLoopbackDoesNotStartSilentRender (3 ms)
+[ RUN      ] MonitorEngine.ApplicationLoopbackDefaultFactoryRejectsZeroPid
+[       OK ] MonitorEngine.ApplicationLoopbackDefaultFactoryRejectsZeroPid (0 ms)
+[ RUN      ] MonitorEngine.LoopbackStartsSilentRenderByDefault
+[       OK ] MonitorEngine.LoopbackStartsSilentRenderByDefault (2 ms)
+[ RUN      ] MonitorEngine.SilentRenderRuntimeFaultIsReportedWithoutStoppingCapture
+[       OK ] MonitorEngine.SilentRenderRuntimeFaultIsReportedWithoutStoppingCapture (41 ms)
+[ RUN      ] MonitorEngine.PollExposesCaptureProgressAndLoopbackSilenceFrames
+[       OK ] MonitorEngine.PollExposesCaptureProgressAndLoopbackSilenceFrames (15 ms)
+[ RUN      ] MonitorEngine.LoopbackCanDisableSilentRender
+[       OK ] MonitorEngine.LoopbackCanDisableSilentRender (2 ms)
+[ RUN      ] MonitorEngine.SilentRenderFailureDoesNotFailLoopbackCapture
+[       OK ] MonitorEngine.SilentRenderFailureDoesNotFailLoopbackCapture (3 ms)
+[ RUN      ] MonitorEngine.SilentRenderOpenFailureDoesNotFailLoopbackCapture
+[       OK ] MonitorEngine.SilentRenderOpenFailureDoesNotFailLoopbackCapture (2 ms)
+[ RUN      ] MonitorEngine.LoopbackPlaybackRejectsSameRenderDevice
+[       OK ] MonitorEngine.LoopbackPlaybackRejectsSameRenderDevice (0 ms)
+[ RUN      ] MonitorEngine.LoopbackPlaybackRejectsBothDefaultRenderDevices
+[       OK ] MonitorEngine.LoopbackPlaybackRejectsBothDefaultRenderDevices (0 ms)
+[ RUN      ] MonitorEngine.LoopbackRuntimePlaybackRejectsSameRenderDevice
+[       OK ] MonitorEngine.LoopbackRuntimePlaybackRejectsSameRenderDevice (6 ms)
+[ RUN      ] MonitorEngine.RuntimeCaptureErrorDoesNotStopRender
+[       OK ] MonitorEngine.RuntimeCaptureErrorDoesNotStopRender (31 ms)
+[ RUN      ] MonitorEngine.RuntimeRenderErrorDoesNotStopCaptureOrFifo
+[       OK ] MonitorEngine.RuntimeRenderErrorDoesNotStopCaptureOrFifo (31 ms)
+[ RUN      ] MonitorEngine.CaptureDumpWritesPcmBeforeDelay
+[       OK ] MonitorEngine.CaptureDumpWritesPcmBeforeDelay (17 ms)
+[ RUN      ] MonitorEngine.RenderDumpRejectedWhenPlaybackOff
+[       OK ] MonitorEngine.RenderDumpRejectedWhenPlaybackOff (2 ms)
+[ RUN      ] MonitorEngine.RenderDumpWritesAfterDelay
+[       OK ] MonitorEngine.RenderDumpWritesAfterDelay (15 ms)
+[ RUN      ] MonitorEngine.SessionStopFinalizesCaptureDump
+[       OK ] MonitorEngine.SessionStopFinalizesCaptureDump (29 ms)
+[ RUN      ] MonitorEngine.PlaybackOffFinalizesRenderDump
+[       OK ] MonitorEngine.PlaybackOffFinalizesRenderDump (45 ms)
+[ RUN      ] MonitorEngine.SlowRenderCloseDoesNotBlockPlaybackOffOrCaptureDump
+[       OK ] MonitorEngine.SlowRenderCloseDoesNotBlockPlaybackOffOrCaptureDump (85 ms)
+[ RUN      ] MonitorEngine.ReengageDuringOldCloseUsesANewSourceAndConsistentFormat
+[       OK ] MonitorEngine.ReengageDuringOldCloseUsesANewSourceAndConsistentFormat (142 ms)
+[ RUN      ] MonitorEngine.SlowRenderWriteAllowsIndependentCaptureCompletion
+[       OK ] MonitorEngine.SlowRenderWriteAllowsIndependentCaptureCompletion (98 ms)
+[ RUN      ] MonitorEngine.SlowOpenCancelledBySourceEndCannotFollowReengage
+[       OK ] MonitorEngine.SlowOpenCancelledBySourceEndCannotFollowReengage (99 ms)
+[ RUN      ] MonitorEngine.CaptureSourceChangesPerSessionWhileDumpGenerationKeepsIncreasing
+[       OK ] MonitorEngine.CaptureSourceChangesPerSessionWhileDumpGenerationKeepsIncreasing (30 ms)
+[ RUN      ] MonitorEngine.OptionalRenderFailuresKeepCaptureAcceptingAndAllowRetry
+[       OK ] MonitorEngine.OptionalRenderFailuresKeepCaptureAcceptingAndAllowRetry (155 ms)
+[ RUN      ] MonitorEngine.StopWaitsForAnAlreadyFinalizingFileAndCompletesBothSinks
+[       OK ] MonitorEngine.StopWaitsForAnAlreadyFinalizingFileAndCompletesBothSinks (76 ms)
+[----------] 45 tests from MonitorEngine (1189 ms total)
+
+[----------] 37 tests from CaptureTrackList
+[ RUN      ] CaptureTrackList.CreateStartsLiveTrack
+[       OK ] CaptureTrackList.CreateStartsLiveTrack (1 ms)
+[ RUN      ] CaptureTrackList.DestroyRemovesTrackAndStopsBackend
+[       OK ] CaptureTrackList.DestroyRemovesTrackAndStopsBackend (1 ms)
+[ RUN      ] CaptureTrackList.RuntimeBackendFaultMarksTrackError
+[       OK ] CaptureTrackList.RuntimeBackendFaultMarksTrackError (26 ms)
+[ RUN      ] CaptureTrackList.RuntimeFaultStillFinalizesCreateTimeWav
+[       OK ] CaptureTrackList.RuntimeFaultStillFinalizesCreateTimeWav (48 ms)
+[ RUN      ] CaptureTrackList.SilentRenderRuntimeFaultKeepsCaptureRunning
+[       OK ] CaptureTrackList.SilentRenderRuntimeFaultKeepsCaptureRunning (30 ms)
+[ RUN      ] CaptureTrackList.DestroyAllClearsEveryMember
+[       OK ] CaptureTrackList.DestroyAllClearsEveryMember (31 ms)
+[ RUN      ] CaptureTrackList.FailedOpenDoesNotLeaveMember
+[       OK ] CaptureTrackList.FailedOpenDoesNotLeaveMember (0 ms)
+[ RUN      ] CaptureTrackList.FailedStartDoesNotLeaveMember
+[       OK ] CaptureTrackList.FailedStartDoesNotLeaveMember (0 ms)
+[ RUN      ] CaptureTrackList.EqualSourcesMayBothBeLive
+[       OK ] CaptureTrackList.EqualSourcesMayBothBeLive (31 ms)
+[ RUN      ] CaptureTrackList.CreateAllowedWhileSiblingStillListed
+[       OK ] CaptureTrackList.CreateAllowedWhileSiblingStillListed (46 ms)
+[ RUN      ] CaptureTrackList.WavOpenFailureDoesNotDestroySibling
+[       OK ] CaptureTrackList.WavOpenFailureDoesNotDestroySibling (31 ms)
+[ RUN      ] CaptureTrackList.ExclusiveLoopbackRejected
+[       OK ] CaptureTrackList.ExclusiveLoopbackRejected (0 ms)
+[ RUN      ] CaptureTrackList.ExclusiveApplicationLoopbackRejected
+[       OK ] CaptureTrackList.ExclusiveApplicationLoopbackRejected (0 ms)
+[ RUN      ] CaptureTrackList.ApplicationLoopbackPreservesPidAndMode
+[       OK ] CaptureTrackList.ApplicationLoopbackPreservesPidAndMode (45 ms)
+[ RUN      ] CaptureTrackList.CreateFailureDoesNotDestroySibling
+[       OK ] CaptureTrackList.CreateFailureDoesNotDestroySibling (15 ms)
+[ RUN      ] CaptureTrackList.SecondListUnaffectedByDestroyAll
+[       OK ] CaptureTrackList.SecondListUnaffectedByDestroyAll (31 ms)
+[ RUN      ] CaptureTrackList.TapsAreIndependent
+[       OK ] CaptureTrackList.TapsAreIndependent (62 ms)
+[ RUN      ] CaptureTrackList.CreateTimeWavWritesPushedPcm
+[       OK ] CaptureTrackList.CreateTimeWavWritesPushedPcm (16 ms)
+[ RUN      ] CaptureTrackList.LiveDumpWritesPushedPcm
+[       OK ] CaptureTrackList.LiveDumpWritesPushedPcm (30 ms)
+[ RUN      ] CaptureTrackList.AppLoopbackDumpNameIncludesPidAndProcessName
+[       OK ] CaptureTrackList.AppLoopbackDumpNameIncludesPidAndProcessName (31 ms)
+[ RUN      ] CaptureTrackList.LiveDumpRejectedWhenAlreadyDumping
+[       OK ] CaptureTrackList.LiveDumpRejectedWhenAlreadyDumping (31 ms)
+[ RUN      ] CaptureTrackList.LiveDumpRejectedWhenTrackNotRunning
+[       OK ] CaptureTrackList.LiveDumpRejectedWhenTrackNotRunning (2 ms)
+[ RUN      ] CaptureTrackList.LiveDumpOpenFailureLeavesTrackRunning
+[       OK ] CaptureTrackList.LiveDumpOpenFailureLeavesTrackRunning (13 ms)
+[ RUN      ] CaptureTrackList.DestroyWhileDumpingFinalizesWav
+[       OK ] CaptureTrackList.DestroyWhileDumpingFinalizesWav (48 ms)
+[ RUN      ] CaptureTrackList.OptionalWavStillRuns
+[       OK ] CaptureTrackList.OptionalWavStillRuns (1 ms)
+[ RUN      ] CaptureTrackList.DefaultCreateOpensWithDefaultStreamParamsAndNoRequestedFormat
+[       OK ] CaptureTrackList.DefaultCreateOpensWithDefaultStreamParamsAndNoRequestedFormat (1 ms)
+[ RUN      ] CaptureTrackList.CreatePassesRequestedFormatToBackend
+[       OK ] CaptureTrackList.CreatePassesRequestedFormatToBackend (1 ms)
+[ RUN      ] CaptureTrackList.CreatePassesStreamParamsToOpen
+[       OK ] CaptureTrackList.CreatePassesStreamParamsToOpen (1 ms)
+[ RUN      ] CaptureTrackList.SystemAndApplicationLoopbackBothPassStreamParams
+[       OK ] CaptureTrackList.SystemAndApplicationLoopbackBothPassStreamParams (23 ms)
+[ RUN      ] CaptureTrackList.SilentRenderOpenStaysDefaultWhenCaptureHasStreamParams
+[       OK ] CaptureTrackList.SilentRenderOpenStaysDefaultWhenCaptureHasStreamParams (1 ms)
+[ RUN      ] CaptureTrackList.RequiredWavAsyncFailureMarksOnlyItsTrackWithoutMorePcm
+[       OK ] CaptureTrackList.RequiredWavAsyncFailureMarksOnlyItsTrackWithoutMorePcm (93 ms)
+[ RUN      ] CaptureTrackList.BothLoopbackKindsKeepCapturingAcrossThreeIndependentDumps
+[       OK ] CaptureTrackList.BothLoopbackKindsKeepCapturingAcrossThreeIndependentDumps (482 ms)
+[ RUN      ] CaptureTrackList.OptionalOpenWriteAndCloseFailuresKeepBothTracksAndTapsRunning
+[       OK ] CaptureTrackList.OptionalOpenWriteAndCloseFailuresKeepBothTracksAndTapsRunning (220 ms)
+[ RUN      ] CaptureTrackList.DestroyAllAndDestructorFinalizeEveryAcceptedByte
+[       OK ] CaptureTrackList.DestroyAllAndDestructorFinalizeEveryAcceptedByte (111 ms)
+[ RUN      ] CaptureTrackList.SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing
+[       OK ] CaptureTrackList.SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing (109 ms)
+[ RUN      ] CaptureTrackList.OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix
+[       OK ] CaptureTrackList.OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix (1944 ms)
+[ RUN      ] CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown
+[       OK ] CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown (62 ms)
+[----------] 37 tests from CaptureTrackList (3637 ms total)
+
+[----------] 5 tests from DumpUi
+[ RUN      ] DumpUi.FolderPickerTakeEmptyWhenIdle
+[       OK ] DumpUi.FolderPickerTakeEmptyWhenIdle (0 ms)
+[ RUN      ] DumpUi.DownloadsFolderIsNonEmpty
+[       OK ] DumpUi.DownloadsFolderIsNonEmpty (2 ms)
+[ RUN      ] DumpUi.FinalizingDisablesNewDumpAndOnlySuccessfulGenerationsRevealOnce
+[       OK ] DumpUi.FinalizingDisablesNewDumpAndOnlySuccessfulGenerationsRevealOnce (0 ms)
+[ RUN      ] DumpUi.EveryDumpPhaseHasEnglishAndChineseText
+[       OK ] DumpUi.EveryDumpPhaseHasEnglishAndChineseText (0 ms)
+[ RUN      ] DumpUi.RegistryRoundTripDoesNotRewriteBadPath
+[       OK ] DumpUi.RegistryRoundTripDoesNotRewriteBadPath (0 ms)
+[----------] 5 tests from DumpUi (3 ms total)
+
+[----------] 11 tests from GuiLanguageText
+[ RUN      ] GuiLanguageText.EnglishLanguageReturnsTheEnglishPointer
+[       OK ] GuiLanguageText.EnglishLanguageReturnsTheEnglishPointer (0 ms)
+[ RUN      ] GuiLanguageText.ChineseReturnsFilledSlotAndFallsBackWhenMissing
+[       OK ] GuiLanguageText.ChineseReturnsFilledSlotAndFallsBackWhenMissing (0 ms)
+[ RUN      ] GuiLanguageText.LookupNeverReturnsNullAndPassesUnknownPointersThrough
+[       OK ] GuiLanguageText.LookupNeverReturnsNullAndPassesUnknownPointersThrough (0 ms)
+[ RUN      ] GuiLanguageText.SharedLabelsExistForLaterPages
+[       OK ] GuiLanguageText.SharedLabelsExistForLaterPages (0 ms)
+[ RUN      ] GuiLanguageText.HelpersThatReturnCatalogConstantsFollowLanguage
+[       OK ] GuiLanguageText.HelpersThatReturnCatalogConstantsFollowLanguage (0 ms)
+[ RUN      ] GuiLanguageText.MonitorLeftoverRowsEnglishPointerAndChineseSlot
+[       OK ] GuiLanguageText.MonitorLeftoverRowsEnglishPointerAndChineseSlot (0 ms)
+[ RUN      ] GuiLanguageText.CapabilityOriginAndSupportWordsFollowLanguage
+[       OK ] GuiLanguageText.CapabilityOriginAndSupportWordsFollowLanguage (0 ms)
+[ RUN      ] GuiLanguageText.LoopbackLeftoverRowsEnglishPointerAndChineseSlot
+[       OK ] GuiLanguageText.LoopbackLeftoverRowsEnglishPointerAndChineseSlot (0 ms)
+[ RUN      ] GuiLanguageText.ChannelPhraseLabelsFollowLanguage
+[       OK ] GuiLanguageText.ChannelPhraseLabelsFollowLanguage (0 ms)
+[ RUN      ] GuiLanguageText.LiveSessionTooltipFragmentsFollowLanguage
+[       OK ] GuiLanguageText.LiveSessionTooltipFragmentsFollowLanguage (0 ms)
+[ RUN      ] GuiLanguageText.RenderAndPipelineLeftoverLabelsFollowLanguage
+[       OK ] GuiLanguageText.RenderAndPipelineLeftoverLabelsFollowLanguage (0 ms)
+[----------] 11 tests from GuiLanguageText (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 123 tests from 6 test suites ran. (5009 ms total)
+[  PASSED  ] 123 tests.

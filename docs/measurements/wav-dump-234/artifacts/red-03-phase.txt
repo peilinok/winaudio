@@ -1,0 +1,38 @@
+Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSinkLifecycle.CompletionIsSeparateFromAdmissionAndKeepsItsGeneration
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.CompletionIsSeparateFromAdmissionAndKeepsItsGeneration
+E:\WORK\vibecoding\winaudio\src\tests\test_wav_sink_lifecycle.cpp(242): error: Value of: sink.isRunning()
+  Actual: true
+Expected: false
+
+E:\WORK\vibecoding\winaudio\src\tests\test_wav_sink_lifecycle.cpp(244): error: Expected equality of these values:
+  closing.phase
+    Which is: 4-byte object <00-00 00-00>
+  WavDumpPhase::Finalizing
+    Which is: 4-byte object <03-00 00-00>
+
+E:\WORK\vibecoding\winaudio\src\tests\test_wav_sink_lifecycle.cpp(246): error: Expected equality of these values:
+  closing.source
+    Which is: 0
+  91u
+    Which is: 91
+
+E:\WORK\vibecoding\winaudio\src\tests\test_wav_sink_lifecycle.cpp(250): error: Expected equality of these values:
+  finished.phase
+    Which is: 4-byte object <00-00 00-00>
+  WavDumpPhase::Success
+    Which is: 4-byte object <04-00 00-00>
+
+[  FAILED  ] WavSinkLifecycle.CompletionIsSeparateFromAdmissionAndKeepsItsGeneration (8 ms)
+[----------] 1 test from WavSinkLifecycle (8 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (8 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] WavSinkLifecycle.CompletionIsSeparateFromAdmissionAndKeepsItsGeneration
+
+ 1 FAILED TEST

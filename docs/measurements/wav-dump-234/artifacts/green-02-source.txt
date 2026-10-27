@@ -1,0 +1,16 @@
+Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSinkLifecycle.SourceEnds*
+[==========] Running 3 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 3 tests from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.SourceEndsBeforePreparing
+[       OK ] WavSinkLifecycle.SourceEndsBeforePreparing (1 ms)
+[ RUN      ] WavSinkLifecycle.SourceEndsBeforeReady
+[       OK ] WavSinkLifecycle.SourceEndsBeforeReady (1 ms)
+[ RUN      ] WavSinkLifecycle.SourceEndsAfterReady
+[       OK ] WavSinkLifecycle.SourceEndsAfterReady (1 ms)
+[----------] 3 tests from WavSinkLifecycle (4 ms total)
+
+[----------] Global test environment tear-down
+[==========] 3 tests from 1 test suite ran. (4 ms total)
+[  PASSED  ] 3 tests.

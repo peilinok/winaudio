@@ -1,0 +1,3579 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="(empty)"
+	tests="223"
+	failures="0"
+	disabled="0"
+	skipped="0"
+	hostname=""
+	time="13"
+	timestamp="2026-10-27T10:56:00"
+	>
+	<testcase name="DelayFifo.BasicPushPop" classname="DelayFifo.BasicPushPop" time="0.0198968" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = DelayFifo.BasicPushPop
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DelayFifo
+[ RUN      ] DelayFifo.BasicPushPop
+[       OK ] DelayFifo.BasicPushPop (0 ms)
+[----------] 1 test from DelayFifo (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DelayFifo.AbsorbsSustainedDriftWithoutRunaway" classname="DelayFifo.AbsorbsSustainedDriftWithoutRunaway" time="0.0245211" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = DelayFifo.AbsorbsSustainedDriftWithoutRunaway
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DelayFifo
+[ RUN      ] DelayFifo.AbsorbsSustainedDriftWithoutRunaway
+[       OK ] DelayFifo.AbsorbsSustainedDriftWithoutRunaway (7 ms)
+[----------] 1 test from DelayFifo (7 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (7 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DelayFifo.DuplicatesWhenStarved" classname="DelayFifo.DuplicatesWhenStarved" time="0.0221003" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = DelayFifo.DuplicatesWhenStarved
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DelayFifo
+[ RUN      ] DelayFifo.DuplicatesWhenStarved
+[       OK ] DelayFifo.DuplicatesWhenStarved (4 ms)
+[----------] 1 test from DelayFifo (4 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (4 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="AudioFormat.DerivedFields" classname="AudioFormat.DerivedFields" time="0.0189226" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = AudioFormat.DerivedFields
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from AudioFormat
+[ RUN      ] AudioFormat.DerivedFields
+[       OK ] AudioFormat.DerivedFields (0 ms)
+[----------] 1 test from AudioFormat (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="AudioFormat.RoundTripPcm16" classname="AudioFormat.RoundTripPcm16" time="0.0224574" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = AudioFormat.RoundTripPcm16
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from AudioFormat
+[ RUN      ] AudioFormat.RoundTripPcm16
+[       OK ] AudioFormat.RoundTripPcm16 (0 ms)
+[----------] 1 test from AudioFormat (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="AudioFormat.RoundTripFloat32" classname="AudioFormat.RoundTripFloat32" time="0.0239219" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = AudioFormat.RoundTripFloat32
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from AudioFormat
+[ RUN      ] AudioFormat.RoundTripFloat32
+[       OK ] AudioFormat.RoundTripFloat32 (0 ms)
+[----------] 1 test from AudioFormat (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="AudioFormat.ParsePlainPcmWaveFormatEx" classname="AudioFormat.ParsePlainPcmWaveFormatEx" time="0.0222919" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = AudioFormat.ParsePlainPcmWaveFormatEx
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from AudioFormat
+[ RUN      ] AudioFormat.ParsePlainPcmWaveFormatEx
+[       OK ] AudioFormat.ParsePlainPcmWaveFormatEx (0 ms)
+[----------] 1 test from AudioFormat (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="AudioFormat.ChannelMaskForCommonLayouts" classname="AudioFormat.ChannelMaskForCommonLayouts" time="0.0213833" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = AudioFormat.ChannelMaskForCommonLayouts
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from AudioFormat
+[ RUN      ] AudioFormat.ChannelMaskForCommonLayouts
+[       OK ] AudioFormat.ChannelMaskForCommonLayouts (0 ms)
+[----------] 1 test from AudioFormat (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="AudioFormat.PreservesExtensibleValidBitsAndChannelMask" classname="AudioFormat.PreservesExtensibleValidBitsAndChannelMask" time="0.0207575" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = AudioFormat.PreservesExtensibleValidBitsAndChannelMask
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from AudioFormat
+[ RUN      ] AudioFormat.PreservesExtensibleValidBitsAndChannelMask
+[       OK ] AudioFormat.PreservesExtensibleValidBitsAndChannelMask (0 ms)
+[----------] 1 test from AudioFormat (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="SampleConvert.Int16BoundsRoundTrip" classname="SampleConvert.Int16BoundsRoundTrip" time="0.0189377" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = SampleConvert.Int16BoundsRoundTrip
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from SampleConvert
+[ RUN      ] SampleConvert.Int16BoundsRoundTrip
+[       OK ] SampleConvert.Int16BoundsRoundTrip (0 ms)
+[----------] 1 test from SampleConvert (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="SampleConvert.FloatToPcmClampsOverflow" classname="SampleConvert.FloatToPcmClampsOverflow" time="0.0176589" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = SampleConvert.FloatToPcmClampsOverflow
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from SampleConvert
+[ RUN      ] SampleConvert.FloatToPcmClampsOverflow
+[       OK ] SampleConvert.FloatToPcmClampsOverflow (0 ms)
+[----------] 1 test from SampleConvert (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="SampleConvert.Int24NegativeSignExtend" classname="SampleConvert.Int24NegativeSignExtend" time="0.0201" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = SampleConvert.Int24NegativeSignExtend
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from SampleConvert
+[ RUN      ] SampleConvert.Int24NegativeSignExtend
+[       OK ] SampleConvert.Int24NegativeSignExtend (0 ms)
+[----------] 1 test from SampleConvert (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="SampleConvert.DownmixAverages" classname="SampleConvert.DownmixAverages" time="0.0173844" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = SampleConvert.DownmixAverages
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from SampleConvert
+[ RUN      ] SampleConvert.DownmixAverages
+[       OK ] SampleConvert.DownmixAverages (0 ms)
+[----------] 1 test from SampleConvert (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="SampleConvert.PeakLevel" classname="SampleConvert.PeakLevel" time="0.0177001" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = SampleConvert.PeakLevel
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from SampleConvert
+[ RUN      ] SampleConvert.PeakLevel
+[       OK ] SampleConvert.PeakLevel (0 ms)
+[----------] 1 test from SampleConvert (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="SampleConvert.FloatToPcmInt32ClampsOverflow" classname="SampleConvert.FloatToPcmInt32ClampsOverflow" time="0.0170787" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = SampleConvert.FloatToPcmInt32ClampsOverflow
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from SampleConvert
+[ RUN      ] SampleConvert.FloatToPcmInt32ClampsOverflow
+[       OK ] SampleConvert.FloatToPcmInt32ClampsOverflow (0 ms)
+[----------] 1 test from SampleConvert (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavFile.RoundTrip16BitStereo" classname="WavFile.RoundTrip16BitStereo" time="0.0189383" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavFile.RoundTrip16BitStereo
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavFile
+[ RUN      ] WavFile.RoundTrip16BitStereo
+[       OK ] WavFile.RoundTrip16BitStereo (1 ms)
+[----------] 1 test from WavFile (1 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (1 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavFile.OpenMissingFileFails" classname="WavFile.OpenMissingFileFails" time="0.0202624" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavFile.OpenMissingFileFails
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavFile
+[ RUN      ] WavFile.OpenMissingFileFails
+[       OK ] WavFile.OpenMissingFileFails (0 ms)
+[----------] 1 test from WavFile (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavFile.RejectsTruncatedHeader" classname="WavFile.RejectsTruncatedHeader" time="0.0199119" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavFile.RejectsTruncatedHeader
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavFile
+[ RUN      ] WavFile.RejectsTruncatedHeader
+[       OK ] WavFile.RejectsTruncatedHeader (1 ms)
+[----------] 1 test from WavFile (1 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (1 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavFile.ReadsExtensibleFloatHeader" classname="WavFile.ReadsExtensibleFloatHeader" time="0.0199893" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavFile.ReadsExtensibleFloatHeader
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavFile
+[ RUN      ] WavFile.ReadsExtensibleFloatHeader
+[       OK ] WavFile.ReadsExtensibleFloatHeader (1 ms)
+[----------] 1 test from WavFile (1 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (1 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavFile.WritesExtensible7Point1FloatWithFactChunk" classname="WavFile.WritesExtensible7Point1FloatWithFactChunk" time="0.0214615" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavFile.WritesExtensible7Point1FloatWithFactChunk
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavFile
+[ RUN      ] WavFile.WritesExtensible7Point1FloatWithFactChunk
+[       OK ] WavFile.WritesExtensible7Point1FloatWithFactChunk (2 ms)
+[----------] 1 test from WavFile (2 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (2 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavFile.BuffersPartialFramesAcrossWrites" classname="WavFile.BuffersPartialFramesAcrossWrites" time="0.0195622" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavFile.BuffersPartialFramesAcrossWrites
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavFile
+[ RUN      ] WavFile.BuffersPartialFramesAcrossWrites
+[       OK ] WavFile.BuffersPartialFramesAcrossWrites (1 ms)
+[----------] 1 test from WavFile (1 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (1 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavFile.RejectsUnsupportedFormatAtOpen" classname="WavFile.RejectsUnsupportedFormatAtOpen" time="0.0178135" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavFile.RejectsUnsupportedFormatAtOpen
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavFile
+[ RUN      ] WavFile.RejectsUnsupportedFormatAtOpen
+[       OK ] WavFile.RejectsUnsupportedFormatAtOpen (0 ms)
+[----------] 1 test from WavFile (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavFile.CloseRejectsIncompleteFinalFrame" classname="WavFile.CloseRejectsIncompleteFinalFrame" time="0.0179945" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavFile.CloseRejectsIncompleteFinalFrame
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavFile
+[ RUN      ] WavFile.CloseRejectsIncompleteFinalFrame
+[       OK ] WavFile.CloseRejectsIncompleteFinalFrame (0 ms)
+[----------] 1 test from WavFile (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavFile.ReaderRejectsUnknownExtensibleSubFormat" classname="WavFile.ReaderRejectsUnknownExtensibleSubFormat" time="0.0226157" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavFile.ReaderRejectsUnknownExtensibleSubFormat
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavFile
+[ RUN      ] WavFile.ReaderRejectsUnknownExtensibleSubFormat
+[       OK ] WavFile.ReaderRejectsUnknownExtensibleSubFormat (1 ms)
+[----------] 1 test from WavFile (1 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (1 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavFile.ReaderRejectsExtensibleCbSizeBeyondFmtChunk" classname="WavFile.ReaderRejectsExtensibleCbSizeBeyondFmtChunk" time="0.0252542" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavFile.ReaderRejectsExtensibleCbSizeBeyondFmtChunk
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavFile
+[ RUN      ] WavFile.ReaderRejectsExtensibleCbSizeBeyondFmtChunk
+[       OK ] WavFile.ReaderRejectsExtensibleCbSizeBeyondFmtChunk (5 ms)
+[----------] 1 test from WavFile (5 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (5 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavFile.ReaderRejectsChannelMaskThatDoesNotMatchChannels" classname="WavFile.ReaderRejectsChannelMaskThatDoesNotMatchChannels" time="0.0191902" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavFile.ReaderRejectsChannelMaskThatDoesNotMatchChannels
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavFile
+[ RUN      ] WavFile.ReaderRejectsChannelMaskThatDoesNotMatchChannels
+[       OK ] WavFile.ReaderRejectsChannelMaskThatDoesNotMatchChannels (1 ms)
+[----------] 1 test from WavFile (1 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (1 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavFile.ReaderSkipsOddSizedUnknownChunkWithPadding" classname="WavFile.ReaderSkipsOddSizedUnknownChunkWithPadding" time="0.0192914" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavFile.ReaderSkipsOddSizedUnknownChunkWithPadding
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavFile
+[ RUN      ] WavFile.ReaderSkipsOddSizedUnknownChunkWithPadding
+[       OK ] WavFile.ReaderSkipsOddSizedUnknownChunkWithPadding (1 ms)
+[----------] 1 test from WavFile (1 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (1 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavFile.RoundTripsPcm24ValidBitsIn32BitContainer" classname="WavFile.RoundTripsPcm24ValidBitsIn32BitContainer" time="0.0200936" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavFile.RoundTripsPcm24ValidBitsIn32BitContainer
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavFile
+[ RUN      ] WavFile.RoundTripsPcm24ValidBitsIn32BitContainer
+[       OK ] WavFile.RoundTripsPcm24ValidBitsIn32BitContainer (1 ms)
+[----------] 1 test from WavFile (1 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (1 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavFile.WritesOddSizedEightBitMonoDataWithPadByte" classname="WavFile.WritesOddSizedEightBitMonoDataWithPadByte" time="0.0203582" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavFile.WritesOddSizedEightBitMonoDataWithPadByte
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavFile
+[ RUN      ] WavFile.WritesOddSizedEightBitMonoDataWithPadByte
+[       OK ] WavFile.WritesOddSizedEightBitMonoDataWithPadByte (1 ms)
+[----------] 1 test from WavFile (1 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (1 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavFile.WriterRejectsDestinationThatCannotPatchHeader" classname="WavFile.WriterRejectsDestinationThatCannotPatchHeader" time="0.0177205" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavFile.WriterRejectsDestinationThatCannotPatchHeader
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavFile
+[ RUN      ] WavFile.WriterRejectsDestinationThatCannotPatchHeader
+[       OK ] WavFile.WriterRejectsDestinationThatCannotPatchHeader (0 ms)
+[----------] 1 test from WavFile (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavFile.ReaderReuseDoesNotKeepExtensibleMetadata" classname="WavFile.ReaderReuseDoesNotKeepExtensibleMetadata" time="0.0203403" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavFile.ReaderReuseDoesNotKeepExtensibleMetadata
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavFile
+[ RUN      ] WavFile.ReaderReuseDoesNotKeepExtensibleMetadata
+[       OK ] WavFile.ReaderReuseDoesNotKeepExtensibleMetadata (1 ms)
+[----------] 1 test from WavFile (1 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (1 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavSink.ExactPathRoundTrip16BitStereo" classname="WavSink.ExactPathRoundTrip16BitStereo" time="0.043743" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSink.ExactPathRoundTrip16BitStereo
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSink
+[ RUN      ] WavSink.ExactPathRoundTrip16BitStereo
+[       OK ] WavSink.ExactPathRoundTrip16BitStereo (24 ms)
+[----------] 1 test from WavSink (24 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (25 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavSink.ExactPathRoundTripFloat32Stereo" classname="WavSink.ExactPathRoundTripFloat32Stereo" time="0.0281022" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSink.ExactPathRoundTripFloat32Stereo
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSink
+[ RUN      ] WavSink.ExactPathRoundTripFloat32Stereo
+[       OK ] WavSink.ExactPathRoundTripFloat32Stereo (10 ms)
+[----------] 1 test from WavSink (10 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (10 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavSink.ExactPathKeepsCallerName" classname="WavSink.ExactPathKeepsCallerName" time="0.0300213" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSink.ExactPathKeepsCallerName
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSink
+[ RUN      ] WavSink.ExactPathKeepsCallerName
+[       OK ] WavSink.ExactPathKeepsCallerName (13 ms)
+[----------] 1 test from WavSink (13 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (13 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavSink.InvalidPathFailsWithoutThrowing" classname="WavSink.InvalidPathFailsWithoutThrowing" time="0.0178679" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSink.InvalidPathFailsWithoutThrowing
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSink
+[ RUN      ] WavSink.InvalidPathFailsWithoutThrowing
+[       OK ] WavSink.InvalidPathFailsWithoutThrowing (0 ms)
+[----------] 1 test from WavSink (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavSink.AutoNameUsesPrefixFormatAndTimestamp" classname="WavSink.AutoNameUsesPrefixFormatAndTimestamp" time="0.0286786" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSink.AutoNameUsesPrefixFormatAndTimestamp
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSink
+[ RUN      ] WavSink.AutoNameUsesPrefixFormatAndTimestamp
+[       OK ] WavSink.AutoNameUsesPrefixFormatAndTimestamp (12 ms)
+[----------] 1 test from WavSink (12 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (12 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavSink.AutoNameKeepsCallerPrefixTokens" classname="WavSink.AutoNameKeepsCallerPrefixTokens" time="0.031118" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSink.AutoNameKeepsCallerPrefixTokens
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSink
+[ RUN      ] WavSink.AutoNameKeepsCallerPrefixTokens
+[       OK ] WavSink.AutoNameKeepsCallerPrefixTokens (14 ms)
+[----------] 1 test from WavSink (14 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (14 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavSink.AutoNameCollisionGetsNumericSuffix" classname="WavSink.AutoNameCollisionGetsNumericSuffix" time="0.0477306" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSink.AutoNameCollisionGetsNumericSuffix
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSink
+[ RUN      ] WavSink.AutoNameCollisionGetsNumericSuffix
+[       OK ] WavSink.AutoNameCollisionGetsNumericSuffix (31 ms)
+[----------] 1 test from WavSink (31 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (31 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavSink.OverflowFailsSinkAndPatchesHeader" classname="WavSink.OverflowFailsSinkAndPatchesHeader" time="0.0384084" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSink.OverflowFailsSinkAndPatchesHeader
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSink
+[ RUN      ] WavSink.OverflowFailsSinkAndPatchesHeader
+[       OK ] WavSink.OverflowFailsSinkAndPatchesHeader (21 ms)
+[----------] 1 test from WavSink (21 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (21 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavSink.TwoSinksDoNotMixBytes" classname="WavSink.TwoSinksDoNotMixBytes" time="0.0556302" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSink.TwoSinksDoNotMixBytes
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSink
+[ RUN      ] WavSink.TwoSinksDoNotMixBytes
+[       OK ] WavSink.TwoSinksDoNotMixBytes (38 ms)
+[----------] 1 test from WavSink (38 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (38 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="ScopeBuffer.NotEnoughYet" classname="ScopeBuffer.NotEnoughYet" time="0.0166247" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = ScopeBuffer.NotEnoughYet
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from ScopeBuffer
+[ RUN      ] ScopeBuffer.NotEnoughYet
+[       OK ] ScopeBuffer.NotEnoughYet (0 ms)
+[----------] 1 test from ScopeBuffer (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="ScopeBuffer.ReturnsRecentWindow" classname="ScopeBuffer.ReturnsRecentWindow" time="0.0172012" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = ScopeBuffer.ReturnsRecentWindow
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from ScopeBuffer
+[ RUN      ] ScopeBuffer.ReturnsRecentWindow
+[       OK ] ScopeBuffer.ReturnsRecentWindow (0 ms)
+[----------] 1 test from ScopeBuffer (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="ScopeBuffer.RejectsWindowLargerThanHalfCapacity" classname="ScopeBuffer.RejectsWindowLargerThanHalfCapacity" time="0.0174262" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = ScopeBuffer.RejectsWindowLargerThanHalfCapacity
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from ScopeBuffer
+[ RUN      ] ScopeBuffer.RejectsWindowLargerThanHalfCapacity
+[       OK ] ScopeBuffer.RejectsWindowLargerThanHalfCapacity (0 ms)
+[----------] 1 test from ScopeBuffer (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="ScopeBuffer.SnapshotsInterleavedChannelsAndMonoDownmix" classname="ScopeBuffer.SnapshotsInterleavedChannelsAndMonoDownmix" time="0.0170021" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = ScopeBuffer.SnapshotsInterleavedChannelsAndMonoDownmix
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from ScopeBuffer
+[ RUN      ] ScopeBuffer.SnapshotsInterleavedChannelsAndMonoDownmix
+[       OK ] ScopeBuffer.SnapshotsInterleavedChannelsAndMonoDownmix (0 ms)
+[----------] 1 test from ScopeBuffer (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="ScopeBuffer.SnapshotChannelEndingAtUsesRequestedWindow" classname="ScopeBuffer.SnapshotChannelEndingAtUsesRequestedWindow" time="0.0176533" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = ScopeBuffer.SnapshotChannelEndingAtUsesRequestedWindow
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from ScopeBuffer
+[ RUN      ] ScopeBuffer.SnapshotChannelEndingAtUsesRequestedWindow
+[       OK ] ScopeBuffer.SnapshotChannelEndingAtUsesRequestedWindow (0 ms)
+[----------] 1 test from ScopeBuffer (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="ScopeBuffer.SnapshotEndingAtDownmixUsesRequestedWindow" classname="ScopeBuffer.SnapshotEndingAtDownmixUsesRequestedWindow" time="0.0164552" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = ScopeBuffer.SnapshotEndingAtDownmixUsesRequestedWindow
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from ScopeBuffer
+[ RUN      ] ScopeBuffer.SnapshotEndingAtDownmixUsesRequestedWindow
+[       OK ] ScopeBuffer.SnapshotEndingAtDownmixUsesRequestedWindow (0 ms)
+[----------] 1 test from ScopeBuffer (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="ScopeBuffer.SnapshotEndingAtMonoMatchesLatestWindow" classname="ScopeBuffer.SnapshotEndingAtMonoMatchesLatestWindow" time="0.0195912" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = ScopeBuffer.SnapshotEndingAtMonoMatchesLatestWindow
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from ScopeBuffer
+[ RUN      ] ScopeBuffer.SnapshotEndingAtMonoMatchesLatestWindow
+[       OK ] ScopeBuffer.SnapshotEndingAtMonoMatchesLatestWindow (0 ms)
+[----------] 1 test from ScopeBuffer (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="ScopeBuffer.ConcurrentSpscConsistency" classname="ScopeBuffer.ConcurrentSpscConsistency" time="0.0175051" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = ScopeBuffer.ConcurrentSpscConsistency
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from ScopeBuffer
+[ RUN      ] ScopeBuffer.ConcurrentSpscConsistency
+[       OK ] ScopeBuffer.ConcurrentSpscConsistency (0 ms)
+[----------] 1 test from ScopeBuffer (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.RateMismatchFails" classname="MonitorEngine.RateMismatchFails" time="0.0213454" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.RateMismatchFails
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.RateMismatchFails
+[       OK ] MonitorEngine.RateMismatchFails (3 ms)
+[----------] 1 test from MonitorEngine (3 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (3 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.PrefillThenRunning" classname="MonitorEngine.PrefillThenRunning" time="0.0232045" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.PrefillThenRunning
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.PrefillThenRunning
+[       OK ] MonitorEngine.PrefillThenRunning (6 ms)
+[----------] 1 test from MonitorEngine (6 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (6 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.CaptureScopePopulated" classname="MonitorEngine.CaptureScopePopulated" time="0.0308702" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.CaptureScopePopulated
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.CaptureScopePopulated
+[       OK ] MonitorEngine.CaptureScopePopulated (13 ms)
+[----------] 1 test from MonitorEngine (13 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (13 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.CaptureChannelSnapshotsExposeActualChannels" classname="MonitorEngine.CaptureChannelSnapshotsExposeActualChannels" time="0.0309915" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.CaptureChannelSnapshotsExposeActualChannels
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.CaptureChannelSnapshotsExposeActualChannels
+[       OK ] MonitorEngine.CaptureChannelSnapshotsExposeActualChannels (14 ms)
+[----------] 1 test from MonitorEngine (14 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (14 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.CaptureChannelSnapshotAtUsesRequestedEndIndex" classname="MonitorEngine.CaptureChannelSnapshotAtUsesRequestedEndIndex" time="0.0310952" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.CaptureChannelSnapshotAtUsesRequestedEndIndex
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.CaptureChannelSnapshotAtUsesRequestedEndIndex
+[       OK ] MonitorEngine.CaptureChannelSnapshotAtUsesRequestedEndIndex (12 ms)
+[----------] 1 test from MonitorEngine (12 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (12 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.CaptureSnapshotAtDownmixUsesRequestedEndIndex" classname="MonitorEngine.CaptureSnapshotAtDownmixUsesRequestedEndIndex" time="0.0311147" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.CaptureSnapshotAtDownmixUsesRequestedEndIndex
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.CaptureSnapshotAtDownmixUsesRequestedEndIndex
+[       OK ] MonitorEngine.CaptureSnapshotAtDownmixUsesRequestedEndIndex (13 ms)
+[----------] 1 test from MonitorEngine (13 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (13 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.StartRollbackOnRenderFail" classname="MonitorEngine.StartRollbackOnRenderFail" time="0.0252198" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.StartRollbackOnRenderFail
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.StartRollbackOnRenderFail
+[       OK ] MonitorEngine.StartRollbackOnRenderFail (4 ms)
+[----------] 1 test from MonitorEngine (4 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (4 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.StopJoinsCleanly" classname="MonitorEngine.StopJoinsCleanly" time="0.037005" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.StopJoinsCleanly
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.StopJoinsCleanly
+[       OK ] MonitorEngine.StopJoinsCleanly (15 ms)
+[----------] 1 test from MonitorEngine (15 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (15 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.InvalidDelayRejected" classname="MonitorEngine.InvalidDelayRejected" time="0.0209076" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.InvalidDelayRejected
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.InvalidDelayRejected
+[       OK ] MonitorEngine.InvalidDelayRejected (0 ms)
+[----------] 1 test from MonitorEngine (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.PlaybackStartsDisabled" classname="MonitorEngine.PlaybackStartsDisabled" time="0.0229984" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.PlaybackStartsDisabled
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.PlaybackStartsDisabled
+[       OK ] MonitorEngine.PlaybackStartsDisabled (4 ms)
+[----------] 1 test from MonitorEngine (4 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (4 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.EnablePlaybackEngagesRender" classname="MonitorEngine.EnablePlaybackEngagesRender" time="0.0309694" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.EnablePlaybackEngagesRender
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.EnablePlaybackEngagesRender
+[       OK ] MonitorEngine.EnablePlaybackEngagesRender (14 ms)
+[----------] 1 test from MonitorEngine (14 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (14 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.DisablePlaybackStopsRender" classname="MonitorEngine.DisablePlaybackStopsRender" time="0.0467991" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.DisablePlaybackStopsRender
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.DisablePlaybackStopsRender
+[       OK ] MonitorEngine.DisablePlaybackStopsRender (30 ms)
+[----------] 1 test from MonitorEngine (30 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (30 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.EnablePlaybackRateMismatch" classname="MonitorEngine.EnablePlaybackRateMismatch" time="0.02954" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.EnablePlaybackRateMismatch
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.EnablePlaybackRateMismatch
+[       OK ] MonitorEngine.EnablePlaybackRateMismatch (12 ms)
+[----------] 1 test from MonitorEngine (12 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (12 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.StreamParamsReachBackends" classname="MonitorEngine.StreamParamsReachBackends" time="0.0251947" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.StreamParamsReachBackends
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.StreamParamsReachBackends
+[       OK ] MonitorEngine.StreamParamsReachBackends (4 ms)
+[----------] 1 test from MonitorEngine (4 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (4 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.SetRenderParamsAppliesOnReengage" classname="MonitorEngine.SetRenderParamsAppliesOnReengage" time="0.0986951" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.SetRenderParamsAppliesOnReengage
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.SetRenderParamsAppliesOnReengage
+[       OK ] MonitorEngine.SetRenderParamsAppliesOnReengage (79 ms)
+[----------] 1 test from MonitorEngine (79 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (79 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.CaptureFormatReachesBackend" classname="MonitorEngine.CaptureFormatReachesBackend" time="0.0206279" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.CaptureFormatReachesBackend
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.CaptureFormatReachesBackend
+[       OK ] MonitorEngine.CaptureFormatReachesBackend (3 ms)
+[----------] 1 test from MonitorEngine (3 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (3 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.LegacyStartUsesEndpointCaptureSource" classname="MonitorEngine.LegacyStartUsesEndpointCaptureSource" time="0.0208851" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.LegacyStartUsesEndpointCaptureSource
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.LegacyStartUsesEndpointCaptureSource
+[       OK ] MonitorEngine.LegacyStartUsesEndpointCaptureSource (3 ms)
+[----------] 1 test from MonitorEngine (4 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (4 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.LoopbackCaptureSourceReachesFactory" classname="MonitorEngine.LoopbackCaptureSourceReachesFactory" time="0.0217539" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.LoopbackCaptureSourceReachesFactory
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.LoopbackCaptureSourceReachesFactory
+[       OK ] MonitorEngine.LoopbackCaptureSourceReachesFactory (4 ms)
+[----------] 1 test from MonitorEngine (4 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (4 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.ApplicationLoopbackCaptureSourceReachesFactory" classname="MonitorEngine.ApplicationLoopbackCaptureSourceReachesFactory" time="0.0204557" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.ApplicationLoopbackCaptureSourceReachesFactory
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.ApplicationLoopbackCaptureSourceReachesFactory
+[       OK ] MonitorEngine.ApplicationLoopbackCaptureSourceReachesFactory (3 ms)
+[----------] 1 test from MonitorEngine (3 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (3 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.ApplicationLoopbackExcludeTreeModeReachesFactory" classname="MonitorEngine.ApplicationLoopbackExcludeTreeModeReachesFactory" time="0.0208185" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.ApplicationLoopbackExcludeTreeModeReachesFactory
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.ApplicationLoopbackExcludeTreeModeReachesFactory
+[       OK ] MonitorEngine.ApplicationLoopbackExcludeTreeModeReachesFactory (3 ms)
+[----------] 1 test from MonitorEngine (3 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (3 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.ApplicationLoopbackDoesNotStartSilentRender" classname="MonitorEngine.ApplicationLoopbackDoesNotStartSilentRender" time="0.0204533" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.ApplicationLoopbackDoesNotStartSilentRender
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.ApplicationLoopbackDoesNotStartSilentRender
+[       OK ] MonitorEngine.ApplicationLoopbackDoesNotStartSilentRender (3 ms)
+[----------] 1 test from MonitorEngine (3 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (3 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.ApplicationLoopbackDefaultFactoryRejectsZeroPid" classname="MonitorEngine.ApplicationLoopbackDefaultFactoryRejectsZeroPid" time="0.0178479" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.ApplicationLoopbackDefaultFactoryRejectsZeroPid
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.ApplicationLoopbackDefaultFactoryRejectsZeroPid
+[       OK ] MonitorEngine.ApplicationLoopbackDefaultFactoryRejectsZeroPid (0 ms)
+[----------] 1 test from MonitorEngine (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.LoopbackStartsSilentRenderByDefault" classname="MonitorEngine.LoopbackStartsSilentRenderByDefault" time="0.0224357" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.LoopbackStartsSilentRenderByDefault
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.LoopbackStartsSilentRenderByDefault
+[       OK ] MonitorEngine.LoopbackStartsSilentRenderByDefault (3 ms)
+[----------] 1 test from MonitorEngine (3 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (4 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.SilentRenderRuntimeFaultIsReportedWithoutStoppingCapture" classname="MonitorEngine.SilentRenderRuntimeFaultIsReportedWithoutStoppingCapture" time="0.0638335" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.SilentRenderRuntimeFaultIsReportedWithoutStoppingCapture
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.SilentRenderRuntimeFaultIsReportedWithoutStoppingCapture
+[       OK ] MonitorEngine.SilentRenderRuntimeFaultIsReportedWithoutStoppingCapture (46 ms)
+[----------] 1 test from MonitorEngine (47 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (47 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.PollExposesCaptureProgressAndLoopbackSilenceFrames" classname="MonitorEngine.PollExposesCaptureProgressAndLoopbackSilenceFrames" time="0.0305415" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.PollExposesCaptureProgressAndLoopbackSilenceFrames
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.PollExposesCaptureProgressAndLoopbackSilenceFrames
+[       OK ] MonitorEngine.PollExposesCaptureProgressAndLoopbackSilenceFrames (14 ms)
+[----------] 1 test from MonitorEngine (14 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (14 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.LoopbackCanDisableSilentRender" classname="MonitorEngine.LoopbackCanDisableSilentRender" time="0.0205449" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.LoopbackCanDisableSilentRender
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.LoopbackCanDisableSilentRender
+[       OK ] MonitorEngine.LoopbackCanDisableSilentRender (3 ms)
+[----------] 1 test from MonitorEngine (3 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (3 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.SilentRenderFailureDoesNotFailLoopbackCapture" classname="MonitorEngine.SilentRenderFailureDoesNotFailLoopbackCapture" time="0.0227812" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.SilentRenderFailureDoesNotFailLoopbackCapture
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.SilentRenderFailureDoesNotFailLoopbackCapture
+[       OK ] MonitorEngine.SilentRenderFailureDoesNotFailLoopbackCapture (4 ms)
+[----------] 1 test from MonitorEngine (4 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (4 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.SilentRenderOpenFailureDoesNotFailLoopbackCapture" classname="MonitorEngine.SilentRenderOpenFailureDoesNotFailLoopbackCapture" time="0.0212785" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.SilentRenderOpenFailureDoesNotFailLoopbackCapture
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.SilentRenderOpenFailureDoesNotFailLoopbackCapture
+[       OK ] MonitorEngine.SilentRenderOpenFailureDoesNotFailLoopbackCapture (4 ms)
+[----------] 1 test from MonitorEngine (4 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (4 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.LoopbackPlaybackRejectsSameRenderDevice" classname="MonitorEngine.LoopbackPlaybackRejectsSameRenderDevice" time="0.0173337" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.LoopbackPlaybackRejectsSameRenderDevice
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.LoopbackPlaybackRejectsSameRenderDevice
+[       OK ] MonitorEngine.LoopbackPlaybackRejectsSameRenderDevice (0 ms)
+[----------] 1 test from MonitorEngine (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.LoopbackPlaybackRejectsBothDefaultRenderDevices" classname="MonitorEngine.LoopbackPlaybackRejectsBothDefaultRenderDevices" time="0.0176507" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.LoopbackPlaybackRejectsBothDefaultRenderDevices
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.LoopbackPlaybackRejectsBothDefaultRenderDevices
+[       OK ] MonitorEngine.LoopbackPlaybackRejectsBothDefaultRenderDevices (0 ms)
+[----------] 1 test from MonitorEngine (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.LoopbackRuntimePlaybackRejectsSameRenderDevice" classname="MonitorEngine.LoopbackRuntimePlaybackRejectsSameRenderDevice" time="0.0367503" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.LoopbackRuntimePlaybackRejectsSameRenderDevice
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.LoopbackRuntimePlaybackRejectsSameRenderDevice
+[       OK ] MonitorEngine.LoopbackRuntimePlaybackRejectsSameRenderDevice (19 ms)
+[----------] 1 test from MonitorEngine (19 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (19 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.RuntimeCaptureErrorDoesNotStopRender" classname="MonitorEngine.RuntimeCaptureErrorDoesNotStopRender" time="0.0471302" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.RuntimeCaptureErrorDoesNotStopRender
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.RuntimeCaptureErrorDoesNotStopRender
+[       OK ] MonitorEngine.RuntimeCaptureErrorDoesNotStopRender (30 ms)
+[----------] 1 test from MonitorEngine (30 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (31 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.RuntimeRenderErrorDoesNotStopCaptureOrFifo" classname="MonitorEngine.RuntimeRenderErrorDoesNotStopCaptureOrFifo" time="0.0308844" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.RuntimeRenderErrorDoesNotStopCaptureOrFifo
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.RuntimeRenderErrorDoesNotStopCaptureOrFifo
+[       OK ] MonitorEngine.RuntimeRenderErrorDoesNotStopCaptureOrFifo (10 ms)
+[----------] 1 test from MonitorEngine (10 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (10 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.CaptureDumpWritesPcmBeforeDelay" classname="MonitorEngine.CaptureDumpWritesPcmBeforeDelay" time="0.0484396" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.CaptureDumpWritesPcmBeforeDelay
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.CaptureDumpWritesPcmBeforeDelay
+[       OK ] MonitorEngine.CaptureDumpWritesPcmBeforeDelay (31 ms)
+[----------] 1 test from MonitorEngine (31 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (31 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.RenderDumpRejectedWhenPlaybackOff" classname="MonitorEngine.RenderDumpRejectedWhenPlaybackOff" time="0.0203901" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.RenderDumpRejectedWhenPlaybackOff
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.RenderDumpRejectedWhenPlaybackOff
+[       OK ] MonitorEngine.RenderDumpRejectedWhenPlaybackOff (3 ms)
+[----------] 1 test from MonitorEngine (3 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (3 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.RenderDumpWritesAfterDelay" classname="MonitorEngine.RenderDumpWritesAfterDelay" time="0.0458988" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.RenderDumpWritesAfterDelay
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.RenderDumpWritesAfterDelay
+[       OK ] MonitorEngine.RenderDumpWritesAfterDelay (26 ms)
+[----------] 1 test from MonitorEngine (26 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (26 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.SessionStopFinalizesCaptureDump" classname="MonitorEngine.SessionStopFinalizesCaptureDump" time="0.0578502" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.SessionStopFinalizesCaptureDump
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.SessionStopFinalizesCaptureDump
+[       OK ] MonitorEngine.SessionStopFinalizesCaptureDump (38 ms)
+[----------] 1 test from MonitorEngine (38 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (38 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.PlaybackOffFinalizesRenderDump" classname="MonitorEngine.PlaybackOffFinalizesRenderDump" time="0.0467662" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.PlaybackOffFinalizesRenderDump
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.PlaybackOffFinalizesRenderDump
+[       OK ] MonitorEngine.PlaybackOffFinalizesRenderDump (28 ms)
+[----------] 1 test from MonitorEngine (28 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (29 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.SlowRenderCloseDoesNotBlockPlaybackOffOrCaptureDump" classname="MonitorEngine.SlowRenderCloseDoesNotBlockPlaybackOffOrCaptureDump" time="0.0832689" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.SlowRenderCloseDoesNotBlockPlaybackOffOrCaptureDump
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.SlowRenderCloseDoesNotBlockPlaybackOffOrCaptureDump
+[       OK ] MonitorEngine.SlowRenderCloseDoesNotBlockPlaybackOffOrCaptureDump (65 ms)
+[----------] 1 test from MonitorEngine (65 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (65 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.ReengageDuringOldCloseUsesANewSourceAndConsistentFormat" classname="MonitorEngine.ReengageDuringOldCloseUsesANewSourceAndConsistentFormat" time="0.155561" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.ReengageDuringOldCloseUsesANewSourceAndConsistentFormat
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.ReengageDuringOldCloseUsesANewSourceAndConsistentFormat
+[       OK ] MonitorEngine.ReengageDuringOldCloseUsesANewSourceAndConsistentFormat (138 ms)
+[----------] 1 test from MonitorEngine (138 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (138 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.SlowRenderWriteAllowsIndependentCaptureCompletion" classname="MonitorEngine.SlowRenderWriteAllowsIndependentCaptureCompletion" time="0.10033" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.SlowRenderWriteAllowsIndependentCaptureCompletion
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.SlowRenderWriteAllowsIndependentCaptureCompletion
+[       OK ] MonitorEngine.SlowRenderWriteAllowsIndependentCaptureCompletion (83 ms)
+[----------] 1 test from MonitorEngine (83 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (83 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.SlowOpenCancelledBySourceEndCannotFollowReengage" classname="MonitorEngine.SlowOpenCancelledBySourceEndCannotFollowReengage" time="0.114852" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.SlowOpenCancelledBySourceEndCannotFollowReengage
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.SlowOpenCancelledBySourceEndCannotFollowReengage
+[       OK ] MonitorEngine.SlowOpenCancelledBySourceEndCannotFollowReengage (97 ms)
+[----------] 1 test from MonitorEngine (97 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (97 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.CaptureSourceChangesPerSessionWhileDumpGenerationKeepsIncreasing" classname="MonitorEngine.CaptureSourceChangesPerSessionWhileDumpGenerationKeepsIncreasing" time="0.0464726" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.CaptureSourceChangesPerSessionWhileDumpGenerationKeepsIncreasing
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.CaptureSourceChangesPerSessionWhileDumpGenerationKeepsIncreasing
+[       OK ] MonitorEngine.CaptureSourceChangesPerSessionWhileDumpGenerationKeepsIncreasing (29 ms)
+[----------] 1 test from MonitorEngine (29 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (29 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.OptionalRenderFailuresKeepCaptureAcceptingAndAllowRetry" classname="MonitorEngine.OptionalRenderFailuresKeepCaptureAcceptingAndAllowRetry" time="0.188953" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.OptionalRenderFailuresKeepCaptureAcceptingAndAllowRetry
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.OptionalRenderFailuresKeepCaptureAcceptingAndAllowRetry
+[       OK ] MonitorEngine.OptionalRenderFailuresKeepCaptureAcceptingAndAllowRetry (171 ms)
+[----------] 1 test from MonitorEngine (171 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (171 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorEngine.StopWaitsForAnAlreadyFinalizingFileAndCompletesBothSinks" classname="MonitorEngine.StopWaitsForAnAlreadyFinalizingFileAndCompletesBothSinks" time="0.0938288" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorEngine.StopWaitsForAnAlreadyFinalizingFileAndCompletesBothSinks
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorEngine
+[ RUN      ] MonitorEngine.StopWaitsForAnAlreadyFinalizingFileAndCompletesBothSinks
+[       OK ] MonitorEngine.StopWaitsForAnAlreadyFinalizingFileAndCompletesBothSinks (76 ms)
+[----------] 1 test from MonitorEngine (76 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (76 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorScopeReader.CaptureAdapterMatchesEngineSnapshotAt" classname="MonitorScopeReader.CaptureAdapterMatchesEngineSnapshotAt" time="0.0309137" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorScopeReader.CaptureAdapterMatchesEngineSnapshotAt
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorScopeReader
+[ RUN      ] MonitorScopeReader.CaptureAdapterMatchesEngineSnapshotAt
+[       OK ] MonitorScopeReader.CaptureAdapterMatchesEngineSnapshotAt (13 ms)
+[----------] 1 test from MonitorScopeReader (13 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (13 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="MonitorScopeReader.RenderSideIsMonoOnly" classname="MonitorScopeReader.RenderSideIsMonoOnly" time="0.0200165" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = MonitorScopeReader.RenderSideIsMonoOnly
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from MonitorScopeReader
+[ RUN      ] MonitorScopeReader.RenderSideIsMonoOnly
+[       OK ] MonitorScopeReader.RenderSideIsMonoOnly (3 ms)
+[----------] 1 test from MonitorScopeReader (3 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (3 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.CreateStartsLiveTrack" classname="CaptureTrackList.CreateStartsLiveTrack" time="0.0187413" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.CreateStartsLiveTrack
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.CreateStartsLiveTrack
+[       OK ] CaptureTrackList.CreateStartsLiveTrack (2 ms)
+[----------] 1 test from CaptureTrackList (2 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (2 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.DestroyRemovesTrackAndStopsBackend" classname="CaptureTrackList.DestroyRemovesTrackAndStopsBackend" time="0.0191013" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.DestroyRemovesTrackAndStopsBackend
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.DestroyRemovesTrackAndStopsBackend
+[       OK ] CaptureTrackList.DestroyRemovesTrackAndStopsBackend (2 ms)
+[----------] 1 test from CaptureTrackList (2 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (2 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.RuntimeBackendFaultMarksTrackError" classname="CaptureTrackList.RuntimeBackendFaultMarksTrackError" time="0.0493521" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.RuntimeBackendFaultMarksTrackError
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.RuntimeBackendFaultMarksTrackError
+[       OK ] CaptureTrackList.RuntimeBackendFaultMarksTrackError (32 ms)
+[----------] 1 test from CaptureTrackList (32 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (32 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.RuntimeFaultStillFinalizesCreateTimeWav" classname="CaptureTrackList.RuntimeFaultStillFinalizesCreateTimeWav" time="0.0796513" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.RuntimeFaultStillFinalizesCreateTimeWav
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.RuntimeFaultStillFinalizesCreateTimeWav
+[       OK ] CaptureTrackList.RuntimeFaultStillFinalizesCreateTimeWav (62 ms)
+[----------] 1 test from CaptureTrackList (62 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (62 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.SilentRenderRuntimeFaultKeepsCaptureRunning" classname="CaptureTrackList.SilentRenderRuntimeFaultKeepsCaptureRunning" time="0.0445651" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.SilentRenderRuntimeFaultKeepsCaptureRunning
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.SilentRenderRuntimeFaultKeepsCaptureRunning
+[       OK ] CaptureTrackList.SilentRenderRuntimeFaultKeepsCaptureRunning (27 ms)
+[----------] 1 test from CaptureTrackList (27 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (27 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.DestroyAllClearsEveryMember" classname="CaptureTrackList.DestroyAllClearsEveryMember" time="0.0460149" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.DestroyAllClearsEveryMember
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.DestroyAllClearsEveryMember
+[       OK ] CaptureTrackList.DestroyAllClearsEveryMember (27 ms)
+[----------] 1 test from CaptureTrackList (27 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (27 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.FailedOpenDoesNotLeaveMember" classname="CaptureTrackList.FailedOpenDoesNotLeaveMember" time="0.0195936" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.FailedOpenDoesNotLeaveMember
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.FailedOpenDoesNotLeaveMember
+[       OK ] CaptureTrackList.FailedOpenDoesNotLeaveMember (0 ms)
+[----------] 1 test from CaptureTrackList (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.FailedStartDoesNotLeaveMember" classname="CaptureTrackList.FailedStartDoesNotLeaveMember" time="0.0174949" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.FailedStartDoesNotLeaveMember
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.FailedStartDoesNotLeaveMember
+[       OK ] CaptureTrackList.FailedStartDoesNotLeaveMember (0 ms)
+[----------] 1 test from CaptureTrackList (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.EqualSourcesMayBothBeLive" classname="CaptureTrackList.EqualSourcesMayBothBeLive" time="0.0547408" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.EqualSourcesMayBothBeLive
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.EqualSourcesMayBothBeLive
+[       OK ] CaptureTrackList.EqualSourcesMayBothBeLive (38 ms)
+[----------] 1 test from CaptureTrackList (38 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (38 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.CreateAllowedWhileSiblingStillListed" classname="CaptureTrackList.CreateAllowedWhileSiblingStillListed" time="0.0624815" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.CreateAllowedWhileSiblingStillListed
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.CreateAllowedWhileSiblingStillListed
+[       OK ] CaptureTrackList.CreateAllowedWhileSiblingStillListed (44 ms)
+[----------] 1 test from CaptureTrackList (44 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (44 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.WavOpenFailureDoesNotDestroySibling" classname="CaptureTrackList.WavOpenFailureDoesNotDestroySibling" time="0.0461208" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.WavOpenFailureDoesNotDestroySibling
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.WavOpenFailureDoesNotDestroySibling
+[       OK ] CaptureTrackList.WavOpenFailureDoesNotDestroySibling (29 ms)
+[----------] 1 test from CaptureTrackList (29 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (29 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.ExclusiveLoopbackRejected" classname="CaptureTrackList.ExclusiveLoopbackRejected" time="0.0162701" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.ExclusiveLoopbackRejected
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.ExclusiveLoopbackRejected
+[       OK ] CaptureTrackList.ExclusiveLoopbackRejected (0 ms)
+[----------] 1 test from CaptureTrackList (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.ExclusiveApplicationLoopbackRejected" classname="CaptureTrackList.ExclusiveApplicationLoopbackRejected" time="0.0167538" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.ExclusiveApplicationLoopbackRejected
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.ExclusiveApplicationLoopbackRejected
+[       OK ] CaptureTrackList.ExclusiveApplicationLoopbackRejected (0 ms)
+[----------] 1 test from CaptureTrackList (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.ApplicationLoopbackPreservesPidAndMode" classname="CaptureTrackList.ApplicationLoopbackPreservesPidAndMode" time="0.0557466" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.ApplicationLoopbackPreservesPidAndMode
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.ApplicationLoopbackPreservesPidAndMode
+[       OK ] CaptureTrackList.ApplicationLoopbackPreservesPidAndMode (38 ms)
+[----------] 1 test from CaptureTrackList (38 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (39 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.CreateFailureDoesNotDestroySibling" classname="CaptureTrackList.CreateFailureDoesNotDestroySibling" time="0.0193425" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.CreateFailureDoesNotDestroySibling
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.CreateFailureDoesNotDestroySibling
+[       OK ] CaptureTrackList.CreateFailureDoesNotDestroySibling (2 ms)
+[----------] 1 test from CaptureTrackList (2 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (2 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.SecondListUnaffectedByDestroyAll" classname="CaptureTrackList.SecondListUnaffectedByDestroyAll" time="0.0414007" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.SecondListUnaffectedByDestroyAll
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.SecondListUnaffectedByDestroyAll
+[       OK ] CaptureTrackList.SecondListUnaffectedByDestroyAll (23 ms)
+[----------] 1 test from CaptureTrackList (23 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (23 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.TapsAreIndependent" classname="CaptureTrackList.TapsAreIndependent" time="0.0767163" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.TapsAreIndependent
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.TapsAreIndependent
+[       OK ] CaptureTrackList.TapsAreIndependent (59 ms)
+[----------] 1 test from CaptureTrackList (59 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (59 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.CreateTimeWavWritesPushedPcm" classname="CaptureTrackList.CreateTimeWavWritesPushedPcm" time="0.0332171" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.CreateTimeWavWritesPushedPcm
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.CreateTimeWavWritesPushedPcm
+[       OK ] CaptureTrackList.CreateTimeWavWritesPushedPcm (15 ms)
+[----------] 1 test from CaptureTrackList (15 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (15 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.LiveDumpWritesPushedPcm" classname="CaptureTrackList.LiveDumpWritesPushedPcm" time="0.0605131" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.LiveDumpWritesPushedPcm
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.LiveDumpWritesPushedPcm
+[       OK ] CaptureTrackList.LiveDumpWritesPushedPcm (42 ms)
+[----------] 1 test from CaptureTrackList (42 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (42 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.AppLoopbackDumpNameIncludesPidAndProcessName" classname="CaptureTrackList.AppLoopbackDumpNameIncludesPidAndProcessName" time="0.0448361" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.AppLoopbackDumpNameIncludesPidAndProcessName
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.AppLoopbackDumpNameIncludesPidAndProcessName
+[       OK ] CaptureTrackList.AppLoopbackDumpNameIncludesPidAndProcessName (27 ms)
+[----------] 1 test from CaptureTrackList (27 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (27 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.LiveDumpRejectedWhenAlreadyDumping" classname="CaptureTrackList.LiveDumpRejectedWhenAlreadyDumping" time="0.0463883" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.LiveDumpRejectedWhenAlreadyDumping
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.LiveDumpRejectedWhenAlreadyDumping
+[       OK ] CaptureTrackList.LiveDumpRejectedWhenAlreadyDumping (29 ms)
+[----------] 1 test from CaptureTrackList (29 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (29 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.LiveDumpRejectedWhenTrackNotRunning" classname="CaptureTrackList.LiveDumpRejectedWhenTrackNotRunning" time="0.0186065" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.LiveDumpRejectedWhenTrackNotRunning
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.LiveDumpRejectedWhenTrackNotRunning
+[       OK ] CaptureTrackList.LiveDumpRejectedWhenTrackNotRunning (2 ms)
+[----------] 1 test from CaptureTrackList (2 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (2 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.LiveDumpOpenFailureLeavesTrackRunning" classname="CaptureTrackList.LiveDumpOpenFailureLeavesTrackRunning" time="0.0266972" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.LiveDumpOpenFailureLeavesTrackRunning
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.LiveDumpOpenFailureLeavesTrackRunning
+[       OK ] CaptureTrackList.LiveDumpOpenFailureLeavesTrackRunning (8 ms)
+[----------] 1 test from CaptureTrackList (8 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (8 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.DestroyWhileDumpingFinalizesWav" classname="CaptureTrackList.DestroyWhileDumpingFinalizesWav" time="0.0642268" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.DestroyWhileDumpingFinalizesWav
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.DestroyWhileDumpingFinalizesWav
+[       OK ] CaptureTrackList.DestroyWhileDumpingFinalizesWav (47 ms)
+[----------] 1 test from CaptureTrackList (47 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (47 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.OptionalWavStillRuns" classname="CaptureTrackList.OptionalWavStillRuns" time="0.0197646" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.OptionalWavStillRuns
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.OptionalWavStillRuns
+[       OK ] CaptureTrackList.OptionalWavStillRuns (2 ms)
+[----------] 1 test from CaptureTrackList (2 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (2 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.DefaultCreateOpensWithDefaultStreamParamsAndNoRequestedFormat" classname="CaptureTrackList.DefaultCreateOpensWithDefaultStreamParamsAndNoRequestedFormat" time="0.0191643" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.DefaultCreateOpensWithDefaultStreamParamsAndNoRequestedFormat
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.DefaultCreateOpensWithDefaultStreamParamsAndNoRequestedFormat
+[       OK ] CaptureTrackList.DefaultCreateOpensWithDefaultStreamParamsAndNoRequestedFormat (2 ms)
+[----------] 1 test from CaptureTrackList (2 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (2 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.CreatePassesRequestedFormatToBackend" classname="CaptureTrackList.CreatePassesRequestedFormatToBackend" time="0.018725" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.CreatePassesRequestedFormatToBackend
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.CreatePassesRequestedFormatToBackend
+[       OK ] CaptureTrackList.CreatePassesRequestedFormatToBackend (2 ms)
+[----------] 1 test from CaptureTrackList (2 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (2 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.CreatePassesStreamParamsToOpen" classname="CaptureTrackList.CreatePassesStreamParamsToOpen" time="0.0207724" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.CreatePassesStreamParamsToOpen
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.CreatePassesStreamParamsToOpen
+[       OK ] CaptureTrackList.CreatePassesStreamParamsToOpen (2 ms)
+[----------] 1 test from CaptureTrackList (2 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (2 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.SystemAndApplicationLoopbackBothPassStreamParams" classname="CaptureTrackList.SystemAndApplicationLoopbackBothPassStreamParams" time="0.043161" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.SystemAndApplicationLoopbackBothPassStreamParams
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.SystemAndApplicationLoopbackBothPassStreamParams
+[       OK ] CaptureTrackList.SystemAndApplicationLoopbackBothPassStreamParams (25 ms)
+[----------] 1 test from CaptureTrackList (25 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (25 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.SilentRenderOpenStaysDefaultWhenCaptureHasStreamParams" classname="CaptureTrackList.SilentRenderOpenStaysDefaultWhenCaptureHasStreamParams" time="0.0190449" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.SilentRenderOpenStaysDefaultWhenCaptureHasStreamParams
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.SilentRenderOpenStaysDefaultWhenCaptureHasStreamParams
+[       OK ] CaptureTrackList.SilentRenderOpenStaysDefaultWhenCaptureHasStreamParams (2 ms)
+[----------] 1 test from CaptureTrackList (2 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (2 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.RequiredWavAsyncFailureMarksOnlyItsTrackWithoutMorePcm" classname="CaptureTrackList.RequiredWavAsyncFailureMarksOnlyItsTrackWithoutMorePcm" time="0.0893483" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.RequiredWavAsyncFailureMarksOnlyItsTrackWithoutMorePcm
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.RequiredWavAsyncFailureMarksOnlyItsTrackWithoutMorePcm
+[       OK ] CaptureTrackList.RequiredWavAsyncFailureMarksOnlyItsTrackWithoutMorePcm (72 ms)
+[----------] 1 test from CaptureTrackList (72 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (72 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.BothLoopbackKindsKeepCapturingAcrossThreeIndependentDumps" classname="CaptureTrackList.BothLoopbackKindsKeepCapturingAcrossThreeIndependentDumps" time="0.422475" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.BothLoopbackKindsKeepCapturingAcrossThreeIndependentDumps
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.BothLoopbackKindsKeepCapturingAcrossThreeIndependentDumps
+[       OK ] CaptureTrackList.BothLoopbackKindsKeepCapturingAcrossThreeIndependentDumps (404 ms)
+[----------] 1 test from CaptureTrackList (404 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (404 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.OptionalOpenWriteAndCloseFailuresKeepBothTracksAndTapsRunning" classname="CaptureTrackList.OptionalOpenWriteAndCloseFailuresKeepBothTracksAndTapsRunning" time="0.249802" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.OptionalOpenWriteAndCloseFailuresKeepBothTracksAndTapsRunning
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.OptionalOpenWriteAndCloseFailuresKeepBothTracksAndTapsRunning
+[       OK ] CaptureTrackList.OptionalOpenWriteAndCloseFailuresKeepBothTracksAndTapsRunning (230 ms)
+[----------] 1 test from CaptureTrackList (230 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (230 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.DestroyAllAndDestructorFinalizeEveryAcceptedByte" classname="CaptureTrackList.DestroyAllAndDestructorFinalizeEveryAcceptedByte" time="0.15783" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.DestroyAllAndDestructorFinalizeEveryAcceptedByte
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.DestroyAllAndDestructorFinalizeEveryAcceptedByte
+[       OK ] CaptureTrackList.DestroyAllAndDestructorFinalizeEveryAcceptedByte (137 ms)
+[----------] 1 test from CaptureTrackList (137 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (137 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing" classname="CaptureTrackList.SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing" time="0.124634" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing
+[       OK ] CaptureTrackList.SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing (107 ms)
+[----------] 1 test from CaptureTrackList (107 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (107 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix" classname="CaptureTrackList.OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix" time="2.16419" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix
+[       OK ] CaptureTrackList.OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix (2147 ms)
+[----------] 1 test from CaptureTrackList (2147 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (2147 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown" classname="CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown" time="0.0783443" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown
+[       OK ] CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown (60 ms)
+[----------] 1 test from CaptureTrackList (60 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (60 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DumpUi.FolderPickerTakeEmptyWhenIdle" classname="DumpUi.FolderPickerTakeEmptyWhenIdle" time="0.0164015" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = DumpUi.FolderPickerTakeEmptyWhenIdle
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DumpUi
+[ RUN      ] DumpUi.FolderPickerTakeEmptyWhenIdle
+[       OK ] DumpUi.FolderPickerTakeEmptyWhenIdle (0 ms)
+[----------] 1 test from DumpUi (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DumpUi.DownloadsFolderIsNonEmpty" classname="DumpUi.DownloadsFolderIsNonEmpty" time="0.0197738" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = DumpUi.DownloadsFolderIsNonEmpty
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DumpUi
+[ RUN      ] DumpUi.DownloadsFolderIsNonEmpty
+[       OK ] DumpUi.DownloadsFolderIsNonEmpty (2 ms)
+[----------] 1 test from DumpUi (2 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (3 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DumpUi.FinalizingDisablesNewDumpAndOnlySuccessfulGenerationsRevealOnce" classname="DumpUi.FinalizingDisablesNewDumpAndOnlySuccessfulGenerationsRevealOnce" time="0.0164218" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = DumpUi.FinalizingDisablesNewDumpAndOnlySuccessfulGenerationsRevealOnce
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DumpUi
+[ RUN      ] DumpUi.FinalizingDisablesNewDumpAndOnlySuccessfulGenerationsRevealOnce
+[       OK ] DumpUi.FinalizingDisablesNewDumpAndOnlySuccessfulGenerationsRevealOnce (0 ms)
+[----------] 1 test from DumpUi (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DumpUi.EveryDumpPhaseHasEnglishAndChineseText" classname="DumpUi.EveryDumpPhaseHasEnglishAndChineseText" time="0.0162052" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = DumpUi.EveryDumpPhaseHasEnglishAndChineseText
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DumpUi
+[ RUN      ] DumpUi.EveryDumpPhaseHasEnglishAndChineseText
+[       OK ] DumpUi.EveryDumpPhaseHasEnglishAndChineseText (0 ms)
+[----------] 1 test from DumpUi (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="DumpUi.RegistryRoundTripDoesNotRewriteBadPath" classname="DumpUi.RegistryRoundTripDoesNotRewriteBadPath" time="0.0216269" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = DumpUi.RegistryRoundTripDoesNotRewriteBadPath
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from DumpUi
+[ RUN      ] DumpUi.RegistryRoundTripDoesNotRewriteBadPath
+[       OK ] DumpUi.RegistryRoundTripDoesNotRewriteBadPath (4 ms)
+[----------] 1 test from DumpUi (4 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (4 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="GuiLanguage.UserInterfacePrimaryChineseIncludesTraditionalAndHongKong" classname="GuiLanguage.UserInterfacePrimaryChineseIncludesTraditionalAndHongKong" time="0.0170308" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = GuiLanguage.UserInterfacePrimaryChineseIncludesTraditionalAndHongKong
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from GuiLanguage
+[ RUN      ] GuiLanguage.UserInterfacePrimaryChineseIncludesTraditionalAndHongKong
+[       OK ] GuiLanguage.UserInterfacePrimaryChineseIncludesTraditionalAndHongKong (0 ms)
+[----------] 1 test from GuiLanguage (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="GuiLanguage.MissingFileFollowsInjectedDisplayLanguage" classname="GuiLanguage.MissingFileFollowsInjectedDisplayLanguage" time="0.0181523" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = GuiLanguage.MissingFileFollowsInjectedDisplayLanguage
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from GuiLanguage
+[ RUN      ] GuiLanguage.MissingFileFollowsInjectedDisplayLanguage
+[       OK ] GuiLanguage.MissingFileFollowsInjectedDisplayLanguage (1 ms)
+[----------] 1 test from GuiLanguage (1 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (1 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="GuiLanguage.MissingKeyEmptyAndIllegalValuesFollowDisplayLanguage" classname="GuiLanguage.MissingKeyEmptyAndIllegalValuesFollowDisplayLanguage" time="0.0167108" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = GuiLanguage.MissingKeyEmptyAndIllegalValuesFollowDisplayLanguage
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from GuiLanguage
+[ RUN      ] GuiLanguage.MissingKeyEmptyAndIllegalValuesFollowDisplayLanguage
+[       OK ] GuiLanguage.MissingKeyEmptyAndIllegalValuesFollowDisplayLanguage (0 ms)
+[----------] 1 test from GuiLanguage (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="GuiLanguage.StoredEnAndZhCnWinOverDisplayLanguage" classname="GuiLanguage.StoredEnAndZhCnWinOverDisplayLanguage" time="0.0183139" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = GuiLanguage.StoredEnAndZhCnWinOverDisplayLanguage
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from GuiLanguage
+[ RUN      ] GuiLanguage.StoredEnAndZhCnWinOverDisplayLanguage
+[       OK ] GuiLanguage.StoredEnAndZhCnWinOverDisplayLanguage (0 ms)
+[----------] 1 test from GuiLanguage (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="GuiLanguage.LastLanguageValueWinsAndIllegalLastFollowsDisplay" classname="GuiLanguage.LastLanguageValueWinsAndIllegalLastFollowsDisplay" time="0.0173564" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = GuiLanguage.LastLanguageValueWinsAndIllegalLastFollowsDisplay
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from GuiLanguage
+[ RUN      ] GuiLanguage.LastLanguageValueWinsAndIllegalLastFollowsDisplay
+[       OK ] GuiLanguage.LastLanguageValueWinsAndIllegalLastFollowsDisplay (0 ms)
+[----------] 1 test from GuiLanguage (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="GuiLanguage.BareLogCollapsedStillLoadsAndIllegalLanguageKeepsIt" classname="GuiLanguage.BareLogCollapsedStillLoadsAndIllegalLanguageKeepsIt" time="0.0168117" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = GuiLanguage.BareLogCollapsedStillLoadsAndIllegalLanguageKeepsIt
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from GuiLanguage
+[ RUN      ] GuiLanguage.BareLogCollapsedStillLoadsAndIllegalLanguageKeepsIt
+[       OK ] GuiLanguage.BareLogCollapsedStillLoadsAndIllegalLanguageKeepsIt (0 ms)
+[----------] 1 test from GuiLanguage (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="GuiLanguage.GuiSectionLanguageDoesNotDropLogBit" classname="GuiLanguage.GuiSectionLanguageDoesNotDropLogBit" time="0.0167158" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = GuiLanguage.GuiSectionLanguageDoesNotDropLogBit
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from GuiLanguage
+[ RUN      ] GuiLanguage.GuiSectionLanguageDoesNotDropLogBit
+[       OK ] GuiLanguage.GuiSectionLanguageDoesNotDropLogBit (0 ms)
+[----------] 1 test from GuiLanguage (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="GuiLanguage.SavingLanguageKeepsLogCollapsed" classname="GuiLanguage.SavingLanguageKeepsLogCollapsed" time="0.0263772" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = GuiLanguage.SavingLanguageKeepsLogCollapsed
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from GuiLanguage
+[ RUN      ] GuiLanguage.SavingLanguageKeepsLogCollapsed
+[       OK ] GuiLanguage.SavingLanguageKeepsLogCollapsed (9 ms)
+[----------] 1 test from GuiLanguage (9 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (9 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="GuiLanguage.SavingLogBeforeAnyLanguageChoiceDoesNotCreateLanguage" classname="GuiLanguage.SavingLogBeforeAnyLanguageChoiceDoesNotCreateLanguage" time="0.0204521" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = GuiLanguage.SavingLogBeforeAnyLanguageChoiceDoesNotCreateLanguage
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from GuiLanguage
+[ RUN      ] GuiLanguage.SavingLogBeforeAnyLanguageChoiceDoesNotCreateLanguage
+[       OK ] GuiLanguage.SavingLogBeforeAnyLanguageChoiceDoesNotCreateLanguage (2 ms)
+[----------] 1 test from GuiLanguage (2 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (2 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="GuiLanguage.UnreadablePathReportsFailure" classname="GuiLanguage.UnreadablePathReportsFailure" time="0.0189371" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = GuiLanguage.UnreadablePathReportsFailure
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from GuiLanguage
+[ RUN      ] GuiLanguage.UnreadablePathReportsFailure
+[       OK ] GuiLanguage.UnreadablePathReportsFailure (1 ms)
+[----------] 1 test from GuiLanguage (1 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (1 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="GuiLanguage.PipelineTrustBannersHaveEnglishAndChinese" classname="GuiLanguage.PipelineTrustBannersHaveEnglishAndChinese" time="0.016932" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = GuiLanguage.PipelineTrustBannersHaveEnglishAndChinese
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from GuiLanguage
+[ RUN      ] GuiLanguage.PipelineTrustBannersHaveEnglishAndChinese
+[       OK ] GuiLanguage.PipelineTrustBannersHaveEnglishAndChinese (0 ms)
+[----------] 1 test from GuiLanguage (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="GuiLanguageText.EnglishLanguageReturnsTheEnglishPointer" classname="GuiLanguageText.EnglishLanguageReturnsTheEnglishPointer" time="0.0173916" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = GuiLanguageText.EnglishLanguageReturnsTheEnglishPointer
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from GuiLanguageText
+[ RUN      ] GuiLanguageText.EnglishLanguageReturnsTheEnglishPointer
+[       OK ] GuiLanguageText.EnglishLanguageReturnsTheEnglishPointer (0 ms)
+[----------] 1 test from GuiLanguageText (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="GuiLanguageText.ChineseReturnsFilledSlotAndFallsBackWhenMissing" classname="GuiLanguageText.ChineseReturnsFilledSlotAndFallsBackWhenMissing" time="0.0164846" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = GuiLanguageText.ChineseReturnsFilledSlotAndFallsBackWhenMissing
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from GuiLanguageText
+[ RUN      ] GuiLanguageText.ChineseReturnsFilledSlotAndFallsBackWhenMissing
+[       OK ] GuiLanguageText.ChineseReturnsFilledSlotAndFallsBackWhenMissing (0 ms)
+[----------] 1 test from GuiLanguageText (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="GuiLanguageText.LookupNeverReturnsNullAndPassesUnknownPointersThrough" classname="GuiLanguageText.LookupNeverReturnsNullAndPassesUnknownPointersThrough" time="0.0167087" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = GuiLanguageText.LookupNeverReturnsNullAndPassesUnknownPointersThrough
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from GuiLanguageText
+[ RUN      ] GuiLanguageText.LookupNeverReturnsNullAndPassesUnknownPointersThrough
+[       OK ] GuiLanguageText.LookupNeverReturnsNullAndPassesUnknownPointersThrough (0 ms)
+[----------] 1 test from GuiLanguageText (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="GuiLanguageText.SharedLabelsExistForLaterPages" classname="GuiLanguageText.SharedLabelsExistForLaterPages" time="0.0174146" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = GuiLanguageText.SharedLabelsExistForLaterPages
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from GuiLanguageText
+[ RUN      ] GuiLanguageText.SharedLabelsExistForLaterPages
+[       OK ] GuiLanguageText.SharedLabelsExistForLaterPages (0 ms)
+[----------] 1 test from GuiLanguageText (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="GuiLanguageText.HelpersThatReturnCatalogConstantsFollowLanguage" classname="GuiLanguageText.HelpersThatReturnCatalogConstantsFollowLanguage" time="0.0168552" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = GuiLanguageText.HelpersThatReturnCatalogConstantsFollowLanguage
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from GuiLanguageText
+[ RUN      ] GuiLanguageText.HelpersThatReturnCatalogConstantsFollowLanguage
+[       OK ] GuiLanguageText.HelpersThatReturnCatalogConstantsFollowLanguage (0 ms)
+[----------] 1 test from GuiLanguageText (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="GuiLanguageText.MonitorLeftoverRowsEnglishPointerAndChineseSlot" classname="GuiLanguageText.MonitorLeftoverRowsEnglishPointerAndChineseSlot" time="0.0172158" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = GuiLanguageText.MonitorLeftoverRowsEnglishPointerAndChineseSlot
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from GuiLanguageText
+[ RUN      ] GuiLanguageText.MonitorLeftoverRowsEnglishPointerAndChineseSlot
+[       OK ] GuiLanguageText.MonitorLeftoverRowsEnglishPointerAndChineseSlot (0 ms)
+[----------] 1 test from GuiLanguageText (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="GuiLanguageText.CapabilityOriginAndSupportWordsFollowLanguage" classname="GuiLanguageText.CapabilityOriginAndSupportWordsFollowLanguage" time="0.0182761" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = GuiLanguageText.CapabilityOriginAndSupportWordsFollowLanguage
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from GuiLanguageText
+[ RUN      ] GuiLanguageText.CapabilityOriginAndSupportWordsFollowLanguage
+[       OK ] GuiLanguageText.CapabilityOriginAndSupportWordsFollowLanguage (0 ms)
+[----------] 1 test from GuiLanguageText (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="GuiLanguageText.LoopbackLeftoverRowsEnglishPointerAndChineseSlot" classname="GuiLanguageText.LoopbackLeftoverRowsEnglishPointerAndChineseSlot" time="0.0181885" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = GuiLanguageText.LoopbackLeftoverRowsEnglishPointerAndChineseSlot
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from GuiLanguageText
+[ RUN      ] GuiLanguageText.LoopbackLeftoverRowsEnglishPointerAndChineseSlot
+[       OK ] GuiLanguageText.LoopbackLeftoverRowsEnglishPointerAndChineseSlot (0 ms)
+[----------] 1 test from GuiLanguageText (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="GuiLanguageText.ChannelPhraseLabelsFollowLanguage" classname="GuiLanguageText.ChannelPhraseLabelsFollowLanguage" time="0.0178572" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = GuiLanguageText.ChannelPhraseLabelsFollowLanguage
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from GuiLanguageText
+[ RUN      ] GuiLanguageText.ChannelPhraseLabelsFollowLanguage
+[       OK ] GuiLanguageText.ChannelPhraseLabelsFollowLanguage (0 ms)
+[----------] 1 test from GuiLanguageText (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="GuiLanguageText.LiveSessionTooltipFragmentsFollowLanguage" classname="GuiLanguageText.LiveSessionTooltipFragmentsFollowLanguage" time="0.0176868" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = GuiLanguageText.LiveSessionTooltipFragmentsFollowLanguage
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from GuiLanguageText
+[ RUN      ] GuiLanguageText.LiveSessionTooltipFragmentsFollowLanguage
+[       OK ] GuiLanguageText.LiveSessionTooltipFragmentsFollowLanguage (0 ms)
+[----------] 1 test from GuiLanguageText (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="GuiLanguageText.RenderAndPipelineLeftoverLabelsFollowLanguage" classname="GuiLanguageText.RenderAndPipelineLeftoverLabelsFollowLanguage" time="0.0173806" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = GuiLanguageText.RenderAndPipelineLeftoverLabelsFollowLanguage
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from GuiLanguageText
+[ RUN      ] GuiLanguageText.RenderAndPipelineLeftoverLabelsFollowLanguage
+[       OK ] GuiLanguageText.RenderAndPipelineLeftoverLabelsFollowLanguage (0 ms)
+[----------] 1 test from GuiLanguageText (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.WavSinkLifecycle.SourceEndsBeforePreparing" classname="WavLifecycle.WavSinkLifecycle.SourceEndsBeforePreparing" time="0.0160412" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSinkLifecycle.SourceEndsBeforePreparing
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.SourceEndsBeforePreparing
+[       OK ] WavSinkLifecycle.SourceEndsBeforePreparing (1 ms)
+[----------] 1 test from WavSinkLifecycle (1 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (1 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.WavSinkLifecycle.SourceEndsBeforeReady" classname="WavLifecycle.WavSinkLifecycle.SourceEndsBeforeReady" time="0.015689" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSinkLifecycle.SourceEndsBeforeReady
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.SourceEndsBeforeReady
+[       OK ] WavSinkLifecycle.SourceEndsBeforeReady (1 ms)
+[----------] 1 test from WavSinkLifecycle (1 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (1 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.WavSinkLifecycle.SourceEndsAfterReady" classname="WavLifecycle.WavSinkLifecycle.SourceEndsAfterReady" time="0.0162483" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSinkLifecycle.SourceEndsAfterReady
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.SourceEndsAfterReady
+[       OK ] WavSinkLifecycle.SourceEndsAfterReady (1 ms)
+[----------] 1 test from WavSinkLifecycle (1 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (1 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.WavSinkLifecycle.CompletionIsSeparateFromAdmissionAndKeepsItsGeneration" classname="WavLifecycle.WavSinkLifecycle.CompletionIsSeparateFromAdmissionAndKeepsItsGeneration" time="0.0294561" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSinkLifecycle.CompletionIsSeparateFromAdmissionAndKeepsItsGeneration
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.CompletionIsSeparateFromAdmissionAndKeepsItsGeneration
+[       OK ] WavSinkLifecycle.CompletionIsSeparateFromAdmissionAndKeepsItsGeneration (15 ms)
+[----------] 1 test from WavSinkLifecycle (15 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (15 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.WavSinkLifecycle.DelayedOldSourceStopCannotCloseTheNextDump" classname="WavLifecycle.WavSinkLifecycle.DelayedOldSourceStopCannotCloseTheNextDump" time="0.0469872" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSinkLifecycle.DelayedOldSourceStopCannotCloseTheNextDump
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.DelayedOldSourceStopCannotCloseTheNextDump
+[       OK ] WavSinkLifecycle.DelayedOldSourceStopCannotCloseTheNextDump (32 ms)
+[----------] 1 test from WavSinkLifecycle (32 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (32 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.WavSinkLifecycle.StopWaitsForAdmittedPushAndKeepsItsBytes" classname="WavLifecycle.WavSinkLifecycle.StopWaitsForAdmittedPushAndKeepsItsBytes" time="0.0461291" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSinkLifecycle.StopWaitsForAdmittedPushAndKeepsItsBytes
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.StopWaitsForAdmittedPushAndKeepsItsBytes
+[       OK ] WavSinkLifecycle.StopWaitsForAdmittedPushAndKeepsItsBytes (32 ms)
+[----------] 1 test from WavSinkLifecycle (32 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (32 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.WavSinkLifecycle.EmptyRingDoesNotFinalizeBeforeLastPublication" classname="WavLifecycle.WavSinkLifecycle.EmptyRingDoesNotFinalizeBeforeLastPublication" time="0.0468167" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSinkLifecycle.EmptyRingDoesNotFinalizeBeforeLastPublication
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.EmptyRingDoesNotFinalizeBeforeLastPublication
+[       OK ] WavSinkLifecycle.EmptyRingDoesNotFinalizeBeforeLastPublication (31 ms)
+[----------] 1 test from WavSinkLifecycle (31 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (31 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.WavSinkLifecycle.OldSnapshotCannotWriteIntoRestartedFile" classname="WavLifecycle.WavSinkLifecycle.OldSnapshotCannotWriteIntoRestartedFile" time="0.0513792" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSinkLifecycle.OldSnapshotCannotWriteIntoRestartedFile
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.OldSnapshotCannotWriteIntoRestartedFile
+[       OK ] WavSinkLifecycle.OldSnapshotCannotWriteIntoRestartedFile (37 ms)
+[----------] 1 test from WavSinkLifecycle (37 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (37 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.WavSinkLifecycle.WriteFailureSurvivesCloseFailureAndRepeatedStop" classname="WavLifecycle.WavSinkLifecycle.WriteFailureSurvivesCloseFailureAndRepeatedStop" time="0.0246789" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSinkLifecycle.WriteFailureSurvivesCloseFailureAndRepeatedStop
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.WriteFailureSurvivesCloseFailureAndRepeatedStop
+[       OK ] WavSinkLifecycle.WriteFailureSurvivesCloseFailureAndRepeatedStop (11 ms)
+[----------] 1 test from WavSinkLifecycle (11 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (11 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.WavSinkLifecycle.PreparationExceptionClosesOutputAndAllowsRetry" classname="WavLifecycle.WavSinkLifecycle.PreparationExceptionClosesOutputAndAllowsRetry" time="0.030277" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSinkLifecycle.PreparationExceptionClosesOutputAndAllowsRetry
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.PreparationExceptionClosesOutputAndAllowsRetry
+[       OK ] WavSinkLifecycle.PreparationExceptionClosesOutputAndAllowsRetry (15 ms)
+[----------] 1 test from WavSinkLifecycle (15 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (15 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.WavSinkLifecycle.DifferentSourceCannotWriteIntoCurrentFile" classname="WavLifecycle.WavSinkLifecycle.DifferentSourceCannotWriteIntoCurrentFile" time="0.0313242" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSinkLifecycle.DifferentSourceCannotWriteIntoCurrentFile
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.DifferentSourceCannotWriteIntoCurrentFile
+[       OK ] WavSinkLifecycle.DifferentSourceCannotWriteIntoCurrentFile (15 ms)
+[----------] 1 test from WavSinkLifecycle (15 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (16 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.WavSinkLifecycle.OverflowRemainsFirstFailureWhenOutputAlsoFails" classname="WavLifecycle.WavSinkLifecycle.OverflowRemainsFirstFailureWhenOutputAlsoFails" time="0.0298684" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSinkLifecycle.OverflowRemainsFirstFailureWhenOutputAlsoFails
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.OverflowRemainsFirstFailureWhenOutputAlsoFails
+[       OK ] WavSinkLifecycle.OverflowRemainsFirstFailureWhenOutputAlsoFails (14 ms)
+[----------] 1 test from WavSinkLifecycle (14 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (14 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.WavSinkLifecycle.StopRequestDuringPreparationCannotPublishReady" classname="WavLifecycle.WavSinkLifecycle.StopRequestDuringPreparationCannotPublishReady" time="0.0185954" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSinkLifecycle.StopRequestDuringPreparationCannotPublishReady
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.StopRequestDuringPreparationCannotPublishReady
+[       OK ] WavSinkLifecycle.StopRequestDuringPreparationCannotPublishReady (2 ms)
+[----------] 1 test from WavSinkLifecycle (2 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (2 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.WavSinkLifecycle.AllocationAndThreadLaunchFailuresReleaseResourcesForRetry" classname="WavLifecycle.WavSinkLifecycle.AllocationAndThreadLaunchFailuresReleaseResourcesForRetry" time="0.0591243" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSinkLifecycle.AllocationAndThreadLaunchFailuresReleaseResourcesForRetry
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.AllocationAndThreadLaunchFailuresReleaseResourcesForRetry
+[       OK ] WavSinkLifecycle.AllocationAndThreadLaunchFailuresReleaseResourcesForRetry (40 ms)
+[----------] 1 test from WavSinkLifecycle (40 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (40 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.WavSinkLifecycle.NormalRejectionAndWrongSourceStopAreNotFileFailures" classname="WavLifecycle.WavSinkLifecycle.NormalRejectionAndWrongSourceStopAreNotFileFailures" time="0.0313919" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSinkLifecycle.NormalRejectionAndWrongSourceStopAreNotFileFailures
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.NormalRejectionAndWrongSourceStopAreNotFileFailures
+[       OK ] WavSinkLifecycle.NormalRejectionAndWrongSourceStopAreNotFileFailures (17 ms)
+[----------] 1 test from WavSinkLifecycle (17 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (17 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.WavSinkLifecycle.OverflowAndStopDrainAcceptedPrefixAfterPublication" classname="WavLifecycle.WavSinkLifecycle.OverflowAndStopDrainAcceptedPrefixAfterPublication" time="0.0532838" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSinkLifecycle.OverflowAndStopDrainAcceptedPrefixAfterPublication
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.OverflowAndStopDrainAcceptedPrefixAfterPublication
+[       OK ] WavSinkLifecycle.OverflowAndStopDrainAcceptedPrefixAfterPublication (39 ms)
+[----------] 1 test from WavSinkLifecycle (39 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (39 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.WavSinkLifecycle.WriterBatchBoundariesPreserveMultichannelFrames" classname="WavLifecycle.WavSinkLifecycle.WriterBatchBoundariesPreserveMultichannelFrames" time="0.0285923" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSinkLifecycle.WriterBatchBoundariesPreserveMultichannelFrames
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.WriterBatchBoundariesPreserveMultichannelFrames
+[       OK ] WavSinkLifecycle.WriterBatchBoundariesPreserveMultichannelFrames (13 ms)
+[----------] 1 test from WavSinkLifecycle (13 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (13 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.WavSinkLifecycle.IncompleteTailRemainsAFailureAndFileIsRetained" classname="WavLifecycle.WavSinkLifecycle.IncompleteTailRemainsAFailureAndFileIsRetained" time="0.0238022" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSinkLifecycle.IncompleteTailRemainsAFailureAndFileIsRetained
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.IncompleteTailRemainsAFailureAndFileIsRetained
+[       OK ] WavSinkLifecycle.IncompleteTailRemainsAFailureAndFileIsRetained (10 ms)
+[----------] 1 test from WavSinkLifecycle (10 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (10 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.WavSink.ExactPathRoundTrip16BitStereo" classname="WavLifecycle.WavSink.ExactPathRoundTrip16BitStereo" time="0.0341595" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSink.ExactPathRoundTrip16BitStereo
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSink
+[ RUN      ] WavSink.ExactPathRoundTrip16BitStereo
+[       OK ] WavSink.ExactPathRoundTrip16BitStereo (20 ms)
+[----------] 1 test from WavSink (20 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (20 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.WavSink.ExactPathRoundTripFloat32Stereo" classname="WavLifecycle.WavSink.ExactPathRoundTripFloat32Stereo" time="0.0289333" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSink.ExactPathRoundTripFloat32Stereo
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSink
+[ RUN      ] WavSink.ExactPathRoundTripFloat32Stereo
+[       OK ] WavSink.ExactPathRoundTripFloat32Stereo (14 ms)
+[----------] 1 test from WavSink (14 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (14 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.WavSink.ExactPathKeepsCallerName" classname="WavLifecycle.WavSink.ExactPathKeepsCallerName" time="0.0305136" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSink.ExactPathKeepsCallerName
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSink
+[ RUN      ] WavSink.ExactPathKeepsCallerName
+[       OK ] WavSink.ExactPathKeepsCallerName (17 ms)
+[----------] 1 test from WavSink (17 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (17 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.WavSink.InvalidPathFailsWithoutThrowing" classname="WavLifecycle.WavSink.InvalidPathFailsWithoutThrowing" time="0.0143051" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSink.InvalidPathFailsWithoutThrowing
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSink
+[ RUN      ] WavSink.InvalidPathFailsWithoutThrowing
+[       OK ] WavSink.InvalidPathFailsWithoutThrowing (0 ms)
+[----------] 1 test from WavSink (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.WavSink.AutoNameUsesPrefixFormatAndTimestamp" classname="WavLifecycle.WavSink.AutoNameUsesPrefixFormatAndTimestamp" time="0.0333676" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSink.AutoNameUsesPrefixFormatAndTimestamp
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSink
+[ RUN      ] WavSink.AutoNameUsesPrefixFormatAndTimestamp
+[       OK ] WavSink.AutoNameUsesPrefixFormatAndTimestamp (19 ms)
+[----------] 1 test from WavSink (19 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (19 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.WavSink.AutoNameKeepsCallerPrefixTokens" classname="WavLifecycle.WavSink.AutoNameKeepsCallerPrefixTokens" time="0.0298964" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSink.AutoNameKeepsCallerPrefixTokens
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSink
+[ RUN      ] WavSink.AutoNameKeepsCallerPrefixTokens
+[       OK ] WavSink.AutoNameKeepsCallerPrefixTokens (15 ms)
+[----------] 1 test from WavSink (15 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (15 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.WavSink.AutoNameCollisionGetsNumericSuffix" classname="WavLifecycle.WavSink.AutoNameCollisionGetsNumericSuffix" time="0.0460605" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSink.AutoNameCollisionGetsNumericSuffix
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSink
+[ RUN      ] WavSink.AutoNameCollisionGetsNumericSuffix
+[       OK ] WavSink.AutoNameCollisionGetsNumericSuffix (32 ms)
+[----------] 1 test from WavSink (32 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (32 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.WavSink.OverflowFailsSinkAndPatchesHeader" classname="WavLifecycle.WavSink.OverflowFailsSinkAndPatchesHeader" time="0.0388209" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSink.OverflowFailsSinkAndPatchesHeader
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSink
+[ RUN      ] WavSink.OverflowFailsSinkAndPatchesHeader
+[       OK ] WavSink.OverflowFailsSinkAndPatchesHeader (25 ms)
+[----------] 1 test from WavSink (25 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (25 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.WavSink.TwoSinksDoNotMixBytes" classname="WavLifecycle.WavSink.TwoSinksDoNotMixBytes" time="0.0401005" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSink.TwoSinksDoNotMixBytes
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSink
+[ RUN      ] WavSink.TwoSinksDoNotMixBytes
+[       OK ] WavSink.TwoSinksDoNotMixBytes (25 ms)
+[----------] 1 test from WavSink (25 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (25 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.CreateStartsLiveTrack" classname="WavLifecycle.CaptureTrackList.CreateStartsLiveTrack" time="0.0158569" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.CreateStartsLiveTrack
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.CreateStartsLiveTrack
+[       OK ] CaptureTrackList.CreateStartsLiveTrack (2 ms)
+[----------] 1 test from CaptureTrackList (2 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (2 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.DestroyRemovesTrackAndStopsBackend" classname="WavLifecycle.CaptureTrackList.DestroyRemovesTrackAndStopsBackend" time="0.015675" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.DestroyRemovesTrackAndStopsBackend
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.DestroyRemovesTrackAndStopsBackend
+[       OK ] CaptureTrackList.DestroyRemovesTrackAndStopsBackend (2 ms)
+[----------] 1 test from CaptureTrackList (2 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (2 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.RuntimeBackendFaultMarksTrackError" classname="WavLifecycle.CaptureTrackList.RuntimeBackendFaultMarksTrackError" time="0.0424654" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.RuntimeBackendFaultMarksTrackError
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.RuntimeBackendFaultMarksTrackError
+[       OK ] CaptureTrackList.RuntimeBackendFaultMarksTrackError (28 ms)
+[----------] 1 test from CaptureTrackList (28 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (28 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.RuntimeFaultStillFinalizesCreateTimeWav" classname="WavLifecycle.CaptureTrackList.RuntimeFaultStillFinalizesCreateTimeWav" time="0.0783008" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.RuntimeFaultStillFinalizesCreateTimeWav
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.RuntimeFaultStillFinalizesCreateTimeWav
+[       OK ] CaptureTrackList.RuntimeFaultStillFinalizesCreateTimeWav (63 ms)
+[----------] 1 test from CaptureTrackList (63 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (63 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.SilentRenderRuntimeFaultKeepsCaptureRunning" classname="WavLifecycle.CaptureTrackList.SilentRenderRuntimeFaultKeepsCaptureRunning" time="0.0448877" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.SilentRenderRuntimeFaultKeepsCaptureRunning
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.SilentRenderRuntimeFaultKeepsCaptureRunning
+[       OK ] CaptureTrackList.SilentRenderRuntimeFaultKeepsCaptureRunning (31 ms)
+[----------] 1 test from CaptureTrackList (31 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (31 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.DestroyAllClearsEveryMember" classname="WavLifecycle.CaptureTrackList.DestroyAllClearsEveryMember" time="0.0477129" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.DestroyAllClearsEveryMember
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.DestroyAllClearsEveryMember
+[       OK ] CaptureTrackList.DestroyAllClearsEveryMember (28 ms)
+[----------] 1 test from CaptureTrackList (28 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (28 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.FailedOpenDoesNotLeaveMember" classname="WavLifecycle.CaptureTrackList.FailedOpenDoesNotLeaveMember" time="0.0179136" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.FailedOpenDoesNotLeaveMember
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.FailedOpenDoesNotLeaveMember
+[       OK ] CaptureTrackList.FailedOpenDoesNotLeaveMember (0 ms)
+[----------] 1 test from CaptureTrackList (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.FailedStartDoesNotLeaveMember" classname="WavLifecycle.CaptureTrackList.FailedStartDoesNotLeaveMember" time="0.0173416" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.FailedStartDoesNotLeaveMember
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.FailedStartDoesNotLeaveMember
+[       OK ] CaptureTrackList.FailedStartDoesNotLeaveMember (0 ms)
+[----------] 1 test from CaptureTrackList (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.EqualSourcesMayBothBeLive" classname="WavLifecycle.CaptureTrackList.EqualSourcesMayBothBeLive" time="0.0571143" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.EqualSourcesMayBothBeLive
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.EqualSourcesMayBothBeLive
+[       OK ] CaptureTrackList.EqualSourcesMayBothBeLive (38 ms)
+[----------] 1 test from CaptureTrackList (38 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (39 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.CreateAllowedWhileSiblingStillListed" classname="WavLifecycle.CaptureTrackList.CreateAllowedWhileSiblingStillListed" time="0.0633452" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.CreateAllowedWhileSiblingStillListed
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.CreateAllowedWhileSiblingStillListed
+[       OK ] CaptureTrackList.CreateAllowedWhileSiblingStillListed (47 ms)
+[----------] 1 test from CaptureTrackList (48 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (48 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.WavOpenFailureDoesNotDestroySibling" classname="WavLifecycle.CaptureTrackList.WavOpenFailureDoesNotDestroySibling" time="0.0300759" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.WavOpenFailureDoesNotDestroySibling
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.WavOpenFailureDoesNotDestroySibling
+[       OK ] CaptureTrackList.WavOpenFailureDoesNotDestroySibling (13 ms)
+[----------] 1 test from CaptureTrackList (13 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (13 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.ExclusiveLoopbackRejected" classname="WavLifecycle.CaptureTrackList.ExclusiveLoopbackRejected" time="0.0161183" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.ExclusiveLoopbackRejected
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.ExclusiveLoopbackRejected
+[       OK ] CaptureTrackList.ExclusiveLoopbackRejected (0 ms)
+[----------] 1 test from CaptureTrackList (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.ExclusiveApplicationLoopbackRejected" classname="WavLifecycle.CaptureTrackList.ExclusiveApplicationLoopbackRejected" time="0.0150827" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.ExclusiveApplicationLoopbackRejected
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.ExclusiveApplicationLoopbackRejected
+[       OK ] CaptureTrackList.ExclusiveApplicationLoopbackRejected (0 ms)
+[----------] 1 test from CaptureTrackList (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (0 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.ApplicationLoopbackPreservesPidAndMode" classname="WavLifecycle.CaptureTrackList.ApplicationLoopbackPreservesPidAndMode" time="0.0605515" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.ApplicationLoopbackPreservesPidAndMode
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.ApplicationLoopbackPreservesPidAndMode
+[       OK ] CaptureTrackList.ApplicationLoopbackPreservesPidAndMode (44 ms)
+[----------] 1 test from CaptureTrackList (44 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (44 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.CreateFailureDoesNotDestroySibling" classname="WavLifecycle.CaptureTrackList.CreateFailureDoesNotDestroySibling" time="0.0162213" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.CreateFailureDoesNotDestroySibling
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.CreateFailureDoesNotDestroySibling
+[       OK ] CaptureTrackList.CreateFailureDoesNotDestroySibling (2 ms)
+[----------] 1 test from CaptureTrackList (2 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (2 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.SecondListUnaffectedByDestroyAll" classname="WavLifecycle.CaptureTrackList.SecondListUnaffectedByDestroyAll" time="0.0449085" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.SecondListUnaffectedByDestroyAll
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.SecondListUnaffectedByDestroyAll
+[       OK ] CaptureTrackList.SecondListUnaffectedByDestroyAll (31 ms)
+[----------] 1 test from CaptureTrackList (31 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (31 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.TapsAreIndependent" classname="WavLifecycle.CaptureTrackList.TapsAreIndependent" time="0.0616887" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.TapsAreIndependent
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.TapsAreIndependent
+[       OK ] CaptureTrackList.TapsAreIndependent (48 ms)
+[----------] 1 test from CaptureTrackList (48 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (48 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.CreateTimeWavWritesPushedPcm" classname="WavLifecycle.CaptureTrackList.CreateTimeWavWritesPushedPcm" time="0.0485679" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.CreateTimeWavWritesPushedPcm
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.CreateTimeWavWritesPushedPcm
+[       OK ] CaptureTrackList.CreateTimeWavWritesPushedPcm (34 ms)
+[----------] 1 test from CaptureTrackList (34 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (34 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.LiveDumpWritesPushedPcm" classname="WavLifecycle.CaptureTrackList.LiveDumpWritesPushedPcm" time="0.0601291" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.LiveDumpWritesPushedPcm
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.LiveDumpWritesPushedPcm
+[       OK ] CaptureTrackList.LiveDumpWritesPushedPcm (45 ms)
+[----------] 1 test from CaptureTrackList (45 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (46 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.AppLoopbackDumpNameIncludesPidAndProcessName" classname="WavLifecycle.CaptureTrackList.AppLoopbackDumpNameIncludesPidAndProcessName" time="0.0467301" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.AppLoopbackDumpNameIncludesPidAndProcessName
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.AppLoopbackDumpNameIncludesPidAndProcessName
+[       OK ] CaptureTrackList.AppLoopbackDumpNameIncludesPidAndProcessName (33 ms)
+[----------] 1 test from CaptureTrackList (33 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (33 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.LiveDumpRejectedWhenAlreadyDumping" classname="WavLifecycle.CaptureTrackList.LiveDumpRejectedWhenAlreadyDumping" time="0.0469775" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.LiveDumpRejectedWhenAlreadyDumping
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.LiveDumpRejectedWhenAlreadyDumping
+[       OK ] CaptureTrackList.LiveDumpRejectedWhenAlreadyDumping (33 ms)
+[----------] 1 test from CaptureTrackList (33 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (33 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.LiveDumpRejectedWhenTrackNotRunning" classname="WavLifecycle.CaptureTrackList.LiveDumpRejectedWhenTrackNotRunning" time="0.0164603" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.LiveDumpRejectedWhenTrackNotRunning
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.LiveDumpRejectedWhenTrackNotRunning
+[       OK ] CaptureTrackList.LiveDumpRejectedWhenTrackNotRunning (2 ms)
+[----------] 1 test from CaptureTrackList (2 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (2 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.LiveDumpOpenFailureLeavesTrackRunning" classname="WavLifecycle.CaptureTrackList.LiveDumpOpenFailureLeavesTrackRunning" time="0.0291457" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.LiveDumpOpenFailureLeavesTrackRunning
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.LiveDumpOpenFailureLeavesTrackRunning
+[       OK ] CaptureTrackList.LiveDumpOpenFailureLeavesTrackRunning (15 ms)
+[----------] 1 test from CaptureTrackList (15 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (15 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.DestroyWhileDumpingFinalizesWav" classname="WavLifecycle.CaptureTrackList.DestroyWhileDumpingFinalizesWav" time="0.0647691" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.DestroyWhileDumpingFinalizesWav
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.DestroyWhileDumpingFinalizesWav
+[       OK ] CaptureTrackList.DestroyWhileDumpingFinalizesWav (50 ms)
+[----------] 1 test from CaptureTrackList (50 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (50 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.OptionalWavStillRuns" classname="WavLifecycle.CaptureTrackList.OptionalWavStillRuns" time="0.0161776" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.OptionalWavStillRuns
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.OptionalWavStillRuns
+[       OK ] CaptureTrackList.OptionalWavStillRuns (2 ms)
+[----------] 1 test from CaptureTrackList (2 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (2 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.DefaultCreateOpensWithDefaultStreamParamsAndNoRequestedFormat" classname="WavLifecycle.CaptureTrackList.DefaultCreateOpensWithDefaultStreamParamsAndNoRequestedFormat" time="0.0154944" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.DefaultCreateOpensWithDefaultStreamParamsAndNoRequestedFormat
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.DefaultCreateOpensWithDefaultStreamParamsAndNoRequestedFormat
+[       OK ] CaptureTrackList.DefaultCreateOpensWithDefaultStreamParamsAndNoRequestedFormat (2 ms)
+[----------] 1 test from CaptureTrackList (2 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (2 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.CreatePassesRequestedFormatToBackend" classname="WavLifecycle.CaptureTrackList.CreatePassesRequestedFormatToBackend" time="0.0161776" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.CreatePassesRequestedFormatToBackend
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.CreatePassesRequestedFormatToBackend
+[       OK ] CaptureTrackList.CreatePassesRequestedFormatToBackend (2 ms)
+[----------] 1 test from CaptureTrackList (2 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (2 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.CreatePassesStreamParamsToOpen" classname="WavLifecycle.CaptureTrackList.CreatePassesStreamParamsToOpen" time="0.015908" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.CreatePassesStreamParamsToOpen
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.CreatePassesStreamParamsToOpen
+[       OK ] CaptureTrackList.CreatePassesStreamParamsToOpen (2 ms)
+[----------] 1 test from CaptureTrackList (2 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (2 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.SystemAndApplicationLoopbackBothPassStreamParams" classname="WavLifecycle.CaptureTrackList.SystemAndApplicationLoopbackBothPassStreamParams" time="0.0424666" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.SystemAndApplicationLoopbackBothPassStreamParams
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.SystemAndApplicationLoopbackBothPassStreamParams
+[       OK ] CaptureTrackList.SystemAndApplicationLoopbackBothPassStreamParams (28 ms)
+[----------] 1 test from CaptureTrackList (28 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (28 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.SilentRenderOpenStaysDefaultWhenCaptureHasStreamParams" classname="WavLifecycle.CaptureTrackList.SilentRenderOpenStaysDefaultWhenCaptureHasStreamParams" time="0.0154104" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.SilentRenderOpenStaysDefaultWhenCaptureHasStreamParams
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.SilentRenderOpenStaysDefaultWhenCaptureHasStreamParams
+[       OK ] CaptureTrackList.SilentRenderOpenStaysDefaultWhenCaptureHasStreamParams (2 ms)
+[----------] 1 test from CaptureTrackList (2 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (2 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.RequiredWavAsyncFailureMarksOnlyItsTrackWithoutMorePcm" classname="WavLifecycle.CaptureTrackList.RequiredWavAsyncFailureMarksOnlyItsTrackWithoutMorePcm" time="0.0929033" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.RequiredWavAsyncFailureMarksOnlyItsTrackWithoutMorePcm
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.RequiredWavAsyncFailureMarksOnlyItsTrackWithoutMorePcm
+[       OK ] CaptureTrackList.RequiredWavAsyncFailureMarksOnlyItsTrackWithoutMorePcm (79 ms)
+[----------] 1 test from CaptureTrackList (79 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (79 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.BothLoopbackKindsKeepCapturingAcrossThreeIndependentDumps" classname="WavLifecycle.CaptureTrackList.BothLoopbackKindsKeepCapturingAcrossThreeIndependentDumps" time="0.422806" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.BothLoopbackKindsKeepCapturingAcrossThreeIndependentDumps
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.BothLoopbackKindsKeepCapturingAcrossThreeIndependentDumps
+[       OK ] CaptureTrackList.BothLoopbackKindsKeepCapturingAcrossThreeIndependentDumps (409 ms)
+[----------] 1 test from CaptureTrackList (409 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (409 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.OptionalOpenWriteAndCloseFailuresKeepBothTracksAndTapsRunning" classname="WavLifecycle.CaptureTrackList.OptionalOpenWriteAndCloseFailuresKeepBothTracksAndTapsRunning" time="0.265072" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.OptionalOpenWriteAndCloseFailuresKeepBothTracksAndTapsRunning
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.OptionalOpenWriteAndCloseFailuresKeepBothTracksAndTapsRunning
+[       OK ] CaptureTrackList.OptionalOpenWriteAndCloseFailuresKeepBothTracksAndTapsRunning (250 ms)
+[----------] 1 test from CaptureTrackList (250 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (250 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.DestroyAllAndDestructorFinalizeEveryAcceptedByte" classname="WavLifecycle.CaptureTrackList.DestroyAllAndDestructorFinalizeEveryAcceptedByte" time="0.137525" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.DestroyAllAndDestructorFinalizeEveryAcceptedByte
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.DestroyAllAndDestructorFinalizeEveryAcceptedByte
+[       OK ] CaptureTrackList.DestroyAllAndDestructorFinalizeEveryAcceptedByte (123 ms)
+[----------] 1 test from CaptureTrackList (123 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (123 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing" classname="WavLifecycle.CaptureTrackList.SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing" time="0.123351" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing
+[       OK ] CaptureTrackList.SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing (109 ms)
+[----------] 1 test from CaptureTrackList (109 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (109 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix" classname="WavLifecycle.CaptureTrackList.OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix" time="2.43533" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix
+[       OK ] CaptureTrackList.OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix (2421 ms)
+[----------] 1 test from CaptureTrackList (2421 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (2421 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+	<testcase name="WavLifecycle.CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown" classname="WavLifecycle.CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown" time="0.0784883" status="run">
+		<properties/>
+		<system-out>Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from CaptureTrackList
+[ RUN      ] CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown
+[       OK ] CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown (64 ms)
+[----------] 1 test from CaptureTrackList (64 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (64 ms total)
+[  PASSED  ] 1 test.
+</system-out>
+	</testcase>
+</testsuite>

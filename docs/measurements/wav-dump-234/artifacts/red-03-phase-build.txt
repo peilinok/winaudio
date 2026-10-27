@@ -1,0 +1,24 @@
+
+  gtest.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Release\gtest.lib
+  gtest_main.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Release\gtest_main.lib
+  CaptureTrackList.cpp
+  MonitorEngine.cpp
+  RenderTrackList.cpp
+  WavSink.cpp
+  WinAudioCore.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Release\WinAudioCore.lib
+  WavSink.cpp
+  test_capture_track_list.cpp
+  test_wav_sink.cpp
+  test_wav_sink_lifecycle.cpp
+  正在生成代码
+  245 of 11043 functions ( 2.2%) were compiled, the rest were copied from previous compilation.
+    46 functions were new in current compilation
+    382 functions had inline decision re-evaluated but remain unchanged
+  已完成代码的生成
+  WinAudioWavLifecycleTests.vcxproj -> E:\WORK\vibecoding\winaudio\build\bin\Release\WinAudioWavLifecycleTests.exe
+
+已成功生成。
+    0 个警告
+    0 个错误
+
+已用时间 00:00:15.76

@@ -1,0 +1,20 @@
+
+  imgui.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Release\imgui.lib
+  gtest.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Release\gtest.lib
+  WinAudioCore.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Release\WinAudioCore.lib
+  gtest_main.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Release\gtest_main.lib
+  DumpUi.cpp
+  test_dump_ui.cpp
+test_dump_ui.obj : error LNK2001: 无法解析的外部符号 "public: bool __cdecl wa::dump_ui::Completion::take(struct wa::WavSinkStatus const &)" (?take@Completion@dump_ui@wa@@QEAA_NAEBUWavSinkStatus@3@@Z) [E:\WORK\vibecoding\winaudio\build\src\tests\WinAudioTests.vcxproj]
+test_dump_ui.obj : error LNK2001: 无法解析的外部符号 "bool __cdecl wa::dump_ui::canStart(struct wa::WavSinkStatus const &,bool,bool)" (?canStart@dump_ui@wa@@YA_NAEBUWavSinkStatus@2@_N1@Z) [E:\WORK\vibecoding\winaudio\build\src\tests\WinAudioTests.vcxproj]
+E:\WORK\vibecoding\winaudio\build\bin\Release\WinAudioTests.exe : fatal error LNK1120: 2 个无法解析的外部命令 [E:\WORK\vibecoding\winaudio\build\src\tests\WinAudioTests.vcxproj]
+
+生成失败。
+
+test_dump_ui.obj : error LNK2001: 无法解析的外部符号 "public: bool __cdecl wa::dump_ui::Completion::take(struct wa::WavSinkStatus const &)" (?take@Completion@dump_ui@wa@@QEAA_NAEBUWavSinkStatus@3@@Z) [E:\WORK\vibecoding\winaudio\build\src\tests\WinAudioTests.vcxproj]
+test_dump_ui.obj : error LNK2001: 无法解析的外部符号 "bool __cdecl wa::dump_ui::canStart(struct wa::WavSinkStatus const &,bool,bool)" (?canStart@dump_ui@wa@@YA_NAEBUWavSinkStatus@2@_N1@Z) [E:\WORK\vibecoding\winaudio\build\src\tests\WinAudioTests.vcxproj]
+E:\WORK\vibecoding\winaudio\build\bin\Release\WinAudioTests.exe : fatal error LNK1120: 2 个无法解析的外部命令 [E:\WORK\vibecoding\winaudio\build\src\tests\WinAudioTests.vcxproj]
+    0 个警告
+    3 个错误
+
+已用时间 00:00:04.07

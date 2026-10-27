@@ -1,0 +1,39 @@
+
+  HookBufferProbe.vcxproj -> E:\WORK\vibecoding\winaudio\build\bin\Release\HookBufferProbe.exe
+  WinAudioHook.vcxproj -> E:\WORK\vibecoding\winaudio\build\bin\Release\WinAudioHook.dll
+  imgui.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Release\imgui.lib
+  WinAudioCore.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Release\WinAudioCore.lib
+  LoopbackTreeProbe.vcxproj -> E:\WORK\vibecoding\winaudio\build\bin\Release\LoopbackTreeProbe.exe
+  gtest.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Release\gtest.lib
+  WinAudioCli.vcxproj -> E:\WORK\vibecoding\winaudio\build\bin\Release\WinAudioCli.exe
+  AttachSmoke.vcxproj -> E:\WORK\vibecoding\winaudio\build\bin\Release\AttachSmoke.exe
+  HookAudioProbe.vcxproj -> E:\WORK\vibecoding\winaudio\build\bin\Release\HookAudioProbe.exe
+  gtest_main.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Release\gtest_main.lib
+  WinAudioWavLifecycleTests.vcxproj -> E:\WORK\vibecoding\winaudio\build\bin\Release\WinAudioWavLifecycleTests.exe
+  WinAudioHookTests.vcxproj -> E:\WORK\vibecoding\winaudio\build\bin\Release\WinAudioHookTests.exe
+  implot.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Release\implot.lib
+  test_monitorengine.cpp
+  WinAudioGui.vcxproj -> E:\WORK\vibecoding\winaudio\build\bin\Release\WinAudioGui.exe
+  正在生成代码
+  0 of 25908 functions ( 0.0%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    0 functions had inline decision re-evaluated but remain unchanged
+  已完成代码的生成
+  WinAudioTests.vcxproj -> E:\WORK\vibecoding\winaudio\build\bin\Release\WinAudioTests.exe
+
+已成功生成。
+    0 个警告
+    0 个错误
+
+已用时间 00:00:07.72
+
+  imgui.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Release\imgui.lib
+  WinAudioCore.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Release\WinAudioCore.lib
+  implot.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Release\implot.lib
+  WinAudioPerformanceGui.vcxproj -> E:\WORK\vibecoding\winaudio\build\bin\Release\WinAudioPerformanceGui.exe
+
+已成功生成。
+    0 个警告
+    0 个错误
+
+已用时间 00:00:00.64

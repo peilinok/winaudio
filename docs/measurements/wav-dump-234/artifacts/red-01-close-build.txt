@@ -1,0 +1,40 @@
+CMake is re-running because E:/WORK/vibecoding/winaudio/build/src/tests/CMakeFiles/generate.stamp is out-of-date.
+  the file 'E:/WORK/vibecoding/winaudio/src/tests/CMakeLists.txt'
+  is newer than 'E:/WORK/vibecoding/winaudio/build/src/tests/CMakeFiles/generate.stamp.depend'
+  result='-1'
+-- Selecting Windows SDK version 10.0.26100.0 to target Windows 10.0.26200.
+-- Configuring done (1.0s)
+-- Generating done (1.2s)
+-- Build files have been written to: E:/WORK/vibecoding/winaudio/build
+
+  CaptureTrackList.cpp
+  imgui.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Release\imgui.lib
+  gtest.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Release\gtest.lib
+  gtest_main.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Release\gtest_main.lib
+  Engine.cpp
+  MonitorEngine.cpp
+  PhraseCatalog.cpp
+  RenderTrackList.cpp
+  RingBuffer.cpp
+  WavFile.cpp
+  WavSink.cpp
+  WinAudioCore.vcxproj -> E:\WORK\vibecoding\winaudio\build\lib\Release\WinAudioCore.lib
+  test_capture_track_list.cpp
+  test_cli_options.cpp
+  test_monitorengine.cpp
+  test_production_catalog.cpp
+  test_render_track_list.cpp
+  test_wav_sink.cpp
+  test_wavfile.cpp
+  正在生成代码
+  847 of 25610 functions ( 3.3%) were compiled, the rest were copied from previous compilation.
+    88 functions were new in current compilation
+    512 functions had inline decision re-evaluated but remain unchanged
+  已完成代码的生成
+  WinAudioTests.vcxproj -> E:\WORK\vibecoding\winaudio\build\bin\Release\WinAudioTests.exe
+
+已成功生成。
+    0 个警告
+    0 个错误
+
+已用时间 00:00:34.94

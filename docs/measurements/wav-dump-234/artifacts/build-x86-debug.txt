@@ -1,0 +1,34 @@
+
+  HookBufferProbe.vcxproj -> E:\WORK\vibecoding\winaudio\build-x86\bin\Debug\HookBufferProbe.exe
+  WinAudioHook.vcxproj -> E:\WORK\vibecoding\winaudio\build-x86\bin\Debug\WinAudioHook.dll
+  imgui.vcxproj -> E:\WORK\vibecoding\winaudio\build-x86\lib\Debug\imgui.lib
+  WinAudioCore.vcxproj -> E:\WORK\vibecoding\winaudio\build-x86\lib\Debug\WinAudioCore.lib
+  gtest.vcxproj -> E:\WORK\vibecoding\winaudio\build-x86\lib\Debug\gtest.lib
+  WinAudioCli.vcxproj -> E:\WORK\vibecoding\winaudio\build-x86\bin\Debug\WinAudioCli.exe
+  AttachSmoke.vcxproj -> E:\WORK\vibecoding\winaudio\build-x86\bin\Debug\AttachSmoke.exe
+  HookAudioProbe.vcxproj -> E:\WORK\vibecoding\winaudio\build-x86\bin\Debug\HookAudioProbe.exe
+  LoopbackTreeProbe.vcxproj -> E:\WORK\vibecoding\winaudio\build-x86\bin\Debug\LoopbackTreeProbe.exe
+  gtest_main.vcxproj -> E:\WORK\vibecoding\winaudio\build-x86\lib\Debug\gtest_main.lib
+  WinAudioHookTests.vcxproj -> E:\WORK\vibecoding\winaudio\build-x86\bin\Debug\WinAudioHookTests.exe
+  WinAudioWavLifecycleTests.vcxproj -> E:\WORK\vibecoding\winaudio\build-x86\bin\Debug\WinAudioWavLifecycleTests.exe
+  implot.vcxproj -> E:\WORK\vibecoding\winaudio\build-x86\lib\Debug\implot.lib
+  test_monitorengine.cpp
+  WinAudioGui.vcxproj -> E:\WORK\vibecoding\winaudio\build-x86\bin\Debug\WinAudioGui.exe
+  WinAudioTests.vcxproj -> E:\WORK\vibecoding\winaudio\build-x86\bin\Debug\WinAudioTests.exe
+
+已成功生成。
+    0 个警告
+    0 个错误
+
+已用时间 00:00:08.02
+
+  imgui.vcxproj -> E:\WORK\vibecoding\winaudio\build-x86\lib\Debug\imgui.lib
+  WinAudioCore.vcxproj -> E:\WORK\vibecoding\winaudio\build-x86\lib\Debug\WinAudioCore.lib
+  implot.vcxproj -> E:\WORK\vibecoding\winaudio\build-x86\lib\Debug\implot.lib
+  WinAudioPerformanceGui.vcxproj -> E:\WORK\vibecoding\winaudio\build-x86\bin\Debug\WinAudioPerformanceGui.exe
+
+已成功生成。
+    0 个警告
+    0 个错误
+
+已用时间 00:00:00.68

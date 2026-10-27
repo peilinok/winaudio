@@ -1,0 +1,46 @@
+Running main() from E:\WORK\vibecoding\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSinkLifecycle.*
+[==========] Running 18 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 18 tests from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.SourceEndsBeforePreparing
+[       OK ] WavSinkLifecycle.SourceEndsBeforePreparing (1 ms)
+[ RUN      ] WavSinkLifecycle.SourceEndsBeforeReady
+[       OK ] WavSinkLifecycle.SourceEndsBeforeReady (1 ms)
+[ RUN      ] WavSinkLifecycle.SourceEndsAfterReady
+[       OK ] WavSinkLifecycle.SourceEndsAfterReady (1 ms)
+[ RUN      ] WavSinkLifecycle.CompletionIsSeparateFromAdmissionAndKeepsItsGeneration
+[       OK ] WavSinkLifecycle.CompletionIsSeparateFromAdmissionAndKeepsItsGeneration (19 ms)
+[ RUN      ] WavSinkLifecycle.DelayedOldSourceStopCannotCloseTheNextDump
+[       OK ] WavSinkLifecycle.DelayedOldSourceStopCannotCloseTheNextDump (36 ms)
+[ RUN      ] WavSinkLifecycle.StopWaitsForAdmittedPushAndKeepsItsBytes
+[       OK ] WavSinkLifecycle.StopWaitsForAdmittedPushAndKeepsItsBytes (26 ms)
+[ RUN      ] WavSinkLifecycle.EmptyRingDoesNotFinalizeBeforeLastPublication
+[       OK ] WavSinkLifecycle.EmptyRingDoesNotFinalizeBeforeLastPublication (31 ms)
+[ RUN      ] WavSinkLifecycle.OldSnapshotCannotWriteIntoRestartedFile
+[       OK ] WavSinkLifecycle.OldSnapshotCannotWriteIntoRestartedFile (32 ms)
+[ RUN      ] WavSinkLifecycle.WriteFailureSurvivesCloseFailureAndRepeatedStop
+[       OK ] WavSinkLifecycle.WriteFailureSurvivesCloseFailureAndRepeatedStop (14 ms)
+[ RUN      ] WavSinkLifecycle.PreparationExceptionClosesOutputAndAllowsRetry
+[       OK ] WavSinkLifecycle.PreparationExceptionClosesOutputAndAllowsRetry (15 ms)
+[ RUN      ] WavSinkLifecycle.DifferentSourceCannotWriteIntoCurrentFile
+[       OK ] WavSinkLifecycle.DifferentSourceCannotWriteIntoCurrentFile (17 ms)
+[ RUN      ] WavSinkLifecycle.OverflowRemainsFirstFailureWhenOutputAlsoFails
+[       OK ] WavSinkLifecycle.OverflowRemainsFirstFailureWhenOutputAlsoFails (15 ms)
+[ RUN      ] WavSinkLifecycle.StopRequestDuringPreparationCannotPublishReady
+[       OK ] WavSinkLifecycle.StopRequestDuringPreparationCannotPublishReady (2 ms)
+[ RUN      ] WavSinkLifecycle.AllocationAndThreadLaunchFailuresReleaseResourcesForRetry
+[       OK ] WavSinkLifecycle.AllocationAndThreadLaunchFailuresReleaseResourcesForRetry (44 ms)
+[ RUN      ] WavSinkLifecycle.NormalRejectionAndWrongSourceStopAreNotFileFailures
+[       OK ] WavSinkLifecycle.NormalRejectionAndWrongSourceStopAreNotFileFailures (15 ms)
+[ RUN      ] WavSinkLifecycle.OverflowAndStopDrainAcceptedPrefixAfterPublication
+[       OK ] WavSinkLifecycle.OverflowAndStopDrainAcceptedPrefixAfterPublication (45 ms)
+[ RUN      ] WavSinkLifecycle.WriterBatchBoundariesPreserveMultichannelFrames
+[       OK ] WavSinkLifecycle.WriterBatchBoundariesPreserveMultichannelFrames (21 ms)
+[ RUN      ] WavSinkLifecycle.IncompleteTailRemainsAFailureAndFileIsRetained
+[       OK ] WavSinkLifecycle.IncompleteTailRemainsAFailureAndFileIsRetained (9 ms)
+[----------] 18 tests from WavSinkLifecycle (353 ms total)
+
+[----------] Global test environment tear-down
+[==========] 18 tests from 1 test suite ran. (353 ms total)
+[  PASSED  ] 18 tests.
