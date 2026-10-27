@@ -106,6 +106,20 @@ _Avoid_: StreamOption, AUDCLNT_STREAMOPTIONS, extraSharedInitFlags
 The share-mode recipe shared by every Track and by silent-render: mix vs requested conversion, exclusive probe and align-retry, duration, and stream flags. Loopback extras are supplied by the caller; Stream init does not inspect the Capture source. Endpoint or Application Loopback activation sits outside it, as do client properties, ducking, and the pump.
 _Avoid_: Client Init, prepareClient, format negotiation (that is only the format half)
 
+### WAV 记录
+
+**WAV Dump**:
+对一个 Capture Track，或 Monitor 单侧 PCM 的一轮文件记录；一轮对应一个 WAV 文件。开始或结束 Dump 不等于创建或销毁 Track。
+_Avoid_: Track、Monitor、多个来源混写的录音
+
+**Capture Dump**:
+记录采集侧 PCM 的 WAV Dump；Monitor 中取自延迟处理之前，文件格式跟随采集侧实际格式。
+_Avoid_: Render Dump、延迟后的录音
+
+**Render Dump**:
+记录 Monitor 延迟处理与声道适配之后 PCM 的 WAV Dump，文件格式跟随 render 侧实际格式。它记录提交给播放路径的数据，不证明这些数据已被设备实际播放。
+_Avoid_: Capture Dump、设备实际播放内容的无损证明
+
 ### Pipeline inspector
 
 **Pipeline Inspector**:

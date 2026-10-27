@@ -81,6 +81,8 @@ wa_set_project_warnings(WinAudioTests)
 
 include(GoogleTest)
 gtest_discover_tests(WinAudioTests)
+set_property(DIRECTORY APPEND PROPERTY TEST_INCLUDE_FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/WavDumpTestTimeouts.cmake")
 
 # Compile the real hook entry points in an executable without automatic DLL
 # installation. Kept independent of WinAudioCore for both x64 and x86 checks.
@@ -89,3 +91,16 @@ target_include_directories(WinAudioHookTests PRIVATE ${CMAKE_SOURCE_DIR}/src/cor
 target_link_libraries(WinAudioHookTests PRIVATE gtest_main ole32 oleaut32 mmdevapi uuid advapi32)
 wa_set_project_warnings(WinAudioHookTests)
 gtest_discover_tests(WinAudioHookTests)
+
+# Same production sources, with scheduling points compiled out of WinAudioCore.
+add_executable(WinAudioWavLifecycleTests
+    test_wav_sink_lifecycle.cpp
+    test_wav_sink.cpp
+    test_capture_track_list.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/WavSink.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/RingBuffer.cpp
+)
+target_compile_definitions(WinAudioWavLifecycleTests PRIVATE WA_WAV_SINK_TESTING)
+target_link_libraries(WinAudioWavLifecycleTests PRIVATE WinAudioCore gtest_main)
+wa_set_project_warnings(WinAudioWavLifecycleTests)
+gtest_discover_tests(WinAudioWavLifecycleTests TEST_PREFIX "WavLifecycle." PROPERTIES TIMEOUT 30)

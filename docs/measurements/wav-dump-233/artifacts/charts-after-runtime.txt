@@ -1,0 +1,23 @@
+00:33:33.498 [I] [main] GuiLanguage::resolve                           args: zh-CN                                  ret: display
+00:33:33.518 [I] [?   ] WasapiStream::threadMain                       args: worker thread started                  ret:
+00:33:33.537 [I] [?   ] WasapiStream::Start                            args: stream started                         ret:
+00:33:33.537 [I] [renW] WasapiStream::runLoop                          args: render loop started                    ret:
+00:33:33.537 [I] [main] RenderTrackList::create                        args: id=1 dev={0.0.0.00000000}.{09793ccf-e246-4dbf-800b-a7cf44856994} fmt=48000/16/8 mask=0x63F ret: ok
+00:33:33.542 [I] [?   ] WasapiStream::threadMain                       args: worker thread started                  ret:
+00:33:33.548 [I] [?   ] WasapiStream::Start                            args: stream started                         ret:
+00:33:33.548 [I] [renW] WasapiStream::runLoop                          args: render loop started                    ret:
+00:33:33.548 [I] [main] RenderTrackList::create                        args: id=2 dev={0.0.0.00000000}.{09793ccf-e246-4dbf-800b-a7cf44856994} fmt=48000/16/8 mask=0x63F ret: ok
+00:33:33.548 [I] [main] PerformanceFixture::track                      args: 1                                      ret: 48000Hz channels=8
+00:33:33.548 [I] [main] PerformanceFixture::track                      args: 2                                      ret: 48000Hz channels=8
+00:33:33.548 [I] [main] PerformanceFixture::GetClientRect/GetDpiForWindow args: 1                                      ret: 1264x761 dpi=96
+00:33:33.548 [I] [main] PerformanceFixture::GetDesc                    args: S_OK                                   ret: NVIDIA GeForce RTX 2060
+00:33:33.597 [I] [main] DeviceEnum::enumerate                          args: flow=capture                           ret: start
+00:33:33.598 [I] [main] DeviceEnum::GetDefaultAudioEndpoint            args: defaultId                              ret: selected
+00:33:33.600 [W] [main] DeviceEnum::IMMDeviceCollection::GetCount      args: count=6                                ret: S_OK
+00:33:33.606 [I] [main] DeviceEnum::enumerate                          args: flow=render                            ret: start
+00:33:33.608 [I] [main] DeviceEnum::GetDefaultAudioEndpoint            args: defaultId                              ret: selected
+00:33:33.609 [W] [main] DeviceEnum::IMMDeviceCollection::GetCount      args: count=7                                ret: S_OK
+00:34:16.557 [I] [main] MonitorEngine::stop                            args: -                                      ret:
+00:34:16.557 [I] [main] CaptureTrackList::destroyAll                   args: n=0                                    ret:
+00:34:16.557 [I] [main] CaptureTrackList::destroyAll                   args: n=0                                    ret:
+00:34:16.557 [I] [main] RenderTrackList::destroyAll                    args: n=2                                    ret:

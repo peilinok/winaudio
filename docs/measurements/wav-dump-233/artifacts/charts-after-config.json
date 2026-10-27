@@ -1,0 +1,14 @@
+﻿{
+    "source":  "baa0fbcefa2b473664fdf46172184655a48adae5",
+    "executable":  "C:\\Users\\peili\\.codex\\worktrees\\wav-dump-233\\winaudio\\.scratch\\wav-dump-task\\performance-after\\build\\bin\\Release\\WinAudioPerformanceGui.exe",
+    "executable_sha256":  "8161D0B76667729C62D9ED374F2F7243FD3D2FDCFD0C335E58E947EBBD2581FD",
+    "endpoint":  "{0.0.0.00000000}.{09793ccf-e246-4dbf-800b-a7cf44856994}",
+    "configuration":  {
+                          "name":  "charts-smoke",
+                          "tracks":  2,
+                          "mode":  "buffered",
+                          "warmup":  3,
+                          "duration":  40
+                      },
+    "started":  "2026-10-25T00:33:33.1777691+08:00"
+}

@@ -3,8 +3,10 @@
 #endif
 #include <windows.h>
 #include <gtest/gtest.h>
+#include <gtest/gtest-spi.h>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <memory>
 #include <string>
 #include <thread>
@@ -13,6 +15,7 @@
 #include "RingBuffer.h"
 #include "TrackScopeReader.h"
 #include "WavFile.h"
+#include "WavSinkOutput.h"
 
 using namespace wa;
 
@@ -634,4 +637,328 @@ TEST(CaptureTrackList, SilentRenderOpenStaysDefaultWhenCaptureHasStreamParams) {
     EXPECT_TRUE(rig.silents[0]->lastOpenParams_.isDefault());
     EXPECT_FALSE(rig.silents[0]->sawRequested_);
     list.destroyAll();
+}
+
+namespace {
+class FailWriteOutput : public WavSinkOutput {
+public:
+    Result open(const std::wstring& path, const AudioFormat& fmt) override {
+        return writer_.open(path, fmt);
+    }
+    Result setBuffer(size_t bytes) override { writer_.setStdioBuffer(bytes); return Result::Ok(); }
+    Result write(const void*, size_t) override { return Result::Fail(101, "injected write failure"); }
+    Result close() override { return writer_.close(); }
+private:
+    WavWriter writer_;
+};
+
+enum class DumpFailure { Open, Write, Close };
+
+class OptionalFailureOutput : public WavSinkOutput {
+public:
+    explicit OptionalFailureOutput(DumpFailure failure) : failure_(failure) {}
+    Result open(const std::wstring& path, const AudioFormat& fmt) override {
+        return failure_ == DumpFailure::Open ? Result::Fail(101, "injected open failure")
+                                             : writer_.open(path, fmt);
+    }
+    Result setBuffer(size_t bytes) override { return writer_.setStdioBuffer(bytes); }
+    Result write(const void* data, size_t bytes) override {
+        return failure_ == DumpFailure::Write ? Result::Fail(102, "injected write failure")
+                                              : writer_.write(data, bytes);
+    }
+    Result close() override {
+        const Result result = writer_.close();
+        return failure_ == DumpFailure::Close ? Result::Fail(103, "injected close failure") : result;
+    }
+private:
+    DumpFailure failure_;
+    WavWriter writer_;
+};
+
+struct SlowOutputGate {
+    std::mutex mtx;
+    std::condition_variable cv;
+    bool blockWrite = false;
+    bool entered = false;
+    bool released = false;
+    bool waitEntered() {
+        std::unique_lock<std::mutex> lk(mtx);
+        return cv.wait_for(lk, std::chrono::seconds(10), [&] { return entered; });
+    }
+    void pause() {
+        std::unique_lock<std::mutex> lk(mtx);
+        entered = true;
+        cv.notify_all();
+        cv.wait(lk, [&] { return released; });
+    }
+    void release() {
+        std::lock_guard<std::mutex> lk(mtx);
+        released = true;
+        cv.notify_all();
+    }
+};
+
+struct SlowOutputRelease {
+    SlowOutputGate& gate;
+    ~SlowOutputRelease() { gate.release(); }
+};
+
+class SlowOutput : public WavSinkOutput {
+public:
+    explicit SlowOutput(SlowOutputGate& gate) : gate_(gate) {}
+    Result open(const std::wstring& path, const AudioFormat& fmt) override {
+        return writer_.open(path, fmt);
+    }
+    Result setBuffer(size_t bytes) override { return writer_.setStdioBuffer(bytes); }
+    Result write(const void* data, size_t bytes) override {
+        if (gate_.blockWrite) gate_.pause();
+        return writer_.write(data, bytes);
+    }
+    Result close() override {
+        if (!gate_.blockWrite) gate_.pause();
+        return writer_.close();
+    }
+private:
+    SlowOutputGate& gate_;
+    WavWriter writer_;
+};
+}
+
+TEST(CaptureTrackList, RequiredWavAsyncFailureMarksOnlyItsTrackWithoutMorePcm) {
+    ListRig rig;
+    CaptureTrackList list(rig.factory(), {}, [] { return std::make_unique<FailWriteOutput>(); });
+    TrackId required = 0, sibling = 0;
+    CaptureTrackCreate spec;
+    spec.wavPath = tempWav(L"required_async");
+    ASSERT_TRUE(list.create(spec, &required));
+    ASSERT_TRUE(list.create({}, &sibling));
+    const std::vector<int16_t> pcm(256u * 1024u / 2u, 123);
+    rig.caps[0]->pushPcm(pcm.data(), pcm.size() * sizeof(int16_t));
+    ASSERT_TRUE(waitFor([&] { return list.poll()[0].dumpError; }));
+    EXPECT_TRUE(waitFor([&] { return list.poll()[0].state == StreamState::Error; }));
+    EXPECT_EQ(list.poll()[1].state, StreamState::Running);
+    EXPECT_FALSE(rig.stopped[0]->load());
+    EXPECT_FALSE(rig.stopped[1]->load());
+    list.destroyAll();
+    DeleteFileW(spec.wavPath.c_str());
+}
+
+TEST(CaptureTrackList, BothLoopbackKindsKeepCapturingAcrossThreeIndependentDumps) {
+    for (const auto kind : {CaptureSourceKind::SystemLoopback, CaptureSourceKind::ApplicationLoopback}) {
+        ListRig rig;
+        CaptureTrackList list(rig.factory());
+        CaptureTrackCreate spec;
+        spec.source.kind = kind;
+        spec.source.processId = 4242;
+        spec.loopbackOptions.silentRender = false;
+        TrackId id = 0, sibling = 0;
+        ASSERT_TRUE(list.create(spec, &id));
+        ASSERT_TRUE(list.create(spec, &sibling));
+        std::vector<std::wstring> paths;
+        wchar_t dir[MAX_PATH]{};
+        GetTempPathW(MAX_PATH, dir);
+        uint64_t frames = 0;
+        for (int round = 0; round < 3; ++round) {
+            ASSERT_TRUE(list.startDump(id, dir));
+            paths.push_back(list.poll()[0].dumpPath);
+            const int16_t pcm[4]{static_cast<int16_t>(100 + round), -100, 200, -200};
+            rig.caps[0]->pushPcm(pcm, sizeof(pcm));
+            frames += 2;
+            ASSERT_TRUE(waitFor([&] { return list.written(id) == frames; }));
+            ASSERT_TRUE(list.stopDump(id));
+            WavReader reader;
+            ASSERT_TRUE(reader.open(paths.back()));
+            EXPECT_TRUE(reader.format() == rig.fmt);
+            int16_t back[4]{};
+            EXPECT_EQ(reader.read(back, sizeof(back)), sizeof(back));
+            EXPECT_EQ(std::vector<int16_t>(back, back + 4), std::vector<int16_t>(pcm, pcm + 4));
+            EXPECT_EQ(reader.read(back, sizeof(back)), 0u);
+            reader.close();
+            // PCM after every stop still advances both taps and both devices remain up.
+            rig.caps[0]->pushPcm(pcm, sizeof(pcm));
+            rig.caps[1]->pushPcm(pcm, sizeof(pcm));
+            frames += 2;
+            ASSERT_TRUE(waitFor([&] { return list.written(id) == frames
+                                          && list.written(sibling) == static_cast<uint64_t>((round + 1) * 2); }));
+            EXPECT_FALSE(rig.stopped[0]->load());
+            EXPECT_FALSE(rig.stopped[1]->load());
+            EXPECT_EQ(list.poll()[0].state, StreamState::Running);
+        }
+        EXPECT_NE(paths[0], paths[1]);
+        EXPECT_NE(paths[1], paths[2]);
+        list.destroyAll();
+        for (const auto& path : paths) DeleteFileW(path.c_str());
+    }
+}
+
+TEST(CaptureTrackList, OptionalOpenWriteAndCloseFailuresKeepBothTracksAndTapsRunning) {
+    for (const auto failure : {DumpFailure::Open, DumpFailure::Write, DumpFailure::Close}) {
+        ListRig rig;
+        CaptureTrackList list(rig.factory(), {}, [=] {
+            return std::make_unique<OptionalFailureOutput>(failure);
+        });
+        TrackId id = 0, sibling = 0;
+        ASSERT_TRUE(list.create({}, &id));
+        ASSERT_TRUE(list.create({}, &sibling));
+        wchar_t dir[MAX_PATH]{};
+        GetTempPathW(MAX_PATH, dir);
+        const Result started = list.startDump(id, dir);
+        EXPECT_EQ(started.ok, failure != DumpFailure::Open);
+        const auto path = list.poll()[0].dumpPath;
+        if (started) {
+            const std::vector<int16_t> pcm(256u * 1024u / 2u, 100);
+            rig.caps[0]->pushPcm(pcm.data(), pcm.size() * 2);
+            ASSERT_TRUE(waitFor([&] { return list.written(id) == pcm.size() / 2; }));
+            EXPECT_FALSE(list.stopDump(id));
+        }
+        const uint64_t before = list.written(id);
+        const int16_t pcm[4]{11, -11, 22, -22};
+        rig.caps[0]->pushPcm(pcm, sizeof(pcm));
+        rig.caps[1]->pushPcm(pcm, sizeof(pcm));
+        ASSERT_TRUE(waitFor([&] { return list.written(id) == before + 2 && list.written(sibling) == 2; }));
+        EXPECT_EQ(list.poll()[0].state, StreamState::Running);
+        EXPECT_EQ(list.poll()[1].state, StreamState::Running);
+        EXPECT_TRUE(list.poll()[0].dumpError);
+        EXPECT_FALSE(rig.stopped[0]->load());
+        EXPECT_FALSE(rig.stopped[1]->load());
+        list.destroyAll();
+        DeleteFileW(path.c_str());
+    }
+}
+
+TEST(CaptureTrackList, DestroyAllAndDestructorFinalizeEveryAcceptedByte) {
+    for (const bool explicitDestroy : {true, false}) {
+        ListRig rig;
+        const auto a = tempWav(explicitDestroy ? L"destroy_all_a" : L"destructor_a");
+        const auto b = tempWav(explicitDestroy ? L"destroy_all_b" : L"destructor_b");
+        const int16_t pcm[4]{1, -2, 3, -4};
+        {
+            CaptureTrackList list(rig.factory());
+            CaptureTrackCreate spec;
+            TrackId first = 0, second = 0;
+            spec.wavPath = a;
+            ASSERT_TRUE(list.create(spec, &first));
+            spec.wavPath = b;
+            ASSERT_TRUE(list.create(spec, &second));
+            for (auto cap : rig.caps) cap->pushPcm(pcm, sizeof(pcm));
+            ASSERT_TRUE(waitFor([&] { return list.written(first) == 2 && list.written(second) == 2; }));
+            if (explicitDestroy) list.destroyAll();
+        }
+        EXPECT_TRUE(rig.stopped[0]->load());
+        EXPECT_TRUE(rig.stopped[1]->load());
+        for (const auto& path : {a, b}) {
+            WavReader reader;
+            ASSERT_TRUE(reader.open(path));
+            int16_t back[4]{};
+            EXPECT_EQ(reader.read(back, sizeof(back)), sizeof(back));
+            EXPECT_EQ(std::vector<int16_t>(back, back + 4), std::vector<int16_t>(pcm, pcm + 4));
+            reader.close();
+            DeleteFileW(path.c_str());
+        }
+    }
+}
+
+TEST(CaptureTrackList, SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing) {
+    ListRig rig;
+    SlowOutputGate gate;
+    CaptureTrackList list(rig.factory(), {}, [&] { return std::make_unique<SlowOutput>(gate); });
+    SlowOutputRelease release{gate}; // Release before list teardown on an early assertion.
+    TrackId id = 0, sibling = 0;
+    ASSERT_TRUE(list.create({}, &id));
+    ASSERT_TRUE(list.create({}, &sibling));
+    wchar_t dir[MAX_PATH]{};
+    GetTempPathW(MAX_PATH, dir);
+    ASSERT_TRUE(list.startDump(id, dir));
+    const auto path = list.poll()[0].dumpPath;
+    const int16_t pcm[4]{10, -10, 20, -20};
+    rig.caps[0]->pushPcm(pcm, sizeof(pcm));
+    ASSERT_TRUE(waitFor([&] { return list.written(id) == 2; }));
+    Result stopped;
+    std::thread control([&] { stopped = list.stopDump(id); });
+    EXPECT_TRUE(gate.waitEntered()) << "writer close deadlock";
+    rig.caps[0]->pushPcm(pcm, sizeof(pcm));
+    rig.caps[1]->pushPcm(pcm, sizeof(pcm));
+    EXPECT_TRUE(waitFor([&] { return list.written(id) == 4 && list.written(sibling) == 2; }));
+    EXPECT_FALSE(rig.stopped[0]->load());
+    EXPECT_FALSE(rig.stopped[1]->load());
+    gate.release();
+    control.join();
+    EXPECT_TRUE(stopped);
+    WavReader reader;
+    ASSERT_TRUE(reader.open(path));
+    int16_t back[4]{};
+    EXPECT_EQ(reader.read(back, sizeof(back)), sizeof(back));
+    EXPECT_EQ(std::vector<int16_t>(back, back + 4), std::vector<int16_t>(pcm, pcm + 4));
+    EXPECT_EQ(reader.read(back, sizeof(back)), 0u);
+    reader.close();
+    list.destroyAll();
+    DeleteFileW(path.c_str());
+}
+
+TEST(CaptureTrackList, OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix) {
+    ListRig rig;
+    SlowOutputGate gate;
+    gate.blockWrite = true;
+    CaptureTrackList list(rig.factory(), {}, [&] { return std::make_unique<SlowOutput>(gate); });
+    SlowOutputRelease release{gate};
+    TrackId id = 0, sibling = 0;
+    ASSERT_TRUE(list.create({}, &id));
+    ASSERT_TRUE(list.create({}, &sibling));
+    wchar_t dir[MAX_PATH]{};
+    GetTempPathW(MAX_PATH, dir);
+    ASSERT_TRUE(list.startDump(id, dir));
+    const auto path = list.poll()[0].dumpPath;
+    const std::vector<int16_t> block(8192, 123);
+    for (uint64_t n = 1; n <= 96; ++n) {
+        rig.caps[0]->pushPcm(block.data(), block.size() * 2);
+        EXPECT_TRUE(waitFor([&] { return list.written(id) == n * 4096; }));
+        if (n == 16) EXPECT_TRUE(gate.waitEntered()) << "writer write deadlock";
+    }
+    rig.caps[1]->pushPcm(block.data(), block.size() * 2);
+    EXPECT_TRUE(waitFor([&] { return list.written(sibling) == 4096; }));
+    EXPECT_EQ(list.poll()[0].state, StreamState::Running);
+    EXPECT_EQ(list.poll()[1].state, StreamState::Running);
+    EXPECT_FALSE(rig.stopped[0]->load());
+    EXPECT_FALSE(rig.stopped[1]->load());
+    gate.release();
+    const Result result = list.stopDump(id);
+    EXPECT_FALSE(result);
+    EXPECT_EQ(result.message, "WavSink: ring overflow");
+    WavReader reader;
+    ASSERT_TRUE(reader.open(path));
+    // One batch in the blocked writer plus the unchanged one-MiB sink ring.
+    std::vector<int16_t> prefix((256u * 1024u + 1024u * 1024u) / 2u);
+    EXPECT_EQ(reader.read(prefix.data(), prefix.size() * 2), prefix.size() * 2);
+    EXPECT_EQ(prefix, std::vector<int16_t>(prefix.size(), 123));
+    int16_t extra = 0;
+    EXPECT_EQ(reader.read(&extra, sizeof(extra)), 0u);
+    reader.close();
+    list.destroyAll();
+    DeleteFileW(path.c_str());
+}
+
+static void failAfterStartingSlowDump(const std::wstring& path, bool blockWrite) {
+    ListRig rig;
+    SlowOutputGate gate;
+    gate.blockWrite = blockWrite;
+    CaptureTrackList list(rig.factory(), {}, [&] { return std::make_unique<SlowOutput>(gate); });
+    SlowOutputRelease release{gate};
+    CaptureTrackCreate spec;
+    spec.wavPath = path;
+    TrackId id = 0;
+    ASSERT_TRUE(list.create(spec, &id));
+    if (blockWrite) {
+        const std::vector<int16_t> pcm(256u * 1024u / 2u, 123);
+        rig.caps[0]->pushPcm(pcm.data(), pcm.size() * 2);
+        ASSERT_TRUE(gate.waitEntered());
+    }
+    FAIL() << "injected early assertion";
+}
+
+TEST(CaptureTrackList, SlowDumpFatalAssertionDoesNotBlockTrackTeardown) {
+    static const auto path = tempWav(L"early_assertion");
+    EXPECT_FATAL_FAILURE(failAfterStartingSlowDump(path, false), "injected early assertion");
+    DeleteFileW(path.c_str());
+    EXPECT_FATAL_FAILURE(failAfterStartingSlowDump(path, true), "injected early assertion");
+    DeleteFileW(path.c_str());
 }

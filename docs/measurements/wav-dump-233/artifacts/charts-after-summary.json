@@ -1,0 +1,181 @@
+{
+  "note": "Compact view; full summary and raw frames are archived separately.",
+  "groups": [
+    {
+      "scene": "Monitor",
+      "stage": "warmup",
+      "frame_count": 1,
+      "first_frame": 1,
+      "last_frame": 1,
+      "main_thread_ms": {
+        "n": 1,
+        "p50": 104.2208,
+        "p95": 104.2208,
+        "p99": 104.2208,
+        "maximum": 104.2208
+      },
+      "frame_interval_ms": {
+        "n": 0,
+        "p50": null,
+        "p95": null,
+        "p99": null,
+        "maximum": null
+      },
+      "frame_budget_met": false
+    },
+    {
+      "scene": "Render",
+      "stage": "warmup",
+      "frame_count": 132,
+      "first_frame": 2,
+      "last_frame": 133,
+      "main_thread_ms": {
+        "n": 132,
+        "p50": 5.5243,
+        "p95": 6.5261,
+        "p99": 6.8136,
+        "maximum": 706.2359
+      },
+      "frame_interval_ms": {
+        "n": 132,
+        "p50": 16.6635,
+        "p95": 17.507,
+        "p99": 109.8549,
+        "maximum": 707.3897
+      },
+      "frame_budget_met": true
+    },
+    {
+      "scene": "Render",
+      "stage": "track1-wave",
+      "frame_count": 599,
+      "first_frame": 134,
+      "last_frame": 732,
+      "main_thread_ms": {
+        "n": 599,
+        "p50": 5.534,
+        "p95": 6.347,
+        "p99": 7.0311,
+        "maximum": 7.648
+      },
+      "frame_interval_ms": {
+        "n": 599,
+        "p50": 16.6869,
+        "p95": 17.4543,
+        "p99": 18.7482,
+        "maximum": 19.4994
+      },
+      "frame_budget_met": true
+    },
+    {
+      "scene": "Render",
+      "stage": "transition",
+      "frame_count": 3,
+      "first_frame": 733,
+      "last_frame": 1932,
+      "main_thread_ms": {
+        "n": 3,
+        "p50": 5.0998,
+        "p95": 5.5629,
+        "p99": 5.5629,
+        "maximum": 5.5629
+      },
+      "frame_interval_ms": {
+        "n": 3,
+        "p50": 17.2718,
+        "p95": 17.537,
+        "p99": 17.537,
+        "maximum": 17.537
+      },
+      "frame_budget_met": true
+    },
+    {
+      "scene": "Render",
+      "stage": "track1-spec",
+      "frame_count": 599,
+      "first_frame": 734,
+      "last_frame": 1332,
+      "main_thread_ms": {
+        "n": 599,
+        "p50": 4.0242,
+        "p95": 4.675,
+        "p99": 5.1356,
+        "maximum": 6.2707
+      },
+      "frame_interval_ms": {
+        "n": 599,
+        "p50": 16.6777,
+        "p95": 17.3484,
+        "p99": 18.9623,
+        "maximum": 20.4151
+      },
+      "frame_budget_met": true
+    },
+    {
+      "scene": "Render",
+      "stage": "track2-wave",
+      "frame_count": 598,
+      "first_frame": 1334,
+      "last_frame": 1931,
+      "main_thread_ms": {
+        "n": 598,
+        "p50": 5.5319,
+        "p95": 6.5197,
+        "p99": 7.1917,
+        "maximum": 8.1283
+      },
+      "frame_interval_ms": {
+        "n": 598,
+        "p50": 16.6692,
+        "p95": 17.6528,
+        "p99": 19.562,
+        "maximum": 28.4064
+      },
+      "frame_budget_met": true
+    },
+    {
+      "scene": "Render",
+      "stage": "track2-spec",
+      "frame_count": 599,
+      "first_frame": 1933,
+      "last_frame": 2531,
+      "main_thread_ms": {
+        "n": 599,
+        "p50": 4.0155,
+        "p95": 4.7034,
+        "p99": 5.3698,
+        "maximum": 6.4299
+      },
+      "frame_interval_ms": {
+        "n": 599,
+        "p50": 16.6766,
+        "p95": 17.4671,
+        "p99": 18.9771,
+        "maximum": 20.4671
+      },
+      "frame_budget_met": true
+    },
+    {
+      "scene": "Render",
+      "stage": "teardown",
+      "frame_count": 1,
+      "first_frame": 2532,
+      "last_frame": 2532,
+      "main_thread_ms": {
+        "n": 1,
+        "p50": 7.2255,
+        "p95": 7.2255,
+        "p99": 7.2255,
+        "maximum": 7.2255
+      },
+      "frame_interval_ms": {
+        "n": 1,
+        "p50": 16.2692,
+        "p95": 16.2692,
+        "p99": 16.2692,
+        "maximum": 16.2692
+      },
+      "frame_budget_met": null
+    }
+  ]
+}

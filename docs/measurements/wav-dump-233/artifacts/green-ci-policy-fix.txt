@@ -1,0 +1,21 @@
+Base HEAD: 45fa7d3ce268a1420caf9382fbbd65727f8481d9; working change: list(FIND) in WavDumpTestTimeouts.cmake
+CMake/CTest: 4.4.2; x64 Debug
+ctest --test-dir build-233 -C Debug -R '^(WavLifecycle\.)?CaptureTrackList\.(SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing|OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix|SlowDumpFatalAssertionDoesNotBlockTrackTeardown)$' --output-on-failure
+
+Test project C:/Users/peili/.codex/worktrees/wav-dump-233/winaudio/build-233
+    Start 178: CaptureTrackList.SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing
+1/6 Test #178: CaptureTrackList.SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing ....................   Passed    0.14 sec
+    Start 179: CaptureTrackList.OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix
+2/6 Test #179: CaptureTrackList.OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix ................   Passed    2.35 sec
+    Start 180: CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown
+3/6 Test #180: CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown .........................   Passed    0.09 sec
+    Start 657: WavLifecycle.CaptureTrackList.SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing
+4/6 Test #657: WavLifecycle.CaptureTrackList.SlowDumpCloseKeepsBothCaptureTapsAndDevicesAdvancing .......   Passed    0.12 sec
+    Start 658: WavLifecycle.CaptureTrackList.OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix
+5/6 Test #658: WavLifecycle.CaptureTrackList.OptionalOverflowKeepsCapturingAndDrainsTheAcceptedPrefix ...   Passed    2.42 sec
+    Start 659: WavLifecycle.CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown
+6/6 Test #659: WavLifecycle.CaptureTrackList.SlowDumpFatalAssertionDoesNotBlockTrackTeardown ............   Passed    0.09 sec
+
+100% tests passed out of 6
+
+Total Test time (real) =   5.25 sec

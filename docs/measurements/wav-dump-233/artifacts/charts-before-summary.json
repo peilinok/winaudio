@@ -1,0 +1,181 @@
+{
+  "note": "Compact view; full summary and raw frames are archived separately.",
+  "groups": [
+    {
+      "scene": "Monitor",
+      "stage": "warmup",
+      "frame_count": 1,
+      "first_frame": 1,
+      "last_frame": 1,
+      "main_thread_ms": {
+        "n": 1,
+        "p50": 114.062,
+        "p95": 114.062,
+        "p99": 114.062,
+        "maximum": 114.062
+      },
+      "frame_interval_ms": {
+        "n": 0,
+        "p50": null,
+        "p95": null,
+        "p99": null,
+        "maximum": null
+      },
+      "frame_budget_met": false
+    },
+    {
+      "scene": "Render",
+      "stage": "warmup",
+      "frame_count": 133,
+      "first_frame": 2,
+      "last_frame": 134,
+      "main_thread_ms": {
+        "n": 133,
+        "p50": 5.7541,
+        "p95": 7.0274,
+        "p99": 7.8373,
+        "maximum": 681.6943
+      },
+      "frame_interval_ms": {
+        "n": 133,
+        "p50": 16.6759,
+        "p95": 17.7443,
+        "p99": 121.1326,
+        "maximum": 683.4717
+      },
+      "frame_budget_met": true
+    },
+    {
+      "scene": "Render",
+      "stage": "track1-wave",
+      "frame_count": 599,
+      "first_frame": 135,
+      "last_frame": 733,
+      "main_thread_ms": {
+        "n": 599,
+        "p50": 5.5566,
+        "p95": 6.4637,
+        "p99": 7.1662,
+        "maximum": 8.5068
+      },
+      "frame_interval_ms": {
+        "n": 599,
+        "p50": 16.6687,
+        "p95": 17.493,
+        "p99": 19.0151,
+        "maximum": 20.3867
+      },
+      "frame_budget_met": true
+    },
+    {
+      "scene": "Render",
+      "stage": "transition",
+      "frame_count": 3,
+      "first_frame": 734,
+      "last_frame": 1933,
+      "main_thread_ms": {
+        "n": 3,
+        "p50": 5.4762,
+        "p95": 6.6531,
+        "p99": 6.6531,
+        "maximum": 6.6531
+      },
+      "frame_interval_ms": {
+        "n": 3,
+        "p50": 16.9242,
+        "p95": 17.2855,
+        "p99": 17.2855,
+        "maximum": 17.2855
+      },
+      "frame_budget_met": true
+    },
+    {
+      "scene": "Render",
+      "stage": "track1-spec",
+      "frame_count": 598,
+      "first_frame": 735,
+      "last_frame": 1332,
+      "main_thread_ms": {
+        "n": 598,
+        "p50": 4.0136,
+        "p95": 4.8429,
+        "p99": 5.3343,
+        "maximum": 5.8826
+      },
+      "frame_interval_ms": {
+        "n": 598,
+        "p50": 16.6723,
+        "p95": 17.5361,
+        "p99": 19.2747,
+        "maximum": 20.3423
+      },
+      "frame_budget_met": true
+    },
+    {
+      "scene": "Render",
+      "stage": "track2-wave",
+      "frame_count": 599,
+      "first_frame": 1334,
+      "last_frame": 1932,
+      "main_thread_ms": {
+        "n": 599,
+        "p50": 5.5917,
+        "p95": 6.7161,
+        "p99": 7.9166,
+        "maximum": 9.7357
+      },
+      "frame_interval_ms": {
+        "n": 599,
+        "p50": 16.6859,
+        "p95": 17.5154,
+        "p99": 19.7319,
+        "maximum": 21.8841
+      },
+      "frame_budget_met": true
+    },
+    {
+      "scene": "Render",
+      "stage": "track2-spec",
+      "frame_count": 599,
+      "first_frame": 1934,
+      "last_frame": 2532,
+      "main_thread_ms": {
+        "n": 599,
+        "p50": 3.9796,
+        "p95": 4.7189,
+        "p99": 5.2656,
+        "maximum": 5.5112
+      },
+      "frame_interval_ms": {
+        "n": 599,
+        "p50": 16.6754,
+        "p95": 17.6087,
+        "p99": 19.6956,
+        "maximum": 30.4645
+      },
+      "frame_budget_met": true
+    },
+    {
+      "scene": "Render",
+      "stage": "teardown",
+      "frame_count": 1,
+      "first_frame": 2533,
+      "last_frame": 2533,
+      "main_thread_ms": {
+        "n": 1,
+        "p50": 7.2921,
+        "p95": 7.2921,
+        "p99": 7.2921,
+        "maximum": 7.2921
+      },
+      "frame_interval_ms": {
+        "n": 1,
+        "p50": 16.8938,
+        "p95": 16.8938,
+        "p99": 16.8938,
+        "maximum": 16.8938
+      },
+      "frame_budget_met": null
+    }
+  ]
+}

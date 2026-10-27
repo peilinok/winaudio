@@ -1,0 +1,5 @@
+﻿# format=48000/32f/2 frames=480 period_us=10000 calls=1000 writer=real-file stdio=262144 batch=262144 poll_ms=5
+# clock=steady_clock timing_includes_two_clock_reads stop_ns=648400 readback=verified
+phase,calls,offered_bytes,accepted_bytes,wall_s,calls_per_s,accepted_bytes_per_s,offered_bytes_per_timed_push_s,p50_ns,p95_ns,p99_ns
+normal,1000,3840000,3840000,10.001110,99.989,383957.373,2772363006.281,1100,1800,11300
+closed,1000,3840000,0,10.003205,99.968,0.000,46545454545.455,100,200,400

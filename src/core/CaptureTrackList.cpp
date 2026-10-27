@@ -98,6 +98,8 @@ std::wstring dumpPrefixFor(const CaptureSource& src) {
 } // namespace
 
 struct CaptureTrackList::Member {
+    Member(WavSinkOutputFactory outputFactory, bool requiredWav, uint64_t sourceVersion)
+        : sink(std::move(outputFactory)), wavFatal(requiredWav), sourceGeneration(sourceVersion) {}
     TrackId     id = 0;
     CaptureSource source{};
     std::wstring wavPath;
@@ -106,7 +108,8 @@ struct CaptureTrackList::Member {
     std::unique_ptr<RingBuffer>    ring;
     std::unique_ptr<ScopeBuffer>   tap;
     WavSink sink;
-    bool wavFatal = false;
+    const bool wavFatal;
+    const uint64_t sourceGeneration;
     std::thread pump;
     std::atomic<bool> running{false};
     std::mutex mtx;
@@ -115,7 +118,7 @@ struct CaptureTrackList::Member {
     void stopPumpAndBackends() {
         running.store(false, std::memory_order_relaxed);
         if (pump.joinable()) pump.join();
-        else sink.stop();
+        sink.stop();
         if (silent) {
             silent->stop();
             silent->close();
@@ -131,8 +134,10 @@ struct CaptureTrackList::Member {
     }
 };
 
-CaptureTrackList::CaptureTrackList(BackendFactory factory, SilentRenderFactory silentFactory)
-    : factory_(std::move(factory)), silentFactory_(std::move(silentFactory)) {}
+CaptureTrackList::CaptureTrackList(BackendFactory factory, SilentRenderFactory silentFactory,
+                                 WavSinkOutputFactory outputFactory)
+    : factory_(std::move(factory)), silentFactory_(std::move(silentFactory)),
+      outputFactory_(std::move(outputFactory)) {}
 
 CaptureTrackList::~CaptureTrackList() { destroyAll(); }
 
@@ -157,7 +162,7 @@ Result CaptureTrackList::create(const CaptureTrackCreate& spec, TrackId* outId) 
         return Result::Fail(-1, "WASAPI loopback requires Shared mode");
     }
 
-    auto m = std::make_unique<Member>();
+    auto m = std::make_unique<Member>(outputFactory_, !spec.wavPath.empty(), nextId_);
     m->source = spec.source;
     m->wavPath = spec.wavPath;
     m->status.source = spec.source;
@@ -238,15 +243,13 @@ Result CaptureTrackList::create(const CaptureTrackCreate& spec, TrackId* outId) 
             const size_t scopeCap = std::max<size_t>(static_cast<size_t>(sr) * 2u, 1048576u);
             m->tap = std::make_unique<ScopeBuffer>(scopeCap, ch);
             if (!spec.wavPath.empty()) {
-                m->wavFatal = true;
-                Result wr = m->sink.startExact(spec.wavPath, fmt);
+                Result wr = m->sink.startExact(spec.wavPath, fmt, m->sourceGeneration);
                 if (!wr) {
                     WA_LOG(wa::log::Level::Err, "CaptureTrackList", "wav.open", "", wr.message);
                     std::lock_guard<std::mutex> lk(m->mtx);
                     m->status.state = StreamState::Error;
                     m->status.message = wr.message.empty() ? "cannot open output wav"
                                                            : wr.message;
-                    m->wavFatal = false;
                 }
             }
         }
@@ -269,7 +272,17 @@ Result CaptureTrackList::create(const CaptureTrackCreate& spec, TrackId* outId) 
             std::vector<float> interleaved(4096u * ch, 0.f);
             bool captureFaultSeen = false;
             bool silentFaultSeen = false;
+            bool wavFaultSeen = false;
             while (mem->running.load(std::memory_order_relaxed)) {
+                // Required-file failures can arrive after the last PCM block.
+                if (mem->wavFatal && !wavFaultSeen && mem->sink.hasFailed()) {
+                    wavFaultSeen = true;
+                    WA_LOG(wa::log::Level::Err, "CaptureTrackList", "wav.write", "",
+                           "required WAV failed");
+                    std::lock_guard<std::mutex> lk(mem->mtx);
+                    mem->status.state = StreamState::Error;
+                    mem->status.message = "wav write failed";
+                }
                 // Runtime faults (e.g. the endpoint was unplugged). The pump keeps
                 // running so an open WAV is finalized normally on Destroy; the track
                 // stays listed in Error until the user destroys it.
@@ -301,16 +314,7 @@ Result CaptureTrackList::create(const CaptureTrackCreate& spec, TrackId* outId) 
                 const size_t frames = got / frameBytes;
                 got = frames * frameBytes;
                 if (frames == 0) continue;
-                if (mem->sink.isRunning()) {
-                    const size_t wn = mem->sink.push(buf.data(), got);
-                    if (wn != got && mem->wavFatal) {
-                        WA_LOG(wa::log::Level::Err, "CaptureTrackList", "wav.write", "",
-                               "short write");
-                        std::lock_guard<std::mutex> lk(mem->mtx);
-                        mem->status.state = StreamState::Error;
-                        mem->status.message = "wav write failed";
-                    }
-                }
+                mem->sink.push(buf.data(), got, mem->sourceGeneration);
                 if (mem->tap && frames > 0) {
                     size_t done = 0;
                     while (done < frames) {
@@ -329,7 +333,7 @@ Result CaptureTrackList::create(const CaptureTrackCreate& spec, TrackId* outId) 
                 mem->status.overruns = mem->ring->overruns();
                 mem->status.writtenFrames = mem->tap ? mem->tap->totalWritten() : 0;
             }
-            mem->sink.stop();
+            mem->sink.requestStop(mem->sourceGeneration);
         });
     } catch (const std::exception& e) {
         m->stopPumpAndBackends();
@@ -404,13 +408,12 @@ Result CaptureTrackList::startDump(TrackId id, const std::wstring& folder) {
         source = m->source;
     }
     const std::wstring prefix = dumpPrefixFor(source);
-    Result r = m->sink.start(folder, prefix, fmt);
+    Result r = m->sink.start(folder, prefix, fmt, m->sourceGeneration);
     if (!r) {
         WA_LOG(wa::log::Level::Err, "CaptureTrackList", "dump.start",
                "id=" + std::to_string(id), r.message);
         return r;
     }
-    m->wavFatal = false;
     WA_LOG(wa::log::Level::Info, "CaptureTrackList", "dump.start",
            "id=" + std::to_string(id) + " prefix=" + wa::narrowAscii(prefix), "ok");
     return Result::Ok();

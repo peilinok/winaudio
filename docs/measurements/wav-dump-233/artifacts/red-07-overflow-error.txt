@@ -1,0 +1,21 @@
+﻿Running main() from C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+Note: Google Test filter = WavSinkLifecycle.OverflowRemainsFirstFailureWhenOutputAlsoFails
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.OverflowRemainsFirstFailureWhenOutputAlsoFails
+C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\src\tests\test_wav_sink_lifecycle.cpp(279): error: Expected equality of these values:
+  result.message
+    Which is: "first write failure"
+  "WavSink: ring overflow"
+
+[  FAILED  ] WavSinkLifecycle.OverflowRemainsFirstFailureWhenOutputAlsoFails (13 ms)
+[----------] 1 test from WavSinkLifecycle (13 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (13 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] WavSinkLifecycle.OverflowRemainsFirstFailureWhenOutputAlsoFails
+
+ 1 FAILED TEST

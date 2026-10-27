@@ -1,0 +1,50 @@
+00:10:50.892 [I] [main] GuiLanguage::resolve                           args: zh-CN                                  ret: display
+00:10:51.207 [I] [main] DeviceEnum::enumerate                          args: flow=capture                           ret: start
+00:10:51.212 [I] [main] DeviceEnum::GetDefaultAudioEndpoint            args: defaultId                              ret: selected
+00:10:51.215 [W] [main] DeviceEnum::IMMDeviceCollection::GetCount      args: count=6                                ret: S_OK
+00:10:51.230 [I] [main] DeviceEnum::enumerate                          args: flow=render                            ret: start
+00:10:51.234 [I] [main] DeviceEnum::GetDefaultAudioEndpoint            args: defaultId                              ret: selected
+00:10:51.238 [W] [main] DeviceEnum::IMMDeviceCollection::GetCount      args: count=7                                ret: S_OK
+00:16:51.818 [I] [main] CaptureTrackList::create                       args: source=system-loopback id={0.0.0.00000000}.{09793ccf-e246-4dbf-800b-a7cf44856994} ret:
+00:16:51.819 [I] [?   ] WasapiStream::threadMain                       args: worker thread started                  ret:
+00:16:51.831 [I] [?   ] WasapiStream::Start                            args: stream started                         ret:
+00:16:51.831 [I] [capW] WasapiStream::runLoop                          args: capture loop started                   ret:
+00:16:51.831 [I] [main] CaptureTrackList::silentRender.start           args: dev={0.0.0.00000000}.{09793ccf-e246-4dbf-800b-a7cf44856994} ret: requested
+00:16:51.831 [I] [?   ] WasapiStream::threadMain                       args: worker thread started                  ret:
+00:16:51.844 [I] [?   ] WasapiStream::Start                            args: stream started                         ret:
+00:16:51.844 [I] [silR] WasapiSilentRenderStream::runLoop              args: silent render loop started             ret:
+00:16:51.844 [I] [main] CaptureTrackList::silentRender.started         args: -                                      ret: ok
+00:16:51.848 [I] [main] CaptureTrackList::create                       args: id=1 fmt=48000/32f/8                   ret: ok
+00:17:44.814 [I] [main] WavSink::start                                 args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\gui-after\loopback_48000_8ch_32f_20261025_001744.wav fmt=48000/32f/8 ret: ok
+00:17:44.814 [I] [main] CaptureTrackList::dump.start                   args: id=1 prefix=loopback                   ret: ok
+00:18:08.356 [I] [main] WavSink::stop                                  args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\gui-after\loopback_48000_8ch_32f_20261025_001744.wav ret: ok
+00:18:08.356 [I] [main] CaptureTrackList::dump.stop                    args: id=1                                   ret: ok
+00:19:14.404 [I] [main] WavSink::stop                                  args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\gui-after\loopback_48000_8ch_32f_20261025_001744.wav ret: ok
+00:19:14.406 [I] [main] WavSink::start                                 args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\gui-after\loopback_48000_8ch_32f_20261025_001914.wav fmt=48000/32f/8 ret: ok
+00:19:14.406 [I] [main] CaptureTrackList::dump.start                   args: id=1 prefix=loopback                   ret: ok
+00:19:23.679 [I] [main] CaptureTrackList::destroy                      args: id=1                                   ret:
+00:19:23.691 [I] [main] WavSink::stop                                  args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\gui-after\loopback_48000_8ch_32f_20261025_001914.wav ret: ok
+00:19:23.698 [I] [main] WavSink::stop                                  args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\gui-after\loopback_48000_8ch_32f_20261025_001914.wav ret: ok
+00:19:46.698 [I] [main] DeviceEnum::enumerate                          args: flow=render                            ret: start
+00:19:46.700 [I] [main] DeviceEnum::GetDefaultAudioEndpoint            args: defaultId                              ret: selected
+00:19:46.702 [W] [main] DeviceEnum::IMMDeviceCollection::GetCount      args: count=7                                ret: S_OK
+00:20:06.898 [I] [main] CaptureTrackList::create                       args: source=application-loopback id=(default) pid=6276 ret:
+00:20:06.898 [I] [?   ] ApplicationLoopbackCaptureStream::threadMain   args: worker thread started                  ret:
+00:20:06.900 [E] [?   ] StreamInit::GetMixFormat                       args: -                                      ret: 0x80004001 尚未实现
+00:20:06.900 [W] [?   ] ApplicationLoopbackCaptureStream::streamInit(mix) args: WasapiStream: GetMixFormat failed: hr=0x80004001 ret: fallback 44100/2/16
+00:20:06.900 [I] [?   ] ApplicationLoopbackCaptureStream::Start        args: pid=6276 mode=IncludeTree fmt=44100/16/2 ret: ok
+00:20:06.902 [I] [main] CaptureTrackList::create                       args: id=1 fmt=44100/16/2                    ret: ok
+00:20:41.128 [I] [main] WavSink::start                                 args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\gui-after\app-loopback_WavDumpDeviceSmoke.exe_6276_44100_2ch_16_20261025_002041.wav fmt=44100/16/2 ret: ok
+00:20:41.128 [I] [main] CaptureTrackList::dump.start                   args: id=1 prefix=app-loopback_WavDumpDeviceSmoke.exe_6276 ret: ok
+00:21:24.218 [I] [main] WavSink::stop                                  args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\gui-after\app-loopback_WavDumpDeviceSmoke.exe_6276_44100_2ch_16_20261025_002041.wav ret: ok
+00:21:24.218 [I] [main] CaptureTrackList::dump.stop                    args: id=1                                   ret: ok
+00:22:09.383 [I] [main] WavSink::stop                                  args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\gui-after\app-loopback_WavDumpDeviceSmoke.exe_6276_44100_2ch_16_20261025_002041.wav ret: ok
+00:22:09.384 [I] [main] WavSink::start                                 args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\gui-after\app-loopback_unknown_6276_44100_2ch_16_20261025_002209.wav fmt=44100/16/2 ret: ok
+00:22:09.384 [I] [main] CaptureTrackList::dump.start                   args: id=1 prefix=app-loopback_unknown_6276  ret: ok
+00:22:50.052 [I] [main] CaptureTrackList::destroy                      args: id=1                                   ret:
+00:22:50.058 [I] [main] WavSink::stop                                  args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\gui-after\app-loopback_unknown_6276_44100_2ch_16_20261025_002209.wav ret: ok
+00:22:50.060 [I] [main] WavSink::stop                                  args: C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\.scratch\wav-dump-task\gui-after\app-loopback_unknown_6276_44100_2ch_16_20261025_002209.wav ret: ok
+00:23:14.122 [I] [main] MonitorEngine::stop                            args: -                                      ret:
+00:23:14.122 [I] [main] CaptureTrackList::destroyAll                   args: n=0                                    ret:
+00:23:14.122 [I] [main] CaptureTrackList::destroyAll                   args: n=0                                    ret:
+00:23:14.122 [I] [main] RenderTrackList::destroyAll                    args: n=0                                    ret:

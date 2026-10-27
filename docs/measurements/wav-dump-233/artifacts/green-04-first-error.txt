@@ -1,0 +1,38 @@
+﻿Running main() from C:\Users\peili\.codex\worktrees\wav-dump-233\winaudio\third_party\googletest\googletest\src\gtest_main.cc
+[==========] Running 13 tests from 2 test suites.
+[----------] Global test environment set-up.
+[----------] 4 tests from WavSinkLifecycle
+[ RUN      ] WavSinkLifecycle.StopWaitsForAdmittedPushAndKeepsItsBytes
+[       OK ] WavSinkLifecycle.StopWaitsForAdmittedPushAndKeepsItsBytes (43 ms)
+[ RUN      ] WavSinkLifecycle.EmptyRingDoesNotFinalizeBeforeLastPublication
+[       OK ] WavSinkLifecycle.EmptyRingDoesNotFinalizeBeforeLastPublication (47 ms)
+[ RUN      ] WavSinkLifecycle.OldSnapshotCannotWriteIntoRestartedFile
+[       OK ] WavSinkLifecycle.OldSnapshotCannotWriteIntoRestartedFile (61 ms)
+[ RUN      ] WavSinkLifecycle.WriteFailureSurvivesCloseFailureAndRepeatedStop
+[       OK ] WavSinkLifecycle.WriteFailureSurvivesCloseFailureAndRepeatedStop (30 ms)
+[----------] 4 tests from WavSinkLifecycle (184 ms total)
+
+[----------] 9 tests from WavSink
+[ RUN      ] WavSink.ExactPathRoundTrip16BitStereo
+[       OK ] WavSink.ExactPathRoundTrip16BitStereo (34 ms)
+[ RUN      ] WavSink.ExactPathRoundTripFloat32Stereo
+[       OK ] WavSink.ExactPathRoundTripFloat32Stereo (29 ms)
+[ RUN      ] WavSink.ExactPathKeepsCallerName
+[       OK ] WavSink.ExactPathKeepsCallerName (30 ms)
+[ RUN      ] WavSink.InvalidPathFailsWithoutThrowing
+[       OK ] WavSink.InvalidPathFailsWithoutThrowing (15 ms)
+[ RUN      ] WavSink.AutoNameUsesPrefixFormatAndTimestamp
+[       OK ] WavSink.AutoNameUsesPrefixFormatAndTimestamp (32 ms)
+[ RUN      ] WavSink.AutoNameKeepsCallerPrefixTokens
+[       OK ] WavSink.AutoNameKeepsCallerPrefixTokens (32 ms)
+[ RUN      ] WavSink.AutoNameCollisionGetsNumericSuffix
+[       OK ] WavSink.AutoNameCollisionGetsNumericSuffix (64 ms)
+[ RUN      ] WavSink.OverflowFailsSinkAndPatchesHeader
+[       OK ] WavSink.OverflowFailsSinkAndPatchesHeader (38 ms)
+[ RUN      ] WavSink.TwoSinksDoNotMixBytes
+[       OK ] WavSink.TwoSinksDoNotMixBytes (55 ms)
+[----------] 9 tests from WavSink (332 ms total)
+
+[----------] Global test environment tear-down
+[==========] 13 tests from 2 test suites ran. (516 ms total)
+[  PASSED  ] 13 tests.

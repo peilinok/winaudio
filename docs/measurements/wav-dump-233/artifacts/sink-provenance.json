@@ -1,0 +1,14 @@
+﻿[
+    {
+        "label":  "before",
+        "source":  "3c433575f0bfc77808eaa09113ba1eb2052ffb4e",
+        "executable":  "C:\\Users\\peili\\.codex\\worktrees\\wav-dump-233\\winaudio\\.scratch\\wav-dump-task\\performance-before-r2\\build\\bin\\Release\\WavSinkProbe.exe",
+        "sha256":  "4AE10880673215DB66309E8B99FBA384273940845FA5DC92A980795BFDC26B48"
+    },
+    {
+        "label":  "after",
+        "source":  "abf5affa4e4453efb0d7ad66b4cc2e991e432588",
+        "executable":  "C:\\Users\\peili\\.codex\\worktrees\\wav-dump-233\\winaudio\\.scratch\\wav-dump-task\\performance-after\\build\\bin\\Release\\WavSinkProbe.exe",
+        "sha256":  "2CA39B5D11D9E8009835A517C74B38E548A8CEAC6742EC62CB6B1B02111C964B"
+    }
+]
