@@ -57,6 +57,8 @@ struct MonitorStatus {
     float       capLevel    = 0.f;
     float       renderLevel = 0.f;
     uint32_t    errorCode   = 0;     // MonitorError
+    WavSinkStatus capDump;
+    WavSinkStatus renderDump;
     bool          capDumping = false;
     bool          capDumpError = false;
     std::wstring  capDumpPath;
@@ -83,7 +85,9 @@ public:
         std::function<std::unique_ptr<IAudioBackend>(const AudioFormat*)>;
 
     explicit MonitorEngine(BackendFactory factory = {},
-                           SilentRenderFactory silentFactory = {});
+                           SilentRenderFactory silentFactory = {},
+                           WavSinkOutputFactory capOutput = {},
+                           WavSinkOutputFactory renderOutput = {});
     ~MonitorEngine();
 
     MonitorEngine(const MonitorEngine&)            = delete;
@@ -134,6 +138,9 @@ private:
     void   stopSilentRender();
     Result engageRender();      // pump 前(start) 或 pump 线程调用；开渲染+校验+建 FIFO/刮擦；失败原子(全关渲染)
     void   disengageRender();   // 停+关渲染、释放设备、reset renderRing_/delayFifo_；不动 renderScope_
+    void   endCaptureSource();
+    void   endRenderSource();
+    bool   snapshotRenderSource(AudioFormat& format, uint64_t& source) const;
 
     BackendFactory factory_; // empty => build real WASAPI streams
     SilentRenderFactory silentFactory_;
@@ -166,7 +173,19 @@ private:
 
     // Run-constant config (published to the pump via thread creation).
     AudioFormat capFmt_{};
-    AudioFormat renderFmt_{};
+    AudioFormat renderFmt_{}; // Pump-only after launch; control uses the atomic snapshot below.
+    uint64_t capGeneration_ = 0;
+    uint64_t renderGeneration_ = 0;
+    alignas(8) std::atomic<uint64_t> capSourceVersion_{0};
+    struct RenderSource {
+        alignas(8) std::atomic<uint64_t> version{0}; // Zero invalidates before requesting stop.
+        std::atomic<uint32_t> sampleRate{0};
+        std::atomic<uint16_t> channels{0};
+        std::atomic<uint16_t> bits{0};
+        std::atomic<bool> isFloat{false};
+        std::atomic<uint16_t> validBits{0};
+        std::atomic<uint32_t> channelMask{0};
+    } renderSource_;
     uint32_t    capFrameBytes_    = 0;
     uint32_t    renderFrameBytes_ = 0;
     uint16_t    capCh_            = 0;

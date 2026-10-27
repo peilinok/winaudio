@@ -16,7 +16,8 @@ WAV Dump 可以在 Track 持续运行时开始或结束。我们在现有 WavSin
 ## 影响
 
 - 正常结束的顺序固定为关闭准入、在途退出、排空、关闭文件、writer 退出、回收。错误结束仍须等待在途退出和 writer 退出，但不承诺故障后的数据完整。
-- #234 负责把 render 自动停用改为只请求结束 Render Dump，并让界面单独呈现“正在收尾”；#233 保留其现有自动停用行为。
-- Dump 代次与来源代次分别校验；来源停止请求能取消正在启动的 Dump。#234 负责 Monitor 的来源换代与格式快照，保证重新启用 render 不续写旧文件。
+- #234 把 render 自动停用改为只请求结束 Render Dump，并让界面单独呈现“正在收尾”。显式停止 Dump 与 Monitor stop 仍等待文件关闭；后者先 join pump，再完成两个 sink。
+- Dump 代次与来源代次分别校验；来源停止请求能取消正在启动的 Dump。Monitor capture 按 session、render 按 engage 换代，实际 render 格式使用六个原子字段与前后有效版本检查，重新启用 render 不续写旧文件。
+- 文件状态、代次、来源、路径与最终结果经同一元数据锁读取为同轮快照；pump 不取该锁。GUI 按代次消费成功完成，失败与取消不揭示文件。
 - 控制操作可以等待文件系统；不为 start 或 stop 承诺磁盘无关的固定完成时限。
-- 详细契约和实施验收见[设计文档](../superpowers/specs/2026-10-24-wav-dump-lifecycle-design.md)。#233 的 WavSink 协议与 Capture Track 已实施；#234 的 Monitor 自动停用与 GUI 收尾状态仍待实施。验收状态见[执行记录](../measurements/wav-dump-233/execution.md)。
+- 详细契约和实施验收见[设计文档](../superpowers/specs/2026-10-24-wav-dump-lifecycle-design.md)。#233 的 WavSink 协议与 Capture Track 已实施，记录见[#233 执行记录](../measurements/wav-dump-233/execution.md)；#234 的 Monitor 来源与 GUI 接线已实施，当前验证边界见[#234 执行记录](../measurements/wav-dump-234/execution.md)。

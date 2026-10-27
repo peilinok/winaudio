@@ -1177,6 +1177,7 @@ void AppUi::draw() {
 
     // Poll once; detect renderState Running->non-Running to clear stale playback chart data.
     ms_ = monitor_.poll();
+    consumeMonitorDumps();
     const int curRenderState = (int)ms_.renderState;
     if (prevRenderState_ == (int)wa::StreamState::Running &&
         curRenderState  != (int)wa::StreamState::Running) {
@@ -1232,7 +1233,8 @@ void AppUi::draw() {
         }
         pageOpen = ImGui::BeginTabItem(wa::ui_text::id(wa::ui_text::kRenderTab), nullptr,
 #ifdef WA_PERFORMANCE_FIXTURE
-                                      PerformanceFixture::inspector() ? ImGuiTabItemFlags_None : ImGuiTabItemFlags_SetSelected
+                                      (PerformanceFixture::inspector() || PerformanceFixture::monitorDump())
+                                          ? ImGuiTabItemFlags_None : ImGuiTabItemFlags_SetSelected
 #else
                                       ImGuiTabItemFlags_None
 #endif
@@ -2151,14 +2153,56 @@ void AppUi::applyDumpPick() {
         return;
     }
     if (kind == DumpPickKind::MonitorCap) {
+        ms_ = monitor_.poll();
+        consumeMonitorDumps();
         wa::Result r = monitor_.startDumpCapture(folder);
         logStart(r, monitor_.poll().capDumpPath);
         return;
     }
     if (kind == DumpPickKind::MonitorRen) {
+        ms_ = monitor_.poll();
+        consumeMonitorDumps();
         wa::Result r = monitor_.startDumpRender(folder);
         logStart(r, monitor_.poll().renderDumpPath);
     }
+}
+
+void AppUi::consumeMonitorDumps() {
+    const auto consume = [this](wa::dump_ui::Completion& completion,
+                                const wa::WavSinkStatus& dump) {
+        if (!completion.take(dump)) return;
+        logLines_.push_back("dump completed generation=" + std::to_string(dump.generation) +
+                            " " + wtou(dump.path));
+        wa::dump_ui::revealDumpFile(dump.path);
+    };
+    consume(capDumpCompletion_, ms_.capDump);
+    consume(renderDumpCompletion_, ms_.renderDump);
+}
+
+void AppUi::drawMonitorDumpControls(const wa::WavSinkStatus& dump, bool sourceAvailable,
+                                     DumpPickKind kind, const char* caption) {
+    ImGui::PushID(static_cast<int>(kind));
+    if (dump.phase == wa::WavDumpPhase::Accepting) {
+        if (ImGui::Button(wa::ui_text::id(wa::ui_text::kDumpStop))) {
+            const auto r = kind == DumpPickKind::MonitorCap ? monitor_.stopDumpCapture()
+                                                           : monitor_.stopDumpRender();
+            if (!r) logLines_.push_back("dump stop error: " + r.message);
+            ms_ = monitor_.poll();
+            consumeMonitorDumps();
+        }
+    } else {
+        ImGui::BeginDisabled(!wa::dump_ui::canStart(dump, sourceAvailable, dumpPicker_.busy()));
+        if (ImGui::Button(wa::ui_text::id(caption))) beginDumpPick(kind);
+        ImGui::EndDisabled();
+    }
+    if (dump.phase != wa::WavDumpPhase::Idle) {
+        ImGui::SameLine();
+        ImGui::TextUnformatted(wa::dump_ui::statusText(dump.phase));
+        if (!dump.fileName.empty()) ImGui::TextDisabled("%s", wtou(dump.fileName).c_str());
+        if (dump.phase == wa::WavDumpPhase::Failure && !dump.message.empty())
+            ImGui::TextWrapped("%s", dump.message.c_str());
+    }
+    ImGui::PopID();
 }
 
 void AppUi::drawDumpControls(wa::CaptureTrackList& list, const wa::CaptureTrackStatus& t,
@@ -2777,13 +2821,11 @@ void AppUi::drawLeftPanel() {
         }
     } else {
         if (ImGui::Button(wa::ui_text::id(wa::ui_text::kStop), ctrlBtn)) {
-            const std::wstring capDump = ms_.capDumping ? ms_.capDumpPath : std::wstring{};
-            const std::wstring renDump = ms_.renderDumping ? ms_.renderDumpPath : std::wstring{};
             monitor_.stop();
+            ms_ = monitor_.poll();
+            consumeMonitorDumps();
             monitorStarted_ = false;
             resetVisuals(monitorViz_);
-            if (!capDump.empty()) wa::dump_ui::revealDumpFile(capDump);
-            if (!renDump.empty()) wa::dump_ui::revealDumpFile(renDump);
             logLines_.push_back("monitor stopped");
         }
     }
@@ -2793,63 +2835,15 @@ void AppUi::drawLeftPanel() {
 
     // Playback checkbox — always toggleable; applies live while running, else takes effect on next Start.
     if (ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kSyncPlayback), &playbackEnabled_)) {
-        if (monitorStarted_ && !playbackEnabled_ && ms_.renderDumping) {
-            const std::wstring path = ms_.renderDumpPath;
-            wa::Result r = monitor_.stopDumpRender();
-            logLines_.push_back(r ? ("dump stopped " + wtou(path))
-                                  : ("dump stop error: " + r.message));
-            if (r) wa::dump_ui::revealDumpFile(path);
-        }
         if (monitorStarted_) monitor_.setPlaybackEnabled(playbackEnabled_);
     }
 
-    const bool dumpPicking = dumpPicker_.busy();
-    ImGui::BeginDisabled(!monitorStarted_ || ms_.capState != wa::StreamState::Running);
-    ImGui::PushID("capDump");
-    if (ms_.capDumping) {
-        if (ImGui::Button(wa::ui_text::id(wa::ui_text::kDumpStop))) {
-            const std::wstring path = ms_.capDumpPath;
-            wa::Result r = monitor_.stopDumpCapture();
-            logLines_.push_back(r ? ("dump stopped " + wtou(path))
-                                  : ("dump stop error: " + r.message));
-            if (r) wa::dump_ui::revealDumpFile(path);
-        }
-        if (!ms_.capDumpFileName.empty()) {
-            ImGui::SameLine();
-            ImGui::TextDisabled("%s", wtou(ms_.capDumpFileName).c_str());
-        }
-    } else {
-        ImGui::BeginDisabled(dumpPicking);
-        if (ImGui::Button(wa::ui_text::id(wa::ui_text::kDumpCapture)))
-            beginDumpPick(DumpPickKind::MonitorCap);
-        ImGui::EndDisabled();
-    }
-    ImGui::PopID();
-    ImGui::EndDisabled();
-
-    ImGui::BeginDisabled(!monitorStarted_ || !playbackEnabled_
-                         || ms_.renderState != wa::StreamState::Running);
-    ImGui::PushID("renDump");
-    if (ms_.renderDumping) {
-        if (ImGui::Button(wa::ui_text::id(wa::ui_text::kDumpStop))) {
-            const std::wstring path = ms_.renderDumpPath;
-            wa::Result r = monitor_.stopDumpRender();
-            logLines_.push_back(r ? ("dump stopped " + wtou(path))
-                                  : ("dump stop error: " + r.message));
-            if (r) wa::dump_ui::revealDumpFile(path);
-        }
-        if (!ms_.renderDumpFileName.empty()) {
-            ImGui::SameLine();
-            ImGui::TextDisabled("%s", wtou(ms_.renderDumpFileName).c_str());
-        }
-    } else {
-        ImGui::BeginDisabled(dumpPicking);
-        if (ImGui::Button(wa::ui_text::id(wa::ui_text::kDumpRender)))
-            beginDumpPick(DumpPickKind::MonitorRen);
-        ImGui::EndDisabled();
-    }
-    ImGui::PopID();
-    ImGui::EndDisabled();
+    drawMonitorDumpControls(ms_.capDump,
+        monitorStarted_ && ms_.capState == wa::StreamState::Running,
+        DumpPickKind::MonitorCap, wa::ui_text::kDumpCapture);
+    drawMonitorDumpControls(ms_.renderDump,
+        monitorStarted_ && playbackEnabled_ && ms_.renderState == wa::StreamState::Running,
+        DumpPickKind::MonitorRen, wa::ui_text::kDumpRender);
 
     // --- Status ---
     ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kStatus));

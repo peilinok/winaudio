@@ -5,7 +5,8 @@
 namespace wa {
 class WavSink;
 namespace wavSinkTest {
-enum class Point { AfterSnapshot, AfterAdmission, BeforePublish };
+enum class Point { AfterSnapshot, AfterAdmission, BeforePublish,
+                   BeforePreparing, BeforeReady, AfterReady, BeforeStopAdmission };
 enum class Preparation { None, Ring, Scratch, Thread };
 void checkpoint(Point point, const WavSink* sink);
 void drainObserved(const WavSink* sink, bool active);

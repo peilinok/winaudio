@@ -41,8 +41,9 @@
 class AppUi {
 public:
 #ifdef WA_PERFORMANCE_FIXTURE
-    explicit AppUi(const std::shared_ptr<wa::CallLogWriter>& writer = {})
-        : pipelineExport_(writer) {}
+    explicit AppUi(const std::shared_ptr<wa::CallLogWriter>& writer = {},
+                   const wa::WavSinkOutputFactory& renderOutput = {})
+        : monitor_({}, {}, {}, renderOutput), pipelineExport_(writer) {}
 #endif
     void draw();          // called each frame; polls engines and redraws the active page
     void stopAll();       // stop engines on shutdown (idempotent)
@@ -129,6 +130,9 @@ private:
                           DumpPickKind kind, const char* destroyedLog);
     void beginDumpPick(DumpPickKind kind, wa::TrackId trackId = 0);
     void applyDumpPick();
+    void consumeMonitorDumps();
+    void drawMonitorDumpControls(const wa::WavSinkStatus& dump, bool sourceAvailable,
+                                 DumpPickKind kind, const char* caption);
     void drawStackedCaptureTrackHosts(wa::CaptureTrackList& list,
                                       std::vector<std::pair<wa::TrackId, VisualState>>& viz,
                                       const char* emptyHint);
@@ -297,6 +301,8 @@ private:
     wa::dump_ui::FolderPicker dumpPicker_;
     DumpPickKind              dumpPickKind_ = DumpPickKind::None;
     wa::TrackId               dumpPickTrackId_ = 0;
+    wa::dump_ui::Completion   capDumpCompletion_;
+    wa::dump_ui::Completion   renderDumpCompletion_;
 
     VisualState monitorViz_;
     std::vector<std::pair<wa::TrackId, VisualState>> loopbackViz_;

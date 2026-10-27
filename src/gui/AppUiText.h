@@ -59,6 +59,12 @@ namespace wa::ui_text {
     WA_UI_TEXT(kDumpStop, "Stop dump", "停止转储") \
     WA_UI_TEXT(kDumpCapture, "Dump capture", "转储 Capture") \
     WA_UI_TEXT(kDumpRender, "Dump render", "转储 Render") \
+    WA_UI_TEXT(kDumpPreparing, "Preparing dump", "正在准备") \
+    WA_UI_TEXT(kDumpAccepting, "Recording", "正在接收") \
+    WA_UI_TEXT(kDumpFinalizing, "Finalizing dump", "正在收尾") \
+    WA_UI_TEXT(kDumpCompleted, "Dump completed", "文件已完成") \
+    WA_UI_TEXT(kDumpFailed, "Dump failed", "文件失败") \
+    WA_UI_TEXT(kDumpCancelled, "Dump cancelled", "已取消") \
     WA_UI_TEXT(kLoopbackEmptyHint, "Create a Track to capture system audio.", "创建 Track 以采集系统音频。") \
     WA_UI_TEXT(kRenderTab, "Render", "Render") \
     WA_UI_TEXT(kRenderEmptyHint, "Create a Track to play to a render endpoint.", "创建 Track 以播放到 Render 端点。") \

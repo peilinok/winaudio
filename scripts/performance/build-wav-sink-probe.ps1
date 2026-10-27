@@ -2,7 +2,8 @@ param(
     [Parameter(Mandatory=$true)][string]$Revision,
     [Parameter(Mandatory=$true)][string]$OutputDirectory,
     [ValidateSet('x64','Win32')][string]$Architecture = 'x64',
-    [string]$Generator = 'Visual Studio 18 2026'
+    [string]$Generator = 'Visual Studio 18 2026',
+    [switch]$Monitor
 )
 $ErrorActionPreference = 'Stop'
 $wavRepository = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
@@ -18,6 +19,7 @@ import subprocess
 import sys
 import tarfile
 root, output, revision = Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3]
+monitor = sys.argv[4] == 'True'
 sha = subprocess.check_output(['git', '-C', str(root), 'rev-parse', revision + '^{commit}'], text=True).strip()
 source = output / 'source'
 source.mkdir()
@@ -32,13 +34,20 @@ extract(root / 'third_party/spdlog', dependency, source / 'third_party/spdlog')
 with (source / 'CMakeLists.txt').open('a', encoding='utf-8') as cmake:
     cmake.write('\nadd_executable(WavSinkProbe wav-sink-probe.cpp)\ntarget_link_libraries(WavSinkProbe PRIVATE WinAudioCore)\nwa_set_project_warnings(WavSinkProbe)\n')
     cmake.write('add_executable(WavDumpDeviceSmoke wav-dump-device-smoke.cpp)\ntarget_link_libraries(WavDumpDeviceSmoke PRIVATE WinAudioCore)\nwa_set_project_warnings(WavDumpDeviceSmoke)\n')
-'@ | py -3 -B - $wavRepository $wavOutput $Revision
+    if monitor:
+        cmake.write('add_executable(WavMonitorDeviceSmoke wav-monitor-device-smoke.cpp)\ntarget_link_libraries(WavMonitorDeviceSmoke PRIVATE WinAudioCore)\nwa_set_project_warnings(WavMonitorDeviceSmoke)\n')
+'@ | py -3 -B - $wavRepository $wavOutput $Revision $Monitor.IsPresent
 if ($LASTEXITCODE -ne 0) { throw 'Cannot extract the pinned WAV sink source' }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'wav-sink-probe.cpp') -Destination $wavSource
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'wav-dump-device-smoke.cpp') -Destination $wavSource
+if ($Monitor) {
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'wav-monitor-device-smoke.cpp') -Destination $wavSource
+}
 cmake -S $wavSource -B $wavBuild -G $Generator -A $Architecture
 if ($LASTEXITCODE -ne 0) { throw 'WAV sink probe configure failed' }
-cmake --build $wavBuild --config Release --target WavSinkProbe WavDumpDeviceSmoke -j 6
+$wavTargets = @('WavSinkProbe', 'WavDumpDeviceSmoke')
+if ($Monitor) { $wavTargets += 'WavMonitorDeviceSmoke' }
+cmake --build $wavBuild --config Release --target $wavTargets -j 6
 if ($LASTEXITCODE -ne 0) { throw 'WAV sink probe build failed' }
 $wavExecutable = Join-Path $wavBuild 'bin/Release/WavSinkProbe.exe'
 Get-FileHash -Algorithm SHA256 -LiteralPath $wavExecutable | Format-List | Out-File -LiteralPath (Join-Path $wavOutput 'executable.txt') -Encoding utf8

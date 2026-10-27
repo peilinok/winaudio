@@ -1,6 +1,6 @@
 # WAV Dump 并发生命周期设计
 
-设计已确定。#233 已实现 WavSink 原子准入、Capture Track 独立停止/重启与文件失败隔离；#234 的 Monitor 来源快照、自动停用和 GUI 收尾状态待实施。逐项验收与红绿证据见[执行记录](../../measurements/wav-dump-233/execution.md)。
+设计已确定。#233 已实现 WavSink 原子准入、Capture Track 独立停止/重启与文件失败隔离；#234 已接入 Monitor 来源快照、自动停用和 GUI 收尾状态。逐项验收与红绿证据分别见[#233 执行记录](../../measurements/wav-dump-233/execution.md)、[#234 执行记录](../../measurements/wav-dump-234/execution.md)，未完成的实测与发布检查仍以执行记录为准。
 
 基线为 `3c433575f0bfc77808eaa09113ba1eb2052ffb4e`。它已合并上一轮性能优化；WavSink、CaptureTrackList、MonitorEngine 与上一份架构报告基线 `6d0f3ef` 的对应源码没有差异。
 
@@ -69,7 +69,7 @@ stateDiagram-v2
     Finalizing --> Error: 保留失败结果
 ```
 
-Preparing 是内部状态。#233 保持现有 Idle / Running / Error 查询兼容；#234 对外增加明确的 Stopping / finalizing 状态，且与 StreamState 独立。届时错误已发生但文件尚在收尾时，状态仍反映“正在收尾”，同时保留错误原因。
+Preparing 是内部准备状态。#233 保持现有 Idle / Running / Error 查询兼容；#234 的独立 `WavDumpPhase` 提供 Idle / Preparing / Accepting / Finalizing / Success / Failure / Cancelled，与 StreamState 独立。错误已发生但文件尚在收尾时，状态仍反映“正在收尾”，同时保留错误原因。Success 只能在实际 close 成功之后发布；未成功开放准入的正常取消发布 Cancelled。元数据锁把 phase、generation、source、path 和 message 关联为同轮快照，不进入 push 或来源停止请求。
 
 正常结束的固定顺序：
 
@@ -261,4 +261,4 @@ WAV writer 分块本身可跨音频帧，现有 pending 机制会拼接；末尾
 
 保留 ADR-0001 的 Stream init 和 ADR-0002 的 Inspector 决定。本轮记录为 ADR-0003，不重新打开前两份决定。
 
-#233 已按行为切片保留真实红测再修复：三个 producer 调度点、旧快照重启隔离、首错保留、准备异常、必需 WAV 异步失败与准备期间取消。专用测试从同一生产源编译，调度点、被动 writer 观察和准备异常注入均不进入生产 target，也不改变类布局。Capture Track 的错误策略与来源代次在创建期固定，pump 退出仅请求停止，控制方在 join pump 后完成文件收尾。#234 的自动 render 停用、来源格式快照与 GUI 迁移仍未实施；不得由 #233 的通过结果推导其已验收。
+#233 已按行为切片保留真实红测再修复：三个 producer 调度点、旧快照重启隔离、首错保留、准备异常、必需 WAV 异步失败与准备期间取消。专用测试从同一生产源编译，调度点、被动 writer 观察和准备异常注入均不进入生产 target，也不改变类布局。Capture Track 的错误策略与来源代次在创建期固定，pump 退出仅请求停止，控制方在 join pump 后完成文件收尾。#234 另有慢 close 阻塞 capture、Preparing 前来源结束复活、收尾状态与来源换代的红绿证据；同源专用构建补充 Preparing / Ready 边界调度点，生产构建不包含这些调用。#234 的真实设备与性能后测单独记录，不由 #233 的通过结果推导。

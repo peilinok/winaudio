@@ -2,6 +2,7 @@
 #define NOMINMAX
 #endif
 #include "DumpUi.h"
+#include "AppUiText.h"
 #include "Log.h"
 #include <windows.h>
 #include <shlobj.h>
@@ -20,6 +21,31 @@ bool isExistingDirectory(const std::wstring& path) {
     return a != INVALID_FILE_ATTRIBUTES && (a & FILE_ATTRIBUTE_DIRECTORY);
 }
 } // namespace
+
+bool canStart(const WavSinkStatus& status, bool sourceAvailable, bool picking) {
+    return sourceAvailable && !picking && status.phase != WavDumpPhase::Preparing &&
+        status.phase != WavDumpPhase::Accepting && status.phase != WavDumpPhase::Finalizing;
+}
+
+bool Completion::take(const WavSinkStatus& status) {
+    if (status.generation < latest_) return false;
+    latest_ = status.generation;
+    if (status.phase != WavDumpPhase::Success || status.generation <= consumed_) return false;
+    consumed_ = status.generation;
+    return true;
+}
+
+const char* statusText(WavDumpPhase phase) {
+    switch (phase) {
+    case WavDumpPhase::Preparing: return ui_text::get(ui_text::kDumpPreparing);
+    case WavDumpPhase::Accepting: return ui_text::get(ui_text::kDumpAccepting);
+    case WavDumpPhase::Finalizing: return ui_text::get(ui_text::kDumpFinalizing);
+    case WavDumpPhase::Success: return ui_text::get(ui_text::kDumpCompleted);
+    case WavDumpPhase::Failure: return ui_text::get(ui_text::kDumpFailed);
+    case WavDumpPhase::Cancelled: return ui_text::get(ui_text::kDumpCancelled);
+    default: return "";
+    }
+}
 
 std::wstring downloadsFolder() {
     PWSTR p = nullptr;
