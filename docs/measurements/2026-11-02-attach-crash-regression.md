@@ -109,6 +109,12 @@ AudioEffects 两配置单进程仍在 `test_audio_effects.cpp:193` 失败：查�
 
 提交前仅补充 `Module32NextW` 返回日志：保留 BOOL／原错误码，并通过 `wa::log::hrName(HRESULT_FROM_WIN32(error))` 给出符号名称，没有改变控制流。随后两配置探针增量构建均零警告，各执行一次 `AttachVolumeProbe.exe --method 3`：Debug 子 PID 30504、Release 子 PID 29992 均真实退出 0，`S_OK`、静音读回 TRUE、`behavior_match=1 matching_calls=1`，加载 DLL 身份仍与上表一致。此次仅重跑这两个 SetMute 目标，没有重复四 API 对照或完整回归；前述 16 目标属于日志补充前的行为验证。新增输出为 `build-final-log-{debug,release}.txt`、`volume-final-log-{debug,release}-mute.txt` 及相应退出文件；清单已更新最终探针源码和二进制哈希。
 
-本票交付文件仅为上述五个代码／CMake 文件和本报告。`artifact-manifest.json` 保存源码、目标、源 DLL、实际已载暂存 DLL及旧红灯证据的路径／大小／SHA256；`preserved-original-files.json` 核对本票之外原工作未变。没有 commit、push 或合并；独立干净审查、PR、CI 和 squash 由主代理按已授权流程执行。
+初版提交 `83b2c180e320671a2875cb484df9ec7d0343c7c0` 的独立 Standards 审查指出探针控制路径观测仍有缺口。后续修正只补探针日志：两个 `OpenEventW`、事件创建、就绪／目标／清理等待及句柄清理均补参数和符号化返回，失败立即保存原错误；就绪等待区分事件就绪、超时、等待失败和目标先退出。Initialize 记录共享模式、标志、时长、周期及格式，CoInitialize／Initialize／Start／Stop 使用 Info。go 事件轮询只在循环结束或最终 deadline 记录一次，没有新增逐次音频泵日志；子目标返回前冲洗日志，不改原退出码。
+
+修正后两配置增量构建零警告，各重跑实际 `--method 3`，Debug 子 PID 28848、Release 子 PID 11196 均真实退出 0，`S_OK`、读回 TRUE、`behavior_match=1 matching_calls=1`，实际 DLL 不变。文件为 `build-standards-{debug,release}.txt`、`volume-standards-{debug,release}-mute.txt` 及退出文件。本次未重跑四 API 16 目标或全量测试。
+
+另外 `.scratch/implement-pipeline-2026-11-02/243/observation-check/` 为不入产品／CI 的本地验证程序，直接包含当前生产探针源码，实际使用 Win32 事件与自有退出子进程触发 signaled、timeout、WAIT_FAILED／ERROR_INVALID_HANDLE、target-exited，并调用原 target 路径验证两个缺失事件和正常音频初始化／启动／停止。它通过 `wa::log` sink 捕获并检查 38 行日志，结果 `observation_result=PASS missing_target_exit=2 normal_target_exit=0`，退出 0；输出见 `observation-check-{configure,build,result,exit}.txt`。这证明新增观测分支及日志值，不替代跨进程注入或原 SDK 回归。
+
+本票交付文件仅为上述五个代码／CMake 文件和本报告。`artifact-manifest.json` 保存源码、目标、源 DLL、实际已载暂存 DLL及旧红灯证据的路径／大小／SHA256；`preserved-original-files.json` 核对本票之外原工作未变。实施代理未执行 commit、push 或合并；独立干净审查、PR、CI 和 squash 由主代理按已授权流程执行。
 
 真实效果硬件 Hook、x86 真实注入、未知用户应用、GUI 人工验收及整个父规格的新功能／性能门槛未覆盖。旧 Hook 常驻目标必须重启；本票没有热卸载承诺。已有渲染／采集调用通过只限已发现且可安装的实现，不外推全部 COM 对象。
