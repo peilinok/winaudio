@@ -5,6 +5,28 @@
 
 namespace wa {
 
+Result PipelineAttachSet::adopt(std::unique_ptr<OnDemandAttach> attach) {
+    if (!attach || !attach->attached() || attached(attach->pid()))
+        return Result::Fail(static_cast<long>(E_INVALIDARG), "Attach: invalid handoff");
+    const auto pid = attach->pid();
+    byPid_[pid] = std::move(attach);
+    return Result::Ok();
+}
+
+std::vector<uint32_t> PipelineAttachSet::exitedPids() const {
+    std::vector<uint32_t> out;
+    for (const auto& item : byPid_)
+        if (item.second->targetExited()) out.push_back(item.first);
+    return out;
+}
+
+std::vector<std::pair<uint32_t, std::vector<PumpCall>>> PipelineAttachSet::pumpWindows() const {
+    std::vector<std::pair<uint32_t, std::vector<PumpCall>>> out;
+    for (const auto& item : byPid_)
+        out.emplace_back(item.first, item.second->pumpWindow());
+    return out;
+}
+
 Result PipelineAttachSet::start(uint32_t pid, const std::string& deviceIdUtf8, PipelineFlow flow) {
     if (pid == 0) return Result::Fail(static_cast<long>(E_INVALIDARG), attachBlockText(AttachBlock::PidZero));
     if (attached(pid)) return Result::Ok();  // already hooked; keep existing

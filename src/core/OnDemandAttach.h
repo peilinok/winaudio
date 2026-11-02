@@ -55,6 +55,7 @@ public:
                  const std::atomic_bool* cancelled = nullptr);
     void stop();
     bool attached() const;
+    bool targetExited() const;
     uint32_t pid() const;
     AttachBlock lastBlock() const;
     std::vector<HookedCall> drain();

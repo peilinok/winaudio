@@ -333,6 +333,16 @@ bool OnDemandAttach::attached() const {
     return impl_ && impl_->ring && impl_->pid != 0 && impl_->block == AttachBlock::None;
 }
 
+bool OnDemandAttach::targetExited() const {
+    if (!attached()) return false;
+    const DWORD waited = WaitForSingleObject(impl_->resources->process, 0);
+    const DWORD error = waited == WAIT_FAILED ? GetLastError() : ERROR_SUCCESS;
+    if (waited == WAIT_FAILED)
+        WA_LOG(wa::log::Level::Warn, "Attach", "WaitForSingleObject(active target)",
+               "pid=" + std::to_string(impl_->pid), wa::log::hrName(HRESULT_FROM_WIN32(error)));
+    return waited == WAIT_OBJECT_0;
+}
+
 uint32_t OnDemandAttach::pid() const { return impl_ ? impl_->pid : 0; }
 
 AttachBlock OnDemandAttach::lastBlock() const {

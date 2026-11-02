@@ -15,7 +15,7 @@ BOOL APIENTRY DllMain(HMODULE, DWORD reason, LPVOID) {
     HANDLE entered = OpenEventW(EVENT_MODIFY_STATE, FALSE, enteredName);
     if (!gate || !entered) return FALSE;
     SetEvent(entered);
-    const DWORD waited = WaitForSingleObject(gate, 15000);
+    const DWORD waited = WaitForSingleObject(gate, 120000);
     CloseHandle(gate);
     CloseHandle(entered);
     return waited == WAIT_OBJECT_0;

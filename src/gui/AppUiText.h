@@ -11,6 +11,9 @@ namespace wa::ui_text {
 
 // One row: identifier, English literal, Chinese slot (nullptr or "" = fallback).
 #define WA_UI_TEXT_ROWS \
+    WA_UI_TEXT(kPipelineAttachPreparing, "Preparing attach PID %u (Detach cancels)", "正在准备附加 PID %u（分离可取消）") \
+    WA_UI_TEXT(kPipelineAttachCleanup, "Pending injection cleanup: %u", "等待注入收尾：%u") \
+    WA_UI_TEXT(kPipelineAttachOverflow, "Receive queue missing: %llu calls / %llu batches; rejected commands: %llu", "接收队列缺失：%llu 条调用 / %llu 批次；拒绝命令：%llu") \
     WA_UI_TEXT(kApplicationLoopbackTab, "Application Loopback", "Application Loopback") \
     WA_UI_TEXT(kApplicationLoopbackRefresh, "Refresh", "刷新") \
     WA_UI_TEXT(kApplicationLoopbackPidLabel, "PID", "PID") \

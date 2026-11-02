@@ -368,7 +368,7 @@ void AppUi::stopAll() {
     appLoopbackTracks_.destroyAll();
     renderTracks_.destroyAll();
     pipelineEtw_.stop();
-    pipelineAttaches_.stopAll();
+    pipelineAttaches_.shutdown();
 }
 
 void AppUi::releaseGpu() {
@@ -611,29 +611,66 @@ void AppUi::attemptPipelineAttach(const wa::pipeline_attach_ui::AttachRequest& r
     const auto& deviceId = request.deviceId;
     const auto flow = request.flow;
     wa::Result r = pipelineAttaches_.start(pid, deviceId, flow);
-    if (!r) {
-        pipelineAttachFailByPid_[pid] = r.message;
-        if (!request.sessionKey.empty()) {
-            pipelineAttachUi_[request.sessionKey] = wa::PipelineAttachUiState::Failed;
-            pipelineAttachFailBanner_[request.sessionKey] = r.message;
-        }
-        logLines_.push_back("pipeline attach failed pid=" + std::to_string(pid) + ": " + r.message);
-        applyPipelineJoin();
+    if (r) {
+        pipelinePreparing_ = request;
+        logLines_.push_back("pipeline preparing attach pid=" + std::to_string(pid));
         return;
     }
-    wa::pipeline_attach_ui::commitAttach(pipelineCallStore_, request, true);
-    if (request.replaceRound) {
-        pipelineCallSelected_ = {};
-        pipelinePumpSelectionExpired_ = false;
-    }
-    pipelineAttachFailByPid_.erase(pid);
+    pipelineAttachFailByPid_[pid] = r.message;
     if (!request.sessionKey.empty()) {
-        pipelineAttachUi_[request.sessionKey] = wa::PipelineAttachUiState::Attached;
-        pipelineAttachFailBanner_.erase(request.sessionKey);
+        pipelineAttachUi_[request.sessionKey] = wa::PipelineAttachUiState::Failed;
+        pipelineAttachFailBanner_[request.sessionKey] = r.message;
     }
-    pipelineAttaches_.setPumpEnabled(pipelinePump_);
-    logLines_.push_back("pipeline attached pid=" + std::to_string(pid));
+    logLines_.push_back("pipeline attach failed pid=" + std::to_string(pid) + ": " + r.message);
     applyPipelineJoin();
+}
+
+void AppUi::pollPipelineAttach() {
+    std::vector<wa::PipelineAttachController::Batch> batches;
+    {
+        wa::FrameBracket receive(frameProbe_, wa::FrameSlice::CallReceive);
+        batches = pipelineAttaches_.poll();
+    }
+    for (auto& batch : batches) {
+        for (const auto& event : batch.events) {
+            if (event.kind == wa::PipelineAttachController::EventKind::Detached) continue;
+            if (!pipelinePreparing_ || pipelinePreparing_->pid != event.pid) continue;
+            const auto request = std::move(*pipelinePreparing_);
+            pipelinePreparing_.reset();
+            if (event.kind == wa::PipelineAttachController::EventKind::Attached) {
+                wa::pipeline_attach_ui::commitAttach(pipelineCallStore_, request, true);
+                if (request.replaceRound) {
+                    pipelineCallSelected_ = {};
+                    pipelinePumpSelectionExpired_ = false;
+                }
+                pipelineAttachFailByPid_.erase(event.pid);
+                if (!request.sessionKey.empty()) {
+                    pipelineAttachUi_[request.sessionKey] = wa::PipelineAttachUiState::Attached;
+                    pipelineAttachFailBanner_.erase(request.sessionKey);
+                }
+                logLines_.push_back("pipeline attached pid=" + std::to_string(event.pid));
+            } else {
+                pipelineAttachFailByPid_[event.pid] = event.result.message;
+                if (!request.sessionKey.empty()) {
+                    pipelineAttachUi_[request.sessionKey] = wa::PipelineAttachUiState::Failed;
+                    pipelineAttachFailBanner_[request.sessionKey] = event.result.message;
+                }
+                logLines_.push_back("pipeline attach failed pid=" + std::to_string(event.pid) + ": " + event.result.message);
+            }
+        }
+        receivePipelineCalls(std::move(batch.calls));
+        for (const auto& item : batch.pump)
+            pipelineCallStore_.updatePump(pipelineCallStore_.activeAttach(item.first), item.second);
+        for (const auto& event : batch.events) {
+            if (event.kind != wa::PipelineAttachController::EventKind::Detached) continue;
+            pipelineCallStore_.endAttach(pipelineCallStore_.activeAttach(event.pid));
+            for (const auto& row : pipelineSessions_)
+                if (row.processId == event.pid)
+                    setPipelineAttachUi(row, wa::PipelineAttachUiState::Detached);
+            logLines_.push_back("pipeline detached pid=" + std::to_string(event.pid));
+        }
+        if (!batch.events.empty()) applyPipelineJoin();
+    }
 }
 
 void AppUi::drawPipelineRoundDialog() {
@@ -677,21 +714,25 @@ void AppUi::runPipelineDetach() {
         setPipelineAttachUi(pipelineSessions_[(size_t)pipelineSelected_],
                             wa::PipelineAttachUiState::Detached);
     }
-    pipelineCallStore_.endAttach(pipelineCallStore_.activeAttach(pid));
-    pipelineAttaches_.stop(pid);
+    if (!pipelineAttaches_.stop(pid)) {
+        logLines_.push_back("pipeline detach command rejected: queue full");
+        return;
+    }
     pipelineAttachFailByPid_.erase(pid);
-    logLines_.push_back("pipeline detached pid=" + std::to_string(pid));
+    logLines_.push_back("pipeline detach requested pid=" + std::to_string(pid));
     applyPipelineJoin();
 }
 
 void AppUi::runPipelineDetachAll() {
     const auto pids = pipelineAttaches_.attachedPids();
-    for (const auto pid : pids) pipelineCallStore_.endAttach(pipelineCallStore_.activeAttach(pid));
-    pipelineAttaches_.stopAll();
+    if (!pipelineAttaches_.stopAll()) {
+        logLines_.push_back("pipeline detach-all command rejected: queue full");
+        return;
+    }
     pipelineAttachFailByPid_.clear();
     for (auto& kv : pipelineAttachUi_) kv.second = wa::PipelineAttachUiState::Detached;
     pipelineAttachFailBanner_.clear();
-    logLines_.push_back("pipeline detached all (" + std::to_string(pids.size()) + " pid(s))");
+    logLines_.push_back("pipeline detach-all requested (" + std::to_string(pids.size()) + " pid(s))");
     applyPipelineJoin();
 }
 
@@ -719,7 +760,6 @@ bool AppUi::savePipelineCallLog(const std::wstring& destination) {
 }
 
 void AppUi::pollBackground(bool notify) {
-    wa::OnDemandAttach::reapPending();
     wa::CallLogExportResult result;
     if (pipelineExport_.take(result)) pipelineExportCompleted_ = std::move(result);
     if (!notify || !pipelineExportCompleted_) return;
@@ -1151,6 +1191,7 @@ void AppUi::ensureRunningVisuals(const wa::MonitorStatus& status, VisualState& v
 }
 
 void AppUi::draw() {
+    pollPipelineAttach();
     if (exportMetricsPending_) {
         frameProbe_.addWork("export-total-us", exportElapsedUs_);
         frameProbe_.addWork("export-records-written", exportWritten_);
@@ -1440,18 +1481,9 @@ void AppUi::drawPipelinePage() {
 #ifdef WA_PERFORMANCE_FIXTURE
     }
 #endif
-    if (pipelineAttaches_.anyAttached()) {
-        std::vector<wa::HookedCall> more;
-        {
-            wa::FrameBracket receive(frameProbe_, wa::FrameSlice::CallReceive);
-            more = pipelineAttaches_.drainAll();
-        }
-        receivePipelineCalls(std::move(more));
-        frameProbe_.addWork("control-overrun-total", pipelineAttaches_.droppedControlCalls());
-        frameProbe_.addWork("pump-xrun-total", pipelineAttaches_.pumpXrunsSum());
-    }
+    frameProbe_.addWork("control-overrun-total", pipelineAttaches_.droppedControlCalls());
+    frameProbe_.addWork("pump-xrun-total", pipelineAttaches_.pumpXrunsSum());
     pipelineCallStore_.setPumpVisible(pipelinePump_);
-    pipelineAttaches_.updatePump(pipelineCallStore_);
     if (pipelineCallSelected_ && !pipelineCallStore_.find(pipelineCallSelected_)) {
         pipelinePumpSelectionExpired_ = pipelineCallSelected_.lane == wa::CallLane::Pump;
         pipelineCallSelected_ = {};
@@ -1500,21 +1532,21 @@ void AppUi::drawPipelinePage() {
         const auto attachedSet = pipelineAttachedPidSet();
         const bool canAttach = wa::pipeline_attach_ui::canAttach(
             boxPidOk ? boxPid : 0u, attachedSet.find(boxPidOk ? boxPid : 0u) != attachedSet.end()) &&
-            !(pipelineExport_.busy() && !pipelineAttaches_.anyAttached());
+            !(pipelineExport_.busy() && !pipelineAttaches_.anyAttached()) && !pipelinePreparing_;
         if (!canAttach) ImGui::BeginDisabled();
         if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineAttach)))
             runPipelineAttach();
         if (!canAttach) ImGui::EndDisabled();
         ImGui::SameLine();
         const bool canDetach = wa::pipeline_attach_ui::canDetachPid(boxPidOk ? boxPid : 0u, attachedSet,
-                                                                   pipelineAttachFailByPid_);
+            pipelineAttachFailByPid_) || (pipelinePreparing_ && pipelinePreparing_->pid == boxPid);
         if (!canDetach) ImGui::BeginDisabled();
         if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineDetach)))
             runPipelineDetach();
         if (!canDetach) ImGui::EndDisabled();
         ImGui::SameLine();
         const bool canDetachAll =
-            wa::pipeline_attach_ui::canDetachAll(attachedSet, pipelineAttachFailByPid_);
+            wa::pipeline_attach_ui::canDetachAll(attachedSet, pipelineAttachFailByPid_) || pipelinePreparing_;
         if (!canDetachAll) ImGui::BeginDisabled();
         if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineDetachAll)))
             runPipelineDetachAll();
@@ -1536,8 +1568,7 @@ void AppUi::drawPipelinePage() {
             ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineEtwListening));
         }
         if (ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kPipelinePump), &pipelinePump_)) {
-            if (pipelineAttaches_.anyAttached())
-                pipelineAttaches_.setPumpEnabled(pipelinePump_);
+            pipelineAttaches_.setPumpEnabled(pipelinePump_);
         }
         ImGui::SameLine();
         if (ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kPipelineRecord), &pipelineRecord_)) {
@@ -1551,6 +1582,16 @@ void AppUi::drawPipelinePage() {
         if (!canSave) ImGui::EndDisabled();
         if (pipelineRecord_)
             ImGui::Text("recording: %zu", pipelineCallStore_.exportCount());
+        if (pipelinePreparing_)
+            ImGui::Text(wa::ui_text::get(wa::ui_text::kPipelineAttachPreparing), pipelinePreparing_->pid);
+        const auto receiver = pipelineAttaches_.snapshot();
+        if (receiver.cleanupPending)
+            ImGui::Text(wa::ui_text::get(wa::ui_text::kPipelineAttachCleanup), receiver.cleanupPending);
+        if (receiver.droppedBatches || receiver.rejectedCommands)
+            ImGui::Text(wa::ui_text::get(wa::ui_text::kPipelineAttachOverflow),
+                static_cast<unsigned long long>(receiver.droppedCalls),
+                static_cast<unsigned long long>(receiver.droppedBatches),
+                static_cast<unsigned long long>(receiver.rejectedCommands));
         if (pipelineExport_.busy()) {
             ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineExportBusy));
             ImGui::SameLine();

@@ -17,6 +17,9 @@ public:
                  PipelineFlow flow = PipelineFlow::Capture);
     void stop(uint32_t pid);
     void stopAll();
+    Result adopt(std::unique_ptr<OnDemandAttach> attach);
+    std::vector<uint32_t> exitedPids() const;
+    std::vector<std::pair<uint32_t, std::vector<PumpCall>>> pumpWindows() const;
 
     bool attached(uint32_t pid) const;
     bool anyAttached() const;
