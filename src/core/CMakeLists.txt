@@ -34,6 +34,7 @@ add_library(WinAudioCore STATIC
     CallLogStore.cpp
     CallLogExportJob.cpp
     OnDemandAttach.cpp
+    StartupLaunch.cpp
     RemoteInjection.cpp
     HookModuleIdentity.cpp
     PipelineAttachSet.cpp
