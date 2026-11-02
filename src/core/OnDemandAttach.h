@@ -3,6 +3,7 @@
 #include "PipelineGraph.h"
 #include "Result.h"
 #include "ProcessInstance.h"
+#include "MethodSelection.h"
 #include <cstdint>
 #include <atomic>
 #include <memory>
@@ -53,7 +54,8 @@ public:
 
     Result start(uint32_t pid, const std::string& deviceIdUtf8 = {},
                  PipelineFlow flow = PipelineFlow::Capture,
-                 const std::atomic_bool* cancelled = nullptr, ProcessInstance expected = {});
+                 const std::atomic_bool* cancelled = nullptr, ProcessInstance expected = {},
+                 uint32_t methods = kDefaultMonitorMethods);
     void stop();
     bool attached() const;
     bool targetExited() const;
@@ -67,8 +69,8 @@ public:
     const std::vector<PumpCall>& pumpWindow() const;
     uint32_t pumpXruns() const;
     HookCoverage coverage() const;
-    void setPumpEnabled(bool on);
     void setCaptureEnabled(bool on);
+    Result publishMethods(ProcessInstance expected, uint32_t methods);
     // Nonblocking maintenance; returns the number of unresolved orphaned entries.
     static uint32_t reapPending();
 

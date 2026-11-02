@@ -26,7 +26,7 @@ void observeHook(const char* event) {
         if (closeGate == 0)
             InterlockedExchange(reinterpret_cast<volatile LONG*>(&hook_harness::ring.captureEnabled), 0);
         else if (closeGate == 1)
-            InterlockedExchange(reinterpret_cast<volatile LONG*>(&hook_harness::ring.pumpEnabled), 0);
+            wa::hook_ipc::publishMonitorState(hook_harness::ring, wa::kDefaultMonitorMethods, hook_harness::ring.observationGeneration);
         else
             InterlockedExchange(&g_quiet, 1);
     }
@@ -38,10 +38,10 @@ void reset(int state = 5) {
     closeGate = 0;
 }
 void enableAfterOriginal() {
-    InterlockedExchange(reinterpret_cast<volatile LONG*>(&hook_harness::ring.pumpEnabled), 1);
+    wa::hook_ipc::publishMonitorState(hook_harness::ring, wa::kAllMonitorMethods, hook_harness::ring.observationGeneration);
 }
 void disableAfterOriginal() {
-    InterlockedExchange(reinterpret_cast<volatile LONG*>(&hook_harness::ring.pumpEnabled), 0);
+    wa::hook_ipc::publishMonitorState(hook_harness::ring, wa::kDefaultMonitorMethods, hook_harness::ring.observationGeneration);
 }
 void reattachAfterOriginal() {
     InterlockedIncrement(reinterpret_cast<volatile LONG*>(&hook_harness::ring.observationGeneration));
@@ -125,16 +125,17 @@ TEST(HookBuffer, CaptureDiscontinuityCountsOnceAndSwitchesKeepWindow) {
     EXPECT_EQ(hook_harness::ring.pumpWriteIndex, 2u);
 }
 
-TEST(HookBuffer, SamplesAfterOriginalAndRechecksBeforeTimestamp) {
+TEST(HookBuffer, EntrySelectionSurvivesUpdatesAndLifetimeStillChecksBeforeTimestamp) {
     for (int entry = 0; entry < 4; ++entry) {
         reset(4);
         hook_harness::afterOriginal = enableAfterOriginal;
         hook_harness::invoke(entry);
-        EXPECT_EQ(writes, 1u);
+        EXPECT_EQ(writes, 0u);
         reset();
         hook_harness::afterOriginal = disableAfterOriginal;
         hook_harness::invoke(entry);
-        EXPECT_EQ(prepared, 0u);
+        EXPECT_EQ(prepared, 1u);
+        EXPECT_EQ(writes, 1u);
         for (int gate = 0; gate < 3; ++gate) {
             reset();
             closeAt = "precommit";
@@ -142,9 +143,9 @@ TEST(HookBuffer, SamplesAfterOriginalAndRechecksBeforeTimestamp) {
             hook_harness::result = E_FAIL;
             hook_harness::invoke(entry);
             EXPECT_EQ(prepared, 1u);
-            EXPECT_EQ(timestamps, 0u);
-            EXPECT_EQ(writes, 0u);
-            EXPECT_EQ(hook_harness::ring.pumpXruns, 0u);
+            EXPECT_EQ(timestamps, gate == 1 ? 1u : 0u);
+            EXPECT_EQ(writes, gate == 1 ? 1u : 0u);
+            EXPECT_EQ(hook_harness::ring.pumpXruns, gate == 1 ? 1u : 0u);
             reset();
             closeAt = "accepted";
             closeGate = gate;
@@ -172,7 +173,7 @@ TEST(HookBuffer, ControlDoesNotRequirePumpAndSharedFlagsKeepLayout) {
     emitSimple(7, "IAudioClient", "Start", "", S_OK, observationGeneration());
     EXPECT_EQ(hook_harness::ring.writeIndex, 1u);
     EXPECT_EQ(hook_harness::ring.pumpWriteIndex, 0u);
-    EXPECT_EQ(wa::hook_ipc::kRingLayout, 7u);
+    EXPECT_EQ(wa::hook_ipc::kRingLayout, 8u);
     EXPECT_EQ(sizeof(hook_harness::ring.captureEnabled), 4u);
     EXPECT_EQ(sizeof(hook_harness::ring.pumpEnabled), 4u);
     EXPECT_EQ(offsetof(Ring, captureEnabled), 36u);
@@ -210,15 +211,15 @@ TEST(HookBuffer, GatesAndRecordsAreVisibleAcrossTwoLocalMappingViews) {
         SCOPED_TRACE(entry);
         const auto index = mapping.controller->pumpWriteIndex;
         InterlockedExchange(reinterpret_cast<volatile LONG*>(&mapping.controller->captureEnabled), 1);
-        InterlockedExchange(reinterpret_cast<volatile LONG*>(&mapping.controller->pumpEnabled), 1);
+        wa::hook_ipc::publishMonitorState(*mapping.controller, wa::kAllMonitorMethods, 0);
         EXPECT_EQ(hook_harness::invoke(entry), S_OK);
         EXPECT_EQ(mapping.controller->pumpWriteIndex, index + 1);
         EXPECT_STREQ(mapping.controller->pumpSlots[index].method,
                      entry % 2 ? "ReleaseBuffer" : "GetBuffer");
-        InterlockedExchange(reinterpret_cast<volatile LONG*>(&mapping.controller->pumpEnabled), 0);
+        wa::hook_ipc::publishMonitorState(*mapping.controller, wa::kDefaultMonitorMethods, 0);
         EXPECT_EQ(hook_harness::invoke(entry), S_OK);
         EXPECT_EQ(mapping.controller->pumpWriteIndex, index + 1);
-        InterlockedExchange(reinterpret_cast<volatile LONG*>(&mapping.controller->pumpEnabled), 1);
+        wa::hook_ipc::publishMonitorState(*mapping.controller, wa::kAllMonitorMethods, 0);
         InterlockedExchange(reinterpret_cast<volatile LONG*>(&mapping.controller->captureEnabled), 0);
         EXPECT_EQ(hook_harness::invoke(entry), S_OK);
         EXPECT_EQ(mapping.controller->pumpWriteIndex, index + 1);

@@ -34,8 +34,8 @@ public:
     void updatePump(CallLogStore& store) const;
     uint32_t pumpXrunsSum() const;
 
-    void setPumpEnabled(bool on);
     void setCaptureEnabled(bool on);
+    Result publishMethods(ProcessInstance expected, uint32_t methods);
 
 private:
     std::unordered_map<uint32_t, std::unique_ptr<OnDemandAttach>> byPid_;

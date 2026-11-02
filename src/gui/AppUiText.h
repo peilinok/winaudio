@@ -11,6 +11,16 @@ namespace wa::ui_text {
 
 // One row: identifier, English literal, Chinese slot (nullptr or "" = fallback).
 #define WA_UI_TEXT_ROWS \
+    WA_UI_TEXT(kPipelineMethods, "API monitoring selection", "API 监控选择") \
+    WA_UI_TEXT(kPipelineMethodsInitial, "Before attach...", "附加前配置...") \
+    WA_UI_TEXT(kPipelineMethodsDraft, "Draft - not applied", "草稿：尚未生效") \
+    WA_UI_TEXT(kPipelineMethodsReady, "Ready for next attach", "草稿：下次附加时使用") \
+    WA_UI_TEXT(kPipelineMethodsApplied, "Last successfully applied selection", "最后成功发布的选择") \
+    WA_UI_TEXT(kPipelineMethodsPending, "Publishing...", "正在发布...") \
+    WA_UI_TEXT(kPipelineMethodsApply, "Apply selection", "应用选择") \
+    WA_UI_TEXT(kPipelineMethodsFailed, "Publish failed; previous selection remains active", "发布失败；保留原有效选择") \
+    WA_UI_TEXT(kPipelineMethodsDefault, "Defaults", "恢复默认") \
+    WA_UI_TEXT(kPipelineMethodsShowWindow, "Show recent calls", "显示最近调用") \
     WA_UI_TEXT(kPipelineMonitoring, "Monitoring", "正在监控") \
     WA_UI_TEXT(kPipelineHistory, "History", "历史记录") \
     WA_UI_TEXT(kPipelineSegmentFmt, "PID %u | segment %llu | %s", "PID %u | 记录段 %llu | %s") \

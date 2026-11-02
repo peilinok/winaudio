@@ -306,6 +306,84 @@ TEST_F(RemoteInjectionTest, BackgroundAttachCommitsThenDetachesWithoutEndingTarg
     EXPECT_EQ(WaitForSingleObject(child.hProcess, 0), WAIT_TIMEOUT);
 }
 
+TEST_F(RemoteInjectionTest, MethodSelectionPublishesWithoutAnApiAndRetainsOnlySuccessfulInstanceState) {
+    wa::ProcessInstance instance;
+    ASSERT_TRUE(wa::queryProcessInstance(child.dwProcessId, instance));
+    const uint32_t initial = wa::methodBit(wa::MonitorMethod::Start);
+    const uint32_t updated = wa::methodBit(wa::MonitorMethod::CaptureGetBuffer) |
+        wa::methodBit(wa::MonitorMethod::GetChannelCount) | wa::methodBit(wa::MonitorMethod::GetAudioEffects);
+    wa::PipelineAttachController controller;
+    ASSERT_TRUE(controller.start(instance.pid, {}, wa::PipelineFlow::Render, instance, initial));
+    ASSERT_TRUE(waitUntil([&] { return !controller.snapshot().pendingPid; }));
+    const auto started = collectEvents(controller);
+    ASSERT_EQ(started.size(), 1u);
+    ASSERT_EQ(started[0].kind, wa::PipelineAttachController::EventKind::Attached);
+    const uint64_t token = started[0].token;
+    EXPECT_EQ(started[0].methods, initial);
+    struct Mapping {
+        HANDLE handle = nullptr;
+        wa::hook_ipc::Ring* ring = nullptr;
+        ~Mapping() { if (ring) UnmapViewOfFile(ring); if (handle) CloseHandle(handle); }
+    } monitorView;
+    wchar_t name[64]{};
+    wa::hook_ipc::mapName(instance.pid, name, 64);
+    monitorView.handle = OpenFileMappingW(FILE_MAP_ALL_ACCESS, FALSE, name);
+    ASSERT_NE(monitorView.handle, nullptr);
+    monitorView.ring = static_cast<wa::hook_ipc::Ring*>(MapViewOfFile(monitorView.handle, FILE_MAP_ALL_ACCESS, 0, 0, 0));
+    ASSERT_NE(monitorView.ring, nullptr);
+    const auto patches = monitorView.ring->patchAccepted;
+    const auto generation = monitorView.ring->observationGeneration;
+    EXPECT_EQ(static_cast<uint32_t>(wa::hook_ipc::monitorState(*monitorView.ring)), initial);
+    EXPECT_EQ(monitorView.ring->writeIndex + monitorView.ring->pumpWriteIndex, 0u);
+    std::vector<wa::PipelineAttachController::Event> events;
+    const auto receive = [&] {
+        events = collectEvents(controller);
+        return !events.empty();
+    };
+    ASSERT_TRUE(controller.configure(instance, token, updated));
+    ASSERT_TRUE(waitUntil(receive));
+    ASSERT_EQ(events.size(), 1u);
+    EXPECT_EQ(events[0].kind, wa::PipelineAttachController::EventKind::Configured);
+    EXPECT_EQ(monitorView.ring->writeIndex + monitorView.ring->pumpWriteIndex, 0u);
+    EXPECT_EQ(monitorView.ring->patchAccepted, patches);
+    EXPECT_EQ(monitorView.ring->observationGeneration, generation);
+    EXPECT_EQ(static_cast<uint32_t>(wa::hook_ipc::monitorState(*monitorView.ring)), updated);
+    EXPECT_EQ(controller.lastMethods(instance), updated);
+    auto reused = instance; ++reused.created;
+    EXPECT_EQ(controller.lastMethods(reused), wa::kDefaultMonitorMethods);
+    ASSERT_TRUE(controller.configure(reused, token, 0));
+    ASSERT_TRUE(waitUntil(receive));
+    EXPECT_EQ(events[0].kind, wa::PipelineAttachController::EventKind::ConfigurationFailed);
+    EXPECT_EQ(controller.lastMethods(instance), updated);
+    EXPECT_EQ(controller.lastMethods(reused), wa::kDefaultMonitorMethods);
+    const uint32_t magic = monitorView.ring->magic;
+    monitorView.ring->magic = 0;
+    ASSERT_TRUE(controller.configure(instance, token, 0));
+    ASSERT_TRUE(waitUntil(receive));
+    EXPECT_EQ(events[0].kind, wa::PipelineAttachController::EventKind::ConfigurationFailed);
+    EXPECT_NE(events[0].result.message.find("restart"), std::string::npos);
+    EXPECT_EQ(controller.lastMethods(instance), updated);
+    EXPECT_EQ(static_cast<uint32_t>(wa::hook_ipc::monitorState(*monitorView.ring)), updated);
+    monitorView.ring->magic = magic;
+    ASSERT_TRUE(controller.stop(instance.pid));
+    ASSERT_TRUE(waitUntil([&] { return !controller.attached(instance.pid); }));
+    collectEvents(controller);
+    ASSERT_TRUE(controller.start(instance.pid, {}, wa::PipelineFlow::Render, instance));
+    ASSERT_TRUE(waitUntil([&] { return !controller.snapshot().pendingPid; }));
+    const auto reattached = collectEvents(controller);
+    ASSERT_EQ(reattached.size(), 1u);
+    ASSERT_EQ(reattached[0].kind, wa::PipelineAttachController::EventKind::Attached);
+    EXPECT_NE(reattached[0].token, token);
+    EXPECT_EQ(reattached[0].methods, updated);
+    EXPECT_EQ(monitorView.ring->patchAccepted, patches);
+    EXPECT_EQ(static_cast<uint32_t>(wa::hook_ipc::monitorState(*monitorView.ring)), updated);
+    ASSERT_TRUE(controller.configure(instance, token, 0));
+    ASSERT_TRUE(waitUntil(receive));
+    EXPECT_EQ(events[0].kind, wa::PipelineAttachController::EventKind::ConfigurationFailed);
+    EXPECT_EQ(controller.lastMethods(instance), updated);
+    EXPECT_EQ(WaitForSingleObject(child.hProcess, 0), WAIT_TIMEOUT);
+}
+
 TEST_F(RemoteInjectionTest, BackgroundTargetExitPublishesAnOwnedEndResult) {
     wa::PipelineAttachController controller;
     ASSERT_TRUE(controller.start(child.dwProcessId, {}, wa::PipelineFlow::Render));

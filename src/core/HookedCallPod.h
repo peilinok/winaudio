@@ -8,8 +8,10 @@
 #include <windows.h>
 #include <sddl.h>
 #include <cstdint>
+#include <cstddef>
 #include <cstdio>
 #include <cstring>
+#include "MethodSelection.h"
 
 namespace wa {
 namespace hook_ipc {
@@ -21,8 +23,8 @@ constexpr uint32_t kPumpCap = 64;
 constexpr uint32_t kInstallPending = 0;
 constexpr uint32_t kInstallOk = 1;
 constexpr uint32_t kInstallFailed = 2;
-// Layout 7 isolates process instances and calls that cross an attach boundary.
-constexpr uint32_t kRingLayout = 7;
+// Layout 8 publishes the method mask and observation generation as one word.
+constexpr uint32_t kRingLayout = 8;
 constexpr uint32_t kCoverageDiscoveredImplementations = 1;
 constexpr uint32_t kCoverageInstallationFault = 2;
 
@@ -266,8 +268,19 @@ struct Ring {
     uint32_t patchLastError;  // Win32 error from the last rejection
     uint32_t coverageFlags;
     uint64_t processCreated;
+    alignas(8) uint32_t monitorMask;
     uint32_t observationGeneration;
 };
+
+static_assert(offsetof(Ring, monitorMask) % 8 == 0, "Atomic selection must be aligned on x86 too");
+inline uint64_t monitorState(const Ring& ring) {
+    return static_cast<uint64_t>(InterlockedCompareExchange64(
+        reinterpret_cast<volatile LONG64*>(const_cast<uint32_t*>(&ring.monitorMask)), 0, 0));
+}
+inline void publishMonitorState(Ring& ring, uint32_t mask, uint32_t generation) {
+    const uint64_t state = (static_cast<uint64_t>(generation) << 32) | mask;
+    InterlockedExchange64(reinterpret_cast<volatile LONG64*>(&ring.monitorMask), static_cast<LONG64>(state));
+}
 
 inline void mapName(uint32_t pid, wchar_t* out, size_t n) {
     swprintf_s(out, n, L"Local\\WinAudioHook-%u-%u", kRingLayout, pid);

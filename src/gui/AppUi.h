@@ -253,6 +253,9 @@ private:
     std::optional<wa::pipeline_attach_ui::AttachRequest> pipelinePreparing_;
     wa::CallRecordId pipelineCallSelected_;
     wa::pipeline_attach_ui::SegmentSelection pipelineSegmentSelection_;
+    std::unordered_map<uint64_t, wa::pipeline_attach_ui::MethodDraft> pipelineMethodDrafts_;
+    wa::ProcessInstance pipelineInitialInstance_;
+    std::unordered_map<std::string, wa::pipeline_attach_ui::MethodDraft> pipelineInitialMethods_;
     bool pipelinePumpSelectionExpired_ = false;
     char pipelineCallFilter_[128] = "";
     char pipelineCallIfaceFilter_[96] = "";  // empty => all ifaces

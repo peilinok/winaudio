@@ -102,7 +102,7 @@ int main(int argc, char** argv) {
         CloseHandle(pi.hProcess);
         return 10;
     }
-    attach.setPumpEnabled(true);
+    if (!attach.publishMethods(attach.instance(), wa::kAllMonitorMethods)) return 11;
     std::printf("attached pid=%u\n", pi.dwProcessId);
 
     size_t control = 0;

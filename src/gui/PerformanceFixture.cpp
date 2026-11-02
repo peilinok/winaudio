@@ -339,7 +339,8 @@ void PerformanceFixture::prepareInspector(AppUi& ui) {
             ui.frameProbe_.setStage("live-pump");
             if (!ui.pipelinePump_) {
                 ui.pipelinePump_ = true;
-                ui.pipelineAttaches_.setPumpEnabled(true);
+                for (const auto& segment : ui.pipelineCallStore_.segments(true))
+                    ui.pipelineAttaches_.configure(segment.instance, segment.token, wa::kAllMonitorMethods);
             }
         }
         return;

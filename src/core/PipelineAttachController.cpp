@@ -8,6 +8,7 @@
 #include <optional>
 #include <thread>
 #include <unordered_map>
+#include <map>
 
 namespace wa {
 struct PipelineAttachController::Impl {
@@ -16,6 +17,7 @@ struct PipelineAttachController::Impl {
         std::string deviceId;
         PipelineFlow flow = PipelineFlow::Capture;
         ProcessInstance instance;
+        uint32_t methods = kDefaultMonitorMethods;
         std::atomic_bool cancelled{false};
     };
     struct Prepared {
@@ -24,10 +26,13 @@ struct PipelineAttachController::Impl {
     };
     mutable std::mutex mutex;
     std::condition_variable changed;
-    bool closing = false, installing = false, pump = false;
+    bool closing = false, installing = false;
     std::shared_ptr<Job> job;
     std::optional<Prepared> prepared;  // One owning handoff, never a borrowed view.
     std::deque<uint32_t> stops;       // PID zero means detach all.
+    struct Configuration { ProcessInstance instance; uint64_t token; uint32_t methods; };
+    std::deque<Configuration> configurations;
+    std::map<std::pair<uint32_t, uint64_t>, uint32_t> lastMethods;
     std::deque<Batch> batches;
     Snapshot state;
     std::thread installer, receiver;
@@ -61,7 +66,8 @@ struct PipelineAttachController::Impl {
             }
             auto attach = std::make_unique<OnDemandAttach>();
             const Result result = attach->start(request->pid, request->deviceId,
-                                                request->flow, &request->cancelled, request->instance);
+                                                request->flow, &request->cancelled, request->instance,
+                                                request->methods);
             {
                 std::lock_guard<std::mutex> lock(mutex);
                 prepared.emplace(Prepared{std::move(attach), result});
@@ -82,22 +88,22 @@ struct PipelineAttachController::Impl {
             call.attachToken = tokens.at(call.pid);
             call.processCreated = active.instance(call.pid).created;
         };
-        bool appliedPump = false;
         for (;;) {
             std::deque<uint32_t> commands;
+            std::deque<Configuration> updates;
             std::optional<Prepared> handoff;
             std::shared_ptr<Job> request;
-            bool outputReady = false, desiredPump = false;
+            bool outputReady = false;
             {
                 std::unique_lock<std::mutex> lock(mutex);
                 changed.wait_for(lock, std::chrono::milliseconds(10));
                 if (closing) break;
                 outputReady = batches.size() < kQueueCapacity;
-                desiredPump = pump;
                 // Lifecycle results are lossless. Defer commands when the
                 // bounded result queue is full, while still draining sources.
                 if (outputReady) {
                     commands.swap(stops);
+                    updates.swap(configurations);
                     if (prepared) {
                         handoff = std::move(prepared);
                         prepared.reset();
@@ -108,10 +114,7 @@ struct PipelineAttachController::Impl {
             Batch batch;
             batch.calls = active.drainAll();
             for (auto& call : batch.calls) attribute(call);
-            if (appliedPump != desiredPump) {
-                active.setPumpEnabled(desiredPump);
-                appliedPump = desiredPump;
-            }
+
             if (handoff) {
                 Result result = handoff->result;
                 {
@@ -125,21 +128,38 @@ struct PipelineAttachController::Impl {
                         result = Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_PROCESS_ABORTED)),
                                               "Attach: target exited before commit");
                     if (result) {
-                        handoff->attach->setPumpEnabled(desiredPump);
                         result = active.adopt(std::move(handoff->attach));
                     }
                 }
                 Event event{request->pid, result ? EventKind::Attached : EventKind::Failed, result};
                 event.instance = request->instance;
                 event.snapshotMs = now();
+                event.methods = request->methods;
                 if (result) {
                     event.token = tokens[request->pid] = ++nextToken;
                     event.name = active.processName(request->pid);
+                    std::lock_guard<std::mutex> lock(mutex);
+                    lastMethods[{request->instance.pid, request->instance.created}] = request->methods;
                 }
                 batch.events.push_back(std::move(event));
                 handoff.reset();
             }
             if (outputReady) {
+                for (const auto& update : updates) {
+                    const auto found = tokens.find(update.instance.pid);
+                    const Result result = found != tokens.end() && found->second == update.token
+                        ? active.publishMethods(update.instance, update.methods)
+                        : Result::Fail(static_cast<long>(E_INVALIDARG), "Monitor selection: stale segment");
+                    Event event{update.instance.pid, result ? EventKind::Configured : EventKind::ConfigurationFailed, result};
+                    event.instance = update.instance;
+                    event.token = update.token;
+                    event.methods = update.methods;
+                    if (result) {
+                        std::lock_guard<std::mutex> lock(mutex);
+                        lastMethods[{update.instance.pid, update.instance.created}] = update.methods;
+                    }
+                    batch.events.push_back(std::move(event));
+                }
                 const auto exited = active.exitedPids();
                 commands.insert(commands.end(), exited.begin(), exited.end());
                 for (const auto pid : commands) {
@@ -198,7 +218,7 @@ PipelineAttachController::PipelineAttachController() : impl_(std::make_unique<Im
 PipelineAttachController::~PipelineAttachController() = default;
 
 Result PipelineAttachController::start(uint32_t pid, const std::string& deviceId, PipelineFlow flow,
-                                       ProcessInstance expected) {
+                                       ProcessInstance expected, uint32_t methods) {
     if (pid && !expected) {
         const auto identity = queryProcessInstance(pid, expected);
         if (!identity) return identity;
@@ -216,7 +236,25 @@ Result PipelineAttachController::start(uint32_t pid, const std::string& deviceId
     impl_->job->deviceId = deviceId;
     impl_->job->flow = flow;
     impl_->job->instance = expected;
+    const auto found = impl_->lastMethods.find({expected.pid, expected.created});
+    impl_->job->methods = methods == UINT32_MAX
+        ? (found == impl_->lastMethods.end() ? kDefaultMonitorMethods : found->second) : methods;
     impl_->state.pendingPid = pid;
+    impl_->changed.notify_all();
+    return Result::Ok();
+}
+
+uint32_t PipelineAttachController::lastMethods(ProcessInstance instance) const {
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    const auto found = impl_->lastMethods.find({instance.pid, instance.created});
+    return found == impl_->lastMethods.end() ? kDefaultMonitorMethods : found->second;
+}
+Result PipelineAttachController::configure(ProcessInstance instance, uint64_t token, uint32_t methods) {
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    if (!instance || !token || (methods & ~kAllMonitorMethods) || impl_->closing ||
+        impl_->configurations.size() >= kQueueCapacity)
+        return Result::Fail(static_cast<long>(E_INVALIDARG), "Monitor selection: invalid or busy command");
+    impl_->configurations.push_back({instance, token, methods});
     impl_->changed.notify_all();
     return Result::Ok();
 }
@@ -235,11 +273,7 @@ bool PipelineAttachController::stop(uint32_t pid) {
 }
 bool PipelineAttachController::stopAll() { return stop(0); }
 void PipelineAttachController::shutdown() { impl_->shutdown(); }
-void PipelineAttachController::setPumpEnabled(bool on) {
-    std::lock_guard<std::mutex> lock(impl_->mutex);
-    impl_->pump = on;
-    impl_->changed.notify_all();
-}
+
 std::vector<PipelineAttachController::Batch> PipelineAttachController::poll() {
     std::lock_guard<std::mutex> lock(impl_->mutex);
     std::vector<Batch> out;

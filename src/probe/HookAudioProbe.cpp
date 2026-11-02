@@ -242,7 +242,7 @@ bool attach(Target& target) {
     return found;
 }
 
-int segments() {
+int segments(bool methods = false) {
     std::array<Target, 2> targets;
     for (size_t i = 0; i < targets.size(); ++i)
         if (!launch(targets[i], i, 4, i ? 0.75f : 0.25f)) return 30;
@@ -250,6 +250,9 @@ int segments() {
     wa::CallLogStore store;
     wa::pipeline_attach_ui::SegmentSelection selection;
     bool ok = true;
+    unsigned published = 0;
+    const uint32_t initialMasks[] = {wa::methodBit(wa::MonitorMethod::SetMasterVolume),
+        wa::methodBit(wa::MonitorMethod::GetService) | wa::methodBit(wa::MonitorMethod::CaptureGetBuffer)};
     const auto consume = [&] {
         for (auto& batch : controller.poll()) {
             for (const auto& event : batch.events) {
@@ -257,6 +260,7 @@ int segments() {
                     event.pid, event.instance.created, event.token, static_cast<int>(event.kind), event.exited,
                     event.result.code, event.snapshotMs);
                 if (!event.result) ok = false;
+                if (event.kind == wa::PipelineAttachController::EventKind::Configured) ++published;
             }
             selection.apply(store, std::move(batch));
         }
@@ -274,10 +278,52 @@ int segments() {
     std::array<wa::ProcessInstance, 2> instances{};
     for (size_t i = 0; i < targets.size(); ++i) {
         if (!wa::queryProcessInstance(targets[i].pid, instances[i])) return 31;
-        if (!controller.start(targets[i].pid, {}, wa::PipelineFlow::Render, instances[i])) return 32;
+        if (!controller.start(targets[i].pid, {}, wa::PipelineFlow::Render, instances[i],
+            methods ? initialMasks[i] : UINT32_MAX)) return 32;
         if (!wait([&] { return !controller.snapshot().pendingPid; })) return 33;
         ids[i] = store.latestAttach(instances[i]);
         if (!ids[i]) return 34;
+    }
+    if (methods) {
+        store.setPumpVisible(true);
+        if (!wait([&] { return store.segment(ids[0])->count > 5 && store.segment(ids[1])->count > 5 && !store.pumpEntries().empty(); })) return 44;
+        for (size_t i = 0; i < targets.size(); ++i) {
+            if (store.segment(ids[i])->methods != initialMasks[i]) ok = false;
+            wa::call_log_filter::FilterOpts query; query.attach = ids[i];
+            const auto view = store.view(query);
+            size_t controls = 0, buffers = 0;
+            for (size_t row = 0; row < view.size(); ++row) {
+                const auto& call = view.at(row)->call;
+                if (i == 0 && call.method != "SetMasterVolume") ok = false;
+                if (i == 1 && call.method != "GetService" && !(call.iface == "IAudioCaptureClient" && call.method == "GetBuffer")) ok = false;
+                if (call.pump) ++buffers; else ++controls;
+            }
+            std::printf("initial_selection pid=%lu mask=%u controls=%zu buffers=%zu format=%lu/%u/%u/tag=%u endpoint=%ls\n",
+                targets[i].pid, initialMasks[i], controls, buffers, targets[i].shared->sampleRate,
+                targets[i].shared->channels, targets[i].shared->bits, targets[i].shared->formatTag,
+                targets[i].shared->endpoint);
+            if (!controls || (i == 1 && !buffers)) ok = false;
+        }
+        const uint32_t updated = wa::methodBit(wa::MonitorMethod::SetMasterVolume) |
+            wa::methodBit(wa::MonitorMethod::CaptureGetBuffer) | wa::methodBit(wa::MonitorMethod::GetChannelCount);
+        const auto before = store.segment(ids[1])->count;
+        if (!controller.configure(instances[1], store.segment(ids[1])->token, updated)) return 45;
+        if (!wait([&] { return published == 1 && store.segment(ids[1])->count > before + 5; })) return 46;
+        const auto rejected = controller.configure(instances[1], store.segment(ids[0])->token, 0);
+        if (!rejected) return 47;
+        bool failureSeen = false;
+        const auto deadline = GetTickCount64() + 5000;
+        do {
+            for (auto& batch : controller.poll()) {
+                for (const auto& event : batch.events)
+                    if (event.kind == wa::PipelineAttachController::EventKind::ConfigurationFailed) failureSeen = true;
+                selection.apply(store, std::move(batch));
+            }
+            if (!failureSeen) Sleep(10);
+        } while (!failureSeen && GetTickCount64() < deadline);
+        if (!failureSeen || store.segment(ids[1])->methods != updated || controller.lastMethods(instances[1]) != updated) ok = false;
+        std::printf("dynamic_selection pid=%lu mask=%u published=%u rejected_stale=%d preserved=%d\n",
+            targets[1].pid, updated, published, failureSeen, controller.lastMethods(instances[1]) == updated);
     }
     if (selection.selected() != ids[0]) ok = false;
     const auto initialBackground = store.segment(ids[1])->count;
@@ -317,6 +363,20 @@ int segments() {
     if (!wait([&] { return !controller.attached(targets[0].pid); })) return 35;
     const auto frozenCount = store.segment(ids[0])->count;
     if (selection.selected() != ids[0] || store.segment(ids[0])->state != wa::CallLogStore::SegmentState::Detached) ok = false;
+    if (methods) {
+        if (!controller.configure(instances[1], store.segment(ids[1])->token, initialMasks[1])) return 48;
+        if (!wait([&] { return published == 2; })) return 49;
+        controller.stop(targets[1].pid);
+        if (!wait([&] { return !controller.attached(targets[1].pid); })) return 50;
+        if (!controller.start(targets[1].pid, {}, wa::PipelineFlow::Render, instances[1])) return 51;
+        if (!wait([&] { return !controller.snapshot().pendingPid; })) return 52;
+        const auto newSecond = store.latestAttach(instances[1]);
+        if (newSecond == ids[1] || store.segment(newSecond)->methods != initialMasks[1] ||
+            !wait([&] { return store.segment(newSecond)->count > 5; })) ok = false;
+        std::printf("reattach_selection pid=%lu old_segment=%llu new_segment=%llu mask=%u history_readonly=%d\n",
+            targets[1].pid, ids[1], newSecond, store.segment(newSecond)->methods,
+            !store.setMethods(ids[1], wa::kAllMonitorMethods));
+    }
     if (!controller.start(targets[0].pid, {}, wa::PipelineFlow::Render, instances[0])) return 36;
     if (!wait([&] { return !controller.snapshot().pendingPid; })) return 37;
     const auto newest = store.latestAttach(instances[0]);
@@ -357,6 +417,7 @@ int wmain(int argc, wchar_t** argv) {
     if (argc == 4 && !std::wcscmp(argv[1], L"--victim"))
         return victim(argv[2], static_cast<float>(std::wcstod(argv[3], nullptr)));
     if (argc == 2 && !std::wcscmp(argv[1], L"--segments")) return segments();
+    if (argc == 2 && !std::wcscmp(argv[1], L"--method-selection")) return segments(true);
     if (argc == 3 && !std::wcscmp(argv[1], L"--continuous")) {
         const unsigned seconds = static_cast<unsigned>(std::wcstoul(argv[2], nullptr, 10));
         if (!seconds) return 20;
@@ -408,7 +469,7 @@ int wmain(int argc, wchar_t** argv) {
         for (auto& t : targets) {
             if (t.attach.attached()) {
                 t.attach.setCaptureEnabled(phase != 1);
-                t.attach.setPumpEnabled(phase != 2);
+                if (!t.attach.publishMethods(t.attach.instance(), phase == 2 ? wa::kDefaultMonitorMethods : wa::kAllMonitorMethods)) return 25;
             }
             InterlockedExchange(&t.shared->phase, static_cast<LONG>(phase));
         }
@@ -445,7 +506,7 @@ int wmain(int argc, wchar_t** argv) {
                         "control_delta=%lu pump_delta=%lu capture_calls=%zu render_calls=%zu\n",
                         names[phase], i, t.pid, t.attach.attached(), control.size(), pump.size(),
                         controlDelta, pumpDelta, captureCalls, renderCalls);
-            if ((recording && control.empty()) || (pumping && pump.empty()) || (!pumping && !pump.empty())) ok = false;
+            if ((recording && control.empty()) || (pumping && pump.empty()) || (!pumping && pumpDelta != 0)) ok = false;
             if ((!recording && controlDelta) || (!pumping && pumpDelta) ||
                 (pumping && (!captureCalls || !renderCalls))) ok = false;
         }

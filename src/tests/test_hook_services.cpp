@@ -78,6 +78,7 @@ protected:
     void SetUp() override {
         std::memset(&serviceRing, 0, sizeof(serviceRing));
         serviceRing.captureEnabled = 1;
+        wa::hook_ipc::publishMonitorState(serviceRing, wa::kAllMonitorMethods, 0);
         g_ring = &serviceRing;
         InterlockedExchange(&g_quiet, 0);
         g_volGet = nullptr;
@@ -90,9 +91,10 @@ protected:
 #endif
     }
     void TearDown() override { g_ring = nullptr; }
-    void expectCall(uint32_t index, const char* iface, const char* method, HRESULT hr) {
-        ASSERT_GT(serviceRing.writeIndex, index);
-        const auto& call = serviceRing.slots[index];
+    void expectCall(bool pump, uint32_t index, const char* iface, const char* method, HRESULT hr) {
+        ASSERT_LT(index, pump ? serviceRing.pumpWriteIndex : serviceRing.writeIndex);
+        const auto& call = pump ? serviceRing.pumpSlots[index] : serviceRing.slots[index];
+        EXPECT_EQ(call.pump, pump);
         EXPECT_STREQ(call.iface, iface);
         EXPECT_STREQ(call.method, method);
         EXPECT_EQ(call.hresult, hr);
@@ -107,16 +109,35 @@ TEST_F(HookServices, MuteCallsUseSdkSignatures) {
     EXPECT_EQ(setMute(&volume, FALSE, nullptr), S_OK);
     ASSERT_EQ(serviceRing.writeIndex, 1u);
     // Check the safe FALSE call before exercising the original TRUE crash.
-    ASSERT_STREQ(serviceRing.slots[0].method, "SetMute");
+    expectCall(false, 0, "ISimpleAudioVolume", "SetMute", S_OK);
+    EXPECT_STREQ(serviceRing.slots[0].args, "false");
     EXPECT_EQ(setMute(&volume, TRUE, &context), S_OK);
+    ASSERT_EQ(serviceRing.writeIndex, 2u);
+    expectCall(false, 1, "ISimpleAudioVolume", "SetMute", S_OK);
+    EXPECT_STREQ(serviceRing.slots[1].args, "true");
     EXPECT_EQ(volume.mute, TRUE);
     EXPECT_EQ(volume.context, &context);
     BOOL mute = FALSE;
     EXPECT_EQ(getMute(&volume, &mute), S_OK);
     EXPECT_EQ(mute, TRUE);
     EXPECT_EQ(volume.calls, 3u);
-    expectCall(1, "ISimpleAudioVolume", "SetMute", S_OK);
-    expectCall(2, "ISimpleAudioVolume", "GetMute", S_OK);
+    ASSERT_EQ(serviceRing.pumpWriteIndex, 1u);
+    expectCall(true, 0, "ISimpleAudioVolume", "GetMute", S_OK);
+    EXPECT_STREQ(serviceRing.pumpSlots[0].args, "true");
+}
+
+TEST_F(HookServices, DefaultQueriesDoNotRecord) {
+    wa::hook_ipc::publishMonitorState(serviceRing, wa::kDefaultMonitorMethods, 0);
+    SimpleVolume volume;
+    ServiceVtable table(&volume);
+    patchService(&volume, __uuidof(ISimpleAudioVolume));
+    BOOL mute = FALSE;
+    float level = 0;
+    EXPECT_EQ(getMute(&volume, &mute), S_OK);
+    EXPECT_EQ(getVolume(&volume, &level), S_OK);
+    EXPECT_EQ(volume.calls, 2u);
+    EXPECT_EQ(serviceRing.writeIndex, 0u);
+    EXPECT_EQ(serviceRing.pumpWriteIndex, 0u);
 }
 
 TEST_F(HookServices, VolumeCallsUseSdkSignatures) {
@@ -131,8 +152,8 @@ TEST_F(HookServices, VolumeCallsUseSdkSignatures) {
     EXPECT_EQ(getVolume(&volume, &level), S_OK);
     EXPECT_FLOAT_EQ(level, 0.625f);
     EXPECT_EQ(volume.calls, 2u);
-    expectCall(0, "ISimpleAudioVolume", "SetMasterVolume", S_OK);
-    expectCall(1, "ISimpleAudioVolume", "GetMasterVolume", S_OK);
+    expectCall(false, 0, "ISimpleAudioVolume", "SetMasterVolume", S_OK);
+    expectCall(true, 0, "ISimpleAudioVolume", "GetMasterVolume", S_OK);
 }
 
 TEST_F(HookServices, ControlCallReturningAfterReattachCannotEnterTheNewSegment) {
@@ -163,10 +184,10 @@ TEST_F(HookServices, VolumeFailureAndCaptureDisabledPreserveForwarding) {
     EXPECT_EQ(setMute(&volume, TRUE, nullptr), E_ACCESSDENIED);
     BOOL mute = FALSE;
     EXPECT_EQ(getMute(&volume, &mute), E_ACCESSDENIED);
-    expectCall(0, "ISimpleAudioVolume", "SetMasterVolume", E_ACCESSDENIED);
-    expectCall(1, "ISimpleAudioVolume", "GetMasterVolume", E_ACCESSDENIED);
-    expectCall(2, "ISimpleAudioVolume", "SetMute", E_ACCESSDENIED);
-    expectCall(3, "ISimpleAudioVolume", "GetMute", E_ACCESSDENIED);
+    expectCall(false, 0, "ISimpleAudioVolume", "SetMasterVolume", E_ACCESSDENIED);
+    expectCall(true, 0, "ISimpleAudioVolume", "GetMasterVolume", E_ACCESSDENIED);
+    expectCall(false, 1, "ISimpleAudioVolume", "SetMute", E_ACCESSDENIED);
+    expectCall(true, 1, "ISimpleAudioVolume", "GetMute", E_ACCESSDENIED);
     serviceRing.captureEnabled = 0;
     volume.result = S_FALSE;
     EXPECT_EQ(setVolume(&volume, 0.375f, nullptr), S_FALSE);
@@ -176,7 +197,8 @@ TEST_F(HookServices, VolumeFailureAndCaptureDisabledPreserveForwarding) {
     EXPECT_EQ(getMute(&volume, &mute), S_FALSE);
     EXPECT_EQ(mute, FALSE);
     EXPECT_EQ(volume.calls, 8u);
-    EXPECT_EQ(serviceRing.writeIndex, 4u);
+    EXPECT_EQ(serviceRing.writeIndex, 2u);
+    EXPECT_EQ(serviceRing.pumpWriteIndex, 2u);
 }
 
 #if defined(__IAudioEffectsManager_INTERFACE_DEFINED__)
@@ -255,8 +277,8 @@ TEST_F(HookServices, EffectsCallsUseSdkSignatures) {
     EXPECT_EQ(manager.effect.state, AUDIO_EFFECT_STATE_ON);
     EXPECT_EQ(manager.gets, 1u);
     EXPECT_EQ(manager.sets, 1u);
-    expectCall(0, "IAudioEffectsManager", "GetAudioEffects", S_OK);
-    expectCall(1, "IAudioEffectsManager", "SetAudioEffectState", S_OK);
+    expectCall(true, 0, "IAudioEffectsManager", "GetAudioEffects", S_OK);
+    expectCall(false, 0, "IAudioEffectsManager", "SetAudioEffectState", S_OK);
 }
 
 TEST_F(HookServices, EffectsFailureAndCaptureDisabledPreserveForwarding) {
@@ -268,8 +290,8 @@ TEST_F(HookServices, EffectsFailureAndCaptureDisabledPreserveForwarding) {
     UINT32 count = 0;
     EXPECT_EQ(getEffects(&manager, &effects, &count), E_ACCESSDENIED);
     EXPECT_EQ(setEffect(&manager, GUID{}, AUDIO_EFFECT_STATE_OFF), E_ACCESSDENIED);
-    expectCall(0, "IAudioEffectsManager", "GetAudioEffects", E_ACCESSDENIED);
-    expectCall(1, "IAudioEffectsManager", "SetAudioEffectState", E_ACCESSDENIED);
+    expectCall(true, 0, "IAudioEffectsManager", "GetAudioEffects", E_ACCESSDENIED);
+    expectCall(false, 0, "IAudioEffectsManager", "SetAudioEffectState", E_ACCESSDENIED);
     serviceRing.captureEnabled = 0;
     manager.result = S_FALSE;
     EXPECT_EQ(getEffects(&manager, &effects, &count), S_FALSE);
@@ -279,7 +301,8 @@ TEST_F(HookServices, EffectsFailureAndCaptureDisabledPreserveForwarding) {
     EXPECT_EQ(manager.effect.state, AUDIO_EFFECT_STATE_ON);
     EXPECT_EQ(manager.gets, 2u);
     EXPECT_EQ(manager.sets, 2u);
-    EXPECT_EQ(serviceRing.writeIndex, 2u);
+    EXPECT_EQ(serviceRing.writeIndex, 1u);
+    EXPECT_EQ(serviceRing.pumpWriteIndex, 1u);
 }
 #endif
 }  // namespace

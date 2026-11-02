@@ -3,6 +3,7 @@
 #include "CallLogFilter.h"
 #include "Result.h"
 #include "ProcessInstance.h"
+#include "MethodSelection.h"
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -62,6 +63,7 @@ public:
         SegmentState state = SegmentState::Monitoring;
         bool coverageUnknown = true;
         size_t count = 0;
+        uint32_t methods = kDefaultMonitorMethods;
     };
     static constexpr size_t kNotFound = static_cast<size_t>(-1);
     // Borrows the current query cache; consume before the next Store mutation/view.
@@ -87,6 +89,7 @@ public:
     uint64_t registerAttach(uint32_t pid);
     uint64_t registerAttach(ProcessInstance instance, std::string name, uint64_t token, int64_t startedMs);
     const Segment* segment(uint64_t attach) const;
+    bool setMethods(uint64_t attach, uint32_t methods);
     std::vector<Segment> segments(bool active) const;
     uint64_t attachForToken(uint64_t token) const;
     uint64_t latestAttach(ProcessInstance instance) const;
