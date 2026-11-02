@@ -49,6 +49,18 @@ DWORD WINAPI exitWorker(void*) {
     return 3;
 }
 void NTAPI tlsCallback(void*, DWORD reason, void*) {
+    if (reason == DLL_PROCESS_ATTACH && wcsstr(GetCommandLineW(), L"--remote-gate")) {
+        // Test fixture only. The gate DLL reads this when loaded remotely
+        // while EXE entry is held; production Hook code has no test gate.
+        const wchar_t* p = wcsstr(GetCommandLineW(), L"--token=");
+        wchar_t base[160]{};
+        if (p) {
+            p += 8;
+            unsigned n = 0;
+            while (p[n] && p[n] != L' ' && n < 150) { base[n] = p[n]; ++n; }
+            SetEnvironmentVariableW(L"WA_REMOTE_GATE", base);
+        }
+    }
     if (reason == DLL_PROCESS_ATTACH && wcsstr(GetCommandLineW(), L"--debugbreak-before-entry")) {
         DebugBreak();
         ExitProcess(76);  // Reaching this proves that a target exception was swallowed.

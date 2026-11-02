@@ -105,6 +105,12 @@ add_dependencies(WinAudioTests RemoteInjectionTarget RemoteInjectionGate HookIde
 
 include(GoogleTest)
 gtest_discover_tests(WinAudioTests)
+add_executable(StartupLaunchBoundaryTests test_startup_launch_boundary.cpp)
+target_include_directories(StartupLaunchBoundaryTests PRIVATE ${CMAKE_SOURCE_DIR}/src/probe)
+target_link_libraries(StartupLaunchBoundaryTests PRIVATE WinAudioCore gtest)
+wa_set_project_warnings(StartupLaunchBoundaryTests)
+add_dependencies(StartupLaunchBoundaryTests StartupGateTarget RemoteInjectionGate WinAudioHook)
+gtest_discover_tests(StartupLaunchBoundaryTests)
 set_property(DIRECTORY APPEND PROPERTY TEST_INCLUDE_FILES
     "${CMAKE_CURRENT_SOURCE_DIR}/WavDumpTestTimeouts.cmake")
 

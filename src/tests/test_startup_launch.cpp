@@ -234,6 +234,57 @@ TEST_F(StartupLaunchTest, TargetSelfExitInDetachedWindowCannotCommitAnActiveTarg
     EXPECT_EQ(code, 75u);
 }
 
+TEST_F(StartupLaunchTest, TargetSelfExitAcrossEntryReleaseAndAdvanceCannotCommit) {
+    request.arguments += L" --exit-worker";
+    request.timeoutMs = 4000;
+    for (const auto selected : {wa::StartupStage::EntryReleased, wa::StartupStage::EntryAdvanced}) {
+        SCOPED_TRACE(wa::startupStageName(selected));
+        ResetEvent(exitRequest);
+        bool reached = false, observedExit = false;
+        DWORD eventExit = STILL_ACTIVE;
+        const auto out = launch([](uint32_t, const std::atomic_bool&) { return wa::Result::Ok(); },
+            [&](wa::StartupStage stage, const wa::StartupOutcome&) {
+                if (stage != selected) return;
+                reached = true;
+                ASSERT_TRUE(SetEvent(exitRequest));
+                // Fault injection only: advance queued debug stops so the
+                // target's own exit worker can run, without waiting while all
+                // target threads are frozen by a debug event.
+                const ULONGLONG deadline = GetTickCount64() + 2500;
+                while (!observedExit && GetTickCount64() < deadline) {
+                    DEBUG_EVENT event{};
+                    if (!WaitForDebugEvent(&event, 25)) continue;
+                    if (event.dwDebugEventCode == LOAD_DLL_DEBUG_EVENT && event.u.LoadDll.hFile)
+                        CloseHandle(event.u.LoadDll.hFile);
+                    if (event.dwDebugEventCode == EXIT_PROCESS_DEBUG_EVENT) {
+                        observedExit = true;
+                        eventExit = event.u.ExitProcess.dwExitCode;
+                    }
+                    const DWORD disposition = event.dwDebugEventCode == EXCEPTION_DEBUG_EVENT &&
+                        event.u.Exception.ExceptionRecord.ExceptionCode != EXCEPTION_SINGLE_STEP
+                            ? DBG_EXCEPTION_NOT_HANDLED : DBG_CONTINUE;
+                    ASSERT_TRUE(ContinueDebugEvent(event.dwProcessId, event.dwThreadId, disposition));
+                }
+                EXPECT_TRUE(observedExit);
+                EXPECT_EQ(WaitForSingleObject(process, 1000), WAIT_OBJECT_0);
+            });
+        EXPECT_TRUE(reached);
+        EXPECT_TRUE(observedExit);
+        EXPECT_EQ(eventExit, 75u);
+        EXPECT_FALSE(out.result);
+        EXPECT_EQ(out.result.code, static_cast<long>(HRESULT_FROM_WIN32(ERROR_PROCESS_ABORTED)));
+        EXPECT_FALSE(out.committed);
+        EXPECT_TRUE(out.targetExitConfirmed);
+        DWORD code = STILL_ACTIVE;
+        ASSERT_TRUE(GetExitCodeProcess(process, &code));
+        EXPECT_EQ(code, 75u);
+        std::printf("self_exit stage=%s pid=%u code=%lu confirmed=%d committed=%d hr=0x%08lX\n",
+                    wa::startupStageName(selected), out.pid, code, out.targetExitConfirmed, out.committed, out.result.code);
+        CloseHandle(process);
+        process = nullptr;
+    }
+}
+
 TEST_F(StartupLaunchTest, OriginalTargetBreakpointBeforeExeEntryIsNotSwallowed) {
     request.arguments += L" --debugbreak-before-entry";
     const auto out = launch([](uint32_t, const std::atomic_bool&) { return wa::Result::Ok(); });

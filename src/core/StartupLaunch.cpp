@@ -288,6 +288,17 @@ struct Launch {
         observeResult("ResumeThread(created suspension)", error, "previous=" + std::to_string(previous));
         if (error || previous != 1) return failure(error ? error : ERROR_BUSY, "restore creation suspension");
         while (!out.committed) {
+            const DWORD alive = WaitForSingleObject(child.hProcess, 0);
+            const DWORD aliveError = alive == WAIT_FAILED ? GetLastError() : ERROR_SUCCESS;
+            observeResult("WaitForSingleObject(debug target)", aliveError,
+                          "outcome=" + std::to_string(alive) + " timeoutMs=0");
+            if (alive != WAIT_TIMEOUT) {
+                if (alive == WAIT_OBJECT_0) {
+                    out.targetExitConfirmed = true;
+                    return failure(ERROR_PROCESS_ABORTED, "target exited before commit");
+                }
+                return failure(aliveError, "verify debug target state");
+            }
             if (cancelled && cancelled->load()) return failure(ERROR_CANCELLED, "cancelled before commit");
             if (GetTickCount64() >= deadline) return failure(ERROR_TIMEOUT, "startup deadline expired");
             if (held && prepared.load(std::memory_order_acquire)) {
@@ -411,7 +422,7 @@ StartupOutcome launchAtEntry(const StartupRequest& request, const StartupPrepare
         close(worker);
     }
     if (error) launch.out.result = failure(error, "startup debugger unavailable");
-    if (!launch.workerFinished && !launch.out.committed)
+    if (!error && !launch.workerFinished && !launch.out.committed)
         launch.out.result = failure(ERROR_UNHANDLED_EXCEPTION, "debug controller ended unexpectedly");
     launch.stop.store(true);
     if (!launch.out.committed && launch.child.hProcess) {
