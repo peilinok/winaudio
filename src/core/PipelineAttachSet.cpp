@@ -67,9 +67,19 @@ std::vector<HookedCall> PipelineAttachSet::finish(uint32_t pid) {
     if (found == byPid_.end()) return {};
     // One bounded final drain. Outstanding remote calls are not awaited.
     found->second->setCaptureEnabled(false);
-    auto calls = found->second->drain();
+    auto calls = found->second->drain(true);
     for (auto& call : calls) call.pid = pid;
     return calls;
+}
+
+HookTransportStatus PipelineAttachSet::transportStatus(uint32_t pid) const {
+    const auto found = byPid_.find(pid);
+    return found == byPid_.end() ? HookTransportStatus{} : found->second->transportStatus();
+}
+
+std::vector<PumpCall> PipelineAttachSet::receivePump(uint32_t pid) {
+    const auto found = byPid_.find(pid);
+    return found == byPid_.end() ? std::vector<PumpCall>{} : found->second->receivePump();
 }
 
 void PipelineAttachSet::stopAll() {

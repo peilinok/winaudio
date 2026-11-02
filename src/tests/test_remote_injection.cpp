@@ -446,12 +446,80 @@ TEST_F(RemoteInjectionTest, BackgroundInstallationFailurePreservesAnExistingTarg
     EXPECT_EQ(WaitForSingleObject(child.hProcess, 0), WAIT_TIMEOUT);
 }
 
+TEST_F(RemoteInjectionTest, TransportQueueLossAndFinalSnapshotBelongToTheirSegment) {
+    wa::PipelineAttachController controller;
+    ASSERT_TRUE(controller.start(child.dwProcessId, {}, wa::PipelineFlow::Render));
+    ASSERT_TRUE(waitUntil([&] { return !controller.snapshot().pendingPid; }));
+    const auto started = collectEvents(controller);
+    ASSERT_EQ(started.size(), 1u);
+    ASSERT_EQ(started.front().kind, wa::PipelineAttachController::EventKind::Attached);
+    const auto token = started.front().token;
+    const auto instance = started.front().instance;
+    wchar_t name[64]{};
+    wa::hook_ipc::mapName(instance.pid, name, 64);
+    struct Mapping {
+        HANDLE handle = nullptr;
+        wa::hook_ipc::Ring* ring = nullptr;
+        ~Mapping() { if (ring) UnmapViewOfFile(ring); if (handle) CloseHandle(handle); }
+    } ringView;
+    ringView.handle = OpenFileMappingW(FILE_MAP_ALL_ACCESS, FALSE, name);
+    ASSERT_NE(ringView.handle, nullptr);
+    ringView.ring = static_cast<wa::hook_ipc::Ring*>(MapViewOfFile(ringView.handle, FILE_MAP_ALL_ACCESS, 0, 0, 0));
+    ASSERT_NE(ringView.ring, nullptr);
+    ASSERT_TRUE(waitUntil([&] { return controller.snapshot().droppedBatches != 0; }));
+    // Synthetic metadata in a real, independently running target ringView. The
+    // real receiver/queue must attribute loss without needing an audio device.
+    wa::hook_ipc::CallPod pod{};
+    pod.observationGeneration = static_cast<uint32_t>(wa::hook_ipc::monitorState(*ringView.ring) >> 32);
+    strcpy_s(pod.iface, "SyntheticTransport");
+    strcpy_s(pod.method, "control");
+    ASSERT_TRUE(wa::hook_ipc::writeCall(*ringView.ring, pod));
+    pod.pump = 1;
+    strcpy_s(pod.method, "pump");
+    ASSERT_TRUE(wa::hook_ipc::writeCall(*ringView.ring, pod));
+    ASSERT_TRUE(waitUntil([&] { return controller.snapshot().droppedCalls == 1; }));
+    // The batch capacity is finite even though the sources keep being drained.
+    EXPECT_LE(controller.poll().size(), wa::PipelineAttachController::kQueueCapacity);
+    wa::HookTransportStatus status;
+    ASSERT_TRUE(waitUntil([&] {
+        for (const auto& batch : controller.poll()) for (const auto& update : batch.transport) {
+            EXPECT_EQ(update.instance, instance);
+            EXPECT_EQ(update.token, token);
+            EXPECT_GT(update.status.snapshotSequence, status.snapshotSequence);
+            status = update.status;
+        }
+        return status.controllerDroppedControl == 1 && status.controllerDroppedPump == 1;
+    }));
+    EXPECT_EQ(status.control.overwritten + status.control.writeRejected, 0u);
+    EXPECT_EQ(status.pump.overwritten + status.pump.writeRejected, 0u);
+    EXPECT_FALSE(status.control.unknown);
+    EXPECT_GT(status.snapshotMs, 0);
+    ASSERT_TRUE(controller.stop(instance.pid));
+    ASSERT_TRUE(waitUntil([&] { return !controller.anyAttached(); }));
+    bool ended = false;
+    for (const auto& batch : controller.poll()) {
+        for (const auto& update : batch.transport) if (update.token == token) {
+            EXPECT_GT(update.status.snapshotSequence, status.snapshotSequence);
+            status = update.status;
+        }
+        for (const auto& event : batch.events) if (event.kind == wa::PipelineAttachController::EventKind::Detached) {
+            ended = true;
+            EXPECT_EQ(event.snapshotMs, status.snapshotMs);
+        }
+    }
+    EXPECT_TRUE(ended);
+    EXPECT_TRUE(status.control.unknown);
+    EXPECT_TRUE(status.pump.unknown);
+    EXPECT_EQ(status.controllerDroppedControl, 1u);
+    EXPECT_EQ(status.controllerDroppedPump, 1u);
+}
+
 TEST_F(RemoteInjectionTest, BackgroundQueuesStayBoundedAndReportOverload) {
     wa::PipelineAttachController controller;
     ASSERT_TRUE(controller.start(child.dwProcessId, {}, wa::PipelineFlow::Render));
     ASSERT_TRUE(waitUntil([&] { return controller.snapshot().pendingPid == 0; }));
     ASSERT_TRUE(controller.attached(child.dwProcessId));
-    // The GUI deliberately stops consuming. Pump snapshots still arrive even
+    // The GUI deliberately stops consuming. Transport snapshots still arrive
     // when this hardware-independent target has made no audio calls.
     ASSERT_TRUE(waitUntil([&] { return controller.snapshot().droppedBatches != 0; }));
     for (size_t i = 0; i < wa::PipelineAttachController::kQueueCapacity; ++i)
@@ -561,8 +629,8 @@ TEST_F(AttachLifecycleTest, ExistingTargetDetachesWhileSecondInstallationIsStill
     size_t received = 0;
     ASSERT_TRUE(waitUntil([&] {
         for (const auto& batch : controller.poll())
-            for (const auto& item : batch.pump)
-                if (item.first == siblingToken) ++received;
+            for (const auto& item : batch.transport)
+                if (item.token == siblingToken) ++received;
         return received >= 3;
     }));
     EXPECT_EQ(controller.snapshot().pendingPid, child.dwProcessId);

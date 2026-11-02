@@ -299,3 +299,207 @@ TEST(PipelineAttachUiModel, MethodPublicationKeepsDraftFailureHistoryAndInstance
     EXPECT_EQ(store.segment(current)->methods, kDefaultMonitorMethods);
     EXPECT_EQ(selection.selected(), old);
 }
+
+TEST(PipelineAttachUiModel, TransportSnapshotBelongsToItsSegmentAndFreezesAtEnd) {
+    CallLogStore store;
+    pipeline_attach_ui::SegmentSelection selection;
+    const ProcessInstance a{7, 100}, b{9, 200};
+    PipelineAttachController::Batch initial;
+    initial.events = {segmentEvent(a, 11), segmentEvent(b, 22)};
+    selection.apply(store, std::move(initial));
+    const auto first = store.attachForToken(11), second = store.attachForToken(22);
+    EXPECT_TRUE(store.segment(first)->transport.control.unknown);
+    EXPECT_TRUE(store.segment(first)->transport.pump.unknown);
+
+    TransportUpdate observed;
+    observed.instance = a;
+    observed.token = 11;
+    observed.status.snapshotMs = 2000;
+    observed.status.snapshotSequence = 2;
+    observed.status.control = {3, 2, 1, false};
+    observed.status.pump = {7, 5, 4, true};
+    observed.status.controllerDroppedControl = 8;
+    observed.status.controllerDroppedPump = 9;
+    PipelineAttachController::Batch progress;
+    progress.transport = {observed};
+    // API failure and audio discontinuity are unrelated to transport loss.
+    auto failed = segmentCall(a, 11, "failure");
+    failed.hresult = static_cast<int32_t>(0x80004005);
+    failed.xrun = true;
+    progress.calls = {failed};
+    selection.apply(store, std::move(progress));
+    EXPECT_EQ(store.segment(first)->transport.control.overwritten, 3u);
+    EXPECT_EQ(store.segment(first)->transport.control.writeRejected, 2u);
+    EXPECT_EQ(store.segment(first)->transport.control.pending, 1u);
+    EXPECT_FALSE(store.segment(first)->transport.control.unknown);
+    EXPECT_EQ(store.segment(first)->transport.pump.overwritten, 7u);
+    EXPECT_EQ(store.segment(first)->transport.pump.pending, 4u);
+    EXPECT_TRUE(store.segment(first)->transport.pump.unknown);
+    EXPECT_EQ(store.segment(first)->transport.controllerDroppedControl, 8u);
+    EXPECT_EQ(store.segment(first)->transport.controllerDroppedPump, 9u);
+    EXPECT_TRUE(store.segment(second)->transport.control.unknown);
+    EXPECT_EQ(store.segment(second)->transport.control.overwritten, 0u);
+    PipelineAttachController::Batch invalid;
+    auto wrongInstance = observed;
+    wrongInstance.instance.created = 999;
+    wrongInstance.status.snapshotMs = 3000;
+    wrongInstance.status.snapshotSequence = 3;
+    wrongInstance.status.control.overwritten = 99;
+    auto stale = observed;
+    stale.status.snapshotMs = 1999;
+    stale.status.snapshotSequence = 1;
+    stale.status.control.overwritten = 98;
+    invalid.transport = {wrongInstance, stale};
+    selection.apply(store, std::move(invalid));
+    EXPECT_EQ(store.segment(first)->transport.snapshotMs, 2000);
+    EXPECT_EQ(store.segment(first)->transport.control.overwritten, 3u);
+
+    PipelineAttachController::Batch ended;
+    ended.events = {segmentEvent(a, 11, true)};
+    observed.status.snapshotMs = 2400;
+    observed.status.snapshotSequence = 3;
+    observed.status.control.pending = 2;
+    observed.status.control.unknown = true;
+    ended.transport = {observed};
+    selection.apply(store, std::move(ended));
+    EXPECT_EQ(store.segment(first)->snapshotMs, 2500);
+    EXPECT_EQ(store.segment(first)->transport.snapshotMs, 2400);
+    EXPECT_EQ(store.segment(first)->transport.control.pending, 2u);
+    EXPECT_TRUE(store.segment(first)->transport.control.unknown);
+
+    PipelineAttachController::Batch reattached;
+    reattached.events = {segmentEvent(a, 33)};
+    observed.status.snapshotMs = 9999;
+    observed.status.snapshotSequence = 4;
+    observed.status.control.overwritten = 99;
+    reattached.transport = {observed};
+    selection.apply(store, std::move(reattached));
+    const auto current = store.attachForToken(33);
+    EXPECT_NE(first, current);
+    EXPECT_EQ(store.segment(first)->transport.snapshotMs, 2400);
+    EXPECT_EQ(store.segment(first)->transport.control.overwritten, 3u);
+    EXPECT_TRUE(store.segment(current)->transport.control.unknown);
+    EXPECT_EQ(store.segment(current)->transport.control.overwritten, 0u);
+    EXPECT_EQ(selection.selected(), first);
+}
+
+TEST(PipelineAttachUiModel, ClockRollbackKeepsTheLatestTransportAndFinalSnapshot) {
+    CallLogStore store;
+    pipeline_attach_ui::SegmentSelection selection;
+    const ProcessInstance instance{7, 100};
+    PipelineAttachController::Batch attached;
+    attached.events = {segmentEvent(instance, 11)};
+    selection.apply(store, std::move(attached));
+    const auto id = store.attachForToken(11);
+
+    TransportUpdate observed;
+    observed.instance = instance;
+    observed.token = 11;
+    observed.status.snapshotMs = 2000;
+    observed.status.snapshotSequence = 1;
+    observed.status.control = {3, 2, 1, false};
+    PipelineAttachController::Batch progress;
+    progress.transport = {observed};
+    selection.apply(store, std::move(progress));
+
+    observed.status.snapshotMs = 1900;
+    observed.status.snapshotSequence = 2;
+    observed.status.control.overwritten = 4;
+    PipelineAttachController::Batch rolledBack;
+    rolledBack.transport = {observed};
+    selection.apply(store, std::move(rolledBack));
+    EXPECT_EQ(store.segment(id)->transport.snapshotMs, 1900);
+    EXPECT_EQ(store.segment(id)->transport.control.overwritten, 4u);
+
+    // A later wall time must not make a duplicate or older snapshot current.
+    auto stale = observed;
+    stale.status.snapshotMs = 9000;
+    stale.status.control.overwritten = 99;
+    EXPECT_FALSE(store.updateTransport(stale));
+    stale.status.snapshotSequence = 1;
+    EXPECT_FALSE(store.updateTransport(stale));
+    stale.status.snapshotSequence = 3;
+    stale.token = 22;
+    EXPECT_FALSE(store.updateTransport(stale));
+    EXPECT_EQ(store.segment(id)->transport.snapshotMs, 1900);
+    EXPECT_EQ(store.segment(id)->transport.control.overwritten, 4u);
+
+    observed.status.snapshotMs = 1800;
+    observed.status.snapshotSequence = 3;
+    observed.status.control = {5, 3, 2, true};
+    observed.status.pump = {7, 4, 1, true};
+    PipelineAttachController::Batch ended;
+    auto event = segmentEvent(instance, 11, true);
+    event.snapshotMs = 1800;
+    event.exited = true;
+    ended.events = {event};
+    ended.transport = {observed};
+    selection.apply(store, std::move(ended));
+    EXPECT_EQ(store.segment(id)->state, CallLogStore::SegmentState::Exited);
+    EXPECT_EQ(store.segment(id)->snapshotMs, 1800);
+    EXPECT_EQ(store.segment(id)->transport.snapshotMs, 1800);
+    EXPECT_EQ(store.segment(id)->transport.control.overwritten, 5u);
+    EXPECT_EQ(store.segment(id)->transport.control.writeRejected, 3u);
+    EXPECT_EQ(store.segment(id)->transport.control.pending, 2u);
+    EXPECT_TRUE(store.segment(id)->transport.control.unknown);
+    EXPECT_EQ(store.segment(id)->transport.pump.overwritten, 7u);
+    EXPECT_TRUE(store.segment(id)->transport.pump.unknown);
+
+    observed.status.snapshotMs = 9999;
+    observed.status.snapshotSequence = 4;
+    observed.status.control = {99, 0, 0, false};
+    PipelineAttachController::Batch late;
+    late.transport = {observed};
+    selection.apply(store, std::move(late));
+    EXPECT_EQ(store.segment(id)->transport.snapshotMs, 1800);
+    EXPECT_EQ(store.segment(id)->transport.control.overwritten, 5u);
+    EXPECT_TRUE(store.segment(id)->transport.control.unknown);
+    EXPECT_EQ(selection.selected(), id);
+}
+
+TEST(PipelineAttachUiModel, ReceivedPumpIncrementsKeepRecentHistoryWithoutInventingLoss) {
+    CallLogStore store;
+    store.setPumpVisible(true);
+    pipeline_attach_ui::SegmentSelection selection;
+    const ProcessInstance instance{7, 100};
+    PipelineAttachController::Batch attached;
+    attached.events = {segmentEvent(instance, 11)};
+    selection.apply(store, std::move(attached));
+    const auto id = store.attachForToken(11);
+    auto pump = segmentCall(instance, 11, "frame");
+    pump.iface = "IAudioRenderClient";
+    pump.method = "GetBuffer";
+    pump.pump = true;
+    PipelineAttachController::Batch first;
+    first.pump = {{11, {{1, pump}, {2, pump}}}};
+    selection.apply(store, std::move(first));
+    PipelineAttachController::Batch second;
+    second.pump = {{11, {{3, pump}}}};
+    selection.apply(store, std::move(second));
+    call_log_filter::FilterOpts query;
+    query.attach = id;
+    ASSERT_EQ(store.view(query).size(), 3u);
+    EXPECT_EQ(store.view(query).at(0)->id.sequence, 1u);
+    EXPECT_EQ(store.view(query).at(2)->id.sequence, 3u);
+    PipelineAttachController::Batch duplicate;
+    duplicate.pump = {{11, {{3, pump}}}};
+    selection.apply(store, std::move(duplicate));
+    EXPECT_EQ(store.view(query).size(), 3u);
+    for (uint64_t sequence = 4; sequence <= 70; ++sequence) {
+        PipelineAttachController::Batch next;
+        next.pump = {{11, {{sequence, pump}}}};
+        selection.apply(store, std::move(next));
+    }
+    const auto recent = store.view(query);
+    ASSERT_EQ(recent.size(), 64u);
+    EXPECT_EQ(recent.at(0)->id.sequence, 7u);
+    EXPECT_EQ(recent.at(63)->id.sequence, 70u);
+    PipelineAttachController::Batch late;
+    late.pump = {{11, {{1, pump}}}};
+    selection.apply(store, std::move(late));
+    EXPECT_EQ(store.view(query).size(), 64u);
+    EXPECT_EQ(store.view(query).at(0)->id.sequence, 7u);
+    EXPECT_EQ(store.segment(id)->transport.pump.overwritten, 0u);
+    EXPECT_EQ(store.segment(id)->transport.controllerDroppedPump, 0u);
+    EXPECT_TRUE(store.segment(id)->transport.pump.unknown);
+}

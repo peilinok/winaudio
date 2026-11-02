@@ -4,48 +4,59 @@
 
 using namespace wa;
 
-TEST(PumpWindow, ExcludesOldSlotsAndObservesCompletionWithoutCounterChange) {
+TEST(PumpWindow, ExcludesOldSlotsAndOnlyAcceptsCompletePublications) {
     auto ring = std::make_unique<hook_ipc::Ring>();
+    hook_ipc::initializeRing(*ring);
     ring->pumpEnabled = 1;
-    ring->pumpWriteIndex = 1;
-    strcpy_s(ring->pumpSlots[0].method, "GetBuffer");
-    ring->pumpSlots[0].timeMs = 10;
+    hook_ipc::CallPod pod{};
+    pod.pump = 1;
+    strcpy_s(pod.method, "GetBuffer");
+    pod.timeMs = 10;
+    ASSERT_TRUE(hook_ipc::writeCall(*ring, pod));
     PumpWindow window;
     window.begin(*ring);
     EXPECT_TRUE(window.poll(*ring).empty());
-    // The real producer reserves its index before publishing slot contents.
-    ring->pumpWriteIndex = 2;
+    // A diagnostic reservation index is never a publication guarantee.
+    ++ring->pumpWriteIndex;
     EXPECT_TRUE(window.poll(*ring).empty());
-    strcpy_s(ring->pumpSlots[1].method, "ReleaseBuffer");
-    ring->pumpSlots[1].timeMs = 20;
+    strcpy_s(pod.method, "ReleaseBuffer");
+    pod.timeMs = 20;
+    ASSERT_TRUE(hook_ipc::writeCall(*ring, pod));
     const auto first = window.poll(*ring);
     ASSERT_EQ(first.size(), 1u);
     EXPECT_EQ(first.front().call.method, "ReleaseBuffer");
     const auto identity = first.front().sequence;
     EXPECT_EQ(window.poll(*ring).front().sequence, identity);
-    ring->pumpSlots[1].timeMs = 21;
-    EXPECT_NE(window.poll(*ring).front().sequence, identity);
-    ring->pumpWriteIndex = 0;
-    EXPECT_TRUE(window.poll(*ring).empty());
+    ++ring->transportEpoch;
+    EXPECT_TRUE(window.transportStatus(*ring).unknown);
 }
 
-TEST(PumpWindow, ReusedReservationDoesNotPublishPreviousSlotContent) {
+TEST(PumpWindow, ReusedSlotHasOneStableIdentityPerCommittedRecord) {
     auto ring = std::make_unique<hook_ipc::Ring>();
+    hook_ipc::initializeRing(*ring);
     ring->pumpEnabled = 1;
     PumpWindow window;
     window.begin(*ring);
-    ring->pumpWriteIndex = 1;
-    strcpy_s(ring->pumpSlots[0].method, "GetBuffer");
-    ring->pumpSlots[0].timeMs = 1;
+    hook_ipc::CallPod pod{};
+    pod.pump = 1;
+    strcpy_s(pod.method, "GetBuffer");
+    pod.timeMs = 1;
+    ASSERT_TRUE(hook_ipc::writeCall(*ring, pod));
     ASSERT_EQ(window.poll(*ring).size(), 1u);
     const auto old = window.poll(*ring).front().sequence;
-    ring->pumpWriteIndex = 65;
-    EXPECT_TRUE(window.poll(*ring).empty());
-    ring->pumpSlots[0].timeMs = 65;
-    ASSERT_EQ(window.poll(*ring).size(), 1u);
-    EXPECT_NE(window.poll(*ring).front().sequence, old);
+    for (int i = 2; i <= 66; ++i) {
+        pod.timeMs = i;
+        ASSERT_TRUE(hook_ipc::writeCall(*ring, pod));
+    }
+    const auto current = window.poll(*ring);
+    ASSERT_EQ(current.size(), 64u);
+    for (const auto& call : current) {
+        EXPECT_NE(call.sequence, old);
+        EXPECT_GE(call.call.timeMs, 3);
+    }
+    EXPECT_EQ(window.transportStatus(*ring).overwritten, 1u);
+    EXPECT_EQ(window.poll(*ring).back().sequence, current.back().sequence);
 }
-
 TEST(PumpWindow, PodStringsAndBlobNeverReadBeyondFixedArrays) {
     hook_ipc::CallPod pod{};
     std::memset(pod.iface, 'I', sizeof(pod.iface));

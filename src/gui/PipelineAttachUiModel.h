@@ -61,7 +61,9 @@ public:
             for (auto& call : batch.calls)
                 if (call.attachToken == event.token) store.append(id, std::move(call));
             for (const auto& item : batch.pump)
-                if (item.first == event.token) store.updatePump(id, item.second);
+                if (item.first == event.token) store.appendPump(id, item.second);
+            for (const auto& update : batch.transport)
+                if (update.token == event.token) store.updateTransport(update);
             store.endAttach(id, event.exited, event.snapshotMs);
         }
         for (const auto& event : batch.events) {
@@ -77,7 +79,8 @@ public:
             store.append(id, std::move(call));
         }
         for (const auto& item : batch.pump)
-            store.updatePump(store.attachForToken(item.first), item.second);
+            store.appendPump(store.attachForToken(item.first), item.second);
+        for (const auto& update : batch.transport) store.updateTransport(update);
         for (const auto& event : batch.events) {
             if (event.kind != PipelineAttachController::EventKind::Detached) continue;
             store.endAttach(store.attachForToken(event.token), event.exited, event.snapshotMs);

@@ -1982,6 +1982,11 @@ void AppUi::drawPipelinePage() {
             if (segment->state != wa::CallLogStore::SegmentState::Monitoring)
                 ImGui::TextWrapped(wa::ui_text::get(wa::ui_text::kPipelineHistorySnapshotFmt),
                     wa::pipeline_attach_ui::segmentTime(segment->snapshotMs).c_str());
+            ImGui::TextWrapped("%s", wa::ui_text::pipelineTransportText(segment->transport).c_str());
+            ImGui::SetItemTooltip("%s", wa::ui_text::get(wa::ui_text::kPipelineTransportHint));
+            if (segment->transport.snapshotMs > 0)
+                ImGui::TextDisabled(wa::ui_text::get(wa::ui_text::kPipelineTransportSnapshotFmt),
+                    wa::pipeline_attach_ui::segmentTime(segment->transport.snapshotMs).c_str());
             if (ImGui::CollapsingHeader(wa::ui_text::id(wa::ui_text::kPipelineMethods))) {
                 const bool readOnly = segment->state != wa::CallLogStore::SegmentState::Monitoring;
                 auto found = pipelineMethodDrafts_.find(segment->id);
@@ -2009,7 +2014,7 @@ void AppUi::drawPipelinePage() {
             }
         }
         if (pipelinePump_)
-            ImGui::Text("%s: %u", wa::ui_text::get(wa::ui_text::kPipelineXruns),
+            ImGui::Text("%s: %u", wa::ui_text::get(wa::ui_text::kPipelineActiveXruns),
                         pipelineAttaches_.pumpXrunsSum());
         frameProbe_.addWork("control-total", pipelineCallStore_.size());
         frameProbe_.addWork("control-capacity", pipelineCallStore_.entries().capacity());

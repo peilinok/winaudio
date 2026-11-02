@@ -171,15 +171,11 @@ void emit(CallPod pod, uint32_t observation) {
         WA_HOOK_OBSERVE(write);
         if (pod.xrun)
             InterlockedIncrement(reinterpret_cast<volatile LONG*>(&g_ring->pumpXruns));
-        const LONG idx =
-            InterlockedIncrement(reinterpret_cast<volatile LONG*>(&g_ring->pumpWriteIndex));
-        g_ring->pumpSlots[static_cast<uint32_t>(idx - 1) % kPumpCap] = pod;
+        wa::hook_ipc::writeCall(*g_ring, pod);
         return;
     }
     WA_HOOK_OBSERVE(write);
-    const LONG idx = InterlockedIncrement(reinterpret_cast<volatile LONG*>(&g_ring->writeIndex));
-    const uint32_t slot = static_cast<uint32_t>(idx - 1) % kCap;
-    g_ring->slots[slot] = pod;
+    wa::hook_ipc::writeCall(*g_ring, pod);
 }
 
 void emitSimple(uint32_t streamId, const char* iface, const char* method, const char* args,
@@ -1213,12 +1209,10 @@ DWORD WINAPI HookThread(LPVOID) {
         return 1;
     }
     if (g_ring->magic != kMagic) {
-        ZeroMemory(g_ring, sizeof(Ring));
-        g_ring->magic = kMagic;
-        g_ring->cap = kCap;
-        g_ring->writeIndex = 0;
+        wa::hook_ipc::initializeRing(*g_ring);
         g_ring->installed = kInstallPending;
     }
+    if (!wa::hook_ipc::compatibleRing(*g_ring)) return 1;
     const bool ok = install();
     g_ring->installed = ok ? kInstallOk : kInstallFailed;
     // Only the controller commits capture after it has accepted installation.

@@ -29,45 +29,26 @@ HookedCall decodeHookedCallPod(const hook_ipc::CallPod& p) {
 }
 
 void PumpWindow::begin(const hook_ipc::Ring& ring) {
-    boundary_ = lastWrite_ = ReadULongAcquire(reinterpret_cast<const volatile ULONG*>(&ring.pumpWriteIndex));
-    std::memcpy(initial_.data(), ring.pumpSlots, sizeof(ring.pumpSlots));
-    for (auto& slot : slots_) slot = {};
+    reader_.begin(ring, true, static_cast<uint32_t>(hook_ipc::monitorState(ring) >> 32));
     current_.clear();
+    received_.clear();
 }
 
-const std::vector<PumpCall>& PumpWindow::poll(const hook_ipc::Ring& ring) {
-    const uint32_t write = ReadULongAcquire(reinterpret_cast<const volatile ULONG*>(&ring.pumpWriteIndex));
-    // Reset/wrap has no provable continuity. Preserve monotonically new local IDs.
-    if (write < lastWrite_) begin(ring);
-    lastWrite_ = write;
-    current_.clear();
-    if (!ReadULongAcquire(reinterpret_cast<const volatile ULONG*>(&ring.pumpEnabled))) return current_;
-    const uint32_t count = (std::min)(write - boundary_, hook_ipc::kPumpCap);
-    for (uint32_t offset = count; offset > 0; --offset) {
-        const uint32_t logical = write - offset;
-        const size_t index = logical % hook_ipc::kPumpCap;
-        const auto pod = ring.pumpSlots[index];
-        if (pod.observationGeneration != ring.observationGeneration) continue;
-        // Prevent the compiler/CPU from folding the second shared-memory read.
-        // This still cannot prove publication with the existing IPC protocol.
-        MemoryBarrier();
-        const auto again = ring.pumpSlots[index];
-        if (std::memcmp(&pod, &again, sizeof(pod)) != 0 ||
-            std::memcmp(&pod, &initial_[index], sizeof(pod)) == 0 || pod.method[0] == 0) continue;
-        auto& slot = slots_[index];
-        if (slot.valid && slot.logical != logical && std::memcmp(&slot.pod, &pod, sizeof(pod)) == 0)
-            continue;
-        if (!slot.valid || slot.logical != logical || std::memcmp(&slot.pod, &pod, sizeof(pod)) != 0) {
-            slot.valid = true;
-            slot.logical = logical;
-            slot.sequence = ++nextSequence_;
-            slot.pod = pod;
-            slot.call = decodeHookedCallPod(pod);
-            slot.call.pump = true;
-        }
-        current_.push_back({slot.sequence, slot.call});
-    }
+const std::vector<PumpCall>& PumpWindow::poll(hook_ipc::Ring& ring) {
+    // A second poll before a handoff must not create an unbounded inbox.
+    received_.clear();
+    reader_.poll(ring, [&](const hook_ipc::CallPod& pod, uint64_t) {
+        auto call = decodeHookedCallPod(pod);
+        call.pump = true;
+        current_.push_back({++nextSequence_, std::move(call)});
+        received_.push_back(current_.back());
+        if (current_.size() > hook_ipc::kPumpCap) current_.erase(current_.begin());
+    });
     return current_;
+}
+
+std::vector<PumpCall> PumpWindow::takeReceived() {
+    return std::move(received_);
 }
 
 }  // namespace wa

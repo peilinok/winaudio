@@ -80,6 +80,9 @@ struct PipelineAttachController::Impl {
         PipelineAttachSet active;
         std::unordered_map<uint32_t, uint64_t> tokens;
         uint64_t nextToken = 0;
+        uint64_t nextSnapshotSequence = 0;
+        struct QueueLoss { uint64_t control = 0, pump = 0; };
+        std::unordered_map<uint64_t, QueueLoss> queueLoss;
         const auto now = [] {
             return std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::system_clock::now().time_since_epoch()).count();
@@ -175,7 +178,16 @@ struct PipelineAttachController::Impl {
                         event.instance = active.instance(target);
                         event.token = tokens.at(target);
                         event.name = active.processName(target);
+                        auto pump = active.receivePump(target);
+                        if (!pump.empty()) batch.pump.emplace_back(event.token, std::move(pump));
+                        auto status = active.transportStatus(target);
                         event.snapshotMs = now();
+                        status.snapshotMs = event.snapshotMs;
+                        status.snapshotSequence = ++nextSnapshotSequence;
+                        status.control.unknown = status.pump.unknown = true;
+                        status.controllerDroppedControl = queueLoss[event.token].control;
+                        status.controllerDroppedPump = queueLoss[event.token].pump;
+                        batch.transport.push_back({event.instance, event.token, status});
                         event.exited = std::find(exited.begin(), exited.end(), target) != exited.end();
                         active.stop(target);
                         tokens.erase(target);
@@ -183,9 +195,18 @@ struct PipelineAttachController::Impl {
                     }
                 }
             }
-            for (auto& item : active.pumpWindows())
-                batch.pump.emplace_back(tokens.at(item.first), std::move(item.second));
             const auto pids = active.attachedPids();
+            for (const auto pid : pids) {
+                const auto token = tokens.at(pid);
+                auto pump = active.receivePump(pid);
+                if (!pump.empty()) batch.pump.emplace_back(token, std::move(pump));
+                auto status = active.transportStatus(pid);
+                status.snapshotMs = now();
+                status.snapshotSequence = ++nextSnapshotSequence;
+                status.controllerDroppedControl = queueLoss[token].control;
+                status.controllerDroppedPump = queueLoss[token].pump;
+                batch.transport.push_back({active.instance(pid), token, status});
+            }
             const auto dropped = active.droppedControlCalls();
             const auto xruns = active.pumpXrunsSum();
             const auto cleanup = OnDemandAttach::reapPending();
@@ -200,10 +221,16 @@ struct PipelineAttachController::Impl {
                     installing = false;
                     state.pendingPid = 0;
                 }
-                if (!batch.events.empty() || !batch.calls.empty() || !batch.pump.empty()) {
-                    if (batches.size() < kQueueCapacity) batches.push_back(std::move(batch));
+                if (!batch.events.empty() || !batch.calls.empty() || !batch.pump.empty() || !batch.transport.empty()) {
+                    if (batches.size() < kQueueCapacity) {
+                        for (const auto& event : batch.events)
+                            if (event.kind == EventKind::Detached) queueLoss.erase(event.token);
+                        batches.push_back(std::move(batch));
+                    }
                     else {
                         state.droppedCalls += batch.calls.size();
+                        for (const auto& call : batch.calls) ++queueLoss[call.attachToken].control;
+                        for (const auto& pump : batch.pump) queueLoss[pump.first].pump += pump.second.size();
                         ++state.droppedBatches;
                     }
                 }

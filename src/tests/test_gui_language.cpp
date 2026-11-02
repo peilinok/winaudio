@@ -589,3 +589,27 @@ TEST(GuiLanguage, PipelineTrustBannersHaveEnglishAndChinese) {
               wa::ui_text::kPipelineOtherPidBanner);
     wa::ui_text::setLanguage(wa::gui_language::Language::En);
 }
+
+TEST_F(GuiLanguageText, TransportLossTextSeparatesUnknownAndConfirmedCounts) {
+    wa::HookTransportStatus status;
+    wa::ui_text::setLanguage(wa::gui_language::Language::En);
+    const auto unavailable = wa::ui_text::pipelineTransportText(status);
+    EXPECT_EQ(unavailable, "Transport loss: unknown (no snapshot yet)");
+    EXPECT_EQ(unavailable.find('0'), std::string::npos);
+    status.snapshotMs = 2000;
+    status.control = {3, 2, 1, false};
+    status.pump = {7, 5, 4, true};
+    status.controllerDroppedControl = 8;
+    status.controllerDroppedPump = 9;
+    const auto english = wa::ui_text::pipelineTransportText(status);
+    EXPECT_NE(english.find("Control transport: overwritten at least 3 | rejected writes at least 2 | uncommitted 1 | other loss not detected"), std::string::npos);
+    EXPECT_NE(english.find("High-frequency transport: overwritten at least 7 | rejected writes at least 5 | uncommitted 4 | other loss unknown"), std::string::npos);
+    EXPECT_NE(english.find("Controller queue loss: control 8 | high-frequency 9"), std::string::npos);
+    wa::ui_text::setLanguage(wa::gui_language::Language::ZhCn);
+    const auto chinese = wa::ui_text::pipelineTransportText(status);
+    EXPECT_NE(chinese.find("控制调用传输：已知覆盖至少 3 | 写入丢弃至少 2 | 未提交 1 | 其他缺失 未发现"), std::string::npos);
+    EXPECT_NE(chinese.find("高频调用传输：已知覆盖至少 7 | 写入丢弃至少 5 | 未提交 4 | 其他缺失 未知"), std::string::npos);
+    EXPECT_NE(chinese.find("控制器队列缺失：控制 8 | 高频 9"), std::string::npos);
+    status = {};
+    EXPECT_EQ(wa::ui_text::pipelineTransportText(status), "传输缺失：未知（尚无快照）");
+}
