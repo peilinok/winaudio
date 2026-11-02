@@ -1,3 +1,11 @@
+# Automated fixtures are required even when optional manual probes are disabled.
+add_executable(RemoteInjectionTarget ${CMAKE_SOURCE_DIR}/src/probe/RemoteInjectionTarget.cpp)
+target_link_libraries(RemoteInjectionTarget PRIVATE WinAudioCore)
+wa_set_project_warnings(RemoteInjectionTarget)
+
+add_library(RemoteInjectionGate SHARED ${CMAKE_SOURCE_DIR}/src/probe/RemoteInjectionGate.cpp)
+wa_set_project_warnings(RemoteInjectionGate)
+
 add_executable(WinAudioTests
     test_delayfifo.cpp
     test_streamparams.cpp

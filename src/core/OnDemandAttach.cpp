@@ -146,7 +146,12 @@ struct AttachResources {
 
     bool finished() {
         if (!injection.poll()) return false;
-        if (WaitForSingleObject(process, 0) == WAIT_OBJECT_0) return true;
+        const auto target = waitRemoteThread(process, 0);
+        if (target.outcome == WAIT_FAILED) {
+            WA_LOG(wa::log::Level::Warn, "Attach", "WaitForSingleObject(installation cleanup)", "target state unknown",
+                   wa::log::hrName(HRESULT_FROM_WIN32(target.error)));
+        }
+        if (target.outcome == WAIT_OBJECT_0) return true;
         if (installationStarted && !moduleVerified) {
             bool absent = false;
             const Result loaded = verifyLoadedModule(pid, expectedDll, absent);
@@ -241,6 +246,9 @@ Result verifyLoadedModule(uint32_t pid, const std::wstring& dll, bool& definitel
 Result injectDll(AttachResources& resources, const std::wstring& dll, const std::atomic_bool* cancelled) {
     HMODULE k32 = GetModuleHandleW(L"kernel32.dll");
     auto load = k32 ? GetProcAddress(k32, "LoadLibraryW") : nullptr;
+    const DWORD loadError = load ? ERROR_SUCCESS : GetLastError();
+    WA_LOG(wa::log::Level::Debug, "Attach", "GetProcAddress(LoadLibraryW)", "",
+           wa::log::hrName(HRESULT_FROM_WIN32(loadError)));
     if (!load) return Result::Fail(static_cast<long>(E_FAIL), "Attach: LoadLibraryW not found");
     resources.expectedDll = dll;
     Result result = resources.injection.begin(resources.process, reinterpret_cast<LPTHREAD_START_ROUTINE>(load),
@@ -469,6 +477,8 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
                 return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_PROCESS_ABORTED)), "Attach: target exited");
             if (waited == WAIT_FAILED) {
                 const DWORD error = GetLastError();
+                WA_LOG(wa::log::Level::Warn, "Attach", "WaitForSingleObject(installation)",
+                       "pid=" + std::to_string(pid), wa::log::hrName(HRESULT_FROM_WIN32(error)));
                 return win32Result(error, "Attach: installation wait failed; cleanup pending");
             }
         }

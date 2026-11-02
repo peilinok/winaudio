@@ -28,7 +28,12 @@ RemoteInjection::~RemoteInjection() {
 
 void RemoteInjection::releaseParameter() {
     if (!parameter_) return;
-    if (WaitForSingleObject(process_, 0) != WAIT_OBJECT_0) {
+    const auto target = waitRemoteThread(process_, 0);
+    if (target.outcome == WAIT_FAILED) {
+        WA_LOG(wa::log::Level::Warn, "Attach", "WaitForSingleObject(parameter cleanup)", "target state unknown",
+               wa::log::hrName(HRESULT_FROM_WIN32(target.error)));
+    }
+    if (target.outcome != WAIT_OBJECT_0) {
         const BOOL freed = VirtualFreeEx(process_, parameter_, 0, MEM_RELEASE);
         const DWORD error = freed ? ERROR_SUCCESS : GetLastError();
         WA_LOG(freed ? wa::log::Level::Debug : wa::log::Level::Warn, "Attach", "VirtualFreeEx",
@@ -69,9 +74,20 @@ Result RemoteInjection::begin(HANDLE process, LPTHREAD_START_ROUTINE entry,
 
 bool RemoteInjection::poll() {
     if (!thread_) return true;
-    const DWORD target = WaitForSingleObject(process_, 0);
-    if (target != WAIT_OBJECT_0 && WaitForSingleObject(thread_, 0) != WAIT_OBJECT_0) return false;
-    if (target == WAIT_OBJECT_0) completion_ = failed(ERROR_PROCESS_ABORTED, "Attach: target exited");
+    const auto target = waitRemoteThread(process_, 0);
+    if (target.outcome == WAIT_FAILED) {
+        WA_LOG(wa::log::Level::Warn, "Attach", "WaitForSingleObject(target poll)", "target state unknown",
+               wa::log::hrName(HRESULT_FROM_WIN32(target.error)));
+    }
+    if (target.outcome != WAIT_OBJECT_0) {
+        const auto remote = waitRemoteThread(thread_, 0);
+        if (remote.outcome == WAIT_FAILED) {
+            WA_LOG(wa::log::Level::Warn, "Attach", "WaitForSingleObject(remote poll)", "cleanup pending",
+                   wa::log::hrName(HRESULT_FROM_WIN32(remote.error)));
+        }
+        if (remote.outcome != WAIT_OBJECT_0) return false;
+    }
+    if (target.outcome == WAIT_OBJECT_0) completion_ = failed(ERROR_PROCESS_ABORTED, "Attach: target exited");
     else if (!GetExitCodeThread(thread_, &exitCode_)) {
         const DWORD error = GetLastError();
         completion_ = failed(error, "Attach: GetExitCodeThread failed");

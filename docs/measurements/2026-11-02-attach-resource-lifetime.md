@@ -45,6 +45,20 @@ build/bin/Release/AttachSmoke.exe
 - 加载门控只在测试 DLL 中故意等待事件；没有在 DllMain／TLS 调用 COM。无设备环境可完成资源回路，重附加必须成功或严格匹配明确的 kInstallFailed，其他错误不能吞成通过。本机真实回路完成成功重附加。
 - 最终原始构建、测试、冒烟日志及 GUI／Hook／测试目标的 SHA256 存于上述本地目录的 artifact-manifest.json。
 
+## 独立审查后的配置与日志回归
+
+审查发现 `WA_BUILD_PROBES=OFF` 时自动测试依赖两个不存在的手动探针目标。按同一选项先配置判红（退出 1，明确指出 RemoteInjectionTarget／Gate 不存在），再将两个自动夹具目标移到 tests 定义；源文件位置保留，没有跳过任何新资源测试。
+
+```powershell
+cmake -S . -B .scratch/implement-pipeline-2026-11-02/253/probes-off-red -G "Visual Studio 18 2026" -A x64 -DWA_BUILD_PROBES=OFF
+cmake --build .scratch/implement-pipeline-2026-11-02/253/probes-off-red --config Debug --target WinAudioTests -j 6
+ctest --test-dir .scratch/implement-pipeline-2026-11-02/253/probes-off-red -C Debug -R "^(RemoteThreadWait|RemoteInjectionTest|AttachLifecycleTest)\." --output-on-failure
+```
+
+修复后上述配置、构建及 CTest 均退出 0，OFF 配置正向注册并通过 **9/9** 项资源／生命周期测试，没有 skip。普通 ON 配置也成功生成，Debug／Release 相关 **35/35** 各自重新通过，GUI 与测试目标重新编译通过。配置红绿及 OFF 构建／CTest 日志分别为 probes-off-red-configure、probes-off-green-configure、probes-off-review-fix-build、probes-off-review-fix-ctest；普通配置结果为 probes-on-configure 和 review-fix-debug／release-*。
+
+同时补齐等待失败的系统错误快照与 Warn／hrName 日志，恢复 GetProcAddress 控制路径日志；没有改变分支结果，也不记录每次成功轮询。两配置相关构建无新增警告，artifact-manifest.json 已更新为本轮审查修正后的源码与产物身份。
+
 ## 未覆盖与后续
 
 本次没有运行全量本地测试、未知用户应用、x86 真实注入或效果硬件验收；由后续票据和 CI 按各自范围执行。没有以旧 76/76 等历史结果证明新协议。实际已载旧 Hook 的目标必须重启，当前票不会动态替换其常驻 DLL；更完整的兼容能力检查由 #254 承接。性能、启动门控及逐 PID 配置不在本票验收内。
