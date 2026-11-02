@@ -59,6 +59,8 @@ ctest --test-dir .scratch/implement-pipeline-2026-11-02/253/probes-off-red -C De
 
 同时补齐等待失败的系统错误快照与 Warn／hrName 日志，恢复 GetProcAddress 控制路径日志；没有改变分支结果，也不记录每次成功轮询。两配置相关构建无新增警告，artifact-manifest.json 已更新为本轮审查修正后的源码与产物身份。
 
+最终复审还要求线程退出码查询失败的日志输出已保存 HRESULT 的 hrName；补齐这一行诊断后，再次增量构建两配置 GUI／测试目标，分别运行上述 9 项资源／生命周期回归，均退出 0。日志为 final-log-fix-Debug／Release-build 和 final-log-fix-Debug／Release-tests；此前完整相关 35 项与 OFF 配置证据保持原有范围。
+
 ## 未覆盖与后续
 
 本次没有运行全量本地测试、未知用户应用、x86 真实注入或效果硬件验收；由后续票据和 CI 按各自范围执行。没有以旧 76/76 等历史结果证明新协议。实际已载旧 Hook 的目标必须重启，当前票不会动态替换其常驻 DLL；更完整的兼容能力检查由 #254 承接。性能、启动门控及逐 PID 配置不在本票验收内。

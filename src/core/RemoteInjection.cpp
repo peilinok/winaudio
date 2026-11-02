@@ -93,7 +93,7 @@ bool RemoteInjection::poll() {
         completion_ = failed(error, "Attach: GetExitCodeThread failed");
     }
     WA_LOG(completion_ ? wa::log::Level::Debug : wa::log::Level::Warn, "Attach", "remote thread completed",
-           "exit=" + std::to_string(exitCode_), completion_ ? "S_OK" : completion_.message);
+           "exit=" + std::to_string(exitCode_), completion_ ? "S_OK" : wa::log::hrName(completion_.code));
     CloseHandle(thread_);
     thread_ = nullptr;
     releaseParameter();
