@@ -395,7 +395,9 @@ uint32_t OnDemandAttach::reapPending() {
 }
 
 Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, PipelineFlow flow,
-                             const std::atomic_bool* cancelled, ProcessInstance expected) {
+                            const std::atomic_bool* cancelled, ProcessInstance expected, uint32_t methods) {
+    if (methods & ~kAllMonitorMethods)
+        return win32Result(ERROR_INVALID_PARAMETER, "Monitor selection: invalid methods");
     stop();
     impl_->block = AttachBlock::PidZero;
     enableDebugPrivilege();
@@ -591,11 +593,12 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
     impl_->pid = pid;
     impl_->instance = queried;
     impl_->name = name;
-    impl_->generation = static_cast<uint32_t>(InterlockedIncrement(
-        reinterpret_cast<volatile LONG*>(&ring->observationGeneration)));
+    impl_->generation = ring->observationGeneration + 1;
+    hook_ipc::publishMonitorState(*ring, methods, impl_->generation);
     impl_->readIndex = ring->writeIndex;
     impl_->block = AttachBlock::None;
     impl_->pump.begin(*ring);
+    InterlockedExchange(reinterpret_cast<volatile LONG*>(&ring->pumpEnabled), 1);
     InterlockedExchange(reinterpret_cast<volatile LONG*>(&ring->captureEnabled), 1);
     WA_LOG(wa::log::Level::Info, "Attach", "start",
            "pid=" + std::to_string(pid) + " " + name,
@@ -671,11 +674,31 @@ uint32_t OnDemandAttach::pumpXruns() const {
     return impl_->ring->pumpXruns;
 }
 
-void OnDemandAttach::setPumpEnabled(bool on) {
-    if (!impl_ || !impl_->ring) return;
-    InterlockedExchange(reinterpret_cast<volatile LONG*>(&impl_->ring->pumpEnabled), on ? 1 : 0);
-    WA_LOG(wa::log::Level::Debug, "Attach", "setPumpEnabled",
-           on ? "on" : "off", "S_OK");
+
+
+Result OnDemandAttach::publishMethods(ProcessInstance expected, uint32_t methods) {
+    if (!impl_ || !impl_->ring || !attached() || expected != impl_->instance)
+        return win32Result(ERROR_PROCESS_ABORTED, "Monitor selection: target instance is no longer active");
+    const auto target = waitRemoteThread(impl_->resources->process, 0);
+    WA_LOG(target.outcome == WAIT_TIMEOUT ? wa::log::Level::Debug : wa::log::Level::Warn,
+        "Attach", "WaitForSingleObject(publish methods)", "pid=" + std::to_string(expected.pid),
+        "result=" + std::to_string(target.outcome) + " " +
+            wa::log::hrName(HRESULT_FROM_WIN32(target.error)));
+    if (target.outcome != WAIT_TIMEOUT)
+        return win32Result(target.outcome == WAIT_FAILED ? target.error : ERROR_PROCESS_ABORTED,
+            "Monitor selection: cannot verify live target");
+    auto& ring = *impl_->ring;
+    if (ring.magic != hook_ipc::kMagic || ring.processCreated != expected.created ||
+        ring.installed != hook_ipc::kInstallOk ||
+        static_cast<uint32_t>(hook_ipc::monitorState(ring) >> 32) != impl_->generation)
+        return win32Result(ERROR_REVISION_MISMATCH,
+            "Monitor selection: identity or protocol mismatch; restart target app");
+    if (methods & ~kAllMonitorMethods)
+        return win32Result(ERROR_INVALID_PARAMETER, "Monitor selection: invalid methods");
+    hook_ipc::publishMonitorState(ring, methods, impl_->generation);
+    WA_LOG(wa::log::Level::Debug, "Attach", "publishMethods",
+           "pid=" + std::to_string(expected.pid) + " mask=" + std::to_string(methods), "S_OK");
+    return Result::Ok();
 }
 
 void OnDemandAttach::setCaptureEnabled(bool on) {

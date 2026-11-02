@@ -20,6 +20,13 @@ struct AttachRequest {
     ProcessInstance instance;
 };
 
+struct MethodDraft {
+    uint32_t methods = kDefaultMonitorMethods;
+    bool pending = false;
+    std::string failure;
+    bool dirty(uint32_t published) const { return methods != published; }
+};
+
 inline std::string segmentTime(int64_t milliseconds) {
     const auto seconds = static_cast<std::time_t>(milliseconds / 1000);
     std::tm local{};
@@ -39,6 +46,12 @@ public:
         return true;
     }
     void apply(CallLogStore& store, PipelineAttachController::Batch batch) {
+        for (const auto& event : batch.events) {
+            if (event.kind != PipelineAttachController::EventKind::Configured) continue;
+            const auto id = store.attachForToken(event.token);
+            if (const auto* segment = store.segment(id))
+                if (segment->instance == event.instance) store.setMethods(id, event.methods);
+        }
         // Finish already-known sources before admitting replacement instances.
         // One batch can carry the old source's bounded tail and a new success.
         for (const auto& event : batch.events) {
@@ -54,6 +67,7 @@ public:
         for (const auto& event : batch.events) {
             if (event.kind != PipelineAttachController::EventKind::Attached) continue;
             const auto id = store.registerAttach(event.instance, event.name, event.token, event.snapshotMs);
+            store.setMethods(id, event.methods);
             if (!selected_) selected_ = id;
         }
         for (auto& call : batch.calls) {

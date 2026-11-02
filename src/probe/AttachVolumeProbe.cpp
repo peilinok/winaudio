@@ -292,7 +292,9 @@ bool run(unsigned method, bool hooked) {
     bool ok = readiness == WAIT_OBJECT_0;
     wa::OnDemandAttach attach;
     if (ok && hooked) {
-        const auto attached = attach.start(process.dwProcessId, {}, wa::PipelineFlow::Render);
+        const auto attached = attach.start(process.dwProcessId, {}, wa::PipelineFlow::Render,
+            nullptr, {}, wa::kDefaultMonitorMethods | wa::methodBit(wa::MonitorMethod::GetMasterVolume) |
+                wa::methodBit(wa::MonitorMethod::GetMute));
         ok = static_cast<bool>(attached);
         if (!ok) std::printf("attach_error=%s\n", attached.message.c_str());
         if (ok) ok = loadedIdentity(process.dwProcessId, self);
@@ -327,7 +329,9 @@ bool run(unsigned method, bool hooked) {
             return false;
         }
     }
-    const auto calls = attach.drain();
+    auto calls = attach.drain();
+    const auto recent = attach.pumpRing();
+    calls.insert(calls.end(), recent.begin(), recent.end());
     std::printf("method=%s attached=%d pid=%lu wait=%lu exit=0x%08lX calls=%zu\n",
                 kMethods[method], attach.attached(), process.dwProcessId, waited, code, calls.size());
     unsigned matchingCalls = 0;

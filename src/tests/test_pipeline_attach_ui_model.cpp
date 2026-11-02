@@ -258,3 +258,44 @@ TEST(PipelineAttachUiModel, FailedAttachKeepsTheSelectedHistoryAndDoesNotCreateS
     EXPECT_EQ(store.size(), 1u);
     EXPECT_EQ(store.view().at(0)->call.args, "level=0.250");
 }
+
+TEST(PipelineAttachUiModel, MethodPublicationKeepsDraftFailureHistoryAndInstancesSeparate) {
+    CallLogStore store;
+    pipeline_attach_ui::SegmentSelection selection;
+    PipelineAttachController::Batch attached;
+    auto first = segmentEvent({7, 100}, 11);
+    first.methods = methodBit(MonitorMethod::SetMute);
+    attached.events = {first, segmentEvent({9, 200}, 22)};
+    selection.apply(store, std::move(attached));
+    const auto old = store.attachForToken(11), background = store.attachForToken(22);
+    pipeline_attach_ui::MethodDraft draft{methodBit(MonitorMethod::GetChannelCount)};
+    EXPECT_TRUE(draft.dirty(store.segment(old)->methods));
+    EXPECT_EQ(store.segment(old)->methods, methodBit(MonitorMethod::SetMute));
+    PipelineAttachController::Batch failed;
+    auto publication = first;
+    publication.kind = PipelineAttachController::EventKind::ConfigurationFailed;
+    publication.methods = draft.methods;
+    publication.result = Result::Fail(static_cast<long>(0x80004005), "publish failed");
+    failed.events = {publication};
+    selection.apply(store, std::move(failed));
+    EXPECT_EQ(store.segment(old)->methods, methodBit(MonitorMethod::SetMute));
+    publication.kind = PipelineAttachController::EventKind::Configured;
+    publication.result = Result::Ok();
+    PipelineAttachController::Batch success;
+    success.events = {publication};
+    selection.apply(store, std::move(success));
+    EXPECT_FALSE(draft.dirty(store.segment(old)->methods));
+    EXPECT_EQ(store.segment(background)->methods, kDefaultMonitorMethods);
+    PipelineAttachController::Batch reattached;
+    reattached.events = {segmentEvent({7, 100}, 11, true), segmentEvent({7, 300}, 33)};
+    selection.apply(store, std::move(reattached));
+    const auto current = store.attachForToken(33);
+    EXPECT_EQ(store.segment(current)->methods, kDefaultMonitorMethods);
+    EXPECT_FALSE(store.setMethods(old, kAllMonitorMethods));
+    PipelineAttachController::Batch stale;
+    stale.events = {publication};
+    selection.apply(store, std::move(stale));
+    EXPECT_EQ(store.segment(old)->methods, draft.methods);
+    EXPECT_EQ(store.segment(current)->methods, kDefaultMonitorMethods);
+    EXPECT_EQ(selection.selected(), old);
+}

@@ -152,6 +152,14 @@ const CallLogStore::Segment* CallLogStore::segment(uint64_t attach) const {
     return attach && attach <= attaches_.size() ? &attaches_[static_cast<size_t>(attach - 1)] : nullptr;
 }
 
+bool CallLogStore::setMethods(uint64_t attach, uint32_t methods) {
+    if (!attach || attach > attaches_.size() || (methods & ~kAllMonitorMethods)) return false;
+    auto& target = attaches_[static_cast<size_t>(attach - 1)];
+    if (!target.active) return false;
+    target.methods = methods;
+    return true;
+}
+
 std::vector<CallLogStore::Segment> CallLogStore::segments(bool active) const {
     std::vector<Segment> out;
     for (auto it = attaches_.rbegin(); it != attaches_.rend(); ++it)

@@ -61,6 +61,7 @@ inline void reset(int state = 5) {
     InterlockedExchange(&g_quiet, state == 2 ? 1 : 0);
     ring.captureEnabled = state == 3 ? 0u : 1u;
     ring.pumpEnabled = state == 4 ? 0u : 1u;
+    wa::hook_ipc::publishMonitorState(ring, state == 4 ? wa::kDefaultMonitorMethods : wa::kAllMonitorMethods, 0);
     g_capGet = capGet;
     g_capRel = capRelease;
     g_renGet = renGet;

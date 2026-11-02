@@ -116,7 +116,8 @@ set_property(DIRECTORY APPEND PROPERTY TEST_INCLUDE_FILES
 
 # Compile the real hook entry points in an executable without automatic DLL
 # installation. Kept independent of WinAudioCore for both x64 and x86 checks.
-add_executable(WinAudioHookTests test_hook_buffer.cpp test_hook_services.cpp test_hook_forwarding.cpp)
+add_executable(WinAudioHookTests test_hook_buffer.cpp test_hook_services.cpp test_hook_forwarding.cpp
+    test_hook_method_selection.cpp)
 target_include_directories(WinAudioHookTests PRIVATE ${CMAKE_SOURCE_DIR}/src/core)
 target_link_libraries(WinAudioHookTests PRIVATE gtest_main ole32 oleaut32 mmdevapi uuid advapi32)
 wa_set_project_warnings(WinAudioHookTests)

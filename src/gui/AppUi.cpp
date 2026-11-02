@@ -46,6 +46,35 @@
 #include <unordered_set>
 #include <string_view>
 
+static std::string monitorInstanceKey(wa::ProcessInstance instance) {
+    return std::to_string(instance.pid) + ":" + std::to_string(instance.created);
+}
+
+static void drawMonitorMethods(uint32_t& methods, bool readOnly) {
+    ImGui::BeginDisabled(readOnly);
+    if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineMethodsDefault)))
+        methods = wa::kDefaultMonitorMethods;
+    const char* previous = "";
+    bool open = false;
+    for (unsigned i = 0; i < static_cast<unsigned>(wa::MonitorMethod::Count); ++i) {
+        const auto& info = wa::kMonitorMethods[i];
+        if (std::strcmp(previous, info.iface)) {
+            if (open) ImGui::TreePop();
+            open = ImGui::TreeNodeEx(info.iface, ImGuiTreeNodeFlags_DefaultOpen);
+            previous = info.iface;
+        }
+        if (!open) continue;
+        bool enabled = (methods & (1u << i)) != 0;
+        ImGui::PushID(static_cast<int>(i));
+        if (ImGui::Checkbox(info.method, &enabled)) {
+            if (enabled) methods |= 1u << i; else methods &= ~(1u << i);
+        }
+        ImGui::PopID();
+    }
+    if (open) ImGui::TreePop();
+    ImGui::EndDisabled();
+}
+
 static std::string wtou(const std::wstring& w) {
     if (w.empty()) return {};
     int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), nullptr, 0, nullptr, nullptr);
@@ -602,6 +631,13 @@ void AppUi::runPipelineAttach() {
         const auto& selected = pipelineSessions_[static_cast<size_t>(pipelineSelected_)];
         if (selected.processId == pid) request.instance = {pid, selected.processCreated};
     }
+    if (!request.instance) {
+        const auto identity = wa::queryProcessInstance(pid, request.instance);
+        if (!identity) {
+            pipelineAttachFailByPid_[pid] = identity.message;
+            return;
+        }
+    }
     attemptPipelineAttach(request);
 }
 
@@ -609,7 +645,9 @@ void AppUi::attemptPipelineAttach(const wa::pipeline_attach_ui::AttachRequest& r
     const auto pid = request.pid;
     const auto& deviceId = request.deviceId;
     const auto flow = request.flow;
-    wa::Result r = pipelineAttaches_.start(pid, deviceId, flow, request.instance);
+    const auto initial = pipelineInitialMethods_.find(monitorInstanceKey(request.instance));
+    wa::Result r = pipelineAttaches_.start(pid, deviceId, flow, request.instance,
+        initial == pipelineInitialMethods_.end() ? UINT32_MAX : initial->second.methods);
     if (r) {
         pipelinePreparing_ = request;
         logLines_.push_back("pipeline preparing attach pid=" + std::to_string(pid));
@@ -632,11 +670,20 @@ void AppUi::pollPipelineAttach() {
     }
     for (auto& batch : batches) {
         for (const auto& event : batch.events) {
+            if (event.kind == wa::PipelineAttachController::EventKind::Configured ||
+                event.kind == wa::PipelineAttachController::EventKind::ConfigurationFailed) {
+                const auto id = pipelineCallStore_.attachForToken(event.token);
+                auto& draft = pipelineMethodDrafts_[id];
+                draft.pending = false;
+                draft.failure = event.result ? "" : event.result.message;
+                continue;
+            }
             if (event.kind == wa::PipelineAttachController::EventKind::Detached) continue;
             if (!pipelinePreparing_ || pipelinePreparing_->pid != event.pid) continue;
             const auto request = std::move(*pipelinePreparing_);
             pipelinePreparing_.reset();
             if (event.kind == wa::PipelineAttachController::EventKind::Attached) {
+                pipelineInitialMethods_.erase(monitorInstanceKey(event.instance));
                 pipelineAttachFailByPid_.erase(event.pid);
                 if (!request.sessionKey.empty()) {
                     pipelineAttachUi_[request.sessionKey] = wa::PipelineAttachUiState::Attached;
@@ -1502,6 +1549,26 @@ void AppUi::drawPipelinePage() {
             runPipelineAttach();
         if (!canAttach) ImGui::EndDisabled();
         ImGui::SameLine();
+        ImGui::BeginDisabled(!canAttach);
+        if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineMethodsInitial))) {
+            wa::ProcessInstance instance;
+            const auto identity = wa::queryProcessInstance(boxPid, instance);
+            if (identity) {
+                pipelineInitialInstance_ = instance;
+                const auto key = monitorInstanceKey(instance);
+                if (pipelineInitialMethods_.find(key) == pipelineInitialMethods_.end())
+                    pipelineInitialMethods_[key].methods = pipelineAttaches_.lastMethods(instance);
+                ImGui::OpenPopup("pipelineInitialMethods");
+            } else pipelineAttachFailByPid_[boxPid] = identity.message;
+        }
+        ImGui::EndDisabled();
+        if (ImGui::BeginPopup("pipelineInitialMethods")) {
+            ImGui::Text("PID %u", pipelineInitialInstance_.pid);
+            ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineMethodsReady));
+            drawMonitorMethods(pipelineInitialMethods_[monitorInstanceKey(pipelineInitialInstance_)].methods, false);
+            ImGui::EndPopup();
+        }
+        ImGui::SameLine();
         const bool canDetach = wa::pipeline_attach_ui::canDetachPid(boxPidOk ? boxPid : 0u, attachedSet,
             pipelineAttachFailByPid_) || (pipelinePreparing_ && pipelinePreparing_->pid == boxPid);
         if (!canDetach) ImGui::BeginDisabled();
@@ -1531,9 +1598,7 @@ void AppUi::drawPipelinePage() {
         } else if (etwStatus == wa::EtwWatchStatus::Listening) {
             ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineEtwListening));
         }
-        if (ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kPipelinePump), &pipelinePump_)) {
-            pipelineAttaches_.setPumpEnabled(pipelinePump_);
-        }
+        ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kPipelineMethodsShowWindow), &pipelinePump_);
         ImGui::SameLine();
         if (ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kPipelineRecord), &pipelineRecord_)) {
             setPipelineRecording(pipelineRecord_);
@@ -1917,6 +1982,31 @@ void AppUi::drawPipelinePage() {
             if (segment->state != wa::CallLogStore::SegmentState::Monitoring)
                 ImGui::TextWrapped(wa::ui_text::get(wa::ui_text::kPipelineHistorySnapshotFmt),
                     wa::pipeline_attach_ui::segmentTime(segment->snapshotMs).c_str());
+            if (ImGui::CollapsingHeader(wa::ui_text::id(wa::ui_text::kPipelineMethods))) {
+                const bool readOnly = segment->state != wa::CallLogStore::SegmentState::Monitoring;
+                auto found = pipelineMethodDrafts_.find(segment->id);
+                if (found == pipelineMethodDrafts_.end())
+                    found = pipelineMethodDrafts_.emplace(segment->id,
+                        wa::pipeline_attach_ui::MethodDraft{segment->methods}).first;
+                auto& draft = found->second;
+                if (readOnly) draft.methods = segment->methods;
+                ImGui::TextUnformatted(wa::ui_text::get(draft.pending ? wa::ui_text::kPipelineMethodsPending
+                    : draft.dirty(segment->methods) ? wa::ui_text::kPipelineMethodsDraft : wa::ui_text::kPipelineMethodsApplied));
+                if (!draft.failure.empty()) {
+                    ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineMethodsFailed));
+                    ImGui::TextWrapped("%s", draft.failure.c_str());
+                }
+                ImGui::BeginChild("methodChoices", ImVec2(0, 200.f), true);
+                drawMonitorMethods(draft.methods, readOnly || draft.pending);
+                ImGui::EndChild();
+                ImGui::BeginDisabled(readOnly || draft.pending || !draft.dirty(segment->methods));
+                if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineMethodsApply))) {
+                    const auto result = pipelineAttaches_.configure(segment->instance, segment->token, draft.methods);
+                    draft.pending = static_cast<bool>(result);
+                    draft.failure = result ? "" : result.message;
+                }
+                ImGui::EndDisabled();
+            }
         }
         if (pipelinePump_)
             ImGui::Text("%s: %u", wa::ui_text::get(wa::ui_text::kPipelineXruns),

@@ -4,6 +4,12 @@
 #include <algorithm>
 
 namespace wa {
+Result PipelineAttachSet::publishMethods(ProcessInstance expected, uint32_t methods) {
+    const auto found = byPid_.find(expected.pid);
+    return found == byPid_.end()
+        ? Result::Fail(static_cast<long>(E_INVALIDARG), "Monitor selection: no active target")
+        : found->second->publishMethods(expected, methods);
+}
 
 Result PipelineAttachSet::adopt(std::unique_ptr<OnDemandAttach> attach) {
     if (!attach || !attach->attached() || attached(attach->pid()))
@@ -41,7 +47,6 @@ Result PipelineAttachSet::start(uint32_t pid, const std::string& deviceIdUtf8, P
 void PipelineAttachSet::stop(uint32_t pid) {
     auto it = byPid_.find(pid);
     if (it == byPid_.end()) return;
-    it->second->setPumpEnabled(false);
     it->second->setCaptureEnabled(false);
     it->second->stop();
     byPid_.erase(it);
@@ -69,7 +74,6 @@ std::vector<HookedCall> PipelineAttachSet::finish(uint32_t pid) {
 
 void PipelineAttachSet::stopAll() {
     for (auto& kv : byPid_) {
-        kv.second->setPumpEnabled(false);
         kv.second->setCaptureEnabled(false);
         kv.second->stop();
     }
@@ -143,11 +147,7 @@ uint32_t PipelineAttachSet::pumpXrunsSum() const {
     return sum;
 }
 
-void PipelineAttachSet::setPumpEnabled(bool on) {
-    for (auto& kv : byPid_) {
-        if (kv.second) kv.second->setPumpEnabled(on);
-    }
-}
+
 
 void PipelineAttachSet::setCaptureEnabled(bool on) {
     for (auto& kv : byPid_) {
