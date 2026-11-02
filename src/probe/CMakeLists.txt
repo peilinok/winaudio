@@ -6,6 +6,13 @@ add_executable(AttachSmoke AttachSmoke.cpp)
 target_link_libraries(AttachSmoke PRIVATE WinAudioCore)
 wa_set_project_warnings(AttachSmoke)
 
+add_executable(RemoteInjectionTarget RemoteInjectionTarget.cpp)
+target_link_libraries(RemoteInjectionTarget PRIVATE WinAudioCore)
+wa_set_project_warnings(RemoteInjectionTarget)
+
+add_library(RemoteInjectionGate SHARED RemoteInjectionGate.cpp)
+wa_set_project_warnings(RemoteInjectionGate)
+
 add_executable(HookBufferProbe HookBufferProbe.cpp)
 target_include_directories(HookBufferProbe PRIVATE ${CMAKE_SOURCE_DIR}/src/core)
 target_link_libraries(HookBufferProbe PRIVATE ole32 oleaut32 mmdevapi uuid advapi32)

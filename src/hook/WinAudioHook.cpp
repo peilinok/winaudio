@@ -1028,7 +1028,8 @@ DWORD WINAPI HookThread(LPVOID) {
     }
     const bool ok = install();
     g_ring->installed = ok ? kInstallOk : kInstallFailed;
-    if (ok) InterlockedExchange(reinterpret_cast<volatile LONG*>(&g_ring->captureEnabled), 1);
+    // Only the controller commits capture after it has accepted installation.
+    // A late completion after timeout/cancellation must stay quiet.
     return 0;
 }
 
