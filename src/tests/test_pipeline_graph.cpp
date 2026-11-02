@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include "PipelineGraph.h"
+#include "CallLogStore.h"
 
 using namespace wa;
 
@@ -198,6 +199,35 @@ TEST(PipelineGraph, WithoutEtwCategoryStaysUnknownOnMfx) {
     const auto* mfx = findNode(nodes, "mfx");
     ASSERT_NE(mfx, nullptr);
     EXPECT_TRUE(hasParam(*mfx, "category", "unknown", ObservationKind::Unknown));
+}
+
+TEST(PipelineGraph, OnlyLatestVerifiedInstanceSegmentContributesInitialize) {
+    CallLogStore store;
+    const ProcessInstance original{4242, 100}, reused{4242, 200};
+    const auto old = store.registerAttach(original, "chrome.exe", 11, 1000);
+    HookedCall initialized;
+    initialized.method = "Initialize";
+    initialized.iface = "IAudioClient";
+    initialized.category = "Communications";
+    initialized.raw = true;
+    initialized.hresult = 0;
+    store.append(old, initialized);
+    auto session = chromeCap();
+    const auto observed = assemblePipeline(session, endpointWithApos(),
+        store.initializeHintForInstance(original).hint, {});
+    ASSERT_NE(findNode(observed, "sfx"), nullptr);
+    EXPECT_EQ(findNode(observed, "sfx")->kind, ObservationKind::Skipped);
+    store.endAttach(old, true, 2000);
+    EXPECT_TRUE(store.initializeHintForInstance(original).hint.present);
+    EXPECT_FALSE(store.initializeHintForInstance(reused).hint.present);
+    EXPECT_FALSE(store.initializeHintForInstance({4242, 0}).hint.present);
+    const auto latest = store.registerAttach(original, "chrome.exe", 22, 3000);
+    EXPECT_NE(old, latest);
+    const auto unknown = assemblePipeline(session, endpointWithApos(),
+        store.initializeHintForInstance(original).hint, {});
+    ASSERT_NE(findNode(unknown, "mfx"), nullptr);
+    EXPECT_TRUE(hasParam(*findNode(unknown, "mfx"), "category", "unknown", ObservationKind::Unknown));
+    EXPECT_FALSE(store.initializeHintForInstance(original).hint.present);
 }
 
 TEST(PipelineGraph, ProbeSlicesAreProbedNotObserved) {

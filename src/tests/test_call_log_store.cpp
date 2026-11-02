@@ -121,7 +121,7 @@ TEST(CallLogStore, AttachSegmentsAndRoundsDoNotReuseRecordIdentity) {
     EXPECT_NE(store.entries().front()->id, kept->id);
 }
 
-TEST(CallLogStore, PumpWindowHasGlobalLimitAndExpiresOnDetachOrHide) {
+TEST(CallLogStore, LegacyPumpViewKeepsExistingLimitAndRetainsHistoryUntilHidden) {
     CallLogStore store;
     const auto first = store.registerAttach(7), second = store.registerAttach(9);
     std::vector<PumpCall> window;
@@ -143,7 +143,7 @@ TEST(CallLogStore, PumpWindowHasGlobalLimitAndExpiresOnDetachOrHide) {
     EXPECT_EQ(store.size(), 0u);
     EXPECT_TRUE(store.freezeExport().records.empty());
     store.endAttach(second);
-    EXPECT_EQ(store.find(selected), nullptr);
+    EXPECT_NE(store.find(selected), nullptr);
     EXPECT_EQ(store.pumpEntries().size(), 64u);
     const auto remaining = store.pumpEntries().front()->id;
     store.setPumpVisible(false);
@@ -315,7 +315,7 @@ TEST(CallLogStore, QueryUsesExistingSameFieldTokensAndKeepsHiddenControlDetails)
     EXPECT_EQ(view.work().matched, 0u);
 }
 
-TEST(CallLogStore, PumpIfaceOptionsExpireWithoutChangingControlQuery) {
+TEST(CallLogStore, PumpHistoryKeepsIfaceOptionsWithoutChangingControlQuery) {
     CallLogStore store;
     const auto attach = store.registerAttach(7);
     store.append(attach, sampleCall());
@@ -328,7 +328,7 @@ TEST(CallLogStore, PumpIfaceOptionsExpireWithoutChangingControlQuery) {
     EXPECT_EQ(store.ifaces().size(), 2u);
     EXPECT_EQ(store.view({}).work().matched, 0u);
     store.endAttach(attach);
-    EXPECT_EQ(store.ifaces(), std::vector<std::string>{"IAudioClient"});
+    EXPECT_EQ(store.ifaces(), (std::vector<std::string>{"IAudioClient", "IAudioRenderClient"}));
     EXPECT_EQ(store.view({}).work().matched, 0u);
 }
 

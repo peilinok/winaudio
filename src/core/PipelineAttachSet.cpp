@@ -47,6 +47,26 @@ void PipelineAttachSet::stop(uint32_t pid) {
     byPid_.erase(it);
 }
 
+ProcessInstance PipelineAttachSet::instance(uint32_t pid) const {
+    const auto found = byPid_.find(pid);
+    return found == byPid_.end() ? ProcessInstance{} : found->second->instance();
+}
+
+std::string PipelineAttachSet::processName(uint32_t pid) const {
+    const auto found = byPid_.find(pid);
+    return found == byPid_.end() ? std::string{} : found->second->processName();
+}
+
+std::vector<HookedCall> PipelineAttachSet::finish(uint32_t pid) {
+    const auto found = byPid_.find(pid);
+    if (found == byPid_.end()) return {};
+    // One bounded final drain. Outstanding remote calls are not awaited.
+    found->second->setCaptureEnabled(false);
+    auto calls = found->second->drain();
+    for (auto& call : calls) call.pid = pid;
+    return calls;
+}
+
 void PipelineAttachSet::stopAll() {
     for (auto& kv : byPid_) {
         kv.second->setPumpEnabled(false);

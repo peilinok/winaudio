@@ -500,14 +500,16 @@ void AppUi::applyPipelineJoin() {
     if (pipelineEtw_.status() == wa::EtwWatchStatus::Listening)
         etw = wa::matchEtwInitialize(session, pipelineEtw_.snapshot(), wa::etwNowMs());
     pipelineEtwHint_ = etw;
-    const auto& hooked = pipelineCallStore_.initializeHintForPid(session.processId, {&frameProbe_,
+    const wa::ProcessInstance instance{session.processId, session.processCreated};
+    const auto& hooked = pipelineCallStore_.initializeHintForInstance(instance, {&frameProbe_,
         [](void* context, wa::CallLogStage stage, bool begin, size_t count) {
             if (stage == wa::CallLogStage::Initialize && begin)
                 static_cast<wa::FrameProbe*>(context)->addWork("initialize-contributors", count);
         }});
     pipelineJoinStatus_.etwMatched = etw.present;
     pipelineJoinStatus_.probesPresent = !pipelineProbes_.empty();
-    pipelineJoinStatus_.sessionControlCalls = pipelineCallStore_.sessionCallCount(session.processId);
+    const auto graphSegment = pipelineCallStore_.segment(pipelineCallStore_.latestAttach(instance));
+    pipelineJoinStatus_.sessionControlCalls = graphSegment ? graphSegment->count : 0;
     pipelineJoinStatus_.otherPidCalls = pipelineCallStore_.size() -
         pipelineCallStore_.pidCallCount(session.processId) -
         (session.processId != 0 ? pipelineCallStore_.pidCallCount(0) : 0);
@@ -595,8 +597,11 @@ void AppUi::runPipelineAttach() {
     std::string sessionKey;
     wa::pipeline_attach_ui::sessionHintForPid(
         pipelineSessions_, pipelineSelected_, pid, deviceId, flow, sessionKey);
-    wa::pipeline_attach_ui::AttachRequest request{pid, deviceId, flow, sessionKey,
-        !pipelineAttaches_.anyAttached() && pipelineCallStore_.hasSources()};
+    wa::pipeline_attach_ui::AttachRequest request{pid, deviceId, flow, sessionKey, false};
+    if (pipelineSelected_ >= 0 && pipelineSelected_ < static_cast<int>(pipelineSessions_.size())) {
+        const auto& selected = pipelineSessions_[static_cast<size_t>(pipelineSelected_)];
+        if (selected.processId == pid) request.instance = {pid, selected.processCreated};
+    }
     const auto action = pipelineRoundTransition_.request(std::move(request), pipelineCallStore_.size() != 0,
                                                         pipelineExport_.busy());
     if (action == wa::pipeline_attach_ui::RoundAttachAction::Busy) {
@@ -610,7 +615,7 @@ void AppUi::attemptPipelineAttach(const wa::pipeline_attach_ui::AttachRequest& r
     const auto pid = request.pid;
     const auto& deviceId = request.deviceId;
     const auto flow = request.flow;
-    wa::Result r = pipelineAttaches_.start(pid, deviceId, flow);
+    wa::Result r = pipelineAttaches_.start(pid, deviceId, flow, request.instance);
     if (r) {
         pipelinePreparing_ = request;
         logLines_.push_back("pipeline preparing attach pid=" + std::to_string(pid));
@@ -638,11 +643,6 @@ void AppUi::pollPipelineAttach() {
             const auto request = std::move(*pipelinePreparing_);
             pipelinePreparing_.reset();
             if (event.kind == wa::PipelineAttachController::EventKind::Attached) {
-                wa::pipeline_attach_ui::commitAttach(pipelineCallStore_, request, true);
-                if (request.replaceRound) {
-                    pipelineCallSelected_ = {};
-                    pipelinePumpSelectionExpired_ = false;
-                }
                 pipelineAttachFailByPid_.erase(event.pid);
                 if (!request.sessionKey.empty()) {
                     pipelineAttachUi_[request.sessionKey] = wa::PipelineAttachUiState::Attached;
@@ -658,18 +658,20 @@ void AppUi::pollPipelineAttach() {
                 logLines_.push_back("pipeline attach failed pid=" + std::to_string(event.pid) + ": " + event.result.message);
             }
         }
-        receivePipelineCalls(std::move(batch.calls));
-        for (const auto& item : batch.pump)
-            pipelineCallStore_.updatePump(pipelineCallStore_.activeAttach(item.first), item.second);
-        for (const auto& event : batch.events) {
+        auto events = batch.events;
+        {
+            wa::FrameBracket receive(frameProbe_, wa::FrameSlice::CallReceive);
+            frameProbe_.addWork("control-received", batch.calls.size());
+            pipelineSegmentSelection_.apply(pipelineCallStore_, std::move(batch));
+        }
+        for (const auto& event : events) {
             if (event.kind != wa::PipelineAttachController::EventKind::Detached) continue;
-            pipelineCallStore_.endAttach(pipelineCallStore_.activeAttach(event.pid));
             for (const auto& row : pipelineSessions_)
                 if (row.processId == event.pid)
                     setPipelineAttachUi(row, wa::PipelineAttachUiState::Detached);
             logLines_.push_back("pipeline detached pid=" + std::to_string(event.pid));
         }
-        if (!batch.events.empty()) applyPipelineJoin();
+        applyPipelineJoin();
     }
 }
 
@@ -1532,7 +1534,7 @@ void AppUi::drawPipelinePage() {
         const auto attachedSet = pipelineAttachedPidSet();
         const bool canAttach = wa::pipeline_attach_ui::canAttach(
             boxPidOk ? boxPid : 0u, attachedSet.find(boxPidOk ? boxPid : 0u) != attachedSet.end()) &&
-            !(pipelineExport_.busy() && !pipelineAttaches_.anyAttached()) && !pipelinePreparing_;
+            !pipelinePreparing_;
         if (!canAttach) ImGui::BeginDisabled();
         if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineAttach)))
             runPipelineAttach();
@@ -1830,6 +1832,20 @@ void AppUi::drawPipelinePage() {
         if (pipelineSelected_ < 0) {
             ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineSelectHint));
         } else {
+            const auto& session = pipelineSessions_[static_cast<size_t>(pipelineSelected_)];
+            ImGui::Text(wa::ui_text::get(wa::ui_text::kPipelineGraphSourceFmt),
+                        session.processName.c_str(), session.processId);
+            const auto* source = pipelineCallStore_.segment(pipelineCallStore_.latestAttach(
+                wa::ProcessInstance{session.processId, session.processCreated}));
+            if (source) {
+                const auto status = source->state == wa::CallLogStore::SegmentState::Monitoring
+                    ? wa::ui_text::kPipelineMonitoring : source->state == wa::CallLogStore::SegmentState::Exited
+                    ? wa::ui_text::kPipelineExited : wa::ui_text::kPipelineDetachedHistory;
+                ImGui::Text(wa::ui_text::get(wa::ui_text::kPipelineGraphSegmentFmt),
+                    static_cast<unsigned long long>(source->id), wa::ui_text::get(status));
+            } else if (!session.processCreated) {
+                ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineIdentityUnknown));
+            }
             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.75f, 0.75f, 0.78f, 1.f));
             ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineKindLegend));
             ImGui::PopStyleColor();
@@ -1905,6 +1921,41 @@ void AppUi::drawPipelinePage() {
         const float callRowH = (std::max)(80.0f, ImGui::GetContentRegionAvail().y);
         ImGui::BeginChild("pipelineCallLog", ImVec2(0, callRowH), true);
         ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kPipelineCallLog));
+        const auto segmentStatus = [](wa::CallLogStore::SegmentState state) {
+            return wa::ui_text::get(state == wa::CallLogStore::SegmentState::Monitoring
+                ? wa::ui_text::kPipelineMonitoring : state == wa::CallLogStore::SegmentState::Exited
+                ? wa::ui_text::kPipelineExited : wa::ui_text::kPipelineDetachedHistory);
+        };
+        ImGui::BeginChild("pipelineSegmentList", ImVec2(240.f, 0), true);
+        const auto drawSegments = [&](bool active) {
+            for (const auto& segment : pipelineCallStore_.segments(active)) {
+                ImGui::PushID(static_cast<int>(segment.id));
+                std::string label = segment.name + "\nPID " + std::to_string(segment.instance.pid) +
+                    " | #" + std::to_string(segment.id) + " | " + segmentStatus(segment.state) +
+                    "\n" + wa::pipeline_attach_ui::segmentTime(segment.startedMs);
+                if (ImGui::Selectable(label.c_str(), pipelineSegmentSelection_.selected() == segment.id,
+                                      ImGuiSelectableFlags_None, ImVec2(0, ImGui::GetTextLineHeight() * 3.f))) {
+                    pipelineSegmentSelection_.select(pipelineCallStore_, segment.id);
+                    pipelineCallSelected_ = {};
+                    pipelinePumpSelectionExpired_ = false;
+                }
+                ImGui::PopID();
+            }
+        };
+        ImGui::SeparatorText(wa::ui_text::get(wa::ui_text::kPipelineMonitoring));
+        drawSegments(true);
+        if (ImGui::CollapsingHeader(wa::ui_text::get(wa::ui_text::kPipelineHistory), ImGuiTreeNodeFlags_DefaultOpen))
+            drawSegments(false);
+        ImGui::EndChild();
+        ImGui::SameLine();
+        ImGui::BeginChild("pipelineSegmentCalls", ImVec2(0, 0), false);
+        if (const auto* segment = pipelineCallStore_.segment(pipelineSegmentSelection_.selected())) {
+            ImGui::Text(wa::ui_text::get(wa::ui_text::kPipelineCallSourceFmt), segment->name.c_str(),
+                segment->instance.pid, static_cast<unsigned long long>(segment->id), segmentStatus(segment->state));
+            if (segment->state != wa::CallLogStore::SegmentState::Monitoring)
+                ImGui::TextWrapped(wa::ui_text::get(wa::ui_text::kPipelineHistorySnapshotFmt),
+                    wa::pipeline_attach_ui::segmentTime(segment->snapshotMs).c_str());
+        }
         if (pipelinePump_)
             ImGui::Text("%s: %u", wa::ui_text::get(wa::ui_text::kPipelineXruns),
                         pipelineAttaches_.pumpXrunsSum());
@@ -1939,7 +1990,7 @@ void AppUi::drawPipelinePage() {
         ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineCallColIface));
         ImGui::SameLine();
         ImGui::SetNextItemWidth(ifaceComboW);
-        const auto& ifaceChoices = pipelineCallStore_.ifaces();
+        const auto ifaceChoices = pipelineCallStore_.ifaces(pipelineSegmentSelection_.selected());
         const char* ifacePreview = pipelineCallIfaceFilter_[0]
                                        ? pipelineCallIfaceFilter_
                                        : wa::ui_text::get(wa::ui_text::kPipelineCallIfaceAll);
@@ -1971,6 +2022,7 @@ void AppUi::drawPipelinePage() {
         filterOpts.text = pipelineCallFilter_;
         filterOpts.iface = pipelineCallIfaceFilter_;
         filterOpts.failuresOnly = pipelineCallFailuresOnly_;
+        filterOpts.attach = pipelineSegmentSelection_.selected();
         const auto visible = pipelineCallStore_.view(filterOpts, {&frameProbe_,
             [](void* context, wa::CallLogStage stage, bool begin, size_t) {
                 auto& probe = *static_cast<wa::FrameProbe*>(context);
@@ -2149,6 +2201,7 @@ void AppUi::drawPipelinePage() {
             ImGui::EndChild();
             ImGui::EndChild();
         }
+        ImGui::EndChild();
         ImGui::EndChild();
     }
     ImGui::EndChild();

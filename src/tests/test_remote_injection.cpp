@@ -321,6 +321,37 @@ TEST_F(RemoteInjectionTest, BackgroundTargetExitPublishesAnOwnedEndResult) {
     EXPECT_EQ(ended[0].kind, wa::PipelineAttachController::EventKind::Detached);
 }
 
+TEST_F(RemoteInjectionTest, FrozenExpectedIdentityRejectsPidReuseBeforeInjection) {
+    wa::ProcessInstance expected;
+    ASSERT_TRUE(wa::queryProcessInstance(child.dwProcessId, expected));
+    ++expected.created;  // Deterministic replacement identity, not PID reuse luck.
+    wa::PipelineAttachController controller;
+    ASSERT_TRUE(controller.start(child.dwProcessId, {}, wa::PipelineFlow::Render, expected));
+    ASSERT_TRUE(waitUntil([&] { return controller.snapshot().pendingPid == 0; }));
+    const auto events = collectEvents(controller);
+    ASSERT_EQ(events.size(), 1u);
+    EXPECT_EQ(events[0].kind, wa::PipelineAttachController::EventKind::Failed);
+    EXPECT_EQ(events[0].token, 0u);
+    EXPECT_EQ(events[0].result.code, static_cast<long>(HRESULT_FROM_WIN32(ERROR_PROCESS_ABORTED)));
+    EXPECT_FALSE(controller.anyAttached());
+    EXPECT_EQ(WaitForSingleObject(child.hProcess, 0), WAIT_TIMEOUT);
+}
+
+TEST_F(RemoteInjectionTest, ExitedFrozenRequestNeverBecomesSuccessfulSegment) {
+    wa::ProcessInstance expected;
+    ASSERT_TRUE(wa::queryProcessInstance(child.dwProcessId, expected));
+    SetEvent(stop);
+    ASSERT_EQ(WaitForSingleObject(child.hProcess, 5000), WAIT_OBJECT_0);
+    wa::PipelineAttachController controller;
+    ASSERT_TRUE(controller.start(child.dwProcessId, {}, wa::PipelineFlow::Render, expected));
+    ASSERT_TRUE(waitUntil([&] { return controller.snapshot().pendingPid == 0; }));
+    const auto events = collectEvents(controller);
+    ASSERT_EQ(events.size(), 1u);
+    EXPECT_EQ(events[0].kind, wa::PipelineAttachController::EventKind::Failed);
+    EXPECT_EQ(events[0].token, 0u);
+    EXPECT_FALSE(controller.anyAttached());
+}
+
 TEST_F(RemoteInjectionTest, BackgroundInstallationFailurePreservesAnExistingTarget) {
     wa::PipelineAttachController controller;
     ASSERT_TRUE(controller.start(child.dwProcessId, {}, wa::PipelineFlow::Render));
@@ -443,7 +474,9 @@ TEST_F(AttachLifecycleTest, ExistingTargetDetachesWhileSecondInstallationIsStill
     ASSERT_TRUE(controller.start(sibling.process.dwProcessId, {}, wa::PipelineFlow::Render));
     ASSERT_TRUE(waitUntil([&] { return controller.snapshot().pendingPid == 0; }));
     ASSERT_TRUE(controller.attached(sibling.process.dwProcessId));
-    collectEvents(controller);
+    const auto attachedEvents = collectEvents(controller);
+    ASSERT_EQ(attachedEvents.size(), 1u);
+    const auto siblingToken = attachedEvents.front().token;
     const auto threads = threadCount(child.dwProcessId);
     ASSERT_TRUE(controller.start(child.dwProcessId, {}, wa::PipelineFlow::Render));
     ASSERT_TRUE(waitUntil([&] { return threadCount(child.dwProcessId) > threads; }));
@@ -451,7 +484,7 @@ TEST_F(AttachLifecycleTest, ExistingTargetDetachesWhileSecondInstallationIsStill
     ASSERT_TRUE(waitUntil([&] {
         for (const auto& batch : controller.poll())
             for (const auto& item : batch.pump)
-                if (item.first == sibling.process.dwProcessId) ++received;
+                if (item.first == siblingToken) ++received;
         return received >= 3;
     }));
     EXPECT_EQ(controller.snapshot().pendingPid, child.dwProcessId);

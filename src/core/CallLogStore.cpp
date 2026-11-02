@@ -94,6 +94,7 @@ void CallLogStore::beginRound() {
     entries_.clear();
     attaches_.clear();
     latestAttach_.clear();
+    tokenAttach_.clear();
     pidCounts_.clear();
     pump_.clear();
     ++controlRevision_;
@@ -117,17 +118,74 @@ uint64_t CallLogStore::registerAttach(uint32_t pid) {
     if (const auto active = activeAttach(pid)) return active;
     AttachSegment segment;
     segment.pid = pid;
+    segment.instance.pid = pid;
+    segment.id = attaches_.size() + 1;
     attaches_.push_back(std::move(segment));
     const uint64_t id = attaches_.size();
     latestAttach_[pid] = id;
     return id;
 }
 
+uint64_t CallLogStore::registerAttach(ProcessInstance instance, std::string name, uint64_t token, int64_t startedMs) {
+    if (!instance || !token) return 0;
+    if (const auto existing = attachForToken(token))
+        return segment(existing)->instance == instance ? existing : 0;
+    if (const auto current = activeAttach(instance.pid)) {
+        if (segment(current)->instance == instance) return current;
+        // A new instance cannot inherit an old instance's active ownership.
+        endAttach(current, true, startedMs);
+    }
+    AttachSegment next;
+    next.id = attaches_.size() + 1;
+    next.token = token;
+    next.pid = instance.pid;
+    next.instance = instance;
+    next.name = std::move(name);
+    next.startedMs = next.snapshotMs = startedMs;
+    attaches_.push_back(std::move(next));
+    const uint64_t id = attaches_.size();
+    latestAttach_[instance.pid] = tokenAttach_[token] = id;
+    return id;
+}
+
+const CallLogStore::Segment* CallLogStore::segment(uint64_t attach) const {
+    return attach && attach <= attaches_.size() ? &attaches_[static_cast<size_t>(attach - 1)] : nullptr;
+}
+
+std::vector<CallLogStore::Segment> CallLogStore::segments(bool active) const {
+    std::vector<Segment> out;
+    for (auto it = attaches_.rbegin(); it != attaches_.rend(); ++it)
+        if (it->active == active) out.push_back(*it);
+    return out;
+}
+
+uint64_t CallLogStore::attachForToken(uint64_t token) const {
+    const auto found = tokenAttach_.find(token);
+    return found == tokenAttach_.end() ? 0 : found->second;
+}
+
+uint64_t CallLogStore::latestAttach(ProcessInstance instance) const {
+    if (!instance) return 0;
+    for (auto it = attaches_.rbegin(); it != attaches_.rend(); ++it)
+        if (it->instance == instance) return it->id;
+    return 0;
+}
+
+const HookedInitializeExtract& CallLogStore::initializeHintForInstance(ProcessInstance instance, CallLogObserver observer) {
+    return initializeHint(latestAttach(instance), observer);
+}
+
 void CallLogStore::endAttach(uint64_t attach) {
+    endAttach(attach, false, 0);
+}
+
+void CallLogStore::endAttach(uint64_t attach, bool exited, int64_t snapshotMs) {
     if (attach == 0 || attach > attaches_.size()) return;
     auto& segment = attaches_[static_cast<size_t>(attach - 1)];
+    if (!segment.active) return;
     segment.active = false;
-    segment.pump.clear();
+    segment.state = exited ? SegmentState::Exited : SegmentState::Detached;
+    if (snapshotMs) segment.snapshotMs = snapshotMs;
     rebuildPump();
 }
 
@@ -146,7 +204,7 @@ void CallLogStore::rebuildPump() {
     ++pumpRevision_;
     pump_.clear();
     for (const auto& segment : attaches_)
-        if (segment.active) pump_.insert(pump_.end(), segment.pump.begin(), segment.pump.end());
+        pump_.insert(pump_.end(), segment.pump.begin(), segment.pump.end());
     std::sort(pump_.begin(), pump_.end(), [](const CallRecordRef& a, const CallRecordRef& b) {
         if (a->call.timeMs != b->call.timeMs) return a->call.timeMs < b->call.timeMs;
         if (a->id.attach != b->id.attach) return a->id.attach < b->id.attach;
@@ -173,6 +231,8 @@ void CallLogStore::updatePump(uint64_t attach, const std::vector<PumpCall>& wind
         if (old != segment.pump.end()) { next.push_back(*old); continue; }
         auto call = observed.call;
         call.pid = segment.pid;
+        call.processCreated = segment.instance.created;
+        call.attachToken = segment.token;
         call.pump = true;
         call.args = sanitizeHookedArgs(std::move(call.args));
         CallRecord record{{round_, attach, observed.sequence, CallLane::Pump}, std::move(call)};
@@ -196,12 +256,18 @@ void CallLogStore::append(uint64_t attach, HookedCall call) {
     if (attach == 0 || attach > attaches_.size()) return;
     auto& segment = attaches_[static_cast<size_t>(attach - 1)];
     if (!segment.active || call.pump || isPumpMethod(call.method)) return;
+    if ((call.attachToken && call.attachToken != segment.token) ||
+        (call.processCreated && call.processCreated != segment.instance.created)) return;
+    if (segment.instance && call.pid && call.pid != segment.instance.pid) return;
     if (segment.pid != 0) call.pid = segment.pid;
+    call.attachToken = segment.token;
+    call.processCreated = segment.instance.created;
     call.args = sanitizeHookedArgs(std::move(call.args));
     CallRecord record{{round_, attach, entries_.size() + 1, CallLane::Control}, std::move(call)};
     auto ref = std::make_shared<const CallRecord>(std::move(record));
     ++pidCounts_[ref->call.pid];
     call_log_filter::addIface(controlIfaces_, ref->call.iface);
+    call_log_filter::addIface(segment.controlIfaces, ref->call.iface);
     ++controlRevision_;
     ++segment.count;
     if (ref->call.method == "Initialize" || ref->call.method == "InitializeSharedAudioStream" ||
@@ -219,11 +285,20 @@ const std::vector<std::string>& CallLogStore::ifaces() {
     return ifaces_;
 }
 
+std::vector<std::string> CallLogStore::ifaces(uint64_t attach) const {
+    if (!attach || attach > attaches_.size()) return {};
+    const auto& segment = attaches_[static_cast<size_t>(attach - 1)];
+    auto result = segment.controlIfaces;
+    if (pumpVisible_) for (const auto& ref : segment.pump) call_log_filter::addIface(result, ref->call.iface);
+    call_log_filter::sortIfaces(result);
+    return result;
+}
+
 CallLogStore::View CallLogStore::view(const call_log_filter::FilterOpts& query, CallLogObserver observer) {
     viewWork_ = {};
     viewWork_.controlChanged = matchedRevision_ != controlRevision_;
     viewWork_.queryChanged = !queryValid_ || query.text != queryText_ || query.iface != queryIface_ ||
-        query.failuresOnly != queryFailures_;
+        query.failuresOnly != queryFailures_ || query.attach != queryAttach_;
     viewWork_.pumpChanged = matchedPumpRevision_ != pumpRevision_;
     if (sortedRevision_ != controlRevision_) {
         observer.stage(CallLogStage::Sort, true, entries_.size());
@@ -243,10 +318,12 @@ CallLogStore::View CallLogStore::view(const call_log_filter::FilterOpts& query, 
         queryText_ = query.text;
         queryIface_ = query.iface;
         queryFailures_ = query.failuresOnly;
+        queryAttach_ = query.attach;
         queryValid_ = true;
         matched_.clear();
         positions_.assign(entries_.size(), kNotFound);
         for (const auto index : sorted_) {
+            if (query.attach && entries_[index]->id.attach != query.attach) continue;
             if (!call_log_filter::callMatches(entries_[index]->call, query)) continue;
             positions_[index] = matched_.size();
             matched_.push_back(index);
@@ -256,11 +333,13 @@ CallLogStore::View CallLogStore::view(const call_log_filter::FilterOpts& query, 
         observer.stage(CallLogStage::Match, false, entries_.size());
     }
     if (viewWork_.controlChanged || viewWork_.queryChanged || viewWork_.pumpChanged) {
-        const auto& pump = pumpEntries();
+        const auto& pump = pumpVisible_ && query.attach && query.attach <= attaches_.size()
+            ? attaches_[static_cast<size_t>(query.attach - 1)].pump : pumpEntries();
         observer.stage(CallLogStage::PumpMatch, true, pump.size());
         matchedPump_.clear();
         pumpPositions_.clear();
         for (const auto& ref : pump) {
+            if (query.attach && ref->id.attach != query.attach) continue;
             if (!call_log_filter::callMatches(ref->call, query)) continue;
             // Equal timestamps place every control row before pump metadata.
             const auto insertion = std::upper_bound(matched_.begin(), matched_.end(), ref->call.timeMs,
@@ -321,7 +400,9 @@ void CallLogStore::append(std::vector<HookedCall> calls) {
 
 const CallRecord* CallLogStore::find(CallRecordId id) const {
     if (id.round == round_ && id.lane == CallLane::Pump) {
-        for (const auto& ref : pumpEntries()) if (ref->id == id) return ref.get();
+        if (pumpVisible_ && id.attach && id.attach <= attaches_.size())
+            for (const auto& ref : attaches_[static_cast<size_t>(id.attach - 1)].pump)
+                if (ref->id == id) return ref.get();
         return nullptr;
     }
     if (id.round != round_ || id.lane != CallLane::Control || id.sequence == 0 ||

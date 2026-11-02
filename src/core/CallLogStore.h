@@ -2,6 +2,7 @@
 #include "HookedCall.h"
 #include "CallLogFilter.h"
 #include "Result.h"
+#include "ProcessInstance.h"
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -52,6 +53,16 @@ struct CallLogViewWork {
 // JSONL one object per line; CSV is a flat export of the same fields. No PCM.
 class CallLogStore {
 public:
+    enum class SegmentState { Monitoring, Detached, Exited };
+    struct Segment {
+        uint64_t id = 0, token = 0;
+        ProcessInstance instance;
+        std::string name;
+        int64_t startedMs = 0, snapshotMs = 0;
+        SegmentState state = SegmentState::Monitoring;
+        bool coverageUnknown = true;
+        size_t count = 0;
+    };
     static constexpr size_t kNotFound = static_cast<size_t>(-1);
     // Borrows the current query cache; consume before the next Store mutation/view.
     class View {
@@ -68,12 +79,19 @@ public:
     };
     View view(const call_log_filter::FilterOpts& query = {}, CallLogObserver observer = {});
     const std::vector<std::string>& ifaces();
+    std::vector<std::string> ifaces(uint64_t attach) const;
     void clear();
     void beginRound();
     uint64_t round() const { return round_; }
     bool hasSources() const { return !attaches_.empty(); }
     uint64_t registerAttach(uint32_t pid);
+    uint64_t registerAttach(ProcessInstance instance, std::string name, uint64_t token, int64_t startedMs);
+    const Segment* segment(uint64_t attach) const;
+    std::vector<Segment> segments(bool active) const;
+    uint64_t attachForToken(uint64_t token) const;
+    uint64_t latestAttach(ProcessInstance instance) const;
     void endAttach(uint64_t attach);
+    void endAttach(uint64_t attach, bool exited, int64_t snapshotMs);
     uint64_t activeAttach(uint32_t pid) const;
     uint64_t latestAttach(uint32_t pid) const;
     void append(uint64_t attach, std::vector<HookedCall> calls);
@@ -84,6 +102,7 @@ public:
     size_t sessionCallCount(uint32_t pid) const;
     const HookedInitializeExtract& initializeHint(uint64_t attach, CallLogObserver observer = {});
     const HookedInitializeExtract& initializeHintForPid(uint32_t pid, CallLogObserver observer = {});
+    const HookedInitializeExtract& initializeHintForInstance(ProcessInstance instance, CallLogObserver observer = {});
     size_t pidCallCount(uint32_t pid) const;
     void updatePump(uint64_t attach, const std::vector<PumpCall>& window);
     void setPumpVisible(bool on);
@@ -115,17 +134,18 @@ public:
 private:
     // Accessed by the GUI/control thread. Export workers only own frozen refs.
     std::vector<CallRecordRef> entries_;
-    struct AttachSegment {
+    struct AttachSegment : Segment {
         uint32_t pid = 0;
         bool active = true;
-        size_t count = 0;
         std::vector<CallRecordRef> contributors;
         size_t hintRevision = kNotFound;
         HookedInitializeExtract hint;
         std::vector<CallRecordRef> pump;
+        std::vector<std::string> controlIfaces;
     };
     std::vector<AttachSegment> attaches_;
     std::unordered_map<uint32_t, uint64_t> latestAttach_;
+    std::unordered_map<uint64_t, uint64_t> tokenAttach_;
     std::unordered_map<uint32_t, size_t> pidCounts_;
     std::vector<CallRecordRef> pump_;
     bool pumpVisible_ = false;
@@ -141,6 +161,7 @@ private:
     std::vector<const CallRecord*> matchedPump_;
     std::string queryText_, queryIface_;
     bool queryFailures_ = false, queryValid_ = false;
+    uint64_t queryAttach_ = 0;
     CallLogViewWork viewWork_;
     std::vector<std::string> controlIfaces_, ifaces_;
     uint64_t ifacesControlRevision_ = 0, ifacesPumpRevision_ = 0;

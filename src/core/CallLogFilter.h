@@ -80,6 +80,7 @@ struct FilterOpts {
     std::string_view text;
     std::string_view iface;
     bool failuresOnly = false;
+    uint64_t attach = 0;  // Zero keeps the legacy combined view.
 };
 
 inline bool callMatches(const HookedCall& c, const FilterOpts& opts) {

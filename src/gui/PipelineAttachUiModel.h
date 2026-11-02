@@ -1,5 +1,6 @@
 #pragma once
 #include <cstdio>
+#include <ctime>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -8,6 +9,7 @@
 #include "AudioSessionEnumerator.h"
 #include "CallLogStore.h"
 #include "PipelineGraph.h"
+#include "PipelineAttachController.h"
 
 namespace wa::pipeline_attach_ui {
 
@@ -17,9 +19,63 @@ struct AttachRequest {
     PipelineFlow flow = PipelineFlow::Capture;
     std::string sessionKey;
     bool replaceRound = false;
+    ProcessInstance instance;
 };
 
 enum class RoundAttachAction { Busy, Confirm, Attempt };
+
+inline std::string segmentTime(int64_t milliseconds) {
+    const auto seconds = static_cast<std::time_t>(milliseconds / 1000);
+    std::tm local{};
+    if (localtime_s(&local, &seconds) != 0) return "?";
+    char text[32]{};
+    std::strftime(text, sizeof(text), "%Y-%m-%d %H:%M:%S", &local);
+    return text;
+}
+
+// Selection is presentation state; the Store is the only segment/history owner.
+class SegmentSelection {
+public:
+    uint64_t selected() const { return selected_; }
+    bool select(const CallLogStore& store, uint64_t id) {
+        if (!store.segment(id)) return false;
+        selected_ = id;
+        return true;
+    }
+    void apply(CallLogStore& store, PipelineAttachController::Batch batch) {
+        // Finish already-known sources before admitting replacement instances.
+        // One batch can carry the old source's bounded tail and a new success.
+        for (const auto& event : batch.events) {
+            if (event.kind != PipelineAttachController::EventKind::Detached) continue;
+            const auto id = store.attachForToken(event.token);
+            if (!id) continue;
+            for (auto& call : batch.calls)
+                if (call.attachToken == event.token) store.append(id, std::move(call));
+            for (const auto& item : batch.pump)
+                if (item.first == event.token) store.updatePump(id, item.second);
+            store.endAttach(id, event.exited, event.snapshotMs);
+        }
+        for (const auto& event : batch.events) {
+            if (event.kind != PipelineAttachController::EventKind::Attached) continue;
+            const auto id = store.registerAttach(event.instance, event.name, event.token, event.snapshotMs);
+            if (!selected_) selected_ = id;
+        }
+        for (auto& call : batch.calls) {
+            // Output ownership includes the source token. Never resolve by a
+            // PID whose active segment may have changed while this was queued.
+            const auto id = store.attachForToken(call.attachToken);
+            store.append(id, std::move(call));
+        }
+        for (const auto& item : batch.pump)
+            store.updatePump(store.attachForToken(item.first), item.second);
+        for (const auto& event : batch.events) {
+            if (event.kind != PipelineAttachController::EventKind::Detached) continue;
+            store.endAttach(store.attachForToken(event.token), event.exited, event.snapshotMs);
+        }
+    }
+private:
+    uint64_t selected_ = 0;
+};
 
 // Ready means the export was reaped, not merely that its worker signalled done.
 class ExportExitState {
@@ -69,7 +125,6 @@ private:
 
 inline uint64_t commitAttach(CallLogStore& store, const AttachRequest& request, bool succeeded) {
     if (!succeeded) return 0;
-    if (request.replaceRound) store.beginRound();
     return store.registerAttach(request.pid);
 }
 

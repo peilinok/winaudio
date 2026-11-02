@@ -14,11 +14,16 @@ public:
         uint32_t pid = 0;
         EventKind kind = EventKind::Failed;
         Result result;
+        ProcessInstance instance;
+        uint64_t token = 0;
+        std::string name;
+        int64_t snapshotMs = 0;
+        bool exited = false;
     };
     struct Batch {
         std::vector<Event> events;
         std::vector<HookedCall> calls;
-        std::vector<std::pair<uint32_t, std::vector<PumpCall>>> pump;
+        std::vector<std::pair<uint64_t, std::vector<PumpCall>>> pump; // Receiver segment token.
     };
     struct Snapshot {
         std::vector<uint32_t> attached;
@@ -32,7 +37,7 @@ public:
     PipelineAttachController(const PipelineAttachController&) = delete;
     PipelineAttachController& operator=(const PipelineAttachController&) = delete;
     Result start(uint32_t pid, const std::string& deviceId = {},
-                 PipelineFlow flow = PipelineFlow::Capture);
+                 PipelineFlow flow = PipelineFlow::Capture, ProcessInstance expected = {});
     bool stop(uint32_t pid);
     bool stopAll();
     void shutdown();  // Cancel and join before frontend logging/global teardown.

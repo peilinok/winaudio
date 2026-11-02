@@ -43,6 +43,19 @@ void enableAfterOriginal() {
 void disableAfterOriginal() {
     InterlockedExchange(reinterpret_cast<volatile LONG*>(&hook_harness::ring.pumpEnabled), 0);
 }
+void reattachAfterOriginal() {
+    InterlockedIncrement(reinterpret_cast<volatile LONG*>(&hook_harness::ring.observationGeneration));
+}
+}
+
+TEST(HookBuffer, InFlightCallCannotCrossReattachBoundary) {
+    for (int entry = 0; entry < 4; ++entry) {
+        reset();
+        hook_harness::afterOriginal = reattachAfterOriginal;
+        EXPECT_EQ(hook_harness::invoke(entry), S_OK);
+        EXPECT_EQ(hook_harness::calls, 1u);
+        EXPECT_EQ(hook_harness::ring.pumpWriteIndex, 0u);
+    }
 }
 
 TEST(HookBuffer, ClosedGatesCallOriginalWithoutRecordWork) {
@@ -156,17 +169,17 @@ TEST(HookBuffer, MissingOriginalAndNullOutputsRemainSafe) {
 
 TEST(HookBuffer, ControlDoesNotRequirePumpAndSharedFlagsKeepLayout) {
     reset(4);
-    emitSimple(7, "IAudioClient", "Start", "", S_OK);
+    emitSimple(7, "IAudioClient", "Start", "", S_OK, observationGeneration());
     EXPECT_EQ(hook_harness::ring.writeIndex, 1u);
     EXPECT_EQ(hook_harness::ring.pumpWriteIndex, 0u);
-    EXPECT_EQ(wa::hook_ipc::kRingLayout, 6u);
+    EXPECT_EQ(wa::hook_ipc::kRingLayout, 7u);
     EXPECT_EQ(sizeof(hook_harness::ring.captureEnabled), 4u);
     EXPECT_EQ(sizeof(hook_harness::ring.pumpEnabled), 4u);
     EXPECT_EQ(offsetof(Ring, captureEnabled), 36u);
     EXPECT_EQ(offsetof(Ring, pumpEnabled), 16u);
     EXPECT_EQ(offsetof(Ring, captureEnabled) % alignof(LONG), 0u);
-    EXPECT_EQ(sizeof(CallPod), 1040u);
-    EXPECT_EQ(sizeof(Ring), 2197048u);
+    EXPECT_EQ(sizeof(CallPod), 1048u);
+    EXPECT_EQ(sizeof(Ring), 2213960u);
 }
 
 TEST(HookBuffer, GatesAndRecordsAreVisibleAcrossTwoLocalMappingViews) {

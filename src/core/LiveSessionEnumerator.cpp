@@ -6,6 +6,7 @@
 #include "ComUtil.h"
 #include "DeviceEnumerator.h"
 #include "Log.h"
+#include "ProcessInstance.h"
 
 namespace wa {
 namespace {
@@ -176,6 +177,8 @@ Result appendDeviceSessions(const DeviceInfo& info, std::vector<LiveSessionView>
         LiveSessionView row;
         row.processId = static_cast<uint32_t>(pid);
         row.processName = processNameFromPid(row.processId);
+        ProcessInstance instance;
+        if (queryProcessInstance(row.processId, instance)) row.processCreated = instance.created;
         row.deviceId = deviceId;
         row.deviceName = deviceName;
         row.flow = flow;
