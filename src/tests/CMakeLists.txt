@@ -10,6 +10,15 @@ add_library(HookIdentityFixture SHARED ${CMAKE_SOURCE_DIR}/src/probe/HookIdentit
 set_target_properties(HookIdentityFixture PROPERTIES OUTPUT_NAME "WinAudioHook-obsolete")
 wa_set_project_warnings(HookIdentityFixture)
 
+add_executable(StartupGateTarget ${CMAKE_SOURCE_DIR}/src/probe/StartupGateTarget.cpp)
+target_include_directories(StartupGateTarget PRIVATE ${CMAKE_SOURCE_DIR}/src/core)
+target_link_libraries(StartupGateTarget PRIVATE ole32 mmdevapi uuid)
+wa_set_project_warnings(StartupGateTarget)
+
+add_executable(StartupGateProbe ${CMAKE_SOURCE_DIR}/src/probe/StartupGateProbe.cpp)
+target_link_libraries(StartupGateProbe PRIVATE WinAudioCore)
+wa_set_project_warnings(StartupGateProbe)
+
 add_executable(WinAudioTests
     test_delayfifo.cpp
     test_streamparams.cpp
@@ -58,6 +67,7 @@ add_executable(WinAudioTests
     test_runtime_fault.cpp
     test_on_demand_attach.cpp
     test_remote_injection.cpp
+    test_startup_launch.cpp
     test_pipeline_attach_ui_model.cpp
     test_pipeline_attach_set.cpp
     test_pump_window.cpp
@@ -91,7 +101,7 @@ string(REPLACE "\\" "/" WA_CHANNEL_IDENT_DIR "${CMAKE_SOURCE_DIR}/assets/channel
 target_compile_definitions(WinAudioTests PRIVATE "WA_CHANNEL_IDENT_DIR=\"${WA_CHANNEL_IDENT_DIR}\"")
 target_link_libraries(WinAudioTests PRIVATE WinAudioCore gtest_main shell32 imgui d3d11)
 wa_set_project_warnings(WinAudioTests)
-add_dependencies(WinAudioTests RemoteInjectionTarget RemoteInjectionGate HookIdentityFixture WinAudioHook)
+add_dependencies(WinAudioTests RemoteInjectionTarget RemoteInjectionGate HookIdentityFixture WinAudioHook StartupGateTarget StartupGateProbe)
 
 include(GoogleTest)
 gtest_discover_tests(WinAudioTests)
