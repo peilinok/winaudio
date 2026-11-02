@@ -6,6 +6,10 @@ add_executable(AttachSmoke AttachSmoke.cpp)
 target_link_libraries(AttachSmoke PRIVATE WinAudioCore)
 wa_set_project_warnings(AttachSmoke)
 
+add_executable(AttachVolumeProbe AttachVolumeProbe.cpp)
+target_link_libraries(AttachVolumeProbe PRIVATE WinAudioCore)
+wa_set_project_warnings(AttachVolumeProbe)
+
 add_executable(HookBufferProbe HookBufferProbe.cpp)
 target_include_directories(HookBufferProbe PRIVATE ${CMAKE_SOURCE_DIR}/src/core)
 target_link_libraries(HookBufferProbe PRIVATE ole32 oleaut32 mmdevapi uuid advapi32)

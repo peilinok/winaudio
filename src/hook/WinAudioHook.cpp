@@ -677,10 +677,10 @@ void patchService(void* obj, REFIID iid) {
         patchSlot(obj, kSlotBufferReleaseBuffer, reinterpret_cast<void*>(&HookRenReleaseBuffer),
                   g_renRel.storage());
     } else if (iid == __uuidof(ISimpleAudioVolume)) {
-        patchSlot(obj, 3, reinterpret_cast<void*>(&HookVolGet), g_volGet.storage());
-        patchSlot(obj, 4, reinterpret_cast<void*>(&HookVolSet), g_volSet.storage());
-        patchSlot(obj, 5, reinterpret_cast<void*>(&HookMuteGet), g_muteGet.storage());
-        patchSlot(obj, 6, reinterpret_cast<void*>(&HookMuteSet), g_muteSet.storage());
+        patchSlot(obj, 4, reinterpret_cast<void*>(&HookVolGet), g_volGet.storage());
+        patchSlot(obj, 3, reinterpret_cast<void*>(&HookVolSet), g_volSet.storage());
+        patchSlot(obj, 6, reinterpret_cast<void*>(&HookMuteGet), g_muteGet.storage());
+        patchSlot(obj, 5, reinterpret_cast<void*>(&HookMuteSet), g_muteSet.storage());
     } else if (iid == __uuidof(IAudioSessionControl) || iid == __uuidof(IAudioSessionControl2)) {
         patchSlot(obj, 3, reinterpret_cast<void*>(&HookSessState),
                   g_sessState.storage());
@@ -696,8 +696,8 @@ void patchService(void* obj, REFIID iid) {
                   g_streamVolGet.storage());
 #if defined(__IAudioEffectsManager_INTERFACE_DEFINED__)
     } else if (iid == __uuidof(IAudioEffectsManager)) {
-        patchSlot(obj, 3, reinterpret_cast<void*>(&HookFxGet), g_fxGet.storage());
-        patchSlot(obj, 4, reinterpret_cast<void*>(&HookFxSet), g_fxSet.storage());
+        patchSlot(obj, 5, reinterpret_cast<void*>(&HookFxGet), g_fxGet.storage());
+        patchSlot(obj, 6, reinterpret_cast<void*>(&HookFxSet), g_fxSet.storage());
 #endif
     }
 }
