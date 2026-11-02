@@ -26,7 +26,7 @@
 #include "CallLogExportJob.h"
 #include "PipelineSplit.h"
 #include "OnDemandAttach.h"
-#include "PipelineAttachSet.h"
+#include "PipelineAttachController.h"
 #include "PipelineAttachUiModel.h"
 #include "PipelineGraph.h"
 #include "HookedCall.h"
@@ -105,6 +105,7 @@ private:
     void runPipelineProbe();
     void runPipelineAttach();
     void attemptPipelineAttach(const wa::pipeline_attach_ui::AttachRequest& request);
+    void pollPipelineAttach();
     void drawPipelineRoundDialog();
     void drawExportCloseDialog();
     void runPipelineDetach();
@@ -249,7 +250,8 @@ private:
     wa::EndpointSnapshot pipelineEndpoint_;
     wa::EtwInitializeHint pipelineEtwHint_{};
     wa::PipelineJoinStatus pipelineJoinStatus_{};
-    wa::PipelineAttachSet pipelineAttaches_;
+    wa::PipelineAttachController pipelineAttaches_;
+    std::optional<wa::pipeline_attach_ui::AttachRequest> pipelinePreparing_;
     wa::CallRecordId pipelineCallSelected_;
     bool pipelinePumpSelectionExpired_ = false;
     char pipelineCallFilter_[128] = "";

@@ -91,7 +91,7 @@ int wmain(int argc, wchar_t** argv) {
         dll = dll.substr(0, dll.find_last_of(L"\\/") + 1) + L"RemoteInjectionGate.dll";
         if (!LoadLibraryW(dll.c_str())) return 6;
     }
-    const DWORD waited = WaitForSingleObject(stop, 15000);
+    const DWORD waited = WaitForSingleObject(stop, 180000);
     UnmapViewOfFile(shared);
     CloseHandle(mapping);
     CloseHandle(gate);

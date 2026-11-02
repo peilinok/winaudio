@@ -38,6 +38,7 @@ add_library(WinAudioCore STATIC
     RemoteInjection.cpp
     HookModuleIdentity.cpp
     PipelineAttachSet.cpp
+    PipelineAttachController.cpp
     PumpWindow.cpp
 )
 target_include_directories(WinAudioCore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
