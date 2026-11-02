@@ -6,6 +6,10 @@ wa_set_project_warnings(RemoteInjectionTarget)
 add_library(RemoteInjectionGate SHARED ${CMAKE_SOURCE_DIR}/src/probe/RemoteInjectionGate.cpp)
 wa_set_project_warnings(RemoteInjectionGate)
 
+add_library(HookIdentityFixture SHARED ${CMAKE_SOURCE_DIR}/src/probe/HookIdentityFixture.cpp)
+set_target_properties(HookIdentityFixture PROPERTIES OUTPUT_NAME "WinAudioHook-obsolete")
+wa_set_project_warnings(HookIdentityFixture)
+
 add_executable(WinAudioTests
     test_delayfifo.cpp
     test_streamparams.cpp
@@ -87,7 +91,7 @@ string(REPLACE "\\" "/" WA_CHANNEL_IDENT_DIR "${CMAKE_SOURCE_DIR}/assets/channel
 target_compile_definitions(WinAudioTests PRIVATE "WA_CHANNEL_IDENT_DIR=\"${WA_CHANNEL_IDENT_DIR}\"")
 target_link_libraries(WinAudioTests PRIVATE WinAudioCore gtest_main shell32 imgui d3d11)
 wa_set_project_warnings(WinAudioTests)
-add_dependencies(WinAudioTests RemoteInjectionTarget RemoteInjectionGate WinAudioHook)
+add_dependencies(WinAudioTests RemoteInjectionTarget RemoteInjectionGate HookIdentityFixture WinAudioHook)
 
 include(GoogleTest)
 gtest_discover_tests(WinAudioTests)
@@ -96,7 +100,7 @@ set_property(DIRECTORY APPEND PROPERTY TEST_INCLUDE_FILES
 
 # Compile the real hook entry points in an executable without automatic DLL
 # installation. Kept independent of WinAudioCore for both x64 and x86 checks.
-add_executable(WinAudioHookTests test_hook_buffer.cpp)
+add_executable(WinAudioHookTests test_hook_buffer.cpp test_hook_forwarding.cpp)
 target_include_directories(WinAudioHookTests PRIVATE ${CMAKE_SOURCE_DIR}/src/core)
 target_link_libraries(WinAudioHookTests PRIVATE gtest_main ole32 oleaut32 mmdevapi uuid advapi32)
 wa_set_project_warnings(WinAudioHookTests)

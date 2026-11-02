@@ -1,8 +1,16 @@
 #include <gtest/gtest.h>
 #include "HookedCallPod.h"
 #include "OnDemandAttach.h"
+#include "HookModuleIdentity.h"
+#include <filesystem>
+#include <fstream>
 
 using namespace wa;
+
+namespace {
+int originalSlot() { return 1; }
+int replacementSlot() { return 2; }
+}
 
 TEST(OnDemandAttach, PidZeroFailsClosed) {
     EXPECT_EQ(evaluateAttach(0, 100, true, true, "chrome.exe"), AttachBlock::PidZero);
@@ -40,8 +48,8 @@ TEST(OnDemandAttach, DoesNotLaunchSuspendedOrAutoInject) {
 }
 
 TEST(VtablePatch, ReplacesSlotAndKeepsOriginal) {
-    void* origFn = reinterpret_cast<void*>(static_cast<uintptr_t>(0x1));
-    void* hookFn = reinterpret_cast<void*>(static_cast<uintptr_t>(0x2));
+    void* origFn = reinterpret_cast<void*>(&originalSlot);
+    void* hookFn = reinterpret_cast<void*>(&replacementSlot);
     void* vt[4] = {nullptr, nullptr, nullptr, origFn};
     struct Obj {
         void** vtable;
@@ -80,11 +88,36 @@ TEST(OnDemandAttach, SnapshotSurvivesUnmap) {
 TEST(OnDemandAttach, MapNameIncludesLayoutVersion) {
     wchar_t name[64] = {};
     hook_ipc::mapName(25060, name, 64);
-    EXPECT_STREQ(name, L"Local\\WinAudioHook-5-25060");
+    EXPECT_STREQ(name, L"Local\\WinAudioHook-6-25060");
 }
 
-TEST(OnDemandAttach, StagedHookFileNameFollowsLayout) {
-    EXPECT_EQ(stagedHookFileName(), L"WinAudioHook-5.dll");
+TEST(OnDemandAttach, StagingUsesVerifiedContentIdentityAndRejectsATamperedCopy) {
+    wchar_t temporary[MAX_PATH] = {};
+    ASSERT_NE(GetTempPathW(MAX_PATH, temporary), 0u);
+    const auto folder = std::filesystem::path(temporary) /
+        (L"WinAudio-HookIdentity-" + std::to_wstring(GetCurrentProcessId()));
+    std::filesystem::create_directory(folder);
+    const auto source = folder / L"input.dll";
+    std::ofstream(source, std::ios::binary | std::ios::trunc) << "first known image";
+    std::wstring first;
+    ASSERT_TRUE(stageHookModule(source.wstring(), first));
+    EXPECT_TRUE(isHookModuleName(std::filesystem::path(first).filename().c_str()));
+    std::wstring repeated;
+    ASSERT_TRUE(stageHookModule(source.wstring(), repeated));
+    EXPECT_EQ(first, repeated);
+    std::ofstream(source, std::ios::binary | std::ios::trunc) << "second known image";
+    std::wstring second;
+    ASSERT_TRUE(stageHookModule(source.wstring(), second));
+    EXPECT_NE(first, second);
+    std::ofstream(std::filesystem::path(second), std::ios::binary | std::ios::trunc) << "tampered";
+    const auto rejected = stageHookModule(source.wstring(), repeated);
+    EXPECT_FALSE(rejected);
+    EXPECT_EQ(rejected.code, static_cast<long>(HRESULT_FROM_WIN32(ERROR_REVISION_MISMATCH)));
+    std::filesystem::remove(source);
+    EXPECT_FALSE(stageHookModule(source.wstring(), repeated));
+    std::filesystem::remove(first);
+    std::filesystem::remove(second);
+    std::filesystem::remove(folder);
 }
 
 TEST(OnDemandAttach, CreateHookMappingIsVisibleInSameProcess) {

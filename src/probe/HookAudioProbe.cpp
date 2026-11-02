@@ -1,3 +1,4 @@
+#include "HookModuleIdentity.h"
 // Controlled, same-bitness audio targets for the hook acceptance check.
 // This is a manual probe, not a device-dependent CI test.
 #include "OnDemandAttach.h"
@@ -220,7 +221,7 @@ bool attach(Target& target) {
         MODULEENTRY32W module{};
         module.dwSize = sizeof(module);
         if (observeWin32("Module32FirstW", Module32FirstW(snapshot, &module) != FALSE)) do {
-            if (_wcsicmp(module.szModule, L"WinAudioHook-5.dll") == 0) {
+            if (wa::isHookModuleName(module.szModule)) {
                 std::wprintf(L"loaded pid=%lu path=%ls\n", target.pid, module.szExePath);
                 found = true;
             }

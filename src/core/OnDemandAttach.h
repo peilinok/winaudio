@@ -34,7 +34,14 @@ AttachBlock evaluateAttach(uint32_t pid, uint32_t ourPid, bool sameBitness, bool
 // UnmapViewOfFile 鈥?the view is invalid afterwards.
 const char* attachInstallFailMessage(uint32_t installed);
 
-std::wstring stagedHookFileName();
+struct HookCoverage {
+    uint32_t acceptedAttempts = 0;
+    uint32_t rejectedAttempts = 0;
+    uint32_t lastError = 0;
+    // No claim is made about interfaces/implementations not yet discovered.
+    bool discoveredImplementationsOnly = true;
+    bool restartRequired = false;
+};
 
 class OnDemandAttach {
 public:
@@ -55,6 +62,7 @@ public:
     std::vector<HookedCall> pumpRing() const;
     const std::vector<PumpCall>& pumpWindow() const;
     uint32_t pumpXruns() const;
+    HookCoverage coverage() const;
     void setPumpEnabled(bool on);
     void setCaptureEnabled(bool on);
     // Nonblocking maintenance; returns the number of unresolved orphaned entries.
