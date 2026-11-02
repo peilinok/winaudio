@@ -1,16 +1,22 @@
 #include <gtest/gtest.h>
 #include <cstring>
 #include <future>
+#include <windows.h>
+#include <process.h>
 
 namespace {
 void observePatch(const char* stage, void** cell);
+BOOL protectVtablePage(void* address, SIZE_T size, DWORD protection, DWORD* previous);
 }
 #define WA_HOOK_PATCH_OBSERVE(stage, cell) observePatch(#stage, cell)
+#define WA_HOOK_VIRTUAL_PROTECT(address, size, protection, previous) \
+    protectVtablePage(address, size, protection, previous)
 
 #define DllMain HookForwardingUnusedDllMain
 #include "../hook/WinAudioHook.cpp"
 #undef DllMain
 #undef WA_HOOK_PATCH_OBSERVE
+#undef WA_HOOK_VIRTUAL_PROTECT
 
 namespace {
 HANDLE pageOpen = nullptr, releasePage = nullptr, secondStarted = nullptr, secondProtected = nullptr;
@@ -18,6 +24,15 @@ volatile LONG installerCount = 0, activeProtection = 0, overlappingProtection = 
 IAudioCaptureClient* publicationCapture = nullptr;
 volatile LONG publicationForwarded = 0;
 Ring forwardingRing{};
+LONG restoreFailures = 0;
+BOOL protectVtablePage(void* address, SIZE_T size, DWORD protection, DWORD* previous) {
+    if (protection == PAGE_READONLY && restoreFailures > 0) {
+        --restoreFailures;
+        SetLastError(ERROR_ACCESS_DENIED);
+        return FALSE;
+    }
+    return VirtualProtect(address, size, protection, previous);
+}
 void observePatch(const char* stage, void**) {
     if (!pageOpen) return;
     if (!std::strcmp(stage, "before_lock") && InterlockedIncrement(&installerCount) == 2)
@@ -86,6 +101,35 @@ private:
     void* slots_[Count];
 };
 
+class ReadonlyVtable {
+public:
+    explicit ReadonlyVtable(void* object) : object_(static_cast<void***>(object)), saved_(*object_) {
+        page_ = VirtualAlloc(nullptr, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+        if (!page_) return;
+        std::memcpy(page_, saved_, sizeof(void*) * 6);
+        DWORD previous = 0;
+        if (!VirtualProtect(page_, 4096, PAGE_READONLY, &previous)) {
+            VirtualFree(page_, 0, MEM_RELEASE);
+            page_ = nullptr;
+            return;
+        }
+        *object_ = static_cast<void**>(page_);
+    }
+    ~ReadonlyVtable() {
+        *object_ = saved_;
+        if (page_) VirtualFree(page_, 0, MEM_RELEASE);
+    }
+    bool valid() const { return page_ != nullptr; }
+    DWORD protection() const {
+        MEMORY_BASIC_INFORMATION info{};
+        return VirtualQuery(page_, &info, sizeof(info)) ? info.Protect : 0;
+    }
+private:
+    void*** object_;
+    void** saved_;
+    void* page_ = nullptr;
+};
+
 __declspec(noinline) HRESULT getCapture(IAudioCaptureClient* capture, BYTE** data, UINT32* frames,
                                       DWORD* flags, UINT64* position, UINT64* qpc) {
     return capture->GetBuffer(data, frames, flags, position, qpc);
@@ -136,6 +180,46 @@ protected:
 
 TEST_F(HookForwarding, DifferentImplementationsAThenBKeepTheirOwnApi) { checkOrder<13, 29>(); }
 TEST_F(HookForwarding, DifferentImplementationsBThenAKeepTheirOwnApi) { checkOrder<29, 13>(); }
+
+TEST_F(HookForwarding, FailedRestoreIsCleanedUpBeforeARepeatedInstallCanSucceed) {
+    CaptureImplementation<13> capture;
+    ReadonlyVtable table(&capture);
+    ASSERT_TRUE(table.valid());
+    restoreFailures = 1;
+    EXPECT_FALSE(patchSlot(&capture, 3, reinterpret_cast<void*>(&HookCapGetBuffer), g_capGet.storage()));
+    EXPECT_EQ(GetLastError(), static_cast<DWORD>(ERROR_ACCESS_DENIED));
+    EXPECT_EQ(table.protection(), static_cast<DWORD>(PAGE_READONLY));
+    checkCapture(capture, 13, S_OK);
+    EXPECT_TRUE(patchSlot(&capture, 3, reinterpret_cast<void*>(&HookCapGetBuffer), g_capGet.storage()));
+    EXPECT_EQ(table.protection(), static_cast<DWORD>(PAGE_READONLY));
+}
+
+TEST_F(HookForwarding, PersistentRestoreFailureStaysFailedWithoutRetainingThePageAddress) {
+    // An unrecoverable installer fault is process-scoped. Isolate it from
+    // other tests exactly as a target restart isolates a new observation.
+    ASSERT_EXIT({
+        CaptureImplementation<13> capture;
+        std::memset(&forwardingRing, 0, sizeof(forwardingRing));
+        g_ring = &forwardingRing;
+        ReadonlyVtable table(&capture);
+        if (!table.valid()) _exit(10);
+        restoreFailures = 2;
+        const bool first = patchSlot(&capture, 3, reinterpret_cast<void*>(&HookCapGetBuffer), g_capGet.storage());
+        if (first || GetLastError() != ERROR_ACCESS_DENIED || table.protection() != PAGE_EXECUTE_READWRITE)
+            _exit(11);
+        BYTE* data = nullptr;
+        UINT32 frames = 0;
+        if (getCapture(&capture, &data, &frames, nullptr, nullptr, nullptr) != S_OK || frames != 13 ||
+            capture.calls != 1) _exit(12);
+        // Even if the OS would accept protection changes again, no later
+        // install may call this unresolved page a success.
+        restoreFailures = 0;
+        if (patchSlot(&capture, 3, reinterpret_cast<void*>(&HookCapGetBuffer), g_capGet.storage())) _exit(13);
+        if (table.protection() != PAGE_EXECUTE_READWRITE) _exit(14);
+        if (!(forwardingRing.coverageFlags & wa::hook_ipc::kCoverageInstallationFault)) _exit(15);
+        _exit(0);
+    }, testing::ExitedWithCode(0), "");
+}
 
 TEST_F(HookForwarding, AnAlreadyHookedCellWithoutAnOriginalIsRejectedWithoutRecursion) {
     CaptureImplementation<13> capture;

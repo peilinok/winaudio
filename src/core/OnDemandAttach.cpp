@@ -448,8 +448,13 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
     resources->ring = ring;
 
     if (moduleLoaded && mapErr == ERROR_ALREADY_EXISTS && ring->magic == hook_ipc::kMagic &&
-        ring->installed == hook_ipc::kInstallFailed)
+        ring->installed == hook_ipc::kInstallFailed) {
+        if (ReadULongAcquire(reinterpret_cast<const volatile ULONG*>(&ring->coverageFlags)) &
+            hook_ipc::kCoverageInstallationFault)
+            return Result::Fail(static_cast<long>(E_FAIL),
+                "Attach: hook page protection could not be restored; restart the target app");
         return Result::Fail(static_cast<long>(E_FAIL), attachInstallFailMessage(hook_ipc::kInstallFailed));
+    }
 
     const bool reuse = moduleLoaded && mapErr == ERROR_ALREADY_EXISTS && ring->magic == hook_ipc::kMagic &&
                        ring->installed == hook_ipc::kInstallOk;
@@ -490,16 +495,22 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
                 return win32Result(error, "Attach: installation wait failed; cleanup pending");
             }
         }
-        const uint32_t installed = ring->installed;
-        WA_LOG(installed == hook_ipc::kInstallOk ? wa::log::Level::Debug : wa::log::Level::Info,
-               "Attach", "hook installed", "pid=" + std::to_string(pid),
-               installed == hook_ipc::kInstallOk ? "S_OK" : attachInstallFailMessage(installed));
-        if (installed != hook_ipc::kInstallOk) {
-            return Result::Fail(static_cast<long>(E_FAIL), installed == hook_ipc::kInstallPending
-                ? "Attach: hook install timed out; cleanup pending; retry after completion"
-                : attachInstallFailMessage(installed));
-        }
     }
+    const uint32_t installed = ring->installed;
+    WA_LOG(installed == hook_ipc::kInstallOk ? wa::log::Level::Debug : wa::log::Level::Info,
+           "Attach", "hook installed", "pid=" + std::to_string(pid),
+           installed == hook_ipc::kInstallOk ? "S_OK" : attachInstallFailMessage(installed));
+    // A later installation can fault after initial readiness. Apply the same
+    // acceptance gate to a newly installed and a reused resident hook.
+    const auto coverageFlags = ReadULongAcquire(
+        reinterpret_cast<const volatile ULONG*>(&ring->coverageFlags));
+    if (coverageFlags & hook_ipc::kCoverageInstallationFault)
+        return Result::Fail(static_cast<long>(E_FAIL),
+            "Attach: hook page protection could not be restored; restart the target app");
+    if (installed != hook_ipc::kInstallOk)
+        return Result::Fail(static_cast<long>(E_FAIL), installed == hook_ipc::kInstallPending
+            ? "Attach: hook install timed out; cleanup pending; retry after completion"
+            : attachInstallFailMessage(installed));
 
     if (cancelled && cancelled->load())
         return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_CANCELLED)), "Attach: cancelled before capture");
@@ -528,7 +539,8 @@ std::vector<HookedCall> OnDemandAttach::drain() {
     const auto capability = coverage();
     if (capability.rejectedAttempts != impl_->reportedRejections) {
         impl_->reportedRejections = capability.rejectedAttempts;
-        WA_LOG(wa::log::Level::Warn, "Attach", "hook coverage incomplete",
+        WA_LOG(wa::log::Level::Warn, "Attach", capability.restartRequired
+                   ? "hook installation fault; target restart required" : "hook coverage incomplete",
                "pid=" + std::to_string(impl_->pid) + " rejected attempts=" +
                    std::to_string(capability.rejectedAttempts),
                wa::log::hrName(HRESULT_FROM_WIN32(capability.lastError)));
@@ -562,6 +574,8 @@ HookCoverage OnDemandAttach::coverage() const {
     result.acceptedAttempts = ReadULongAcquire(reinterpret_cast<const volatile ULONG*>(&ring->patchAccepted));
     result.rejectedAttempts = ReadULongAcquire(reinterpret_cast<const volatile ULONG*>(&ring->patchRejected));
     result.lastError = ReadULongAcquire(reinterpret_cast<const volatile ULONG*>(&ring->patchLastError));
+    result.restartRequired = (ReadULongAcquire(
+        reinterpret_cast<const volatile ULONG*>(&ring->coverageFlags)) & hook_ipc::kCoverageInstallationFault) != 0;
     return result;
 }
 

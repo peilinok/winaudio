@@ -206,6 +206,36 @@ TEST_F(RemoteInjectionTest, ExistingIncompatibleHookIsRejectedBeforeLoadingAnoth
     EXPECT_TRUE(loaded);
 }
 
+TEST_F(RemoteInjectionTest, AResidentHookWithARuntimeInstallationFaultRequiresRestart) {
+    wa::OnDemandAttach first;
+    ASSERT_TRUE(first.start(child.dwProcessId, {}, wa::PipelineFlow::Render));
+    wchar_t name[64] = {};
+    wa::hook_ipc::mapName(child.dwProcessId, name, 64);
+    HANDLE map = OpenFileMappingW(FILE_MAP_ALL_ACCESS, FALSE, name);
+    ASSERT_NE(map, nullptr);
+    auto* ring = static_cast<wa::hook_ipc::Ring*>(MapViewOfFile(map, FILE_MAP_ALL_ACCESS, 0, 0, 0));
+    ASSERT_NE(ring, nullptr);
+    EXPECT_EQ(ring->installed, wa::hook_ipc::kInstallOk);
+    // Model a later hook installation reporting an unrecoverable protection
+    // fault. The installer regression separately proves this diagnostic source.
+    InterlockedOr(reinterpret_cast<volatile LONG*>(&ring->coverageFlags),
+                  wa::hook_ipc::kCoverageInstallationFault);
+    EXPECT_TRUE(first.coverage().restartRequired);
+    first.stop();
+    wa::OnDemandAttach retry;
+    const auto result = retry.start(child.dwProcessId, {}, wa::PipelineFlow::Render);
+    EXPECT_FALSE(result);
+    EXPECT_FALSE(retry.attached());
+    EXPECT_NE(result.message.find("restart"), std::string::npos);
+    EXPECT_EQ(ring->captureEnabled, 0u);
+    InterlockedExchange(reinterpret_cast<volatile LONG*>(&ring->installed), wa::hook_ipc::kInstallFailed);
+    const auto failedInstall = retry.start(child.dwProcessId, {}, wa::PipelineFlow::Render);
+    EXPECT_FALSE(failedInstall);
+    EXPECT_NE(failedInstall.message.find("restart"), std::string::npos);
+    UnmapViewOfFile(ring);
+    CloseHandle(map);
+}
+
 TEST_F(RemoteInjectionTest, ControllerOwnerDestructionDoesNotFreeUnreadParameter) {
     const void* address = nullptr;
     {

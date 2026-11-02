@@ -89,7 +89,17 @@ Result inspectHookModules(uint32_t pid, const std::wstring& expected, bool& alre
     if (!result) return result;
     MODULEENTRY32W entry{};
     entry.dwSize = sizeof(entry);
-    for (BOOL have = Module32FirstW(snapshot, &entry); have; have = Module32NextW(snapshot, &entry)) {
+    DWORD enumerationError = ERROR_SUCCESS;
+    const auto enumerated = [&](BOOL have, const char* operation) {
+        enumerationError = have ? ERROR_SUCCESS : GetLastError();
+        WA_LOG(have || enumerationError == ERROR_NO_MORE_FILES ? log::Level::Debug : log::Level::Warn,
+               "Attach", operation, "pid=" + std::to_string(pid) + " snapshot=" +
+                   std::to_string(reinterpret_cast<uintptr_t>(snapshot)),
+               std::string(have ? "TRUE " : "FALSE ") + log::hrName(HRESULT_FROM_WIN32(enumerationError)));
+        return have;
+    };
+    for (BOOL have = enumerated(Module32FirstW(snapshot, &entry), "Module32FirstW(hook identity)");
+         have; have = enumerated(Module32NextW(snapshot, &entry), "Module32NextW(hook identity)")) {
         if (!isHookModuleName(entry.szModule)) continue;
         WA_LOG(log::Level::Info, "Attach", "loaded hook identity", std::to_string(pid), narrowAscii(entry.szExePath));
         if (_wcsicmp(entry.szExePath, expected.c_str()) != 0) {
@@ -99,9 +109,9 @@ Result inspectHookModules(uint32_t pid, const std::wstring& expected, bool& alre
         }
         alreadyLoaded = true;
     }
-    const DWORD error = GetLastError();
-    if (result && error != ERROR_NO_MORE_FILES)
-        result = Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(error)), "Attach: cannot verify loaded hook identity");
+    if (result && enumerationError != ERROR_NO_MORE_FILES)
+        result = Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(enumerationError)),
+                              "Attach: cannot verify loaded hook identity");
     observed(CloseHandle(snapshot), "CloseHandle(hook identity snapshot)");
     return result;
 }

@@ -128,8 +128,8 @@ int main(int argc, char** argv) {
     CloseHandle(pi.hProcess);
 
     std::printf("control_calls=%zu pump_ring=%zu xruns=%u\n", control, pump, xruns);
-    std::printf("coverage=discovered-implementations-only accepted_attempts=%u rejected_attempts=%u last_error=%u\n",
-                coverage.acceptedAttempts, coverage.rejectedAttempts, coverage.lastError);
+    std::printf("coverage=discovered-implementations-only accepted_attempts=%u rejected_attempts=%u last_error=%u restart_required=%u\n",
+                coverage.acceptedAttempts, coverage.rejectedAttempts, coverage.lastError, coverage.restartRequired ? 1u : 0u);
     std::printf("target_wait=%lu exit_queried=%d target_exit=%lu\n", targetWait, queriedExit, targetExit);
     if (targetWait != WAIT_OBJECT_0 || !queriedExit || targetExit != 0) return 12;
     if (pump == 0 && control == 0) {

@@ -40,6 +40,7 @@ struct HookCoverage {
     uint32_t lastError = 0;
     // No claim is made about interfaces/implementations not yet discovered.
     bool discoveredImplementationsOnly = true;
+    bool restartRequired = false;
 };
 
 class OnDemandAttach {

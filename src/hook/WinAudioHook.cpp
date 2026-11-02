@@ -391,21 +391,13 @@ void pushReturn(wa::hook_ipc::ArgBlobWriter& w, HRESULT hr) {
 
 bool patchSlot(void* obj, int slot, void* hook, void** orig) {
     if (!obj) return false;
-    void* current = (*static_cast<void***>(obj))[slot];
-    // Do not retain object/interface pointers. Pin the implementation's module
-    // and this hook before publishing a callable cell, so either outlives it.
-    HMODULE module = nullptr;
-    bool pinned = current == hook || GetModuleHandleExW(
-            GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
-            reinterpret_cast<LPCWSTR>(current), &module);
-    if (pinned) pinned = GetModuleHandleExW(
-        GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
-        reinterpret_cast<LPCWSTR>(hook), &module) != FALSE;
-    const bool patched = pinned && wa::hook_ipc::patchVtableSlot(obj, slot, hook, orig);
+    const bool patched = wa::hook_ipc::patchVtableSlot(obj, slot, hook, orig);
     const DWORD error = patched ? ERROR_SUCCESS : GetLastError();
     if (g_ring) {
-        InterlockedExchange(reinterpret_cast<volatile LONG*>(&g_ring->coverageFlags),
-                            wa::hook_ipc::kCoverageDiscoveredImplementations);
+        InterlockedOr(reinterpret_cast<volatile LONG*>(&g_ring->coverageFlags),
+                      wa::hook_ipc::kCoverageDiscoveredImplementations |
+                          (wa::hook_ipc::vtableInstallationError()
+                              ? wa::hook_ipc::kCoverageInstallationFault : 0));
         if (patched) {
             InterlockedIncrement(reinterpret_cast<volatile LONG*>(&g_ring->patchAccepted));
         } else {

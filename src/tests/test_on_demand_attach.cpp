@@ -7,6 +7,11 @@
 
 using namespace wa;
 
+namespace {
+int originalSlot() { return 1; }
+int replacementSlot() { return 2; }
+}
+
 TEST(OnDemandAttach, PidZeroFailsClosed) {
     EXPECT_EQ(evaluateAttach(0, 100, true, true, "chrome.exe"), AttachBlock::PidZero);
 }
@@ -43,8 +48,8 @@ TEST(OnDemandAttach, DoesNotLaunchSuspendedOrAutoInject) {
 }
 
 TEST(VtablePatch, ReplacesSlotAndKeepsOriginal) {
-    void* origFn = reinterpret_cast<void*>(static_cast<uintptr_t>(0x1));
-    void* hookFn = reinterpret_cast<void*>(static_cast<uintptr_t>(0x2));
+    void* origFn = reinterpret_cast<void*>(&originalSlot);
+    void* hookFn = reinterpret_cast<void*>(&replacementSlot);
     void* vt[4] = {nullptr, nullptr, nullptr, origFn};
     struct Obj {
         void** vtable;
