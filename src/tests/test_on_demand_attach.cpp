@@ -39,18 +39,6 @@ TEST(OnDemandAttach, DoesNotLaunchSuspendedOrAutoInject) {
     EXPECT_FALSE(kAttachAutoInject);
 }
 
-TEST(OnDemandAttach, RemoteLoadLibraryNullModuleFailsClosed) {
-    EXPECT_FALSE(remoteLoadLibrarySucceeded(0, 0));
-}
-
-TEST(OnDemandAttach, RemoteLoadLibraryTimeoutFailsClosed) {
-    EXPECT_FALSE(remoteLoadLibrarySucceeded(258, 0x1000));
-}
-
-TEST(OnDemandAttach, RemoteLoadLibraryNonZeroModuleSucceeds) {
-    EXPECT_TRUE(remoteLoadLibrarySucceeded(0, 0x00007FFC));
-}
-
 TEST(VtablePatch, ReplacesSlotAndKeepsOriginal) {
     void* origFn = reinterpret_cast<void*>(static_cast<uintptr_t>(0x1));
     void* hookFn = reinterpret_cast<void*>(static_cast<uintptr_t>(0x2));

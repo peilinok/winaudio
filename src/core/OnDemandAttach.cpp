@@ -1,4 +1,5 @@
 #include "OnDemandAttach.h"
+#include "RemoteInjection.h"
 #include "AudioFormatStr.h"
 #include "ComUtil.h"
 #include "PumpWindow.h"
@@ -12,7 +13,10 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <tlhelp32.h>
 #include <cstring>
+#include <algorithm>
+#include <mutex>
 #include <string>
 
 namespace wa {
@@ -113,60 +117,153 @@ Result win32Result(DWORD err, const char* where) {
     return HrToResult(HRESULT_FROM_WIN32(err), where);
 }
 
-Result injectDll(HANDLE proc, const std::wstring& dll) {
-    const size_t bytes = (dll.size() + 1) * sizeof(wchar_t);
-    void* remote = VirtualAllocEx(proc, nullptr, bytes, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    const DWORD allocErr = remote ? ERROR_SUCCESS : GetLastError();
-    WA_LOG(wa::log::Level::Debug, "Attach", "VirtualAllocEx", wa::narrowAscii(dll),
-           wa::log::hrName(HRESULT_FROM_WIN32(allocErr)));
-    if (!remote) return win32Result(allocErr, "Attach: VirtualAllocEx");
+Result verifyLoadedModule(uint32_t pid, const std::wstring& dll, bool& definitelyAbsent);
 
-    SIZE_T written = 0;
-    if (!WriteProcessMemory(proc, remote, dll.c_str(), bytes, &written)) {
-        const DWORD err = GetLastError();
-        WA_LOG(wa::log::Level::Debug, "Attach", "WriteProcessMemory", wa::narrowAscii(dll),
-               wa::log::hrName(HRESULT_FROM_WIN32(err)));
-        VirtualFreeEx(proc, remote, 0, MEM_RELEASE);
-        return win32Result(err, "Attach: WriteProcessMemory");
-    }
-    WA_LOG(wa::log::Level::Debug, "Attach", "WriteProcessMemory", wa::narrowAscii(dll), "S_OK");
+struct AttachResources {
+    HANDLE process = nullptr;
+    uint32_t pid = 0;
+    FILETIME created{};
+    HANDLE map = nullptr;
+    hook_ipc::Ring* ring = nullptr;
+    RemoteInjection injection;
+    bool installationStarted = false;
+    bool moduleVerified = false;
+    std::wstring expectedDll;
 
-    HMODULE k32 = GetModuleHandleW(L"kernel32.dll");
-    auto load = k32 ? GetProcAddress(k32, "LoadLibraryW") : nullptr;
-    WA_LOG(wa::log::Level::Debug, "Attach", "GetProcAddress(LoadLibraryW)", "",
-           load ? "S_OK" : "null");
-    if (!load) {
-        VirtualFreeEx(proc, remote, 0, MEM_RELEASE);
-        return Result::Fail(static_cast<long>(E_FAIL), "Attach: LoadLibraryW not found");
+    ~AttachResources() {
+        if (ring) {
+            InterlockedExchange(reinterpret_cast<volatile LONG*>(&ring->captureEnabled), 0);
+            InterlockedExchange(reinterpret_cast<volatile LONG*>(&ring->pumpEnabled), 0);
+            if (!finished()) {
+                WA_LOG(wa::log::Level::Warn, "Attach", "cleanup unresolved at shutdown",
+                       "pid=" + std::to_string(pid), "target left running; remote parameter not reclaimed");
+            }
+            UnmapViewOfFile(ring);
+        }
+        if (map) CloseHandle(map);
+        if (process) CloseHandle(process);
     }
 
-    HANDLE thread = CreateRemoteThread(proc, nullptr, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>(load),
-                                       remote, 0, nullptr);
-    const DWORD thrErr = thread ? ERROR_SUCCESS : GetLastError();
-    WA_LOG(wa::log::Level::Debug, "Attach", "CreateRemoteThread(LoadLibraryW)",
-           wa::narrowAscii(dll), wa::log::hrName(HRESULT_FROM_WIN32(thrErr)));
-    if (!thread) {
-        VirtualFreeEx(proc, remote, 0, MEM_RELEASE);
-        return win32Result(thrErr, "Attach: CreateRemoteThread");
+    bool finished() {
+        if (!injection.poll()) return false;
+        const auto target = waitRemoteThread(process, 0);
+        if (target.outcome == WAIT_FAILED) {
+            WA_LOG(wa::log::Level::Warn, "Attach", "WaitForSingleObject(installation cleanup)", "target state unknown",
+                   wa::log::hrName(HRESULT_FROM_WIN32(target.error)));
+        }
+        if (target.outcome == WAIT_OBJECT_0) return true;
+        if (installationStarted && !moduleVerified) {
+            bool absent = false;
+            const Result loaded = verifyLoadedModule(pid, expectedDll, absent);
+            if (loaded) moduleVerified = true;
+            else if (absent) installationStarted = false;
+            else return false;  // Enumeration failure is not proof of absence.
+        }
+        return !installationStarted || !ring || ring->installed != hook_ipc::kInstallPending;
     }
-    const DWORD wait = WaitForSingleObject(thread, 10000);
-    DWORD exitCode = 0;
-    GetExitCodeThread(thread, &exitCode);
-    WA_LOG(wait == WAIT_OBJECT_0 ? wa::log::Level::Debug : wa::log::Level::Warn, "Attach",
-           "WaitForSingleObject(inject)", "exit=" + std::to_string(exitCode),
-           wait == WAIT_OBJECT_0 ? "S_OK" : wa::log::hrName(HRESULT_FROM_WIN32(wait)));
-    CloseHandle(thread);
-    VirtualFreeEx(proc, remote, 0, MEM_RELEASE);
-    if (!remoteLoadLibrarySucceeded(wait, exitCode)) {
-        if (wait != WAIT_OBJECT_0)
-            return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_TIMEOUT)),
-                                "Attach: inject timed out");
-        return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_MOD_NOT_FOUND)),
-                            "Attach: LoadLibraryW failed in target");
+};
+
+// Entries also reserve an instance during installation. External owners keep an
+// active entry alive; orphaned entries are reaped only after both lifetimes end.
+struct AttachReservations {
+    std::mutex mutex;
+    std::vector<std::shared_ptr<AttachResources>> entries;
+
+    void reap() {
+        entries.erase(std::remove_if(entries.begin(), entries.end(), [](const auto& entry) {
+            return entry.use_count() == 1 && entry->finished();
+        }), entries.end());
     }
+};
+
+AttachReservations& reservations() {
+    static AttachReservations state;
+    return state;
+}
+
+Result reserveInstance(HANDLE process, uint32_t pid, std::shared_ptr<AttachResources>& out) {
+    FILETIME created{}, exit{}, kernel{}, user{};
+    const BOOL identified = GetProcessTimes(process, &created, &exit, &kernel, &user);
+    const DWORD identityError = identified ? ERROR_SUCCESS : GetLastError();
+    WA_LOG(wa::log::Level::Debug, "Attach", "GetProcessTimes(reserve)", "pid=" + std::to_string(pid),
+           wa::log::hrName(HRESULT_FROM_WIN32(identityError)));
+    if (!identified) return win32Result(identityError, "Attach: GetProcessTimes");
+    auto& state = reservations();
+    std::lock_guard<std::mutex> lock(state.mutex);
+    state.reap();
+    for (const auto& entry : state.entries) {
+        if (entry->pid == pid && CompareFileTime(&entry->created, &created) == 0)
+            return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_BUSY)),
+                "Attach: this process is already attached or remote cleanup is pending; retry after completion");
+    }
+    // Admission happens before any remote allocation or thread is created.
+    if (state.entries.size() >= 32)
+        return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_BUSY)),
+                            "Attach: remote resource capacity reached; cleanup pending");
+    out = std::make_shared<AttachResources>();
+    out->pid = pid;
+    out->created = created;
+    out->process = process;
+    state.entries.push_back(out);
     return Result::Ok();
 }
 
+void reapReservations() {
+    auto& state = reservations();
+    std::lock_guard<std::mutex> lock(state.mutex);
+    state.reap();
+}
+
+Result verifyLoadedModule(uint32_t pid, const std::wstring& dll, bool& definitelyAbsent) {
+    definitelyAbsent = false;
+    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, pid);
+    const DWORD error = snapshot == INVALID_HANDLE_VALUE ? GetLastError() : ERROR_SUCCESS;
+    WA_LOG(wa::log::Level::Debug, "Attach", "CreateToolhelp32Snapshot(modules)",
+           "pid=" + std::to_string(pid), wa::log::hrName(HRESULT_FROM_WIN32(error)));
+    if (snapshot == INVALID_HANDLE_VALUE) return win32Result(error, "Attach: inspect loaded module");
+    MODULEENTRY32W module{};
+    module.dwSize = sizeof(module);
+    bool found = false;
+    for (BOOL have = Module32FirstW(snapshot, &module); have; have = Module32NextW(snapshot, &module)) {
+        if (_wcsicmp(module.szExePath, dll.c_str()) == 0) { found = true; break; }
+    }
+    const DWORD enumerationError = found ? ERROR_SUCCESS : GetLastError();
+    CloseHandle(snapshot);
+    if (!found && enumerationError != ERROR_NO_MORE_FILES) {
+        WA_LOG(wa::log::Level::Warn, "Attach", "Module32First/Next", "coverage unknown",
+               wa::log::hrName(HRESULT_FROM_WIN32(enumerationError)));
+        return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(enumerationError)),
+                            "Attach: module enumeration failed; cleanup pending");
+    }
+    definitelyAbsent = !found;
+    WA_LOG(found ? wa::log::Level::Debug : wa::log::Level::Warn, "Attach", "verify loaded module",
+           wa::narrowAscii(dll), found ? "S_OK" : "not found");
+    return found ? Result::Ok()
+                 : Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_MOD_NOT_FOUND)),
+                                "Attach: LoadLibraryW did not load the expected module");
+}
+
+Result injectDll(AttachResources& resources, const std::wstring& dll, const std::atomic_bool* cancelled) {
+    HMODULE k32 = GetModuleHandleW(L"kernel32.dll");
+    auto load = k32 ? GetProcAddress(k32, "LoadLibraryW") : nullptr;
+    const DWORD loadError = load ? ERROR_SUCCESS : GetLastError();
+    WA_LOG(wa::log::Level::Debug, "Attach", "GetProcAddress(LoadLibraryW)", "",
+           wa::log::hrName(HRESULT_FROM_WIN32(loadError)));
+    if (!load) return Result::Fail(static_cast<long>(E_FAIL), "Attach: LoadLibraryW not found");
+    resources.expectedDll = dll;
+    Result result = resources.injection.begin(resources.process, reinterpret_cast<LPTHREAD_START_ROUTINE>(load),
+                                    dll.c_str(), (dll.size() + 1) * sizeof(wchar_t));
+    if (!result) return result;
+    resources.installationStarted = true;
+    result = resources.injection.wait(10000, cancelled);
+    if (!result) return result;
+    bool absent = false;
+    result = verifyLoadedModule(resources.pid, dll, absent);
+    resources.moduleVerified = static_cast<bool>(result);
+    if (absent)
+        resources.installationStarted = false;  // No expected DLL exists to finish installation.
+    return result;
+}
 }  // namespace
 
 const char* attachBlockText(AttachBlock block) {
@@ -179,10 +276,6 @@ const char* attachBlockText(AttachBlock block) {
         case AttachBlock::NoDebugRights: return "Attach failed: missing debug rights";
     }
     return "Attach failed";
-}
-
-bool remoteLoadLibrarySucceeded(uint32_t waitResult, uint32_t exitCode) {
-    return waitResult == WAIT_OBJECT_0 && exitCode != 0;
 }
 
 const char* attachInstallFailMessage(uint32_t installed) {
@@ -206,6 +299,7 @@ AttachBlock evaluateAttach(uint32_t pid, uint32_t ourPid, bool sameBitnessFlag, 
 }
 
 struct OnDemandAttach::Impl {
+    std::shared_ptr<AttachResources> resources;
     uint32_t pid = 0;
     AttachBlock block = AttachBlock::None;
     HANDLE map = nullptr;
@@ -223,11 +317,9 @@ void OnDemandAttach::stop() {
     if (impl_->ring) {
         InterlockedExchange(reinterpret_cast<volatile LONG*>(&impl_->ring->captureEnabled), 0);
         InterlockedExchange(reinterpret_cast<volatile LONG*>(&impl_->ring->pumpEnabled), 0);
-        UnmapViewOfFile(impl_->ring);
         impl_->ring = nullptr;
     }
     if (impl_->map) {
-        CloseHandle(impl_->map);
         impl_->map = nullptr;
     }
     if (impl_->pid) {
@@ -236,6 +328,8 @@ void OnDemandAttach::stop() {
     impl_->pid = 0;
     impl_->readIndex = 0;
     impl_->droppedControl = 0;
+    impl_->resources.reset();
+    reapReservations();
 }
 
 bool OnDemandAttach::attached() const {
@@ -248,7 +342,16 @@ AttachBlock OnDemandAttach::lastBlock() const {
     return impl_ ? impl_->block : AttachBlock::PidZero;
 }
 
-Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, PipelineFlow flow) {
+uint32_t OnDemandAttach::reapPending() {
+    auto& state = reservations();
+    std::lock_guard<std::mutex> lock(state.mutex);
+    state.reap();
+    return static_cast<uint32_t>(std::count_if(state.entries.begin(), state.entries.end(),
+        [](const auto& entry) { return entry.use_count() == 1; }));
+}
+
+Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, PipelineFlow flow,
+                             const std::atomic_bool* cancelled) {
     stop();
     impl_->block = AttachBlock::PidZero;
     enableDebugPrivilege();
@@ -266,9 +369,15 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
     const std::string name = processName(query);
     const bool bit = sameBitness(query);
     WA_LOG(wa::log::Level::Debug, "Attach", "IsWow64Process", name, bit ? "same-bitness" : "cross-bitness");
+    FILETIME queriedCreation{}, exited{}, kernel{}, user{};
+    const BOOL queriedIdentity = GetProcessTimes(query, &queriedCreation, &exited, &kernel, &user);
+    const DWORD identityError = queriedIdentity ? ERROR_SUCCESS : GetLastError();
+    WA_LOG(wa::log::Level::Debug, "Attach", "GetProcessTimes(query)", "pid=" + std::to_string(pid),
+           wa::log::hrName(HRESULT_FROM_WIN32(identityError)));
     CloseHandle(query);
+    if (!queriedIdentity) return win32Result(identityError, "Attach: query process identity");
 
-    HANDLE inject = OpenProcess(PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION |
+    HANDLE inject = OpenProcess(SYNCHRONIZE | PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION |
                                     PROCESS_VM_OPERATION | PROCESS_VM_WRITE | PROCESS_VM_READ,
                                 FALSE, pid);
     const DWORD injOpenErr = inject ? ERROR_SUCCESS : GetLastError();
@@ -284,6 +393,29 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
         return Result::Fail(static_cast<long>(E_ACCESSDENIED), attachBlockText(impl_->block));
     }
 
+    FILETIME injectedCreation{};
+    const BOOL verifiedIdentity = GetProcessTimes(inject, &injectedCreation, &exited, &kernel, &user);
+    const DWORD verifiedError = verifiedIdentity ? ERROR_SUCCESS : GetLastError();
+    WA_LOG(wa::log::Level::Debug, "Attach", "GetProcessTimes(inject)", "pid=" + std::to_string(pid),
+           wa::log::hrName(HRESULT_FROM_WIN32(verifiedError)));
+    if (!verifiedIdentity) {
+        CloseHandle(inject);
+        return win32Result(verifiedError, "Attach: verify process identity");
+    }
+    if (CompareFileTime(&queriedCreation, &injectedCreation) != 0) {
+        CloseHandle(inject);
+        return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_PROCESS_ABORTED)),
+                            "Attach: process identity changed before injection");
+    }
+
+    if (cancelled && cancelled->load()) {
+        CloseHandle(inject);
+        return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_CANCELLED)), "Attach: cancelled before injection");
+    }
+    std::shared_ptr<AttachResources> resources;
+    Result reserved = reserveInstance(inject, pid, resources);
+    if (!reserved) { CloseHandle(inject); return reserved; }
+
     wchar_t mapNm[64] = {};
     hook_ipc::mapName(pid, mapNm, 64);
     SetLastError(ERROR_SUCCESS);
@@ -298,19 +430,22 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
            map ? (mapErr == ERROR_ALREADY_EXISTS ? "already-exists" : "S_OK")
                : wa::log::hrName(HRESULT_FROM_WIN32(mapErr)));
     if (!map) {
-        CloseHandle(inject);
         return win32Result(mapErr, "Attach: CreateFileMapping");
     }
+    resources->map = map;
     auto* ring = static_cast<hook_ipc::Ring*>(
         MapViewOfFile(map, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(hook_ipc::Ring)));
     WA_LOG(wa::log::Level::Debug, "Attach", "MapViewOfFile", wa::narrowAscii(mapNm),
            ring ? "S_OK" : wa::log::hrName(HRESULT_FROM_WIN32(GetLastError())));
     if (!ring) {
         const DWORD err = GetLastError();
-        CloseHandle(map);
-        CloseHandle(inject);
         return win32Result(err, "Attach: MapViewOfFile");
     }
+    resources->ring = ring;
+
+    if (mapErr == ERROR_ALREADY_EXISTS && ring->magic == hook_ipc::kMagic &&
+        ring->installed == hook_ipc::kInstallFailed)
+        return Result::Fail(static_cast<long>(E_FAIL), attachInstallFailMessage(hook_ipc::kInstallFailed));
 
     const bool reuse = mapErr == ERROR_ALREADY_EXISTS && ring->magic == hook_ipc::kMagic &&
                        ring->installed == hook_ipc::kInstallOk;
@@ -326,29 +461,41 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
     }
 
     const std::wstring dll = stageHookDll();
-    Result inj = injectDll(inject, dll);
-    CloseHandle(inject);
+    Result inj = injectDll(*resources, dll, cancelled);
     if (!inj) {
         WA_LOG(wa::log::Level::Info, "Attach", "inject", inj.message, "fail");
-        UnmapViewOfFile(ring);
-        CloseHandle(map);
         return inj;
     }
 
     if (!reuse) {
-        for (int i = 0; i < 80 && ring->installed == hook_ipc::kInstallPending; ++i)
-            Sleep(50);
+        for (int i = 0; i < 80 && ring->installed == hook_ipc::kInstallPending; ++i) {
+            if (cancelled && cancelled->load())
+                return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_CANCELLED)),
+                                    "Attach: installation cancelled; cleanup pending");
+            const DWORD waited = WaitForSingleObject(resources->process, 50);
+            if (waited == WAIT_OBJECT_0)
+                return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_PROCESS_ABORTED)), "Attach: target exited");
+            if (waited == WAIT_FAILED) {
+                const DWORD error = GetLastError();
+                WA_LOG(wa::log::Level::Warn, "Attach", "WaitForSingleObject(installation)",
+                       "pid=" + std::to_string(pid), wa::log::hrName(HRESULT_FROM_WIN32(error)));
+                return win32Result(error, "Attach: installation wait failed; cleanup pending");
+            }
+        }
         const uint32_t installed = ring->installed;
         WA_LOG(installed == hook_ipc::kInstallOk ? wa::log::Level::Debug : wa::log::Level::Info,
                "Attach", "hook installed", "pid=" + std::to_string(pid),
                installed == hook_ipc::kInstallOk ? "S_OK" : attachInstallFailMessage(installed));
         if (installed != hook_ipc::kInstallOk) {
-            UnmapViewOfFile(ring);
-            CloseHandle(map);
-            return Result::Fail(static_cast<long>(E_FAIL), attachInstallFailMessage(installed));
+            return Result::Fail(static_cast<long>(E_FAIL), installed == hook_ipc::kInstallPending
+                ? "Attach: hook install timed out; cleanup pending; retry after completion"
+                : attachInstallFailMessage(installed));
         }
     }
 
+    if (cancelled && cancelled->load())
+        return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_CANCELLED)), "Attach: cancelled before capture");
+    impl_->resources = std::move(resources);
     impl_->map = map;
     impl_->ring = ring;
     impl_->pid = pid;

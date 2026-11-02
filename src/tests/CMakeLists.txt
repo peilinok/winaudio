@@ -1,3 +1,11 @@
+# Automated fixtures are required even when optional manual probes are disabled.
+add_executable(RemoteInjectionTarget ${CMAKE_SOURCE_DIR}/src/probe/RemoteInjectionTarget.cpp)
+target_link_libraries(RemoteInjectionTarget PRIVATE WinAudioCore)
+wa_set_project_warnings(RemoteInjectionTarget)
+
+add_library(RemoteInjectionGate SHARED ${CMAKE_SOURCE_DIR}/src/probe/RemoteInjectionGate.cpp)
+wa_set_project_warnings(RemoteInjectionGate)
+
 add_executable(WinAudioTests
     test_delayfifo.cpp
     test_streamparams.cpp
@@ -45,6 +53,7 @@ add_executable(WinAudioTests
     test_call_arg_blob.cpp
     test_runtime_fault.cpp
     test_on_demand_attach.cpp
+    test_remote_injection.cpp
     test_pipeline_attach_ui_model.cpp
     test_pipeline_attach_set.cpp
     test_pump_window.cpp
@@ -78,6 +87,7 @@ string(REPLACE "\\" "/" WA_CHANNEL_IDENT_DIR "${CMAKE_SOURCE_DIR}/assets/channel
 target_compile_definitions(WinAudioTests PRIVATE "WA_CHANNEL_IDENT_DIR=\"${WA_CHANNEL_IDENT_DIR}\"")
 target_link_libraries(WinAudioTests PRIVATE WinAudioCore gtest_main shell32 imgui d3d11)
 wa_set_project_warnings(WinAudioTests)
+add_dependencies(WinAudioTests RemoteInjectionTarget RemoteInjectionGate WinAudioHook)
 
 include(GoogleTest)
 gtest_discover_tests(WinAudioTests)

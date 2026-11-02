@@ -3,6 +3,7 @@
 #include "PipelineGraph.h"
 #include "Result.h"
 #include <cstdint>
+#include <atomic>
 #include <memory>
 #include <string>
 #include <vector>
@@ -29,9 +30,6 @@ const char* attachBlockText(AttachBlock block);
 AttachBlock evaluateAttach(uint32_t pid, uint32_t ourPid, bool sameBitness, bool hasDebugRights,
                            const std::string& processName);
 
-// Remote LoadLibraryW thread must complete and return a non-zero HMODULE.
-bool remoteLoadLibrarySucceeded(uint32_t waitResult, uint32_t exitCode);
-
 // Message for a failed hook install. Callers must snapshot `installed` before
 // UnmapViewOfFile 鈥?the view is invalid afterwards.
 const char* attachInstallFailMessage(uint32_t installed);
@@ -46,7 +44,8 @@ public:
     OnDemandAttach& operator=(const OnDemandAttach&) = delete;
 
     Result start(uint32_t pid, const std::string& deviceIdUtf8 = {},
-                 PipelineFlow flow = PipelineFlow::Capture);
+                 PipelineFlow flow = PipelineFlow::Capture,
+                 const std::atomic_bool* cancelled = nullptr);
     void stop();
     bool attached() const;
     uint32_t pid() const;
@@ -58,6 +57,8 @@ public:
     uint32_t pumpXruns() const;
     void setPumpEnabled(bool on);
     void setCaptureEnabled(bool on);
+    // Nonblocking maintenance; returns the number of unresolved orphaned entries.
+    static uint32_t reapPending();
 
 private:
     struct Impl;

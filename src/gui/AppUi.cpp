@@ -719,6 +719,7 @@ bool AppUi::savePipelineCallLog(const std::wstring& destination) {
 }
 
 void AppUi::pollBackground(bool notify) {
+    wa::OnDemandAttach::reapPending();
     wa::CallLogExportResult result;
     if (pipelineExport_.take(result)) pipelineExportCompleted_ = std::move(result);
     if (!notify || !pipelineExportCompleted_) return;
