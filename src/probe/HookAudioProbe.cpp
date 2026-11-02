@@ -4,6 +4,7 @@
 #include "OnDemandAttach.h"
 #include "HookedCallPod.h"
 #include "Log.h"
+#include "../gui/PipelineAttachUiModel.h"
 #include <audioclient.h>
 #include <mmdeviceapi.h>
 #include <tlhelp32.h>
@@ -71,7 +72,7 @@ struct Target {
     }
 };
 
-int victim(const wchar_t* name) {
+int victim(const wchar_t* name, float controlVolume = -1.f) {
     HANDLE map = OpenFileMappingW(FILE_MAP_ALL_ACCESS, FALSE, name);
     if (!observeWin32("OpenFileMappingW/victim", map != nullptr)) return 2;
     auto* state = static_cast<Shared*>(MapViewOfFile(map, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(Shared)));
@@ -162,6 +163,13 @@ int victim(const wchar_t* name) {
                 ComPtr<IAudioCaptureClient> currentCapture;
                 if (FAILED(observe("GetService/render/periodic", output->GetService(IID_PPV_ARGS(&currentRender))))) ++stats.failures;
                 if (FAILED(observe("GetService/capture/periodic", input->GetService(IID_PPV_ARGS(&currentCapture))))) ++stats.failures;
+                if (controlVolume >= 0.f) {
+                    ComPtr<ISimpleAudioVolume> volume;
+                    const auto got = observe("GetService/volume/periodic", output->GetService(IID_PPV_ARGS(&volume)));
+                    if (FAILED(got)) ++stats.failures;
+                    else if (FAILED(observe("SetMasterVolume/periodic", volume->SetMasterVolume(controlVolume, nullptr))))
+                        ++stats.failures;
+                }
             }
             Sleep(5);
         }
@@ -174,7 +182,7 @@ int victim(const wchar_t* name) {
     return FAILED(hr) ? 4 : 0;
 }
 
-bool launch(Target& target, size_t index, uint32_t controlEvery = 20) {
+bool launch(Target& target, size_t index, uint32_t controlEvery = 20, float controlVolume = -1.f) {
     const std::wstring name = L"Local\\WinAudioHookAudioProbe-" + std::to_wstring(GetCurrentProcessId()) +
                               L"-" + std::to_wstring(index);
     target.map = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0,
@@ -187,6 +195,7 @@ bool launch(Target& target, size_t index, uint32_t controlEvery = 20) {
     const DWORD pathLength = GetModuleFileNameW(nullptr, self, MAX_PATH);
     observeWin32("GetModuleFileNameW", pathLength != 0);
     std::wstring command = L"\"" + std::wstring(self) + L"\" --victim \"" + name + L"\"";
+    if (controlVolume >= 0.f) command += L" " + std::to_wstring(controlVolume);
     STARTUPINFOW startup{sizeof(startup)};
     PROCESS_INFORMATION info{};
     if (!observeWin32("CreateProcessW", CreateProcessW(nullptr, command.data(), nullptr, nullptr, FALSE,
@@ -232,11 +241,122 @@ bool attach(Target& target) {
     }
     return found;
 }
+
+int segments() {
+    std::array<Target, 2> targets;
+    for (size_t i = 0; i < targets.size(); ++i)
+        if (!launch(targets[i], i, 4, i ? 0.75f : 0.25f)) return 30;
+    wa::PipelineAttachController controller;
+    wa::CallLogStore store;
+    wa::pipeline_attach_ui::SegmentSelection selection;
+    bool ok = true;
+    const auto consume = [&] {
+        for (auto& batch : controller.poll()) {
+            for (const auto& event : batch.events) {
+                std::printf("event pid=%u created=%llu token=%llu kind=%d exited=%d hr=%ld snapshot_ms=%lld\n",
+                    event.pid, event.instance.created, event.token, static_cast<int>(event.kind), event.exited,
+                    event.result.code, event.snapshotMs);
+                if (!event.result) ok = false;
+            }
+            selection.apply(store, std::move(batch));
+        }
+    };
+    const auto wait = [&](const auto& predicate) {
+        const auto deadline = GetTickCount64() + 10000;
+        do {
+            consume();
+            if (predicate()) { consume(); return true; }
+            Sleep(10);
+        } while (GetTickCount64() < deadline);
+        return false;
+    };
+    std::array<uint64_t, 2> ids{};
+    std::array<wa::ProcessInstance, 2> instances{};
+    for (size_t i = 0; i < targets.size(); ++i) {
+        if (!wa::queryProcessInstance(targets[i].pid, instances[i])) return 31;
+        if (!controller.start(targets[i].pid, {}, wa::PipelineFlow::Render, instances[i])) return 32;
+        if (!wait([&] { return !controller.snapshot().pendingPid; })) return 33;
+        ids[i] = store.latestAttach(instances[i]);
+        if (!ids[i]) return 34;
+    }
+    if (selection.selected() != ids[0]) ok = false;
+    const auto initialBackground = store.segment(ids[1])->count;
+    for (int i = 0; i < 100; ++i) {
+        selection.select(store, ids[static_cast<size_t>(i % 2)]);
+        Sleep(10);
+        consume();
+        wa::call_log_filter::FilterOpts query;
+        query.attach = selection.selected();
+        const auto view = store.view(query);
+        for (size_t row = 0; row < view.size(); ++row) {
+            const auto& call = view.at(row)->call;
+            if (call.pid != targets[static_cast<size_t>(i % 2)].pid ||
+                call.processCreated != instances[static_cast<size_t>(i % 2)].created) ok = false;
+        }
+    }
+    if (store.segment(ids[1])->count <= initialBackground) ok = false;
+    for (size_t i = 0; i < targets.size(); ++i) {
+        wa::call_log_filter::FilterOpts query;
+        query.attach = ids[i];
+        const auto view = store.view(query);
+        size_t setters = 0;
+        for (size_t row = 0; row < view.size(); ++row) {
+            const auto& call = view.at(row)->call;
+            if (call.method != "SetMasterVolume") continue;
+            ++setters;
+            if (call.args != (i ? "level=0.750" : "level=0.250") || call.hresult != S_OK) ok = false;
+        }
+        std::printf("segment pid=%lu created=%llu id=%llu controls=%zu setters=%zu expected_level=%.3f switches=100\n",
+            targets[i].pid, instances[i].created, ids[i], view.size(), setters, i ? .75 : .25);
+        if (!setters) ok = false;
+    }
+    selection.select(store, ids[0]);
+    const auto segmentsBeforeDuplicate = store.segments(true).size();
+    if (controller.start(targets[0].pid) || store.segments(true).size() != segmentsBeforeDuplicate) ok = false;
+    controller.stop(targets[0].pid);
+    if (!wait([&] { return !controller.attached(targets[0].pid); })) return 35;
+    const auto frozenCount = store.segment(ids[0])->count;
+    if (selection.selected() != ids[0] || store.segment(ids[0])->state != wa::CallLogStore::SegmentState::Detached) ok = false;
+    if (!controller.start(targets[0].pid, {}, wa::PipelineFlow::Render, instances[0])) return 36;
+    if (!wait([&] { return !controller.snapshot().pendingPid; })) return 37;
+    const auto newest = store.latestAttach(instances[0]);
+    if (newest == ids[0] || selection.selected() != ids[0] || store.initializeHintForInstance(instances[0]).hint.present) ok = false;
+    if (!wait([&] { return store.segment(newest)->count > 8; })) return 38;
+    if (store.segment(ids[0])->count != frozenCount) ok = false;
+    InterlockedExchange(&targets[0].shared->stop, 1);
+    if (!wait([&] { return !controller.attached(targets[0].pid); })) return 39;
+    if (store.segment(newest)->state != wa::CallLogStore::SegmentState::Exited) ok = false;
+    controller.stopAll();
+    if (!wait([&] { return !controller.anyAttached(); })) return 40;
+    controller.shutdown();
+    for (auto& target : targets) InterlockedExchange(&target.shared->stop, 1);
+    for (auto& target : targets) {
+        const DWORD waited = WaitForSingleObject(target.process, 10000);
+        const DWORD waitError = waited == WAIT_FAILED ? GetLastError() : ERROR_SUCCESS;
+        WA_LOG(waited == WAIT_OBJECT_0 ? wa::log::Level::Debug : wa::log::Level::Warn,
+            "HookAudioProbe", "WaitForSingleObject/segments",
+            "pid=" + std::to_string(target.pid) + " timeout_ms=10000",
+            "result=" + std::to_string(waited) + " error=" + std::to_string(waitError));
+        if (waited != WAIT_OBJECT_0) return 41;
+        DWORD code = STILL_ACTIVE;
+        if (!observeWin32("GetExitCodeProcess/segments", GetExitCodeProcess(target.process, &code) != FALSE)) return 42;
+        const auto& stats = target.shared->stats[0];
+        std::printf("target_exit pid=%lu code=%lu callbacks=%llu failures=%llu captured_frames=%llu\n",
+            target.pid, code, stats.callbacks, stats.failures, stats.capturedFrames);
+        if (code || !stats.callbacks || !stats.capturedFrames || stats.failures) ok = false;
+    }
+    std::printf("result=%s history=%zu selected=%llu reattached=%llu old_count=%zu coverage=unknown\n",
+        ok ? "PASS" : "FAIL", store.segments(false).size(), selection.selected(), newest, frozenCount);
+    return ok ? 0 : 43;
+}
 }
 
 int wmain(int argc, wchar_t** argv) {
     ProbeLog logging;
     if (argc == 3 && !std::wcscmp(argv[1], L"--victim")) return victim(argv[2]);
+    if (argc == 4 && !std::wcscmp(argv[1], L"--victim"))
+        return victim(argv[2], static_cast<float>(std::wcstod(argv[3], nullptr)));
+    if (argc == 2 && !std::wcscmp(argv[1], L"--segments")) return segments();
     if (argc == 3 && !std::wcscmp(argv[1], L"--continuous")) {
         const unsigned seconds = static_cast<unsigned>(std::wcstoul(argv[2], nullptr, 10));
         if (!seconds) return 20;

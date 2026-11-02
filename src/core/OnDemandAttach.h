@@ -2,6 +2,7 @@
 #include "HookedCall.h"
 #include "PipelineGraph.h"
 #include "Result.h"
+#include "ProcessInstance.h"
 #include <cstdint>
 #include <atomic>
 #include <memory>
@@ -52,11 +53,13 @@ public:
 
     Result start(uint32_t pid, const std::string& deviceIdUtf8 = {},
                  PipelineFlow flow = PipelineFlow::Capture,
-                 const std::atomic_bool* cancelled = nullptr);
+                 const std::atomic_bool* cancelled = nullptr, ProcessInstance expected = {});
     void stop();
     bool attached() const;
     bool targetExited() const;
     uint32_t pid() const;
+    ProcessInstance instance() const;
+    const std::string& processName() const;
     AttachBlock lastBlock() const;
     std::vector<HookedCall> drain();
     uint64_t droppedControlCalls() const;

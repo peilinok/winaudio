@@ -7,6 +7,7 @@
 #include <mutex>
 #include <optional>
 #include <thread>
+#include <unordered_map>
 
 namespace wa {
 struct PipelineAttachController::Impl {
@@ -14,6 +15,7 @@ struct PipelineAttachController::Impl {
         uint32_t pid = 0;
         std::string deviceId;
         PipelineFlow flow = PipelineFlow::Capture;
+        ProcessInstance instance;
         std::atomic_bool cancelled{false};
     };
     struct Prepared {
@@ -59,7 +61,7 @@ struct PipelineAttachController::Impl {
             }
             auto attach = std::make_unique<OnDemandAttach>();
             const Result result = attach->start(request->pid, request->deviceId,
-                                                request->flow, &request->cancelled);
+                                                request->flow, &request->cancelled, request->instance);
             {
                 std::lock_guard<std::mutex> lock(mutex);
                 prepared.emplace(Prepared{std::move(attach), result});
@@ -70,6 +72,16 @@ struct PipelineAttachController::Impl {
     }
     void receive() {
         PipelineAttachSet active;
+        std::unordered_map<uint32_t, uint64_t> tokens;
+        uint64_t nextToken = 0;
+        const auto now = [] {
+            return std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+        };
+        const auto attribute = [&](HookedCall& call) {
+            call.attachToken = tokens.at(call.pid);
+            call.processCreated = active.instance(call.pid).created;
+        };
         bool appliedPump = false;
         for (;;) {
             std::deque<uint32_t> commands;
@@ -95,6 +107,7 @@ struct PipelineAttachController::Impl {
             }
             Batch batch;
             batch.calls = active.drainAll();
+            for (auto& call : batch.calls) attribute(call);
             if (appliedPump != desiredPump) {
                 active.setPumpEnabled(desiredPump);
                 appliedPump = desiredPump;
@@ -108,12 +121,22 @@ struct PipelineAttachController::Impl {
                     if (closing || request->cancelled.load())
                         result = Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_CANCELLED)),
                                               "Attach: cancelled; pending injection cleanup is managed");
+                    if (result && handoff->attach->targetExited())
+                        result = Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_PROCESS_ABORTED)),
+                                              "Attach: target exited before commit");
                     if (result) {
                         handoff->attach->setPumpEnabled(desiredPump);
                         result = active.adopt(std::move(handoff->attach));
                     }
                 }
-                batch.events.push_back({request->pid, result ? EventKind::Attached : EventKind::Failed, result});
+                Event event{request->pid, result ? EventKind::Attached : EventKind::Failed, result};
+                event.instance = request->instance;
+                event.snapshotMs = now();
+                if (result) {
+                    event.token = tokens[request->pid] = ++nextToken;
+                    event.name = active.processName(request->pid);
+                }
+                batch.events.push_back(std::move(event));
                 handoff.reset();
             }
             if (outputReady) {
@@ -123,12 +146,25 @@ struct PipelineAttachController::Impl {
                     const auto targets = pid == 0 ? active.attachedPids() : std::vector<uint32_t>{pid};
                     for (const auto target : targets) {
                         if (!active.attached(target)) continue;
+                        auto tail = active.finish(target);
+                        for (auto& call : tail) {
+                            attribute(call);
+                            batch.calls.push_back(std::move(call));
+                        }
+                        Event event{target, EventKind::Detached, Result::Ok()};
+                        event.instance = active.instance(target);
+                        event.token = tokens.at(target);
+                        event.name = active.processName(target);
+                        event.snapshotMs = now();
+                        event.exited = std::find(exited.begin(), exited.end(), target) != exited.end();
                         active.stop(target);
-                        batch.events.push_back({target, EventKind::Detached, Result::Ok()});
+                        tokens.erase(target);
+                        batch.events.push_back(std::move(event));
                     }
                 }
             }
-            batch.pump = active.pumpWindows();
+            for (auto& item : active.pumpWindows())
+                batch.pump.emplace_back(tokens.at(item.first), std::move(item.second));
             const auto pids = active.attachedPids();
             const auto dropped = active.droppedControlCalls();
             const auto xruns = active.pumpXrunsSum();
@@ -161,7 +197,12 @@ struct PipelineAttachController::Impl {
 PipelineAttachController::PipelineAttachController() : impl_(std::make_unique<Impl>()) {}
 PipelineAttachController::~PipelineAttachController() = default;
 
-Result PipelineAttachController::start(uint32_t pid, const std::string& deviceId, PipelineFlow flow) {
+Result PipelineAttachController::start(uint32_t pid, const std::string& deviceId, PipelineFlow flow,
+                                       ProcessInstance expected) {
+    if (pid && !expected) {
+        const auto identity = queryProcessInstance(pid, expected);
+        if (!identity) return identity;
+    }
     std::lock_guard<std::mutex> lock(impl_->mutex);
     if (pid == 0)
         return Result::Fail(static_cast<long>(E_INVALIDARG), attachBlockText(AttachBlock::PidZero));
@@ -174,6 +215,7 @@ Result PipelineAttachController::start(uint32_t pid, const std::string& deviceId
     impl_->job->pid = pid;
     impl_->job->deviceId = deviceId;
     impl_->job->flow = flow;
+    impl_->job->instance = expected;
     impl_->state.pendingPid = pid;
     impl_->changed.notify_all();
     return Result::Ok();

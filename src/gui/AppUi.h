@@ -106,7 +106,6 @@ private:
     void runPipelineAttach();
     void attemptPipelineAttach(const wa::pipeline_attach_ui::AttachRequest& request);
     void pollPipelineAttach();
-    void drawPipelineRoundDialog();
     void drawExportCloseDialog();
     void runPipelineDetach();
     void runPipelineDetachAll();
@@ -253,6 +252,7 @@ private:
     wa::PipelineAttachController pipelineAttaches_;
     std::optional<wa::pipeline_attach_ui::AttachRequest> pipelinePreparing_;
     wa::CallRecordId pipelineCallSelected_;
+    wa::pipeline_attach_ui::SegmentSelection pipelineSegmentSelection_;
     bool pipelinePumpSelectionExpired_ = false;
     char pipelineCallFilter_[128] = "";
     char pipelineCallIfaceFilter_[96] = "";  // empty => all ifaces
@@ -268,7 +268,6 @@ private:
     bool pipelinePump_ = false;
     bool pipelineRecord_ = false;
     wa::CallLogStore pipelineCallStore_;
-    wa::pipeline_attach_ui::RoundTransition pipelineRoundTransition_;
     wa::CallLogExportJob pipelineExport_;
     std::optional<wa::CallLogExportResult> pipelineExportCompleted_;
     bool pipelineExportReveal_ = false;

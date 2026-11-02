@@ -24,6 +24,9 @@ public:
     bool attached(uint32_t pid) const;
     bool anyAttached() const;
     std::vector<uint32_t> attachedPids() const;  // sorted ascending
+    ProcessInstance instance(uint32_t pid) const;
+    std::string processName(uint32_t pid) const;
+    std::vector<HookedCall> finish(uint32_t pid);
 
     std::vector<HookedCall> drainAll();
     uint64_t droppedControlCalls() const;

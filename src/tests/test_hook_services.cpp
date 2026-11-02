@@ -18,6 +18,8 @@ public:
         ++calls;
         level = value;
         context = ctx;
+        if (reattachDuringSet)
+            InterlockedIncrement(reinterpret_cast<volatile LONG*>(&serviceRing.observationGeneration));
         return result;
     }
     HRESULT STDMETHODCALLTYPE GetMasterVolume(float* value) override {
@@ -41,6 +43,7 @@ public:
     BOOL mute = FALSE;
     LPCGUID context = nullptr;
     HRESULT result = S_OK;
+    bool reattachDuringSet = false;
 };
 
 // Use a writable, object-local copy; never leave a test class's vtable patched.
@@ -130,6 +133,23 @@ TEST_F(HookServices, VolumeCallsUseSdkSignatures) {
     EXPECT_EQ(volume.calls, 2u);
     expectCall(0, "ISimpleAudioVolume", "SetMasterVolume", S_OK);
     expectCall(1, "ISimpleAudioVolume", "GetMasterVolume", S_OK);
+}
+
+TEST_F(HookServices, ControlCallReturningAfterReattachCannotEnterTheNewSegment) {
+    SimpleVolume volume;
+    ServiceVtable table(&volume);
+    patchService(&volume, __uuidof(ISimpleAudioVolume));
+    volume.reattachDuringSet = true;
+    volume.result = S_FALSE;
+    EXPECT_EQ(setVolume(&volume, 0.625f, nullptr), S_FALSE);
+    EXPECT_EQ(volume.calls, 1u);
+    EXPECT_FLOAT_EQ(volume.level, 0.625f);
+    EXPECT_EQ(serviceRing.writeIndex, 0u);
+    volume.reattachDuringSet = false;
+    EXPECT_EQ(setVolume(&volume, 0.25f, nullptr), S_FALSE);
+    ASSERT_EQ(serviceRing.writeIndex, 1u);
+    EXPECT_EQ(serviceRing.slots[0].observationGeneration, 1u);
+    EXPECT_STREQ(serviceRing.slots[0].args, "level=0.250");
 }
 
 TEST_F(HookServices, VolumeFailureAndCaptureDisabledPreserveForwarding) {

@@ -40,6 +40,7 @@ struct LiveSessionView {
     float sessionVolume = 1.f;
     bool sessionMute = false;
     std::string state;
+    uint64_t processCreated = 0;
 };
 
 // Drop pid 0; drop hidePid when non-zero. Do not collapse two rows that share a
@@ -141,6 +142,8 @@ struct HookedCall {
     std::optional<bool> matchFormat;
     std::optional<bool> exclusive;
     std::optional<std::string> format;
+    uint64_t processCreated = 0;
+    uint64_t attachToken = 0;  // Owning receiver attribution, never guessed by PID.
 };
 
 struct AdvertisedEffect {

@@ -11,6 +11,16 @@ namespace wa::ui_text {
 
 // One row: identifier, English literal, Chinese slot (nullptr or "" = fallback).
 #define WA_UI_TEXT_ROWS \
+    WA_UI_TEXT(kPipelineMonitoring, "Monitoring", "正在监控") \
+    WA_UI_TEXT(kPipelineHistory, "History", "历史记录") \
+    WA_UI_TEXT(kPipelineSegmentFmt, "PID %u | segment %llu | %s", "PID %u | 记录段 %llu | %s") \
+    WA_UI_TEXT(kPipelineExited, "Exited", "已退出") \
+    WA_UI_TEXT(kPipelineDetachedHistory, "Detached", "已分离") \
+    WA_UI_TEXT(kPipelineCallSourceFmt, "Call log: %s | PID %u | segment %llu | %s", "调用来源：%s | PID %u | 记录段 %llu | %s") \
+    WA_UI_TEXT(kPipelineGraphSourceFmt, "Graph: %s | PID %u", "管线图来源：%s | PID %u") \
+    WA_UI_TEXT(kPipelineGraphSegmentFmt, "Latest matching segment %llu: %s", "匹配实例的最新记录段 %llu：%s") \
+    WA_UI_TEXT(kPipelineIdentityUnknown, "Process instance not verified; old Hook evidence is not used.", "进程实例无法核验；不使用旧 Hook 证据。") \
+    WA_UI_TEXT(kPipelineHistorySnapshotFmt, "Read-only snapshot: %s. Coverage is unknown; outstanding calls were not awaited.", "只读快照：%s。覆盖情况未知；没有等待所有在途调用完成。") \
     WA_UI_TEXT(kPipelineAttachPreparing, "Preparing attach PID %u (Detach cancels)", "正在准备附加 PID %u（分离可取消）") \
     WA_UI_TEXT(kPipelineAttachCleanup, "Pending injection cleanup: %u", "等待注入收尾：%u") \
     WA_UI_TEXT(kPipelineAttachOverflow, "Receive queue missing: %llu calls / %llu batches; rejected commands: %llu", "接收队列缺失：%llu 条调用 / %llu 批次；拒绝命令：%llu") \
@@ -164,10 +174,6 @@ namespace wa::ui_text {
     WA_UI_TEXT(kPipelineAttachedPids, "Attached PIDs", "已附加 PID") \
     WA_UI_TEXT(kPipelineRecord, "Record calls", "录制调用") \
     WA_UI_TEXT(kPipelineSaveCalls, "Save calls", "保存调用") \
-    WA_UI_TEXT(kPipelineReplaceRound, "Replace observation", "替换观察历史") \
-    WA_UI_TEXT(kPipelineReplaceRoundCounts, "Save range: %zu calls; replace total: %zu calls.", "保存范围：%zu 条；将替换历史：%zu 条。") \
-    WA_UI_TEXT(kPipelineSaveContinue, "Save, then attach", "保存后附加") \
-    WA_UI_TEXT(kPipelineDiscardContinue, "Discard, then attach", "放弃后附加") \
     WA_UI_TEXT(kPipelineCancel, "Cancel", "取消") \
     WA_UI_TEXT(kPipelineExportBusy, "Saving calls. Retry after completion.", "调用正在保存，请完成后重试。") \
     WA_UI_TEXT(kPipelineExportExit, "Save before exit", "保存后退出") \

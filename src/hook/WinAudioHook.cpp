@@ -150,9 +150,16 @@ bool shouldEmit(bool pump) {
            (!pump || ReadULongAcquire(reinterpret_cast<const volatile ULONG*>(&g_ring->pumpEnabled)));
 }
 
-void emit(CallPod pod) {
+uint32_t observationGeneration() {
+    return g_ring ? ReadULongAcquire(reinterpret_cast<const volatile ULONG*>(&g_ring->observationGeneration))
+                  : UINT32_MAX;
+}
+
+void emit(CallPod pod, uint32_t observation) {
     WA_HOOK_OBSERVE(precommit);
     if (!shouldEmit(pod.pump != 0)) return;
+    if (observation != observationGeneration()) return;
+    pod.observationGeneration = observation;
     WA_HOOK_OBSERVE(accepted);
     pod.timeMs = nowMs();
     if (pod.pump) {
@@ -170,14 +177,14 @@ void emit(CallPod pod) {
 }
 
 void emitSimple(uint32_t streamId, const char* iface, const char* method, const char* args,
-                HRESULT hr) {
+                HRESULT hr, uint32_t observation) {
     CallPod p{};
     p.streamId = streamId;
     copyStr(p.iface, sizeof(p.iface), iface);
     copyStr(p.method, sizeof(p.method), method);
     copyStr(p.args, sizeof(p.args), args);
     p.hresult = static_cast<int32_t>(hr);
-    emit(p);
+    emit(p, observation);
 }
 
 uint32_t sid(const void* p) { return static_cast<uint32_t>(reinterpret_cast<uintptr_t>(p)); }
@@ -412,6 +419,7 @@ bool patchSlot(void* obj, int slot, void* hook, void** orig) {
 HRESULT STDMETHODCALLTYPE HookInitialize(IAudioClient* self, AUDCLNT_SHAREMODE share, DWORD flags,
                                          REFERENCE_TIME dur, REFERENCE_TIME per,
                                          const WAVEFORMATEX* fmt, LPCGUID session) {
+    const auto observation = observationGeneration();
     const HRESULT hr = g_initialize ? g_initialize(self, share, flags, dur, per, fmt, session)
                                     : E_UNEXPECTED;
     CallPod p{};
@@ -457,66 +465,75 @@ HRESULT STDMETHODCALLTYPE HookInitialize(IAudioClient* self, AUDCLNT_SHAREMODE s
     }
     pushReturn(w, hr);
     sealArgs(p, w);
-    emit(p);
+    emit(p, observation);
     return hr;
 }
 
 HRESULT STDMETHODCALLTYPE HookStart(IAudioClient* self) {
+    const auto observation = observationGeneration();
     const HRESULT hr = g_start ? g_start(self) : E_UNEXPECTED;
-    emitSimple(sid(self), "IAudioClient", "Start", "", hr);
+    emitSimple(sid(self), "IAudioClient", "Start", "", hr, observation);
     return hr;
 }
 
 HRESULT STDMETHODCALLTYPE HookStop(IAudioClient* self) {
+    const auto observation = observationGeneration();
     const HRESULT hr = g_stop ? g_stop(self) : E_UNEXPECTED;
-    emitSimple(sid(self), "IAudioClient", "Stop", "", hr);
+    emitSimple(sid(self), "IAudioClient", "Stop", "", hr, observation);
     return hr;
 }
 
 HRESULT STDMETHODCALLTYPE HookReset(IAudioClient* self) {
+    const auto observation = observationGeneration();
     const HRESULT hr = g_reset ? g_reset(self) : E_UNEXPECTED;
-    emitSimple(sid(self), "IAudioClient", "Reset", "", hr);
+    emitSimple(sid(self), "IAudioClient", "Reset", "", hr, observation);
     return hr;
 }
 
 HRESULT STDMETHODCALLTYPE HookSetEventHandle(IAudioClient* self, HANDLE ev) {
+    const auto observation = observationGeneration();
     const HRESULT hr = g_setEvent ? g_setEvent(self, ev) : E_UNEXPECTED;
     char args[48] = {};
     sprintf_s(args, "handle=0x%p", ev);
-    emitSimple(sid(self), "IAudioClient", "SetEventHandle", args, hr);
+    emitSimple(sid(self), "IAudioClient", "SetEventHandle", args, hr, observation);
     return hr;
 }
 
 HRESULT STDMETHODCALLTYPE HookVolGet(ISimpleAudioVolume* self, float* level) {
+    const auto observation = observationGeneration();
     const HRESULT hr = g_volGet ? g_volGet(self, level) : E_UNEXPECTED;
     char args[48] = {};
     if (SUCCEEDED(hr) && level) sprintf_s(args, "level=%.3f", static_cast<double>(*level));
-    emitSimple(sid(self), "ISimpleAudioVolume", "GetMasterVolume", args, hr);
+    emitSimple(sid(self), "ISimpleAudioVolume", "GetMasterVolume", args, hr, observation);
     return hr;
 }
 
 HRESULT STDMETHODCALLTYPE HookVolSet(ISimpleAudioVolume* self, float level, LPCGUID ctx) {
+    const auto observation = observationGeneration();
     const HRESULT hr = g_volSet ? g_volSet(self, level, ctx) : E_UNEXPECTED;
     char args[48] = {};
     sprintf_s(args, "level=%.3f", static_cast<double>(level));
-    emitSimple(sid(self), "ISimpleAudioVolume", "SetMasterVolume", args, hr);
+    emitSimple(sid(self), "ISimpleAudioVolume", "SetMasterVolume", args, hr, observation);
     return hr;
 }
 
 HRESULT STDMETHODCALLTYPE HookMuteGet(ISimpleAudioVolume* self, BOOL* mute) {
+    const auto observation = observationGeneration();
     const HRESULT hr = g_muteGet ? g_muteGet(self, mute) : E_UNEXPECTED;
     emitSimple(sid(self), "ISimpleAudioVolume", "GetMute",
-               (SUCCEEDED(hr) && mute && *mute) ? "true" : "false", hr);
+               (SUCCEEDED(hr) && mute && *mute) ? "true" : "false", hr, observation);
     return hr;
 }
 
 HRESULT STDMETHODCALLTYPE HookMuteSet(ISimpleAudioVolume* self, BOOL mute, LPCGUID ctx) {
+    const auto observation = observationGeneration();
     const HRESULT hr = g_muteSet ? g_muteSet(self, mute, ctx) : E_UNEXPECTED;
-    emitSimple(sid(self), "ISimpleAudioVolume", "SetMute", mute ? "true" : "false", hr);
+    emitSimple(sid(self), "ISimpleAudioVolume", "SetMute", mute ? "true" : "false", hr, observation);
     return hr;
 }
 
 HRESULT STDMETHODCALLTYPE HookSessState(IAudioSessionControl* self, AudioSessionState* st) {
+    const auto observation = observationGeneration();
     const HRESULT hr = g_sessState ? g_sessState(self, st) : E_UNEXPECTED;
     const char* name = "unknown";
     if (SUCCEEDED(hr) && st) {
@@ -524,20 +541,22 @@ HRESULT STDMETHODCALLTYPE HookSessState(IAudioSessionControl* self, AudioSession
         else if (*st == AudioSessionStateInactive) name = "Inactive";
         else if (*st == AudioSessionStateExpired) name = "Expired";
     }
-    emitSimple(sid(self), "IAudioSessionControl", "GetState", name, hr);
+    emitSimple(sid(self), "IAudioSessionControl", "GetState", name, hr, observation);
     return hr;
 }
 
 HRESULT STDMETHODCALLTYPE HookClockFreq(IAudioClock* self, UINT64* freq) {
+    const auto observation = observationGeneration();
     const HRESULT hr = g_clockFreq ? g_clockFreq(self, freq) : E_UNEXPECTED;
     char args[48] = {};
     if (SUCCEEDED(hr) && freq) sprintf_s(args, "hz=%llu", static_cast<unsigned long long>(*freq));
-    emitSimple(sid(self), "IAudioClock", "GetFrequency", args, hr);
+    emitSimple(sid(self), "IAudioClock", "GetFrequency", args, hr, observation);
     return hr;
 }
 
 HRESULT STDMETHODCALLTYPE HookCapGetBuffer(IAudioCaptureClient* self, BYTE** data, UINT32* frames,
                                            DWORD* flags, UINT64* pos, UINT64* qpc) {
+    const auto observation = observationGeneration();
     const HRESULT hr =
         g_capGet ? g_capGet(self, data, frames, flags, pos, qpc) : E_UNEXPECTED;
     if (!shouldEmit(true)) return hr;
@@ -553,11 +572,12 @@ HRESULT STDMETHODCALLTYPE HookCapGetBuffer(IAudioCaptureClient* self, BYTE** dat
     sprintf_s(p.args, "frames=%u flags=0x%lX", n, static_cast<unsigned long>(fl));
     p.hresult = static_cast<int32_t>(hr);
     p.xrun = (FAILED(hr) || (fl & AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY)) ? 1 : 0;
-    emit(p);
+    emit(p, observation);
     return hr;
 }
 
 HRESULT STDMETHODCALLTYPE HookCapReleaseBuffer(IAudioCaptureClient* self, UINT32 frames) {
+    const auto observation = observationGeneration();
     const HRESULT hr = g_capRel ? g_capRel(self, frames) : E_UNEXPECTED;
     if (!shouldEmit(true)) return hr;
     WA_HOOK_OBSERVE(prepare);
@@ -570,11 +590,12 @@ HRESULT STDMETHODCALLTYPE HookCapReleaseBuffer(IAudioCaptureClient* self, UINT32
     sprintf_s(p.args, "frames=%u", frames);
     p.hresult = static_cast<int32_t>(hr);
     p.xrun = FAILED(hr) ? 1 : 0;
-    emit(p);
+    emit(p, observation);
     return hr;
 }
 
 HRESULT STDMETHODCALLTYPE HookRenGetBuffer(IAudioRenderClient* self, UINT32 frames, BYTE** data) {
+    const auto observation = observationGeneration();
     const HRESULT hr = g_renGet ? g_renGet(self, frames, data) : E_UNEXPECTED;
     if (!shouldEmit(true)) return hr;
     WA_HOOK_OBSERVE(prepare);
@@ -587,12 +608,13 @@ HRESULT STDMETHODCALLTYPE HookRenGetBuffer(IAudioRenderClient* self, UINT32 fram
     sprintf_s(p.args, "frames=%u", frames);
     p.hresult = static_cast<int32_t>(hr);
     p.xrun = FAILED(hr) ? 1 : 0;
-    emit(p);
+    emit(p, observation);
     return hr;
 }
 
 HRESULT STDMETHODCALLTYPE HookRenReleaseBuffer(IAudioRenderClient* self, UINT32 frames,
                                                DWORD flags) {
+    const auto observation = observationGeneration();
     const HRESULT hr = g_renRel ? g_renRel(self, frames, flags) : E_UNEXPECTED;
     if (!shouldEmit(true)) return hr;
     WA_HOOK_OBSERVE(prepare);
@@ -605,59 +627,65 @@ HRESULT STDMETHODCALLTYPE HookRenReleaseBuffer(IAudioRenderClient* self, UINT32 
     sprintf_s(p.args, "frames=%u flags=0x%lX", frames, static_cast<unsigned long>(flags));
     p.hresult = static_cast<int32_t>(hr);
     p.xrun = FAILED(hr) ? 1 : 0;
-    emit(p);
+    emit(p, observation);
     return hr;
 }
 
 HRESULT STDMETHODCALLTYPE HookGetBufferSize(IAudioClient* self, UINT32* frames) {
+    const auto observation = observationGeneration();
     const HRESULT hr = g_getBufSize ? g_getBufSize(self, frames) : E_UNEXPECTED;
     char args[48] = {};
     if (SUCCEEDED(hr) && frames) sprintf_s(args, "frames=%u", *frames);
-    emitSimple(sid(self), "IAudioClient", "GetBufferSize", args, hr);
+    emitSimple(sid(self), "IAudioClient", "GetBufferSize", args, hr, observation);
     return hr;
 }
 
 HRESULT STDMETHODCALLTYPE HookStreamVolCount(IAudioStreamVolume* self, UINT32* count) {
+    const auto observation = observationGeneration();
     const HRESULT hr = g_streamVolCount ? g_streamVolCount(self, count) : E_UNEXPECTED;
     char args[48] = {};
     if (SUCCEEDED(hr) && count) sprintf_s(args, "channels=%u", *count);
-    emitSimple(sid(self), "IAudioStreamVolume", "GetChannelCount", args, hr);
+    emitSimple(sid(self), "IAudioStreamVolume", "GetChannelCount", args, hr, observation);
     return hr;
 }
 
 HRESULT STDMETHODCALLTYPE HookStreamVolSet(IAudioStreamVolume* self, UINT32 index, float level) {
+    const auto observation = observationGeneration();
     const HRESULT hr = g_streamVolSet ? g_streamVolSet(self, index, level) : E_UNEXPECTED;
     char args[64] = {};
     sprintf_s(args, "ch=%u level=%.3f", index, static_cast<double>(level));
-    emitSimple(sid(self), "IAudioStreamVolume", "SetChannelVolume", args, hr);
+    emitSimple(sid(self), "IAudioStreamVolume", "SetChannelVolume", args, hr, observation);
     return hr;
 }
 
 HRESULT STDMETHODCALLTYPE HookStreamVolGet(IAudioStreamVolume* self, UINT32 index, float* level) {
+    const auto observation = observationGeneration();
     const HRESULT hr = g_streamVolGet ? g_streamVolGet(self, index, level) : E_UNEXPECTED;
     char args[64] = {};
     if (SUCCEEDED(hr) && level)
         sprintf_s(args, "ch=%u level=%.3f", index, static_cast<double>(*level));
     else
         sprintf_s(args, "ch=%u", index);
-    emitSimple(sid(self), "IAudioStreamVolume", "GetChannelVolume", args, hr);
+    emitSimple(sid(self), "IAudioStreamVolume", "GetChannelVolume", args, hr, observation);
     return hr;
 }
 
 #if defined(__IAudioEffectsManager_INTERFACE_DEFINED__)
 HRESULT STDMETHODCALLTYPE HookFxGet(IAudioEffectsManager* self, AUDIO_EFFECT** effects, UINT32* n) {
+    const auto observation = observationGeneration();
     const HRESULT hr = g_fxGet ? g_fxGet(self, effects, n) : E_UNEXPECTED;
     char args[48] = {};
     if (SUCCEEDED(hr) && n) sprintf_s(args, "count=%u", *n);
-    emitSimple(sid(self), "IAudioEffectsManager", "GetAudioEffects", args, hr);
+    emitSimple(sid(self), "IAudioEffectsManager", "GetAudioEffects", args, hr, observation);
     return hr;
 }
 
 HRESULT STDMETHODCALLTYPE HookFxSet(IAudioEffectsManager* self, GUID id, AUDIO_EFFECT_STATE st) {
+    const auto observation = observationGeneration();
     const HRESULT hr = g_fxSet ? g_fxSet(self, id, st) : E_UNEXPECTED;
     char args[80] = {};
     sprintf_s(args, "state=%s", st == AUDIO_EFFECT_STATE_ON ? "on" : "off");
-    emitSimple(sid(self), "IAudioEffectsManager", "SetAudioEffectState", args, hr);
+    emitSimple(sid(self), "IAudioEffectsManager", "SetAudioEffectState", args, hr, observation);
     return hr;
 }
 #endif
@@ -703,6 +731,7 @@ void patchService(void* obj, REFIID iid) {
 }
 
 HRESULT STDMETHODCALLTYPE HookGetService(IAudioClient* self, REFIID iid, void** pp) {
+    const auto observation = observationGeneration();
     const HRESULT hr = g_getService ? g_getService(self, iid, pp) : E_UNEXPECTED;
     CallPod p{};
     p.streamId = sid(self);
@@ -721,13 +750,14 @@ HRESULT STDMETHODCALLTYPE HookGetService(IAudioClient* self, REFIID iid, void** 
     w.push(0, wa::hook_ipc::kArgOut, "void**", "ppv", "", tmp);
     pushReturn(w, hr);
     sealArgs(p, w);
-    emit(p);
+    emit(p, observation);
     if (SUCCEEDED(hr) && pp && *pp) patchService(*pp, iid);
     return hr;
 }
 
 HRESULT STDMETHODCALLTYPE HookSetClientProperties(IAudioClient2* self,
                                                   const AudioClientProperties* props) {
+    const auto observation = observationGeneration();
     const HRESULT hr = g_setProps ? g_setProps(self, props) : E_UNEXPECTED;
     CallPod p{};
     p.streamId = sid(self);
@@ -761,12 +791,13 @@ HRESULT STDMETHODCALLTYPE HookSetClientProperties(IAudioClient2* self,
     }
     pushReturn(w, hr);
     sealArgs(p, w);
-    emit(p);
+    emit(p, observation);
     return hr;
 }
 
 HRESULT STDMETHODCALLTYPE HookInitShared(IAudioClient3* self, DWORD flags, UINT32 period,
                                          const WAVEFORMATEX* fmt, LPCGUID session) {
+    const auto observation = observationGeneration();
     const HRESULT hr =
         g_initShared ? g_initShared(self, flags, period, fmt, session) : E_UNEXPECTED;
     CallPod p{};
@@ -806,7 +837,7 @@ HRESULT STDMETHODCALLTYPE HookInitShared(IAudioClient3* self, DWORD flags, UINT3
     }
     pushReturn(w, hr);
     sealArgs(p, w);
-    emit(p);
+    emit(p, observation);
     return hr;
 }
 
@@ -854,6 +885,7 @@ void patchClient(void* obj) {
 
 HRESULT STDMETHODCALLTYPE HookActivate(IMMDevice* self, REFIID iid, DWORD ctx, PROPVARIANT* params,
                                        void** ppInterface) {
+    const auto observation = observationGeneration();
     const HRESULT hr =
         g_activate ? g_activate(self, iid, ctx, params, ppInterface) : E_UNEXPECTED;
     CallPod p{};
@@ -877,7 +909,7 @@ HRESULT STDMETHODCALLTYPE HookActivate(IMMDevice* self, REFIID iid, DWORD ctx, P
     w.push(0, wa::hook_ipc::kArgOut, "void**", "ppInterface", "", tmp);
     pushReturn(w, hr);
     sealArgs(p, w);
-    emit(p);
+    emit(p, observation);
     if (SUCCEEDED(hr) && ppInterface && *ppInterface) {
         if (iid == __uuidof(IAudioClient) || iid == __uuidof(IAudioClient2) ||
             iid == __uuidof(IAudioClient3)) {

@@ -21,9 +21,8 @@ constexpr uint32_t kPumpCap = 64;
 constexpr uint32_t kInstallPending = 0;
 constexpr uint32_t kInstallOk = 1;
 constexpr uint32_t kInstallFailed = 2;
-// Layout 6 adds installation capability diagnostics. A ready installer only
-// covers the discovered implementations, never every object with the same IID.
-constexpr uint32_t kRingLayout = 6;
+// Layout 7 isolates process instances and calls that cross an attach boundary.
+constexpr uint32_t kRingLayout = 7;
 constexpr uint32_t kCoverageDiscoveredImplementations = 1;
 constexpr uint32_t kCoverageInstallationFault = 2;
 
@@ -245,6 +244,7 @@ struct CallPod {
     char format[64];
     uint16_t argBlobLen;
     uint8_t argBlob[kArgBlobCap];
+    uint32_t observationGeneration;
 };
 
 struct Ring {
@@ -265,6 +265,8 @@ struct Ring {
     uint32_t patchRejected;
     uint32_t patchLastError;  // Win32 error from the last rejection
     uint32_t coverageFlags;
+    uint64_t processCreated;
+    uint32_t observationGeneration;
 };
 
 inline void mapName(uint32_t pid, wchar_t* out, size_t n) {

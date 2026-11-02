@@ -296,6 +296,9 @@ AttachBlock evaluateAttach(uint32_t pid, uint32_t ourPid, bool sameBitnessFlag, 
 struct OnDemandAttach::Impl {
     std::shared_ptr<AttachResources> resources;
     uint32_t pid = 0;
+    ProcessInstance instance;
+    std::string name;
+    uint32_t generation = 0;
     AttachBlock block = AttachBlock::None;
     HANDLE map = nullptr;
     hook_ipc::Ring* ring = nullptr;
@@ -322,6 +325,8 @@ void OnDemandAttach::stop() {
         WA_LOG(wa::log::Level::Info, "Attach", "stop", "pid=" + std::to_string(impl_->pid), "ok");
     }
     impl_->pid = 0;
+    impl_->instance = {};
+    impl_->name.clear();
     impl_->readIndex = 0;
     impl_->droppedControl = 0;
     impl_->reportedRejections = 0;
@@ -344,6 +349,38 @@ bool OnDemandAttach::targetExited() const {
 }
 
 uint32_t OnDemandAttach::pid() const { return impl_ ? impl_->pid : 0; }
+ProcessInstance OnDemandAttach::instance() const { return impl_->instance; }
+const std::string& OnDemandAttach::processName() const { return impl_->name; }
+
+Result queryProcessInstance(uint32_t pid, ProcessInstance& instance, std::string* name) {
+    instance = {};
+    HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, FALSE, pid);
+    const DWORD openError = process ? ERROR_SUCCESS : GetLastError();
+    WA_LOG(wa::log::Level::Debug, "Attach", "OpenProcess(identity)", "pid=" + std::to_string(pid),
+           wa::log::hrName(HRESULT_FROM_WIN32(openError)));
+    if (!process) return win32Result(openError, "Attach: process identity unavailable");
+    FILETIME created{}, exited{}, kernel{}, user{};
+    const BOOL ok = GetProcessTimes(process, &created, &exited, &kernel, &user);
+    const DWORD error = ok ? ERROR_SUCCESS : GetLastError();
+    WA_LOG(wa::log::Level::Debug, "Attach", "GetProcessTimes(identity)", "pid=" + std::to_string(pid),
+           wa::log::hrName(HRESULT_FROM_WIN32(error)));
+    const DWORD waited = WaitForSingleObject(process, 0);
+    const DWORD waitError = waited == WAIT_FAILED ? GetLastError() : ERROR_SUCCESS;
+    WA_LOG(wa::log::Level::Debug, "Attach", "WaitForSingleObject(identity)", "pid=" + std::to_string(pid),
+           waited == WAIT_TIMEOUT ? "running" : wa::log::hrName(HRESULT_FROM_WIN32(waitError)));
+    if (ok && waited == WAIT_TIMEOUT) {
+        instance = {pid, (static_cast<uint64_t>(created.dwHighDateTime) << 32) | created.dwLowDateTime};
+        if (name) *name = processName(process);
+    }
+    const BOOL closed = CloseHandle(process);
+    const DWORD closeError = closed ? ERROR_SUCCESS : GetLastError();
+    WA_LOG(closed ? wa::log::Level::Debug : wa::log::Level::Warn, "Attach", "CloseHandle(identity)",
+           "pid=" + std::to_string(pid), wa::log::hrName(HRESULT_FROM_WIN32(closeError)));
+    if (!ok) return win32Result(error, "Attach: process identity unavailable");
+    if (!instance) return win32Result(waited == WAIT_FAILED ? waitError : ERROR_PROCESS_ABORTED,
+                                     "Attach: target exited or identity unavailable");
+    return Result::Ok();
+}
 
 AttachBlock OnDemandAttach::lastBlock() const {
     return impl_ ? impl_->block : AttachBlock::PidZero;
@@ -358,7 +395,7 @@ uint32_t OnDemandAttach::reapPending() {
 }
 
 Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, PipelineFlow flow,
-                             const std::atomic_bool* cancelled) {
+                             const std::atomic_bool* cancelled, ProcessInstance expected) {
     stop();
     impl_->block = AttachBlock::PidZero;
     enableDebugPrivilege();
@@ -373,7 +410,7 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
         return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(queryErr)),
                             attachBlockText(impl_->block));
     }
-    const std::string name = processName(query);
+    const std::string name = wa::processName(query);
     const bool bit = sameBitness(query);
     WA_LOG(wa::log::Level::Debug, "Attach", "IsWow64Process", name, bit ? "same-bitness" : "cross-bitness");
     FILETIME queriedCreation{}, exited{}, kernel{}, user{};
@@ -383,6 +420,10 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
            wa::log::hrName(HRESULT_FROM_WIN32(identityError)));
     CloseHandle(query);
     if (!queriedIdentity) return win32Result(identityError, "Attach: query process identity");
+    const ProcessInstance queried{pid, (static_cast<uint64_t>(queriedCreation.dwHighDateTime) << 32) |
+                                      queriedCreation.dwLowDateTime};
+    if (expected && expected != queried)
+        return win32Result(ERROR_PROCESS_ABORTED, "Attach: expected process instance changed");
 
     HANDLE inject = OpenProcess(SYNCHRONIZE | PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION |
                                     PROCESS_VM_OPERATION | PROCESS_VM_WRITE | PROCESS_VM_READ,
@@ -413,6 +454,14 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
         CloseHandle(inject);
         return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_PROCESS_ABORTED)),
                             "Attach: process identity changed before injection");
+    }
+    const auto alive = waitRemoteThread(inject, 0);
+    WA_LOG(wa::log::Level::Debug, "Attach", "WaitForSingleObject(before injection)", "pid=" + std::to_string(pid),
+           alive.outcome == WAIT_TIMEOUT ? "running" : wa::log::hrName(HRESULT_FROM_WIN32(alive.error)));
+    if (alive.outcome != WAIT_TIMEOUT) {
+        CloseHandle(inject);
+        return win32Result(alive.outcome == WAIT_FAILED ? alive.error : ERROR_PROCESS_ABORTED,
+                           "Attach: target exited before injection");
     }
 
     if (cancelled && cancelled->load()) {
@@ -476,6 +525,7 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
         ring->magic = hook_ipc::kMagic;
         ring->cap = hook_ipc::kCap;
         ring->installed = hook_ipc::kInstallPending;
+        ring->processCreated = queried.created;
         const std::wstring wid = utf8ToWide(deviceIdUtf8);
         if (!wid.empty())
             wcsncpy_s(ring->deviceId, wid.c_str(), _TRUNCATE);
@@ -522,12 +572,27 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
             ? "Attach: hook install timed out; cleanup pending; retry after completion"
             : attachInstallFailMessage(installed));
 
+    const auto waited = waitRemoteThread(resources->process, 0);
+    WA_LOG(wa::log::Level::Debug, "Attach", "WaitForSingleObject(receive handoff)", "pid=" + std::to_string(pid),
+           waited.outcome == WAIT_TIMEOUT ? "running" : wa::log::hrName(HRESULT_FROM_WIN32(waited.error)));
+    if (waited.outcome != WAIT_TIMEOUT)
+        return win32Result(waited.outcome == WAIT_FAILED ? waited.error : ERROR_PROCESS_ABORTED,
+                           "Attach: target exited before receive handoff");
+    if (ring->processCreated != queried.created)
+        return win32Result(ERROR_PROCESS_ABORTED, "Attach: receiver process identity mismatch");
+    if (ring->observationGeneration == UINT32_MAX)
+        return win32Result(ERROR_ARITHMETIC_OVERFLOW, "Attach: observation generation exhausted; restart target");
+
     if (cancelled && cancelled->load())
         return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_CANCELLED)), "Attach: cancelled before capture");
     impl_->resources = std::move(resources);
     impl_->map = map;
     impl_->ring = ring;
     impl_->pid = pid;
+    impl_->instance = queried;
+    impl_->name = name;
+    impl_->generation = static_cast<uint32_t>(InterlockedIncrement(
+        reinterpret_cast<volatile LONG*>(&ring->observationGeneration)));
     impl_->readIndex = ring->writeIndex;
     impl_->block = AttachBlock::None;
     impl_->pump.begin(*ring);
@@ -567,6 +632,7 @@ std::vector<HookedCall> OnDemandAttach::drain() {
     out.reserve(count);
     for (uint32_t i = read; i < write; ++i) {
         const auto& pod = impl_->ring->slots[i % hook_ipc::kCap];
+        if (pod.observationGeneration != impl_->generation) continue;
         out.push_back(decodeHookedCallPod(pod));
     }
     impl_->readIndex = write;
