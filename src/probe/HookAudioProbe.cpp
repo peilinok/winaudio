@@ -331,7 +331,13 @@ int segments() {
     controller.shutdown();
     for (auto& target : targets) InterlockedExchange(&target.shared->stop, 1);
     for (auto& target : targets) {
-        if (WaitForSingleObject(target.process, 10000) != WAIT_OBJECT_0) return 41;
+        const DWORD waited = WaitForSingleObject(target.process, 10000);
+        const DWORD waitError = waited == WAIT_FAILED ? GetLastError() : ERROR_SUCCESS;
+        WA_LOG(waited == WAIT_OBJECT_0 ? wa::log::Level::Debug : wa::log::Level::Warn,
+            "HookAudioProbe", "WaitForSingleObject/segments",
+            "pid=" + std::to_string(target.pid) + " timeout_ms=10000",
+            "result=" + std::to_string(waited) + " error=" + std::to_string(waitError));
+        if (waited != WAIT_OBJECT_0) return 41;
         DWORD code = STILL_ACTIVE;
         if (!observeWin32("GetExitCodeProcess/segments", GetExitCodeProcess(target.process, &code) != FALSE)) return 42;
         const auto& stats = target.shared->stats[0];

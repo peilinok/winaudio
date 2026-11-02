@@ -1,6 +1,6 @@
 # 按进程实例查看附加记录段：#257 验收
 
-本次在 `feat/attach-segment-view`、基线 `e2a86a079d117de8cff065c0ff8e6b9de84a18bf` 上实现 #257。无设备状态验证、真实双 PID 控制调用与生产 GUI 功能验证已通过；下文分别说明证据对应的版本与边界。没有暂存、提交或推送。
+本次在 `feat/attach-segment-view`、基线 `e2a86a079d117de8cff065c0ff8e6b9de84a18bf` 上实现 #257。无设备状态验证、真实双 PID 控制调用与生产 GUI 功能验证已通过；下文分别说明证据对应的版本与边界。本报告记录实施与审查修正后的验证结果。
 
 ## 实现行为
 
@@ -21,8 +21,9 @@
 | 历史保留缺陷先判红 | 1 项失败，退出码 1；旧逻辑会清轮次、历史和导出范围 | `red-history.log` |
 | 在途调用跨重附加缺陷先判红 | 1 项失败，退出码 1；调用在原 API 内跨代仍被旧 Hook 写入 | `red-hook-generation.log` |
 | 同批结束旧实例与新实例成功的收尾顺序先判红 | 1 项失败，退出码 1；最小修正后通过 | `red-tail.log`、`green-tail.log` |
-| x64 Debug 状态、存储、图与生命周期 | 99/99 | `focused-debug-tail.log/json` |
-| x64 Release 同组回归 | 99/99 | `focused-release-tail.log/json` |
+| 审查前 x64 Debug / Release 状态、存储、图与生命周期 | 每配置 99/99 | `focused-debug-tail.log/json`、`focused-release-tail.log/json` |
+| 审查修正后 x64 Debug / Release 同组回归 | 每配置 97/97，删除两项换轮次旧测试 | `focused-debug-review.log/json`、`focused-release-review.log/json` |
+| 审查修正后 x64 Debug / Release 界面文案 | 每配置 11/11 | `text-debug-review.log/json`、`text-release-review.log/json` |
 | x64 Debug / Release 真实 Hook 入口 | 每配置 25/25 | `hook-debug-verified.*`、`hook-release.*` |
 | x86 Debug / Release 真实 Hook 入口与布局 | 每配置 25/25 | `hook-x86-debug.*`、`hook-x86-release.*` |
 | x64 Debug 双 PID 控制器与音频目标 | PASS，目标均正常退出 | `real-segments-debug-native.stdout.log`、`.receipt.json`、`.audio.json` |
@@ -43,7 +44,9 @@ cmake --build build-x86 --config Release --target WinAudioHookTests --parallel 8
 CallLogStore.*:CallLogExport.*:PipelineAttachUiModel.*:PipelineAttachSet.*:OnDemandAttach.*:PipelineGraph.*:HookedCall.*:LiveSessionList.*:PumpWindow.*:RemoteInjectionTest.Background*:RemoteInjectionTest.FrozenExpected*:RemoteInjectionTest.ExitedFrozen*:AttachLifecycleTest.*
 ```
 
-工具链为 Visual Studio 18 2026、MSVC 19.51.36257.0。最终四组构建日志未出现编译警告或错误；`git diff --check` 通过。首次 98 项运行的两个失败为新契约冲突的旧断言：分离后删除 pump 接口选项、映射名称固定布局 6。保留原失败日志 `focused-debug.log`，对应断言已改为历史仍保留、布局为 7，并保留隐藏时失效等原有保障。
+审查修正另顺序执行两种 x64 配置的 `WinAudioTests WinAudioGui HookAudioProbe` 构建及上述定向回归，并补跑 `GuiLanguageText.*` 文案测试；最终每配置共 108 项。构建证据为 `build-debug-review.log`、`build-release-review.log`。Hook 源码及四组 Hook 测试产物未改变，保留原每配置 25/25 的证据。
+
+工具链为 Visual Studio 18 2026、MSVC 19.51.36257.0。原四组及审查修正两组构建日志均未出现编译警告或错误；`git diff --check` 通过。首次 98 项运行的两个失败为新契约冲突的旧断言：分离后删除 pump 接口选项、映射名称固定布局 6。保留原失败日志 `focused-debug.log`，对应断言已改为历史仍保留、布局为 7，并保留隐藏时失效等原有保障。
 
 ## 场景证据
 
@@ -51,7 +54,7 @@ CallLogStore.*:CallLogExport.*:PipelineAttachUiModel.*:PipelineAttachSet.*:OnDem
 
 真实探针新增 `HookAudioProbe --segments`，复用生产 `PipelineAttachController`、`SegmentSelection`、`CallLogStore`，以及原有自有目标和实际 WASAPI render＋端点 loopback。两个目标分别持续调用 `SetMasterVolume(0.250)` 与 `SetMasterVolume(0.750)`；逐条核对来源实例、方法、参数和 S_OK，切换 100 次时另一目标继续增长。随后分离 A、对仍存活 A 重新附加、确认旧段不变且新段没有补录 Initialize、正常结束 A、确认退出段，再分离 B。未复制附加或接收算法。
 
-最终 Release 运行的 A/B PID 为 13192 / 23936，创建时间分别为 134380798033595491 / 134380798035586177。双方均为 48000 Hz、2 声道、32 位、格式标记 0xFFFE，端点为 `{0.0.0.00000000}.{46f4256f-bc60-4865-b5f3-4c6eef7ee966}`。A/B 实际回调 124 / 123 次，采集帧均为 91680，调用失败均为 0，真实进程退出码均为 0；最终历史 3 段、选择保持第 1 段。它是功能证据，不能替代长期性能或音质验收。
+最终审查修正后 Release 运行的 A/B PID 为 30284 / 22632，创建时间分别为 134380805492001675 / 134380805494005903。双方均为 48000 Hz、2 声道、32 位、格式标记 0xFFFE，端点为 `{0.0.0.00000000}.{46f4256f-bc60-4865-b5f3-4c6eef7ee966}`。A/B 实际回调 125 / 126 次，采集帧分别为 92640 / 94080，调用失败均为 0，真实进程退出码均为 0；最终历史 3 段、选择保持第 1 段。它是功能证据，不能替代长期性能或音质验收。
 
 `run-real-segments.ps1` 缓存 `Start-Process.Handle` 并检查实际退出码，在目标存活时读取两个目标实际加载的 DLL 路径和 SHA256，并读取夹具共享状态中的实际格式。Release 实际加载的 Hook SHA256 为 `bafdd74df8abbb8c12d112a92898e38b551416e0f6851f590fab47674c79061f`；目标 EXE 的最终 SHA256 和两个实际加载路径见对应 `.receipt.json`，并与最终构建收据逐项核对。
 
@@ -65,9 +68,17 @@ GUI 正常退出码为 0，详见 `gui-exit.json`。其中 watcher 的 `seconds`
 
 这些截图对应同批旧尾修正之前的稳定二进制，身份保存在 `gui-evidence/binary-hashes.json`、`receipt-before-tail.json` 与 `source-before-tail.patch`。最后自查对同批“旧实例结束＋新实例成功”补了可失败状态回归，修正为先接旧段有限尾部、按结束事件时点归档，再接新成功段；未改 GUI 绘制。修正后重新构建两种 x64 配置、各复验 99 项状态相关测试，并重新运行 Debug / Release 真实双 PID 探针。未重用旧截图声称覆盖同批旧尾新例或确定性 PID 复用，这两项由状态层另证。
 
+## 独立审查后的最小修正
+
+Standards 审查提出两项 P3。退出等待现在先保存 `WaitForSingleObject` 原始结果及 `WAIT_FAILED` 的错误码，再按现有日志方式记录 PID、10000 ms 超时、结果和错误码；原成功与失败返回保持不变。
+
+核查唯一生产 `AttachRequest` 固定不换轮，`RoundTransition::request` 总是立即允许并取出请求，因此确认、保存后继续及换轮次弹窗没有生产入口。删除 `RoundTransition`、`RoundAttachAction`、`commitAttach`、`replaceRound`、AppUi 专用状态与弹窗调用、保存完成时的换轮通知、4 条专用文案及两项旧测试。附加直接进入现有控制器。有效的 `ExportExitState`、导出取消、退出等待弹窗及相关回归保留；没有改导出执行或退出处理。
+
+修前直接相关基线仍为 99/99（`baseline-review-debug.log/json`）。修后两配置各 97 项原定回归和 11 项文案测试通过，并重新运行两配置真实双 PID 探针。未重做生产 GUI 手工操作；原截图仅按上文所列版本与场景使用。旧最终报告、源码补丁、收据保存在 `report-before-review.md`、`source-before-review.patch`、`receipt-before-review.json`，旧真实探针证据使用 `real-segments-*-before-review.*` 保存。Spec 独立审查固定在修前提交，0 项问题，并独立复跑 44/44 状态回归及 2/2 跨代 Hook 回归，详见 `review-spec.md`；本次修正后的独立复审由主 Agent 另行记录。
+
 ## 身份与限制
 
-`receipt.json` 保存 27 个改动源码文件、12 个产物以及本报告的 SHA256；`source.patch` 为本票生产源码及测试的实际补丁，SHA256 为 `6572bfe96d195033b0bfdbf93e7832fba2dab440afbf633a1c37ebfa6ecaa4c0`。新增 `ProcessInstance.h` 单独纳入源码收据。修前源码补丁 SHA256 为 `c306ba8b88bc7622d24094f32d07b44c07363320bd06a487f913de7976d867e4`，保存在 `source-before-tail.patch`。`protected-check.json` 确认原有 6 个受保护文件逐字节未变；原有未跟踪文件保留，未改 AGENTS.md 或 CLAUDE.md。
+`receipt.json` 保存 27 个改动源码文件、12 个产物以及本报告的 SHA256；`source.patch` 为本票生产源码及测试的实际补丁，SHA256 为 `65aaac54d9abeb2ee9c1684ccc8390bd377f2fcf1825debd01e4f3e08f81c0d2`。补丁完整对比基线 `e2a86a0`，含已有提交及本次审查修正，新增 `ProcessInstance.h` 已包含在补丁和源码收据中。修前源码补丁 SHA256 为 `c306ba8b88bc7622d24094f32d07b44c07363320bd06a487f913de7976d867e4`，保存在 `source-before-tail.patch`。`protected-check.json` 确认原有 6 个受保护文件逐字节未变；原有未跟踪文件保留，未改 AGENTS.md 或 CLAUDE.md。
 
 本票以控制调用形成完整功能切片。逐方法配置及继承由 #258 实施；共享传输的完整提交、MPSC/回绕和缺失证明由 #259 实施；每段最近 1024 条高频记录与源端统计由 #260 实施。现有有限 pump 浏览窗口只增加分段历史保留，不宣称这些后续票已经完成。`observationGeneration` 供后续票复用，不另起第二套观测代次。
 

@@ -106,7 +106,6 @@ private:
     void runPipelineAttach();
     void attemptPipelineAttach(const wa::pipeline_attach_ui::AttachRequest& request);
     void pollPipelineAttach();
-    void drawPipelineRoundDialog();
     void drawExportCloseDialog();
     void runPipelineDetach();
     void runPipelineDetachAll();
@@ -269,7 +268,6 @@ private:
     bool pipelinePump_ = false;
     bool pipelineRecord_ = false;
     wa::CallLogStore pipelineCallStore_;
-    wa::pipeline_attach_ui::RoundTransition pipelineRoundTransition_;
     wa::CallLogExportJob pipelineExport_;
     std::optional<wa::CallLogExportResult> pipelineExportCompleted_;
     bool pipelineExportReveal_ = false;

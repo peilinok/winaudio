@@ -1,7 +1,6 @@
 #pragma once
 #include <cstdio>
 #include <ctime>
-#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -18,11 +17,8 @@ struct AttachRequest {
     std::string deviceId;
     PipelineFlow flow = PipelineFlow::Capture;
     std::string sessionKey;
-    bool replaceRound = false;
     ProcessInstance instance;
 };
-
-enum class RoundAttachAction { Busy, Confirm, Attempt };
 
 inline std::string segmentTime(int64_t milliseconds) {
     const auto seconds = static_cast<std::time_t>(milliseconds / 1000);
@@ -90,43 +86,6 @@ private:
     enum class State { None, Prompt, Wait, Cancel };
     State state_ = State::None;
 };
-
-// Saving/drop only authorizes an attempt; it never clears the old round.
-class RoundTransition {
-public:
-    RoundAttachAction request(AttachRequest request, bool haveHistory, bool exportBusy) {
-        if (pending_ || (request.replaceRound && exportBusy)) return RoundAttachAction::Busy;
-        pending_ = std::move(request);
-        ready_ = !pending_->replaceRound || !haveHistory;
-        return ready_ ? RoundAttachAction::Attempt : RoundAttachAction::Confirm;
-    }
-    bool pending() const { return pending_.has_value(); }
-    bool ready() const { return ready_; }
-    bool waitingForSave() const { return saving_; }
-    void discard() { ready_ = pending_.has_value(); }
-    void saveThenContinue() { saving_ = pending_.has_value(); }
-    void saved(bool success) {
-        if (!saving_) return;
-        saving_ = false;
-        if (success) ready_ = true;
-        else cancel();
-    }
-    void cancel() { pending_.reset(); ready_ = saving_ = false; }
-    std::optional<AttachRequest> take() {
-        if (!ready_) return {};
-        auto request = std::move(pending_);
-        cancel();
-        return request;
-    }
-private:
-    std::optional<AttachRequest> pending_;
-    bool ready_ = false, saving_ = false;
-};
-
-inline uint64_t commitAttach(CallLogStore& store, const AttachRequest& request, bool succeeded) {
-    if (!succeeded) return 0;
-    return store.registerAttach(request.pid);
-}
 
 // Sync the selected Live session's PID into the Attach PID text box.
 inline bool copyLiveSessionPidToBuffer(const std::vector<LiveSessionView>& rows, int index,

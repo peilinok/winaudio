@@ -174,10 +174,6 @@ namespace wa::ui_text {
     WA_UI_TEXT(kPipelineAttachedPids, "Attached PIDs", "已附加 PID") \
     WA_UI_TEXT(kPipelineRecord, "Record calls", "录制调用") \
     WA_UI_TEXT(kPipelineSaveCalls, "Save calls", "保存调用") \
-    WA_UI_TEXT(kPipelineReplaceRound, "Replace observation", "替换观察历史") \
-    WA_UI_TEXT(kPipelineReplaceRoundCounts, "Save range: %zu calls; replace total: %zu calls.", "保存范围：%zu 条；将替换历史：%zu 条。") \
-    WA_UI_TEXT(kPipelineSaveContinue, "Save, then attach", "保存后附加") \
-    WA_UI_TEXT(kPipelineDiscardContinue, "Discard, then attach", "放弃后附加") \
     WA_UI_TEXT(kPipelineCancel, "Cancel", "取消") \
     WA_UI_TEXT(kPipelineExportBusy, "Saving calls. Retry after completion.", "调用正在保存，请完成后重试。") \
     WA_UI_TEXT(kPipelineExportExit, "Save before exit", "保存后退出") \

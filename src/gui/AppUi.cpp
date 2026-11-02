@@ -597,18 +597,12 @@ void AppUi::runPipelineAttach() {
     std::string sessionKey;
     wa::pipeline_attach_ui::sessionHintForPid(
         pipelineSessions_, pipelineSelected_, pid, deviceId, flow, sessionKey);
-    wa::pipeline_attach_ui::AttachRequest request{pid, deviceId, flow, sessionKey, false};
+    wa::pipeline_attach_ui::AttachRequest request{pid, deviceId, flow, sessionKey};
     if (pipelineSelected_ >= 0 && pipelineSelected_ < static_cast<int>(pipelineSessions_.size())) {
         const auto& selected = pipelineSessions_[static_cast<size_t>(pipelineSelected_)];
         if (selected.processId == pid) request.instance = {pid, selected.processCreated};
     }
-    const auto action = pipelineRoundTransition_.request(std::move(request), pipelineCallStore_.size() != 0,
-                                                        pipelineExport_.busy());
-    if (action == wa::pipeline_attach_ui::RoundAttachAction::Busy) {
-        logLines_.push_back("pipeline attach: export or replacement is busy");
-        return;
-    }
-    if (const auto ready = pipelineRoundTransition_.take()) attemptPipelineAttach(*ready);
+    attemptPipelineAttach(request);
 }
 
 void AppUi::attemptPipelineAttach(const wa::pipeline_attach_ui::AttachRequest& request) {
@@ -673,36 +667,6 @@ void AppUi::pollPipelineAttach() {
         }
         applyPipelineJoin();
     }
-}
-
-void AppUi::drawPipelineRoundDialog() {
-    if (pipelineRoundTransition_.ready()) {
-        if (const auto ready = pipelineRoundTransition_.take()) attemptPipelineAttach(*ready);
-        return;
-    }
-    if (!pipelineRoundTransition_.pending() || pipelineRoundTransition_.waitingForSave()) return;
-    const auto* title = wa::ui_text::id(wa::ui_text::kPipelineReplaceRound);
-    if (!ImGui::IsPopupOpen(title)) ImGui::OpenPopup(title);
-    if (!ImGui::BeginPopupModal(title, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) return;
-    ImGui::Text(wa::ui_text::get(wa::ui_text::kPipelineReplaceRoundCounts),
-                pipelineCallStore_.exportCount(), pipelineCallStore_.size());
-    if (ImGui::Button(wa::ui_text::get(wa::ui_text::kPipelineSaveContinue))) {
-        pipelineRoundTransition_.saveThenContinue();
-        if (!savePipelineCallLog()) pipelineRoundTransition_.saved(false);
-        ImGui::CloseCurrentPopup();
-    }
-    ImGui::SameLine();
-    if (ImGui::Button(wa::ui_text::get(wa::ui_text::kPipelineDiscardContinue))) {
-        pipelineRoundTransition_.discard();
-        ImGui::CloseCurrentPopup();
-    }
-    ImGui::SameLine();
-    if (ImGui::Button(wa::ui_text::get(wa::ui_text::kPipelineCancel))) {
-        pipelineRoundTransition_.cancel();
-        ImGui::CloseCurrentPopup();
-    }
-    ImGui::EndPopup();
-    if (const auto ready = pipelineRoundTransition_.take()) attemptPipelineAttach(*ready);
 }
 
 void AppUi::runPipelineDetach() {
@@ -777,7 +741,6 @@ void AppUi::pollBackground(bool notify) {
     } else {
         logLines_.push_back("pipeline save calls incomplete: " + result.result.message);
     }
-    pipelineRoundTransition_.saved(static_cast<bool>(result.result) && !exportExit_.requested());
 }
 
 void AppUi::drawExportCloseDialog() {
@@ -1490,7 +1453,6 @@ void AppUi::drawPipelinePage() {
         pipelinePumpSelectionExpired_ = pipelineCallSelected_.lane == wa::CallLane::Pump;
         pipelineCallSelected_ = {};
     }
-    drawPipelineRoundDialog();
 
     const float logH = logRegionHeight();
     const float availY = ImGui::GetContentRegionAvail().y;
