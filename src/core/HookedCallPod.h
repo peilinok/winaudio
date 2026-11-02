@@ -23,8 +23,8 @@ constexpr uint32_t kPumpCap = 64;
 constexpr uint32_t kInstallPending = 0;
 constexpr uint32_t kInstallOk = 1;
 constexpr uint32_t kInstallFailed = 2;
-// Layout 8 publishes the method mask and observation generation as one word.
-constexpr uint32_t kRingLayout = 8;
+// Layout 9 uses exclusive slot ownership and complete publication.
+constexpr uint32_t kRingLayout = 9;
 constexpr uint32_t kCoverageDiscoveredImplementations = 1;
 constexpr uint32_t kCoverageInstallationFault = 2;
 
@@ -249,6 +249,20 @@ struct CallPod {
     uint32_t observationGeneration;
 };
 
+struct alignas(8) SlotPublication {
+    uint64_t ownership;
+    uint64_t sequence;
+    uint32_t hasSequence;
+};
+
+struct alignas(8) LaneCounters {
+    uint64_t reserved;
+    // Upper word is the observation generation; lower word counts proven loss.
+    uint64_t overwritten;
+    uint64_t rejected;
+    uint64_t unknown;
+};
+
 struct Ring {
     uint32_t magic;
     uint32_t writeIndex;
@@ -270,6 +284,12 @@ struct Ring {
     uint64_t processCreated;
     alignas(8) uint32_t monitorMask;
     uint32_t observationGeneration;
+    uint32_t layout;
+    uint32_t layoutBytes;
+    uint64_t transportEpoch;
+    LaneCounters controlCounters, pumpCounters;
+    SlotPublication controlPublication[kCap];
+    SlotPublication pumpPublication[kPumpCap];
 };
 
 static_assert(offsetof(Ring, monitorMask) % 8 == 0, "Atomic selection must be aligned on x86 too");
@@ -281,6 +301,123 @@ inline void publishMonitorState(Ring& ring, uint32_t mask, uint32_t generation) 
     const uint64_t state = (static_cast<uint64_t>(generation) << 32) | mask;
     InterlockedExchange64(reinterpret_cast<volatile LONG64*>(&ring.monitorMask), static_cast<LONG64>(state));
 }
+
+inline uint64_t atomicRead64(const uint64_t& value) {
+    return static_cast<uint64_t>(InterlockedCompareExchange64(
+        reinterpret_cast<volatile LONG64*>(const_cast<uint64_t*>(&value)), 0, 0));
+}
+inline void atomicStore64(uint64_t& value, uint64_t desired) {
+    InterlockedExchange64(reinterpret_cast<volatile LONG64*>(&value), static_cast<LONG64>(desired));
+}
+inline uint64_t increment64(uint64_t& value) {
+    return static_cast<uint64_t>(InterlockedIncrement64(reinterpret_cast<volatile LONG64*>(&value)));
+}
+inline uint64_t slotOwner(uint32_t generation, uint32_t state) {
+    return (static_cast<uint64_t>(generation) << 32) | state;
+}
+constexpr uint32_t kSlotEmpty = 0, kSlotWriting = 1, kSlotReady = 2, kSlotReading = 3;
+
+#ifndef WA_HOOK_TRANSPORT_OBSERVE
+#define WA_HOOK_TRANSPORT_OBSERVE(stage) ((void)0)
+#endif
+
+static inline void countLoss(Ring& ring, uint64_t& counter, LaneCounters& lane, uint32_t generation) {
+    // Bounded contention handling. Failure to count is explicitly unknown;
+    // an old call can never increment the new segment's counters.
+    for (unsigned attempt = 0; attempt < 8; ++attempt) {
+        const auto previous = atomicRead64(counter);
+        const auto owner = static_cast<uint32_t>(previous >> 32);
+        if (static_cast<uint32_t>(monitorState(ring) >> 32) != generation) return;
+        const uint32_t count = owner == generation ? static_cast<uint32_t>(previous) : 0;
+        const auto desired = slotOwner(generation, count + 1);
+        WA_HOOK_TRANSPORT_OBSERVE(counter_attempt);
+        if (static_cast<uint64_t>(InterlockedCompareExchange64(
+                reinterpret_cast<volatile LONG64*>(&counter), static_cast<LONG64>(desired),
+                static_cast<LONG64>(previous))) == previous) {
+            if (count == UINT32_MAX) atomicStore64(lane.unknown, 1);
+            return;
+        }
+    }
+    atomicStore64(lane.unknown, 1);
+}
+
+// One reservation and one ownership CAS; the target never waits for a reader.
+// Both readers and writers own the same cell before touching non-atomic data.
+static inline bool writeCall(Ring& ring, const CallPod& pod) {
+    auto& counters = pod.pump ? ring.pumpCounters : ring.controlCounters;
+    const uint64_t ticket = increment64(counters.reserved) - 1;
+    InterlockedIncrement(reinterpret_cast<volatile LONG*>(pod.pump ? &ring.pumpWriteIndex : &ring.writeIndex));
+    WA_HOOK_TRANSPORT_OBSERVE(reserved);
+    const uint32_t cap = pod.pump ? kPumpCap : kCap;
+    const auto index = static_cast<uint32_t>(ticket % cap);
+    auto& publication = pod.pump ? ring.pumpPublication[index] : ring.controlPublication[index];
+    auto& payload = pod.pump ? ring.pumpSlots[index] : ring.slots[index];
+    const auto previous = atomicRead64(publication.ownership);
+    const auto state = static_cast<uint32_t>(previous);
+    const uint64_t owned = slotOwner(pod.observationGeneration, kSlotWriting);
+    if ((state != kSlotEmpty && state != kSlotReady) ||
+        static_cast<uint64_t>(InterlockedCompareExchange64(
+            reinterpret_cast<volatile LONG64*>(&publication.ownership),
+            static_cast<LONG64>(owned), static_cast<LONG64>(previous))) != previous) {
+        if (static_cast<uint32_t>(monitorState(ring) >> 32) == pod.observationGeneration)
+            countLoss(ring, counters.rejected, counters, pod.observationGeneration);
+        return false;
+    }
+    WA_HOOK_TRANSPORT_OBSERVE(acquired);
+    // An old reservation can acquire the cell after a newer publication. It
+    // must not replace it, including after the newer row was already consumed.
+    const uint64_t distance = ticket - publication.sequence;
+    const bool stale = publication.hasSequence &&
+        (distance == 0 || distance >= (uint64_t{1} << 63));
+    const bool current = static_cast<uint32_t>(monitorState(ring) >> 32) == pod.observationGeneration;
+    if (!current || stale) {
+        if (current) countLoss(ring, counters.rejected, counters, pod.observationGeneration);
+        atomicStore64(publication.ownership, previous);
+        return false;
+    }
+    if (state == kSlotReady && static_cast<uint32_t>(previous >> 32) == pod.observationGeneration)
+        countLoss(ring, counters.overwritten, counters, pod.observationGeneration);
+    payload = pod;
+    publication.sequence = ticket;
+    publication.hasSequence = 1;
+    atomicStore64(publication.ownership, slotOwner(pod.observationGeneration, kSlotReady));
+    return true;
+}
+
+// Consuming read. A failed CAS never touches the shared payload. The release
+// to Empty acknowledges receipt, so only unreceived Ready rows count as loss.
+static inline bool readCall(Ring& ring, bool pump, uint32_t index, uint32_t generation,
+                     CallPod& out, uint64_t& sequence) {
+    auto& publication = pump ? ring.pumpPublication[index] : ring.controlPublication[index];
+    const uint64_t ready = atomicRead64(publication.ownership);
+    if (static_cast<uint32_t>(ready) != kSlotReady) return false;
+    const auto owned = slotOwner(static_cast<uint32_t>(ready >> 32), kSlotReading);
+    if (static_cast<uint64_t>(InterlockedCompareExchange64(
+            reinterpret_cast<volatile LONG64*>(&publication.ownership),
+            static_cast<LONG64>(owned), static_cast<LONG64>(ready))) != ready) return false;
+    WA_HOOK_TRANSPORT_OBSERVE(reading);
+    out = pump ? ring.pumpSlots[index] : ring.slots[index];
+    sequence = publication.sequence;
+    atomicStore64(publication.ownership, slotOwner(static_cast<uint32_t>(ready >> 32), kSlotEmpty));
+    return static_cast<uint32_t>(ready >> 32) == generation && out.observationGeneration == generation;
+}
+
+inline void initializeRing(Ring& ring) {
+    ZeroMemory(&ring, sizeof(ring));
+    ring.magic = kMagic;
+    ring.cap = kCap;
+    ring.layout = kRingLayout;
+    ring.layoutBytes = sizeof(Ring);
+    ring.transportEpoch = 1;
+}
+inline bool compatibleRing(const Ring& ring) {
+    return ring.magic == kMagic && ring.cap == kCap && ring.layout == kRingLayout &&
+        ring.layoutBytes == sizeof(Ring) && atomicRead64(ring.transportEpoch) != 0;
+}
+
+static_assert(alignof(SlotPublication) >= 8 && sizeof(SlotPublication) == 24, "Shared slot ABI");
+static_assert(offsetof(Ring, controlCounters) % 8 == 0, "Shared counters must be aligned");
+static_assert(offsetof(Ring, controlPublication) % 8 == 0, "Shared ownership must be aligned");
 
 inline void mapName(uint32_t pid, wchar_t* out, size_t n) {
     swprintf_s(out, n, L"Local\\WinAudioHook-%u-%u", kRingLayout, pid);

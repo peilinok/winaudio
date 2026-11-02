@@ -26,7 +26,8 @@ void observeSelection(const char* event) {
     if (!std::strcmp(event, "write")) ++writes;
 }
 void resetObservation(uint32_t methods, uint32_t generation = 7) {
-    selectionRing.writeIndex = selectionRing.pumpWriteIndex = selectionRing.pumpXruns = 0;
+    wa::hook_ipc::initializeRing(selectionRing);
+    selectionRing.captureEnabled = 1;
     prepared = formatted = packed = timestamps = writes = 0;
     wa::hook_ipc::publishMonitorState(selectionRing, methods, generation);
 }

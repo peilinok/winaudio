@@ -18,3 +18,10 @@ wa_set_project_warnings(HookBufferProbe)
 add_executable(HookAudioProbe HookAudioProbe.cpp)
 target_link_libraries(HookAudioProbe PRIVATE WinAudioCore)
 wa_set_project_warnings(HookAudioProbe)
+
+add_executable(HookTransportProbe HookTransportProbe.cpp)
+target_link_libraries(HookTransportProbe PRIVATE WinAudioCore)
+wa_set_project_warnings(HookTransportProbe)
+add_test(NAME HookTransport.CrossProcessSynthetic
+    COMMAND HookTransportProbe --output "${CMAKE_CURRENT_BINARY_DIR}/hook-transport-$<CONFIG>.json")
+set_tests_properties(HookTransport.CrossProcessSynthetic PROPERTIES TIMEOUT 45)

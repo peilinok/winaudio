@@ -4,6 +4,7 @@
 #include "GuiLanguage.h"
 #include "PhraseCatalog.h"
 #include "PipelineGraph.h"
+#include "HookTransportStatus.h"
 #include <cstdio>
 #include <string>
 
@@ -31,6 +32,16 @@ namespace wa::ui_text {
     WA_UI_TEXT(kPipelineGraphSegmentFmt, "Latest matching segment %llu: %s", "匹配实例的最新记录段 %llu：%s") \
     WA_UI_TEXT(kPipelineIdentityUnknown, "Process instance not verified; old Hook evidence is not used.", "进程实例无法核验；不使用旧 Hook 证据。") \
     WA_UI_TEXT(kPipelineHistorySnapshotFmt, "Read-only snapshot: %s. Coverage is unknown; outstanding calls were not awaited.", "只读快照：%s。覆盖情况未知；没有等待所有在途调用完成。") \
+    WA_UI_TEXT(kPipelineTransportUnknown, "Transport loss: unknown (no snapshot yet)", "传输缺失：未知（尚无快照）") \
+    WA_UI_TEXT(kPipelineTransportControl, "Control transport", "控制调用传输") \
+    WA_UI_TEXT(kPipelineTransportPump, "High-frequency transport", "高频调用传输") \
+    WA_UI_TEXT(kPipelineTransportLaneFmt, "%s: overwritten at least %llu | rejected writes at least %llu | uncommitted %llu | other loss %s", "%s：已知覆盖至少 %llu | 写入丢弃至少 %llu | 未提交 %llu | 其他缺失 %s") \
+    WA_UI_TEXT(kPipelineTransportOtherUnknown, "unknown", "未知") \
+    WA_UI_TEXT(kPipelineTransportOtherKnown, "not detected", "未发现") \
+    WA_UI_TEXT(kPipelineTransportQueueFmt, "Controller queue loss: control %llu | high-frequency %llu", "控制器队列缺失：控制 %llu | 高频 %llu") \
+    WA_UI_TEXT(kPipelineTransportSnapshotFmt, "Transport snapshot: %s", "传输快照时点：%s") \
+    WA_UI_TEXT(kPipelineTransportHint, "Counts belong to this segment. Uncommitted is a snapshot count, not confirmed loss. API failures and audio discontinuities are separate.", "这些数量只属于当前段。未提交是快照时的数量，不代表已经丢失。API 失败和音频不连续另行记录。") \
+    WA_UI_TEXT(kPipelineActiveXruns, "Audio discontinuities (all active targets)", "音频不连续（所有活动目标）") \
     WA_UI_TEXT(kPipelineAttachPreparing, "Preparing attach PID %u (Detach cancels)", "正在准备附加 PID %u（分离可取消）") \
     WA_UI_TEXT(kPipelineAttachCleanup, "Pending injection cleanup: %u", "等待注入收尾：%u") \
     WA_UI_TEXT(kPipelineAttachOverflow, "Receive queue missing: %llu calls / %llu batches; rejected commands: %llu", "接收队列缺失：%llu 条调用 / %llu 批次；拒绝命令：%llu") \
@@ -507,6 +518,29 @@ inline std::string channelLayoutText(uint16_t channels, uint32_t channelMask) {
 inline const char* pipelineCallLogEmptyText(bool attached, bool pumpEnabled) {
     if (!attached) return get(kPipelineCallLogEmpty);
     return get(pumpEnabled ? kPipelineCallLogWaitingPump : kPipelineCallLogWaiting);
+}
+
+inline std::string pipelineTransportText(const HookTransportStatus& status) {
+    if (status.snapshotMs <= 0) return get(kPipelineTransportUnknown);
+    std::string text;
+    const auto appendLane = [&](const char* label, const HookTransportLaneStatus& lane) {
+        char line[512]{};
+        std::snprintf(line, sizeof(line), get(kPipelineTransportLaneFmt), get(label),
+            static_cast<unsigned long long>(lane.overwritten),
+            static_cast<unsigned long long>(lane.writeRejected),
+            static_cast<unsigned long long>(lane.pending),
+            get(lane.unknown ? kPipelineTransportOtherUnknown : kPipelineTransportOtherKnown));
+        text += line;
+        text += '\n';
+    };
+    appendLane(kPipelineTransportControl, status.control);
+    appendLane(kPipelineTransportPump, status.pump);
+    char queue[256]{};
+    std::snprintf(queue, sizeof(queue), get(kPipelineTransportQueueFmt),
+        static_cast<unsigned long long>(status.controllerDroppedControl),
+        static_cast<unsigned long long>(status.controllerDroppedPump));
+    text += queue;
+    return text;
 }
 
 inline const char* formatOriginName(FormatOrigin origin) {

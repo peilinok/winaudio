@@ -27,6 +27,8 @@ public:
     ProcessInstance instance(uint32_t pid) const;
     std::string processName(uint32_t pid) const;
     std::vector<HookedCall> finish(uint32_t pid);
+    HookTransportStatus transportStatus(uint32_t pid) const;
+    std::vector<PumpCall> receivePump(uint32_t pid);
 
     std::vector<HookedCall> drainAll();
     uint64_t droppedControlCalls() const;

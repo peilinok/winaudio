@@ -4,6 +4,7 @@
 #include "Result.h"
 #include "ProcessInstance.h"
 #include "MethodSelection.h"
+#include "HookTransportStatus.h"
 #include <cstdint>
 #include <atomic>
 #include <memory>
@@ -63,10 +64,12 @@ public:
     ProcessInstance instance() const;
     const std::string& processName() const;
     AttachBlock lastBlock() const;
-    std::vector<HookedCall> drain();
+    std::vector<HookedCall> drain(bool finish = false);
+    HookTransportStatus transportStatus() const;
     uint64_t droppedControlCalls() const;
     std::vector<HookedCall> pumpRing() const;
     const std::vector<PumpCall>& pumpWindow() const;
+    std::vector<PumpCall> receivePump();
     uint32_t pumpXruns() const;
     HookCoverage coverage() const;
     void setCaptureEnabled(bool on);

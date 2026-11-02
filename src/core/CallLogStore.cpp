@@ -160,6 +160,16 @@ bool CallLogStore::setMethods(uint64_t attach, uint32_t methods) {
     return true;
 }
 
+bool CallLogStore::updateTransport(const TransportUpdate& update) {
+    const auto id = attachForToken(update.token);
+    if (!id || !update.instance || !update.status.snapshotSequence) return false;
+    auto& target = attaches_[static_cast<size_t>(id - 1)];
+    if (!target.active || target.instance != update.instance ||
+        update.status.snapshotSequence <= target.transport.snapshotSequence) return false;
+    target.transport = update.status;
+    return true;
+}
+
 std::vector<CallLogStore::Segment> CallLogStore::segments(bool active) const {
     std::vector<Segment> out;
     for (auto it = attaches_.rbegin(); it != attaches_.rend(); ++it)
@@ -248,6 +258,31 @@ void CallLogStore::updatePump(uint64_t attach, const std::vector<PumpCall>& wind
     }
     segment.pump = std::move(next);
     rebuildPump();
+}
+
+void CallLogStore::appendPump(uint64_t attach, const std::vector<PumpCall>& received) {
+    if (attach == 0 || attach > attaches_.size()) return;
+    auto& segment = attaches_[static_cast<size_t>(attach - 1)];
+    if (!segment.active) return;
+    bool changed = false;
+    for (const auto& observed : received) {
+        if (!observed.sequence || (!segment.pump.empty() &&
+            observed.sequence <= segment.pump.back()->id.sequence)) continue;
+        auto call = observed.call;
+        if ((call.pid && call.pid != segment.pid) ||
+            (call.processCreated && call.processCreated != segment.instance.created) ||
+            (call.attachToken && call.attachToken != segment.token)) continue;
+        call.pid = segment.pid;
+        call.processCreated = segment.instance.created;
+        call.attachToken = segment.token;
+        call.pump = true;
+        call.args = sanitizeHookedArgs(std::move(call.args));
+        CallRecord record{{round_, attach, observed.sequence, CallLane::Pump}, std::move(call)};
+        segment.pump.push_back(std::make_shared<const CallRecord>(std::move(record)));
+        if (segment.pump.size() > kDefaultPumpRingCap) segment.pump.erase(segment.pump.begin());
+        changed = true;
+    }
+    if (changed) rebuildPump();
 }
 
 uint64_t CallLogStore::latestAttach(uint32_t pid) const {

@@ -1,5 +1,6 @@
 #pragma once
 #include "PipelineAttachSet.h"
+#include "HookTransportStatus.h"
 #include <memory>
 
 namespace wa {
@@ -25,6 +26,7 @@ public:
         std::vector<Event> events;
         std::vector<HookedCall> calls;
         std::vector<std::pair<uint64_t, std::vector<PumpCall>>> pump; // Receiver segment token.
+        std::vector<TransportUpdate> transport;
     };
     struct Snapshot {
         std::vector<uint32_t> attached;

@@ -302,8 +302,7 @@ struct OnDemandAttach::Impl {
     AttachBlock block = AttachBlock::None;
     HANDLE map = nullptr;
     hook_ipc::Ring* ring = nullptr;
-    uint32_t readIndex = 0;
-    uint64_t droppedControl = 0;
+    HookTransportReader control;
     uint32_t reportedRejections = 0;
     PumpWindow pump;
 };
@@ -327,8 +326,6 @@ void OnDemandAttach::stop() {
     impl_->pid = 0;
     impl_->instance = {};
     impl_->name.clear();
-    impl_->readIndex = 0;
-    impl_->droppedControl = 0;
     impl_->reportedRejections = 0;
     impl_->resources.reset();
     reapReservations();
@@ -517,15 +514,13 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
         return Result::Fail(static_cast<long>(E_FAIL), attachInstallFailMessage(hook_ipc::kInstallFailed));
     }
 
-    const bool reuse = moduleLoaded && mapErr == ERROR_ALREADY_EXISTS && ring->magic == hook_ipc::kMagic &&
+    const bool reuse = moduleLoaded && mapErr == ERROR_ALREADY_EXISTS && hook_ipc::compatibleRing(*ring) &&
                        ring->installed == hook_ipc::kInstallOk;
     if (moduleLoaded && !reuse)
         return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_BUSY)),
             "Attach: loaded hook is not ready or its mapping is incompatible; restart the target app and retry");
     if (!reuse) {
-        ZeroMemory(ring, sizeof(*ring));
-        ring->magic = hook_ipc::kMagic;
-        ring->cap = hook_ipc::kCap;
+        hook_ipc::initializeRing(*ring);
         ring->installed = hook_ipc::kInstallPending;
         ring->processCreated = queried.created;
         const std::wstring wid = utf8ToWide(deviceIdUtf8);
@@ -594,8 +589,8 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
     impl_->instance = queried;
     impl_->name = name;
     impl_->generation = ring->observationGeneration + 1;
+    impl_->control.begin(*ring, false, impl_->generation);
     hook_ipc::publishMonitorState(*ring, methods, impl_->generation);
-    impl_->readIndex = ring->writeIndex;
     impl_->block = AttachBlock::None;
     impl_->pump.begin(*ring);
     InterlockedExchange(reinterpret_cast<volatile LONG*>(&ring->pumpEnabled), 1);
@@ -611,7 +606,7 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
     return Result::Ok();
 }
 
-std::vector<HookedCall> OnDemandAttach::drain() {
+std::vector<HookedCall> OnDemandAttach::drain(bool finish) {
     std::vector<HookedCall> out;
     if (!attached()) return out;
     const auto capability = coverage();
@@ -623,27 +618,23 @@ std::vector<HookedCall> OnDemandAttach::drain() {
                    std::to_string(capability.rejectedAttempts),
                wa::log::hrName(HRESULT_FROM_WIN32(capability.lastError)));
     }
-    const uint32_t write = impl_->ring->writeIndex;
-    uint32_t read = impl_->readIndex;
-    if (write < read) return out;
-    uint32_t count = write - read;
-    if (count > hook_ipc::kCap) {
-        impl_->droppedControl += count - hook_ipc::kCap;
-        read = write - hook_ipc::kCap;
-        count = hook_ipc::kCap;
-    }
-    out.reserve(count);
-    for (uint32_t i = read; i < write; ++i) {
-        const auto& pod = impl_->ring->slots[i % hook_ipc::kCap];
-        if (pod.observationGeneration != impl_->generation) continue;
+    impl_->control.poll(*impl_->ring, [&](const hook_ipc::CallPod& pod, uint64_t) {
         out.push_back(decodeHookedCallPod(pod));
-    }
-    impl_->readIndex = write;
+    }, finish);
     return out;
 }
 
+HookTransportStatus OnDemandAttach::transportStatus() const {
+    HookTransportStatus status;
+    if (!attached()) return status;
+    status.control = impl_->control.snapshot(*impl_->ring);
+    status.pump = impl_->pump.transportStatus(*impl_->ring);
+    return status;
+}
+
 uint64_t OnDemandAttach::droppedControlCalls() const {
-    return impl_ ? impl_->droppedControl : 0;
+    const auto status = transportStatus();
+    return status.control.overwritten + status.control.writeRejected;
 }
 
 HookCoverage OnDemandAttach::coverage() const {
@@ -674,6 +665,12 @@ uint32_t OnDemandAttach::pumpXruns() const {
     return impl_->ring->pumpXruns;
 }
 
+std::vector<PumpCall> OnDemandAttach::receivePump() {
+    if (!attached()) return {};
+    impl_->pump.poll(*impl_->ring);
+    return impl_->pump.takeReceived();
+}
+
 
 
 Result OnDemandAttach::publishMethods(ProcessInstance expected, uint32_t methods) {
@@ -688,7 +685,7 @@ Result OnDemandAttach::publishMethods(ProcessInstance expected, uint32_t methods
         return win32Result(target.outcome == WAIT_FAILED ? target.error : ERROR_PROCESS_ABORTED,
             "Monitor selection: cannot verify live target");
     auto& ring = *impl_->ring;
-    if (ring.magic != hook_ipc::kMagic || ring.processCreated != expected.created ||
+    if (!hook_ipc::compatibleRing(ring) || ring.processCreated != expected.created ||
         ring.installed != hook_ipc::kInstallOk ||
         static_cast<uint32_t>(hook_ipc::monitorState(ring) >> 32) != impl_->generation)
         return win32Result(ERROR_REVISION_MISMATCH,

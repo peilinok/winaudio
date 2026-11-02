@@ -4,6 +4,7 @@
 #include "Result.h"
 #include "ProcessInstance.h"
 #include "MethodSelection.h"
+#include "HookTransportStatus.h"
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -64,6 +65,7 @@ public:
         bool coverageUnknown = true;
         size_t count = 0;
         uint32_t methods = kDefaultMonitorMethods;
+        HookTransportStatus transport;
     };
     static constexpr size_t kNotFound = static_cast<size_t>(-1);
     // Borrows the current query cache; consume before the next Store mutation/view.
@@ -90,6 +92,7 @@ public:
     uint64_t registerAttach(ProcessInstance instance, std::string name, uint64_t token, int64_t startedMs);
     const Segment* segment(uint64_t attach) const;
     bool setMethods(uint64_t attach, uint32_t methods);
+    bool updateTransport(const TransportUpdate& update);
     std::vector<Segment> segments(bool active) const;
     uint64_t attachForToken(uint64_t token) const;
     uint64_t latestAttach(ProcessInstance instance) const;
@@ -108,6 +111,7 @@ public:
     const HookedInitializeExtract& initializeHintForInstance(ProcessInstance instance, CallLogObserver observer = {});
     size_t pidCallCount(uint32_t pid) const;
     void updatePump(uint64_t attach, const std::vector<PumpCall>& window);
+    void appendPump(uint64_t attach, const std::vector<PumpCall>& received);
     void setPumpVisible(bool on);
     const std::vector<CallRecordRef>& pumpEntries() const;
     void setRecording(bool on);
