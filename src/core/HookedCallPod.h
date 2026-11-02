@@ -21,9 +21,10 @@ constexpr uint32_t kPumpCap = 64;
 constexpr uint32_t kInstallPending = 0;
 constexpr uint32_t kInstallOk = 1;
 constexpr uint32_t kInstallFailed = 2;
-// Layout 5: CallPod gains argBlob for API Monitor-style Type/Name/Pre/Post rows
-// (nested WAVEFORMATEX / EXTENSIBLE fields). Mapping name embeds this version.
-constexpr uint32_t kRingLayout = 5;
+// Layout 6 adds installation capability diagnostics. A ready installer only
+// covers the discovered implementations, never every object with the same IID.
+constexpr uint32_t kRingLayout = 6;
+constexpr uint32_t kCoverageDiscoveredImplementations = 1;
 
 constexpr uint32_t kArgBlobCap = 640;
 constexpr uint8_t kArgBlobVersion = 1;
@@ -51,18 +52,43 @@ enum CallArgDir : uint8_t {
     kArgRet = 3,
 };
 
-inline bool patchVtableSlot(void* obj, int slot, void* hook, void** orig) {
+#ifndef WA_HOOK_PATCH_OBSERVE
+#define WA_HOOK_PATCH_OBSERVE(stage, cell) ((void)0)
+#endif
+
+// Installation only. The lock spans protection changes on the entire page;
+// forwarding never acquires it. The original is immutable once published.
+static inline bool patchVtableSlot(void* obj, int slot, void* hook, void** orig) {
     if (!obj || !hook || !orig) return false;
+    static SRWLOCK lock = SRWLOCK_INIT;
+    WA_HOOK_PATCH_OBSERVE(before_lock, nullptr);
+    AcquireSRWLockExclusive(&lock);
+    struct Unlock {
+        SRWLOCK* lock;
+        ~Unlock() { ReleaseSRWLockExclusive(lock); }
+    } unlock{&lock};
     void** vt = *reinterpret_cast<void***>(obj);
     void** cell = vt + slot;
-    if (*orig == nullptr) *orig = *cell;
-    if (*cell == hook) return true;
+    void* current = ReadPointerAcquire(cell);
+    void* original = InterlockedCompareExchangePointer(orig, nullptr, nullptr);
+    if (current == hook) {
+        if (original && original != hook) return true;
+        SetLastError(ERROR_INVALID_FUNCTION);
+        return false;
+    }
+    if (!current || (original && original != current)) {
+        SetLastError(ERROR_NOT_SUPPORTED);
+        return false;
+    }
     DWORD old = 0;
     if (!VirtualProtect(cell, sizeof(void*), PAGE_EXECUTE_READWRITE, &old)) return false;
-    *cell = hook;
+    WA_HOOK_PATCH_OBSERVE(protected_page, cell);
+    InterlockedCompareExchangePointer(orig, current, nullptr);
+    InterlockedExchangePointer(cell, hook);
+    WA_HOOK_PATCH_OBSERVE(published, cell);
     DWORD tmp = 0;
-    VirtualProtect(cell, sizeof(void*), old, &tmp);
-    FlushInstructionCache(GetCurrentProcess(), cell, sizeof(void*));
+    if (!VirtualProtect(cell, sizeof(void*), old, &tmp)) return false;
+    WA_HOOK_PATCH_OBSERVE(restored, cell);
     return true;
 }
 
@@ -194,6 +220,10 @@ struct Ring {
     wchar_t deviceId[256];
     CallPod slots[kCap];
     CallPod pumpSlots[kPumpCap];
+    uint32_t patchAccepted;  // successful patch attempts, including repeats
+    uint32_t patchRejected;
+    uint32_t patchLastError;  // Win32 error from the last rejection
+    uint32_t coverageFlags;
 };
 
 inline void mapName(uint32_t pid, wchar_t* out, size_t n) {

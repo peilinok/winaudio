@@ -159,14 +159,14 @@ TEST(HookBuffer, ControlDoesNotRequirePumpAndSharedFlagsKeepLayout) {
     emitSimple(7, "IAudioClient", "Start", "", S_OK);
     EXPECT_EQ(hook_harness::ring.writeIndex, 1u);
     EXPECT_EQ(hook_harness::ring.pumpWriteIndex, 0u);
-    EXPECT_EQ(wa::hook_ipc::kRingLayout, 5u);
+    EXPECT_EQ(wa::hook_ipc::kRingLayout, 6u);
     EXPECT_EQ(sizeof(hook_harness::ring.captureEnabled), 4u);
     EXPECT_EQ(sizeof(hook_harness::ring.pumpEnabled), 4u);
     EXPECT_EQ(offsetof(Ring, captureEnabled), 36u);
     EXPECT_EQ(offsetof(Ring, pumpEnabled), 16u);
     EXPECT_EQ(offsetof(Ring, captureEnabled) % alignof(LONG), 0u);
     EXPECT_EQ(sizeof(CallPod), 1040u);
-    EXPECT_EQ(sizeof(Ring), 2197032u);
+    EXPECT_EQ(sizeof(Ring), 2197048u);
 }
 
 TEST(HookBuffer, GatesAndRecordsAreVisibleAcrossTwoLocalMappingViews) {

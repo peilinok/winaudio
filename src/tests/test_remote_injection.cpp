@@ -3,10 +3,12 @@
 #include "RemoteInjectionHarness.h"
 #include "OnDemandAttach.h"
 #include "HookedCallPod.h"
+#include "HookModuleIdentity.h"
 #include <tlhelp32.h>
 #include <future>
 #include <filesystem>
 #include <string>
+#include <fstream>
 
 namespace {
 TEST(RemoteThreadWait, InvalidHandlePreservesWaitFailedSystemError) {
@@ -94,6 +96,10 @@ protected:
         std::filesystem::create_directory(folder);
         const auto copied = folder / L"RemoteInjectionTarget.exe";
         std::filesystem::copy_file(source, copied, std::filesystem::copy_options::overwrite_existing);
+        // A real, verifiable source is staged first. LoadLibrary then rejects
+        // this deliberately invalid PE, including after a cancelled wait.
+        std::ofstream(folder / L"WinAudioHook.dll", std::ios::binary | std::ios::trunc)
+            << "WinAudio test invalid PE";
         std::wstring command = L"\"" + copied.wstring() + L"\" --missing-hook " + std::to_wstring(child.dwProcessId);
         if (late) command += L" \"" + base + L"\"";
         STARTUPINFOW startup{};
@@ -120,6 +126,12 @@ protected:
         CloseHandle(probe.hThread);
         CloseHandle(probe.hProcess);
         std::filesystem::remove(copied);
+        std::filesystem::remove(folder / L"WinAudioHook.dll");
+        for (const auto& entry : std::filesystem::directory_iterator(folder)) {
+            const auto name = entry.path().filename().wstring();
+            if (name.rfind(L"WinAudioHook-", 0) == 0 && entry.path().extension() == L".dll")
+                std::filesystem::remove(entry.path());
+        }
         std::filesystem::remove(folder);
     }
     std::wstring base;
@@ -165,6 +177,33 @@ TEST_F(RemoteInjectionTest, TargetExitReclaimsPendingOperation) {
     EXPECT_FALSE(operation.pending());
     EXPECT_EQ(operation.parameter(), nullptr);
     EXPECT_EQ(operation.completionResult().code, static_cast<long>(HRESULT_FROM_WIN32(ERROR_PROCESS_ABORTED)));
+}
+
+TEST_F(RemoteInjectionTest, ExistingIncompatibleHookIsRejectedBeforeLoadingAnotherDll) {
+    wchar_t self[MAX_PATH] = {};
+    GetModuleFileNameW(nullptr, self, MAX_PATH);
+    const auto directory = std::filesystem::path(self).parent_path();
+    const std::wstring obsolete = (directory / L"WinAudioHook-obsolete.dll").wstring();
+    const auto load = GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "LoadLibraryW");
+    ASSERT_NE(load, nullptr);
+    wa::RemoteInjection preload;
+    ASSERT_TRUE(preload.begin(child.hProcess, reinterpret_cast<LPTHREAD_START_ROUTINE>(load),
+                             obsolete.c_str(), (obsolete.size() + 1) * sizeof(wchar_t)));
+    ASSERT_TRUE(preload.wait(5000));
+    bool loaded = false;
+    ASSERT_TRUE(wa::inspectHookModules(child.dwProcessId, obsolete, loaded));
+    ASSERT_TRUE(loaded);
+    wa::OnDemandAttach attach;
+    const auto result = attach.start(child.dwProcessId);
+    EXPECT_FALSE(result);
+    EXPECT_EQ(result.code, static_cast<long>(HRESULT_FROM_WIN32(ERROR_REVISION_MISMATCH)));
+    EXPECT_NE(result.message.find("restart"), std::string::npos);
+    EXPECT_FALSE(attach.attached());
+    // All WinAudioHook-named modules are inspected, even when this layout's
+    // mapping does not exist. Only the fixture may remain loaded afterwards.
+    loaded = false;
+    EXPECT_TRUE(wa::inspectHookModules(child.dwProcessId, obsolete, loaded));
+    EXPECT_TRUE(loaded);
 }
 
 TEST_F(RemoteInjectionTest, ControllerOwnerDestructionDoesNotFreeUnreadParameter) {

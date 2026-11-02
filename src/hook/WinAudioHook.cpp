@@ -14,6 +14,7 @@
 #include <objbase.h>
 #include <cstring>
 #include <cstdint>
+#include <utility>
 #include "HookedCallPod.h"
 
 // Test builds observe the actual entry points; production and timing builds
@@ -70,35 +71,58 @@ using FxGetFn = HRESULT(STDMETHODCALLTYPE*)(IAudioEffectsManager*, AUDIO_EFFECT*
 using FxSetFn = HRESULT(STDMETHODCALLTYPE*)(IAudioEffectsManager*, GUID, AUDIO_EFFECT_STATE);
 #endif
 
-ActivateFn g_activate = nullptr;
-GetDeviceFn g_getDevice = nullptr;
-GetDefaultFn g_getDefault = nullptr;
-EnumFn g_enum = nullptr;
-InitializeFn g_initialize = nullptr;
-InitSharedFn g_initShared = nullptr;
-SimpleHrFn g_start = nullptr;
-SimpleHrFn g_stop = nullptr;
-SimpleHrFn g_reset = nullptr;
-SetEventFn g_setEvent = nullptr;
-GetServiceFn g_getService = nullptr;
-SetPropsFn g_setProps = nullptr;
-VolGetFn g_volGet = nullptr;
-VolSetFn g_volSet = nullptr;
-MuteGetFn g_muteGet = nullptr;
-MuteSetFn g_muteSet = nullptr;
-SessStateFn g_sessState = nullptr;
-ClockFreqFn g_clockFreq = nullptr;
-CapGetBufFn g_capGet = nullptr;
-CapRelBufFn g_capRel = nullptr;
-RenGetBufFn g_renGet = nullptr;
-RenRelBufFn g_renRel = nullptr;
-GetBufSizeFn g_getBufSize = nullptr;
-StreamVolCountFn g_streamVolCount = nullptr;
-StreamVolSetFn g_streamVolSet = nullptr;
-StreamVolGetFn g_streamVolGet = nullptr;
+// Published before any vtable cell becomes callable. No locks or allocations
+// are needed to load the one accepted implementation on the audio path.
+template <typename Fn>
+class OriginalFunction {
+public:
+    void** storage() { return &value_; }
+    operator Fn() const {
+        return reinterpret_cast<Fn>(InterlockedCompareExchangePointer(
+            const_cast<void**>(&value_), nullptr, nullptr));
+    }
+    OriginalFunction& operator=(Fn fn) {
+        InterlockedExchangePointer(&value_, reinterpret_cast<void*>(fn));
+        return *this;
+    }
+    template <typename... Args>
+    HRESULT operator()(Args&&... args) const {
+        const Fn fn = *this;
+        return fn ? fn(std::forward<Args>(args)...) : E_UNEXPECTED;
+    }
+private:
+    void* value_ = nullptr;
+};
+
+OriginalFunction<ActivateFn> g_activate;
+OriginalFunction<GetDeviceFn> g_getDevice;
+OriginalFunction<GetDefaultFn> g_getDefault;
+OriginalFunction<EnumFn> g_enum;
+OriginalFunction<InitializeFn> g_initialize;
+OriginalFunction<InitSharedFn> g_initShared;
+OriginalFunction<SimpleHrFn> g_start;
+OriginalFunction<SimpleHrFn> g_stop;
+OriginalFunction<SimpleHrFn> g_reset;
+OriginalFunction<SetEventFn> g_setEvent;
+OriginalFunction<GetServiceFn> g_getService;
+OriginalFunction<SetPropsFn> g_setProps;
+OriginalFunction<VolGetFn> g_volGet;
+OriginalFunction<VolSetFn> g_volSet;
+OriginalFunction<MuteGetFn> g_muteGet;
+OriginalFunction<MuteSetFn> g_muteSet;
+OriginalFunction<SessStateFn> g_sessState;
+OriginalFunction<ClockFreqFn> g_clockFreq;
+OriginalFunction<CapGetBufFn> g_capGet;
+OriginalFunction<CapRelBufFn> g_capRel;
+OriginalFunction<RenGetBufFn> g_renGet;
+OriginalFunction<RenRelBufFn> g_renRel;
+OriginalFunction<GetBufSizeFn> g_getBufSize;
+OriginalFunction<StreamVolCountFn> g_streamVolCount;
+OriginalFunction<StreamVolSetFn> g_streamVolSet;
+OriginalFunction<StreamVolGetFn> g_streamVolGet;
 #if defined(__IAudioEffectsManager_INTERFACE_DEFINED__)
-FxGetFn g_fxGet = nullptr;
-FxSetFn g_fxSet = nullptr;
+OriginalFunction<FxGetFn> g_fxGet;
+OriginalFunction<FxSetFn> g_fxSet;
 #endif
 
 void copyStr(char* dst, size_t n, const char* src) {
@@ -366,7 +390,31 @@ void pushReturn(wa::hook_ipc::ArgBlobWriter& w, HRESULT hr) {
 
 
 bool patchSlot(void* obj, int slot, void* hook, void** orig) {
-    return wa::hook_ipc::patchVtableSlot(obj, slot, hook, orig);
+    if (!obj) return false;
+    void* current = (*static_cast<void***>(obj))[slot];
+    // Do not retain object/interface pointers. Pin the implementation's module
+    // and this hook before publishing a callable cell, so either outlives it.
+    HMODULE module = nullptr;
+    bool pinned = current == hook || GetModuleHandleExW(
+            GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
+            reinterpret_cast<LPCWSTR>(current), &module);
+    if (pinned) pinned = GetModuleHandleExW(
+        GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
+        reinterpret_cast<LPCWSTR>(hook), &module) != FALSE;
+    const bool patched = pinned && wa::hook_ipc::patchVtableSlot(obj, slot, hook, orig);
+    const DWORD error = patched ? ERROR_SUCCESS : GetLastError();
+    if (g_ring) {
+        InterlockedExchange(reinterpret_cast<volatile LONG*>(&g_ring->coverageFlags),
+                            wa::hook_ipc::kCoverageDiscoveredImplementations);
+        if (patched) {
+            InterlockedIncrement(reinterpret_cast<volatile LONG*>(&g_ring->patchAccepted));
+        } else {
+            InterlockedExchange(reinterpret_cast<volatile LONG*>(&g_ring->patchLastError), error);
+            InterlockedIncrement(reinterpret_cast<volatile LONG*>(&g_ring->patchRejected));
+        }
+    }
+    SetLastError(error);
+    return patched;
 }
 
 HRESULT STDMETHODCALLTYPE HookInitialize(IAudioClient* self, AUDCLNT_SHAREMODE share, DWORD flags,
@@ -628,36 +676,36 @@ void patchService(void* obj, REFIID iid) {
     using wa::hook_ipc::kSlotBufferReleaseBuffer;
     if (iid == __uuidof(IAudioCaptureClient)) {
         patchSlot(obj, kSlotBufferGetBuffer, reinterpret_cast<void*>(&HookCapGetBuffer),
-                  reinterpret_cast<void**>(&g_capGet));
+                  g_capGet.storage());
         patchSlot(obj, kSlotBufferReleaseBuffer, reinterpret_cast<void*>(&HookCapReleaseBuffer),
-                  reinterpret_cast<void**>(&g_capRel));
+                  g_capRel.storage());
     } else if (iid == __uuidof(IAudioRenderClient)) {
         patchSlot(obj, kSlotBufferGetBuffer, reinterpret_cast<void*>(&HookRenGetBuffer),
-                  reinterpret_cast<void**>(&g_renGet));
+                  g_renGet.storage());
         patchSlot(obj, kSlotBufferReleaseBuffer, reinterpret_cast<void*>(&HookRenReleaseBuffer),
-                  reinterpret_cast<void**>(&g_renRel));
+                  g_renRel.storage());
     } else if (iid == __uuidof(ISimpleAudioVolume)) {
-        patchSlot(obj, 3, reinterpret_cast<void*>(&HookVolGet), reinterpret_cast<void**>(&g_volGet));
-        patchSlot(obj, 4, reinterpret_cast<void*>(&HookVolSet), reinterpret_cast<void**>(&g_volSet));
-        patchSlot(obj, 5, reinterpret_cast<void*>(&HookMuteGet), reinterpret_cast<void**>(&g_muteGet));
-        patchSlot(obj, 6, reinterpret_cast<void*>(&HookMuteSet), reinterpret_cast<void**>(&g_muteSet));
+        patchSlot(obj, 3, reinterpret_cast<void*>(&HookVolGet), g_volGet.storage());
+        patchSlot(obj, 4, reinterpret_cast<void*>(&HookVolSet), g_volSet.storage());
+        patchSlot(obj, 5, reinterpret_cast<void*>(&HookMuteGet), g_muteGet.storage());
+        patchSlot(obj, 6, reinterpret_cast<void*>(&HookMuteSet), g_muteSet.storage());
     } else if (iid == __uuidof(IAudioSessionControl) || iid == __uuidof(IAudioSessionControl2)) {
         patchSlot(obj, 3, reinterpret_cast<void*>(&HookSessState),
-                  reinterpret_cast<void**>(&g_sessState));
+                  g_sessState.storage());
     } else if (iid == __uuidof(IAudioClock)) {
         patchSlot(obj, 3, reinterpret_cast<void*>(&HookClockFreq),
-                  reinterpret_cast<void**>(&g_clockFreq));
+                  g_clockFreq.storage());
     } else if (iid == __uuidof(IAudioStreamVolume)) {
         patchSlot(obj, 3, reinterpret_cast<void*>(&HookStreamVolCount),
-                  reinterpret_cast<void**>(&g_streamVolCount));
+                  g_streamVolCount.storage());
         patchSlot(obj, 4, reinterpret_cast<void*>(&HookStreamVolSet),
-                  reinterpret_cast<void**>(&g_streamVolSet));
+                  g_streamVolSet.storage());
         patchSlot(obj, 5, reinterpret_cast<void*>(&HookStreamVolGet),
-                  reinterpret_cast<void**>(&g_streamVolGet));
+                  g_streamVolGet.storage());
 #if defined(__IAudioEffectsManager_INTERFACE_DEFINED__)
     } else if (iid == __uuidof(IAudioEffectsManager)) {
-        patchSlot(obj, 3, reinterpret_cast<void*>(&HookFxGet), reinterpret_cast<void**>(&g_fxGet));
-        patchSlot(obj, 4, reinterpret_cast<void*>(&HookFxSet), reinterpret_cast<void**>(&g_fxSet));
+        patchSlot(obj, 3, reinterpret_cast<void*>(&HookFxGet), g_fxGet.storage());
+        patchSlot(obj, 4, reinterpret_cast<void*>(&HookFxSet), g_fxSet.storage());
 #endif
     }
 }
@@ -781,25 +829,25 @@ void patchClient(void* obj) {
     using wa::hook_ipc::kSlotClientSetProperties;
     using wa::hook_ipc::kSlotClientInitializeShared;
     patchSlot(obj, kSlotClientInitialize, reinterpret_cast<void*>(&HookInitialize),
-              reinterpret_cast<void**>(&g_initialize));
+              g_initialize.storage());
     patchSlot(obj, 4, reinterpret_cast<void*>(&HookGetBufferSize),
-              reinterpret_cast<void**>(&g_getBufSize));
+              g_getBufSize.storage());
     patchSlot(obj, kSlotClientStart, reinterpret_cast<void*>(&HookStart),
-              reinterpret_cast<void**>(&g_start));
+              g_start.storage());
     patchSlot(obj, kSlotClientStop, reinterpret_cast<void*>(&HookStop),
-              reinterpret_cast<void**>(&g_stop));
+              g_stop.storage());
     patchSlot(obj, kSlotClientReset, reinterpret_cast<void*>(&HookReset),
-              reinterpret_cast<void**>(&g_reset));
+              g_reset.storage());
     patchSlot(obj, kSlotClientSetEventHandle, reinterpret_cast<void*>(&HookSetEventHandle),
-              reinterpret_cast<void**>(&g_setEvent));
+              g_setEvent.storage());
     patchSlot(obj, kSlotClientGetService, reinterpret_cast<void*>(&HookGetService),
-              reinterpret_cast<void**>(&g_getService));
+              g_getService.storage());
     IAudioClient2* c2 = nullptr;
     if (SUCCEEDED(static_cast<IUnknown*>(obj)->QueryInterface(__uuidof(IAudioClient2),
                                                               reinterpret_cast<void**>(&c2))) &&
         c2) {
         patchSlot(c2, kSlotClientSetProperties, reinterpret_cast<void*>(&HookSetClientProperties),
-                  reinterpret_cast<void**>(&g_setProps));
+                  g_setProps.storage());
         c2->Release();
     }
     IAudioClient3* c3 = nullptr;
@@ -807,7 +855,7 @@ void patchClient(void* obj) {
                                                               reinterpret_cast<void**>(&c3))) &&
         c3) {
         patchSlot(c3, kSlotClientInitializeShared, reinterpret_cast<void*>(&HookInitShared),
-                  reinterpret_cast<void**>(&g_initShared));
+                  g_initShared.storage());
         c3->Release();
     }
 }
@@ -850,7 +898,7 @@ HRESULT STDMETHODCALLTYPE HookActivate(IMMDevice* self, REFIID iid, DWORD ctx, P
 void patchDevice(IMMDevice* dev) {
     if (!dev) return;
     patchSlot(dev, wa::hook_ipc::kSlotDeviceActivate, reinterpret_cast<void*>(&HookActivate),
-              reinterpret_cast<void**>(&g_activate));
+              g_activate.storage());
 }
 
 HRESULT STDMETHODCALLTYPE HookEnum(IMMDeviceEnumerator* self, EDataFlow flow, DWORD mask,
@@ -968,7 +1016,7 @@ void patchAllDevices(IMMDeviceEnumerator* enumer, EDataFlow flow) {
 bool install() {
     InterlockedExchange(&g_quiet, 1);
     HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-    const bool needUninit = (hr == S_OK);
+    const bool needUninit = SUCCEEDED(hr);
     if (FAILED(hr) && hr != RPC_E_CHANGED_MODE) {
         InterlockedExchange(&g_quiet, 0);
         return false;
@@ -981,13 +1029,13 @@ bool install() {
     if (SUCCEEDED(hr) && enumer) {
         const bool patchedEnum =
             patchSlot(enumer, wa::hook_ipc::kSlotEnumeratorEnumEndpoints,
-                      reinterpret_cast<void*>(&HookEnum), reinterpret_cast<void**>(&g_enum)) &&
+                      reinterpret_cast<void*>(&HookEnum), g_enum.storage()) &&
             patchSlot(enumer, wa::hook_ipc::kSlotEnumeratorGetDefault,
                       reinterpret_cast<void*>(&HookGetDefault),
-                      reinterpret_cast<void**>(&g_getDefault)) &&
+                      g_getDefault.storage()) &&
             patchSlot(enumer, wa::hook_ipc::kSlotEnumeratorGetDevice,
                       reinterpret_cast<void*>(&HookGetDevice),
-                      reinterpret_cast<void**>(&g_getDevice));
+                      g_getDevice.storage());
         patchAllDevices(enumer, eCapture);
         patchAllDevices(enumer, eRender);
 

@@ -1,5 +1,6 @@
 #include "OnDemandAttach.h"
 #include "RemoteInjection.h"
+#include "HookModuleIdentity.h"
 #include "AudioFormatStr.h"
 #include "ComUtil.h"
 #include "PumpWindow.h"
@@ -72,18 +73,16 @@ std::wstring hookDllPath() {
     return path;
 }
 
-std::wstring stageHookDll() {
-    const std::wstring src = hookDllPath();
-    const auto slash = src.find_last_of(L"\\/");
-    if (slash == std::wstring::npos) return src;
-    std::wstring dst = src.substr(0, slash + 1) + stagedHookFileName();
-    if (!CopyFileW(src.c_str(), dst.c_str(), FALSE)) {
-        const DWORD err = GetLastError();
-        WA_LOG(wa::log::Level::Warn, "Attach", "CopyFile(stage hook)", wa::narrowAscii(dst),
-               wa::log::hrName(HRESULT_FROM_WIN32(err)));
-        if (GetFileAttributesW(dst.c_str()) == INVALID_FILE_ATTRIBUTES) return src;
-    }
-    return dst;
+Result stageHookDll(std::wstring& staged) {
+    const std::wstring source = hookDllPath();
+    const DWORD attributes = GetFileAttributesW(source.c_str());
+    const DWORD error = attributes == INVALID_FILE_ATTRIBUTES ? GetLastError() : ERROR_SUCCESS;
+    WA_LOG(wa::log::Level::Debug, "Attach", "GetFileAttributesW(hook)", wa::narrowAscii(source),
+           wa::log::hrName(HRESULT_FROM_WIN32(error)));
+    if (error != ERROR_SUCCESS)
+        return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(error)),
+                            "Attach: cannot verify hook file identity");
+    return stageHookModule(source, staged);
 }
 
 void enableDebugPrivilege() {
@@ -284,10 +283,6 @@ const char* attachInstallFailMessage(uint32_t installed) {
                : "Attach: hook install did not finish; restart the target app and retry";
 }
 
-std::wstring stagedHookFileName() {
-    return L"WinAudioHook-" + std::to_wstring(hook_ipc::kRingLayout) + L".dll";
-}
-
 AttachBlock evaluateAttach(uint32_t pid, uint32_t ourPid, bool sameBitnessFlag, bool hasDebugRights,
                            const std::string& processName) {
     if (pid == 0) return AttachBlock::PidZero;
@@ -306,6 +301,7 @@ struct OnDemandAttach::Impl {
     hook_ipc::Ring* ring = nullptr;
     uint32_t readIndex = 0;
     uint64_t droppedControl = 0;
+    uint32_t reportedRejections = 0;
     PumpWindow pump;
 };
 
@@ -328,6 +324,7 @@ void OnDemandAttach::stop() {
     impl_->pid = 0;
     impl_->readIndex = 0;
     impl_->droppedControl = 0;
+    impl_->reportedRejections = 0;
     impl_->resources.reset();
     reapReservations();
 }
@@ -416,6 +413,13 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
     Result reserved = reserveInstance(inject, pid, resources);
     if (!reserved) { CloseHandle(inject); return reserved; }
 
+    std::wstring dll;
+    Result staged = stageHookDll(dll);
+    if (!staged) return staged;
+    bool moduleLoaded = false;
+    Result identity = inspectHookModules(pid, dll, moduleLoaded);
+    if (!identity) return identity;
+
     wchar_t mapNm[64] = {};
     hook_ipc::mapName(pid, mapNm, 64);
     SetLastError(ERROR_SUCCESS);
@@ -443,12 +447,15 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
     }
     resources->ring = ring;
 
-    if (mapErr == ERROR_ALREADY_EXISTS && ring->magic == hook_ipc::kMagic &&
+    if (moduleLoaded && mapErr == ERROR_ALREADY_EXISTS && ring->magic == hook_ipc::kMagic &&
         ring->installed == hook_ipc::kInstallFailed)
         return Result::Fail(static_cast<long>(E_FAIL), attachInstallFailMessage(hook_ipc::kInstallFailed));
 
-    const bool reuse = mapErr == ERROR_ALREADY_EXISTS && ring->magic == hook_ipc::kMagic &&
+    const bool reuse = moduleLoaded && mapErr == ERROR_ALREADY_EXISTS && ring->magic == hook_ipc::kMagic &&
                        ring->installed == hook_ipc::kInstallOk;
+    if (moduleLoaded && !reuse)
+        return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_BUSY)),
+            "Attach: loaded hook is not ready or its mapping is incompatible; restart the target app and retry");
     if (!reuse) {
         ZeroMemory(ring, sizeof(*ring));
         ring->magic = hook_ipc::kMagic;
@@ -460,11 +467,12 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
         ring->flow = flow == PipelineFlow::Render ? 1u : 0u;
     }
 
-    const std::wstring dll = stageHookDll();
-    Result inj = injectDll(*resources, dll, cancelled);
-    if (!inj) {
-        WA_LOG(wa::log::Level::Info, "Attach", "inject", inj.message, "fail");
-        return inj;
+    if (!reuse) {
+        Result inj = injectDll(*resources, dll, cancelled);
+        if (!inj) {
+            WA_LOG(wa::log::Level::Info, "Attach", "inject", inj.message, "fail");
+            return inj;
+        }
     }
 
     if (!reuse) {
@@ -504,13 +512,27 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
     impl_->pump.begin(*ring);
     InterlockedExchange(reinterpret_cast<volatile LONG*>(&ring->captureEnabled), 1);
     WA_LOG(wa::log::Level::Info, "Attach", "start",
-           "pid=" + std::to_string(pid) + " " + name, "attached");
+           "pid=" + std::to_string(pid) + " " + name,
+           "attached; limited to discovered implementations, not all objects");
+    const auto capability = coverage();
+    WA_LOG(capability.rejectedAttempts ? wa::log::Level::Warn : wa::log::Level::Info,
+           "Attach", "hook coverage", "accepted attempts=" + std::to_string(capability.acceptedAttempts) +
+               " rejected attempts=" + std::to_string(capability.rejectedAttempts),
+           wa::log::hrName(HRESULT_FROM_WIN32(capability.lastError)));
     return Result::Ok();
 }
 
 std::vector<HookedCall> OnDemandAttach::drain() {
     std::vector<HookedCall> out;
     if (!attached()) return out;
+    const auto capability = coverage();
+    if (capability.rejectedAttempts != impl_->reportedRejections) {
+        impl_->reportedRejections = capability.rejectedAttempts;
+        WA_LOG(wa::log::Level::Warn, "Attach", "hook coverage incomplete",
+               "pid=" + std::to_string(impl_->pid) + " rejected attempts=" +
+                   std::to_string(capability.rejectedAttempts),
+               wa::log::hrName(HRESULT_FROM_WIN32(capability.lastError)));
+    }
     const uint32_t write = impl_->ring->writeIndex;
     uint32_t read = impl_->readIndex;
     if (write < read) return out;
@@ -531,6 +553,16 @@ std::vector<HookedCall> OnDemandAttach::drain() {
 
 uint64_t OnDemandAttach::droppedControlCalls() const {
     return impl_ ? impl_->droppedControl : 0;
+}
+
+HookCoverage OnDemandAttach::coverage() const {
+    HookCoverage result;
+    if (!impl_ || !impl_->ring) return result;
+    const auto* ring = impl_->ring;
+    result.acceptedAttempts = ReadULongAcquire(reinterpret_cast<const volatile ULONG*>(&ring->patchAccepted));
+    result.rejectedAttempts = ReadULongAcquire(reinterpret_cast<const volatile ULONG*>(&ring->patchRejected));
+    result.lastError = ReadULongAcquire(reinterpret_cast<const volatile ULONG*>(&ring->patchLastError));
+    return result;
 }
 
 std::vector<HookedCall> OnDemandAttach::pumpRing() const {

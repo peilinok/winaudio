@@ -1,3 +1,4 @@
+#include "HookModuleIdentity.h"
 #include "PerformanceFixture.h"
 #include "AppUi.h"
 #include "Log.h"
@@ -275,7 +276,7 @@ bool PerformanceFixture::startInspector(AppUi& ui) {
             module.dwSize = sizeof(module);
             bool found = false;
             if (Module32FirstW(snapshot, &module)) do {
-                if (_wcsicmp(module.szModule, L"WinAudioHook-5.dll") == 0) {
+                if (wa::isHookModuleName(module.szModule)) {
                     char path[1024]{};
                     WideCharToMultiByte(CP_UTF8, 0, module.szExePath, -1, path, sizeof(path), nullptr, nullptr);
                     WA_LOG(wa::log::Level::Info, "PerformanceFixture", "loaded-hook", std::to_string(pid), path);

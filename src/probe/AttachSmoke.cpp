@@ -115,16 +115,23 @@ int main(int argc, char** argv) {
         if (pump > 0) break;
         Sleep(50);
     }
-    WaitForSingleObject(pi.hProcess, 15000);
+    const DWORD targetWait = WaitForSingleObject(pi.hProcess, 15000);
+    DWORD targetExit = STILL_ACTIVE;
+    const BOOL queriedExit = GetExitCodeProcess(pi.hProcess, &targetExit);
     auto more = attach.drain();
     control += more.size();
     auto ring = attach.pumpRing();
     if (ring.size() > pump) pump = ring.size();
     const uint32_t xruns = attach.pumpXruns();
+    const auto coverage = attach.coverage();
     attach.stop();
     CloseHandle(pi.hProcess);
 
     std::printf("control_calls=%zu pump_ring=%zu xruns=%u\n", control, pump, xruns);
+    std::printf("coverage=discovered-implementations-only accepted_attempts=%u rejected_attempts=%u last_error=%u\n",
+                coverage.acceptedAttempts, coverage.rejectedAttempts, coverage.lastError);
+    std::printf("target_wait=%lu exit_queried=%d target_exit=%lu\n", targetWait, queriedExit, targetExit);
+    if (targetWait != WAIT_OBJECT_0 || !queriedExit || targetExit != 0) return 12;
     if (pump == 0 && control == 0) {
         std::printf("FAIL: empty call log after attach-while-pumping\n");
         return 11;
