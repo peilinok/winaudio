@@ -4,6 +4,13 @@
 #include <algorithm>
 
 namespace wa {
+Result PipelineAttachSet::clear(ProcessInstance expected) {
+    const auto found = byPid_.find(expected.pid);
+    return found == byPid_.end()
+        ? Result::Fail(static_cast<long>(E_INVALIDARG), "Clear segment: no active target")
+        : found->second->clear(expected);
+}
+
 Result PipelineAttachSet::publishMethods(ProcessInstance expected, uint32_t methods) {
     const auto found = byPid_.find(expected.pid);
     return found == byPid_.end()
@@ -55,6 +62,11 @@ void PipelineAttachSet::stop(uint32_t pid) {
 ProcessInstance PipelineAttachSet::instance(uint32_t pid) const {
     const auto found = byPid_.find(pid);
     return found == byPid_.end() ? ProcessInstance{} : found->second->instance();
+}
+
+uint32_t PipelineAttachSet::observationGeneration(uint32_t pid) const {
+    const auto found = byPid_.find(pid);
+    return found == byPid_.end() ? 0 : found->second->observationGeneration();
 }
 
 std::string PipelineAttachSet::processName(uint32_t pid) const {

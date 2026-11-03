@@ -90,6 +90,44 @@ bool ensureDir(const std::wstring& dir) {
 
 void CallLogStore::clear() { beginRound(); }
 
+bool CallLogStore::clearSegment(uint64_t attach, uint32_t generation, int64_t startedMs) {
+    if (!attach || attach > attaches_.size()) return false;
+    auto& target = attaches_[static_cast<size_t>(attach - 1)];
+    if (target.active && generation <= target.observationGeneration) return false;
+    const auto oldFrozenCount = frozenCount_;
+    size_t removedFrozen = 0;
+    for (size_t index = 0; index < entries_.size(); ++index)
+        if (entries_[index]->id.attach == attach && index < oldFrozenCount) ++removedFrozen;
+    entries_.erase(std::remove_if(entries_.begin(), entries_.end(), [attach](const CallRecordRef& ref) {
+        return ref->id.attach == attach;
+    }), entries_.end());
+    frozenCount_ -= removedFrozen;
+    pidCounts_[target.pid] -= target.count;
+    target.count = target.windowRetained = 0;
+    target.windowReceived = target.windowEvicted = 0;
+    const bool unknownControl = target.transport.control.unknown;
+    const bool unknownPump = target.transport.pump.unknown;
+    const auto snapshotSequence = target.transport.snapshotSequence;
+    target.transport = {};
+    target.transport.control.unknown = unknownControl;
+    target.transport.pump.unknown = unknownPump;
+    target.transport.snapshotSequence = snapshotSequence;
+    target.statisticsStartedMs = startedMs;
+    target.observationGeneration = generation;
+    target.contributors.clear();
+    target.hint = {};
+    target.hintRevision = kNotFound;
+    target.pump.clear();
+    target.controlIfaces.clear();
+    controlIfaces_.clear();
+    for (const auto& ref : entries_) call_log_filter::addIface(controlIfaces_, ref->call.iface);
+    ++controlRevision_;
+    queryValid_ = false;
+    combinedRevision_ = combinedLegacyRevision_ = kNotFound;
+    rebuildPump();
+    return true;
+}
+
 void CallLogStore::beginRound() {
     entries_.clear();
     attaches_.clear();
@@ -110,6 +148,7 @@ void CallLogStore::beginRound() {
     combinedAttach_ = combinedLegacy_ = 0;
     combinedRevision_ = combinedLegacyRevision_ = kNotFound;
     ++round_;
+    nextControlSequence_ = 0;
     range_ = recording_ ? RecordingRange::Following : RecordingRange::Never;
     frozenCount_ = 0;
 }
@@ -142,6 +181,7 @@ uint64_t CallLogStore::registerAttach(ProcessInstance instance, std::string name
     next.instance = instance;
     next.name = std::move(name);
     next.startedMs = next.snapshotMs = startedMs;
+    next.statisticsStartedMs = startedMs;
     attaches_.push_back(std::move(next));
     const uint64_t id = attaches_.size();
     latestAttach_[instance.pid] = tokenAttach_[token] = id;
@@ -160,11 +200,20 @@ bool CallLogStore::setMethods(uint64_t attach, uint32_t methods) {
     return true;
 }
 
+bool CallLogStore::setObservationGeneration(uint64_t attach, uint32_t generation) {
+    if (!attach || attach > attaches_.size()) return false;
+    auto& target = attaches_[static_cast<size_t>(attach - 1)];
+    if (!target.active || target.observationGeneration) return false;
+    target.observationGeneration = generation;
+    return true;
+}
+
 bool CallLogStore::updateTransport(const TransportUpdate& update) {
     const auto id = attachForToken(update.token);
     if (!id || !update.instance || !update.status.snapshotSequence) return false;
     auto& target = attaches_[static_cast<size_t>(id - 1)];
     if (!target.active || target.instance != update.instance ||
+        target.observationGeneration != update.status.observationGeneration ||
         update.status.snapshotSequence <= target.transport.snapshotSequence) return false;
     target.transport = update.status;
     return true;
@@ -246,6 +295,7 @@ void CallLogStore::appendPump(uint64_t attach, const std::vector<PumpCall>& rece
             observed.sequence <= segment.pump.back()->id.sequence)) continue;
         auto call = observed.call;
         if ((call.pid && call.pid != segment.pid) ||
+            call.observationGeneration != segment.observationGeneration ||
             (call.processCreated && call.processCreated != segment.instance.created) ||
             (call.attachToken && call.attachToken != segment.token)) continue;
         call.pid = segment.pid;
@@ -281,13 +331,14 @@ void CallLogStore::append(uint64_t attach, HookedCall call) {
     auto& segment = attaches_[static_cast<size_t>(attach - 1)];
     if (!segment.active || call.pump || isPumpMethod(call.method)) return;
     if ((call.attachToken && call.attachToken != segment.token) ||
+        call.observationGeneration != segment.observationGeneration ||
         (call.processCreated && call.processCreated != segment.instance.created)) return;
     if (segment.instance && call.pid && call.pid != segment.instance.pid) return;
     if (segment.pid != 0) call.pid = segment.pid;
     call.attachToken = segment.token;
     call.processCreated = segment.instance.created;
     call.args = sanitizeHookedArgs(std::move(call.args));
-    CallRecord record{{round_, attach, entries_.size() + 1, CallLane::Control}, std::move(call)};
+    CallRecord record{{round_, attach, ++nextControlSequence_, CallLane::Control}, std::move(call)};
     auto ref = std::make_shared<const CallRecord>(std::move(record));
     ++pidCounts_[ref->call.pid];
     call_log_filter::addIface(controlIfaces_, ref->call.iface);
@@ -396,8 +447,9 @@ size_t CallLogStore::View::position(CallRecordId id) const {
             if (store_->matchedPump_[i]->id == id) return store_->pumpPositions_[i];
         return kNotFound;
     }
-    if (id.sequence > store_->positions_.size() || !store_->find(id)) return kNotFound;
-    const auto base = store_->positions_[static_cast<size_t>(id.sequence - 1)];
+    const auto index = store_->controlIndex(id);
+    if (index == kNotFound || index >= store_->positions_.size()) return kNotFound;
+    const auto base = store_->positions_[index];
     if (base == kNotFound) return kNotFound;
     size_t position = base;
     for (size_t i = 0; i < store_->pumpPositions_.size(); ++i) {
@@ -422,6 +474,13 @@ void CallLogStore::append(std::vector<HookedCall> calls) {
     for (auto& call : calls) append(registerAttach(call.pid), std::move(call));
 }
 
+size_t CallLogStore::controlIndex(CallRecordId id) const {
+    if (id.round != round_ || id.lane != CallLane::Control || !id) return kNotFound;
+    const auto it = std::lower_bound(entries_.begin(), entries_.end(), id.sequence,
+        [](const CallRecordRef& ref, uint64_t sequence) { return ref->id.sequence < sequence; });
+    return it != entries_.end() && (*it)->id == id ? static_cast<size_t>(it - entries_.begin()) : kNotFound;
+}
+
 const CallRecord* CallLogStore::find(CallRecordId id) const {
     if (id.round == round_ && id.lane == CallLane::Pump) {
         if (pumpVisible_ && id.attach && id.attach <= attaches_.size())
@@ -429,10 +488,8 @@ const CallRecord* CallLogStore::find(CallRecordId id) const {
                 if (ref->id == id) return ref.get();
         return nullptr;
     }
-    if (id.round != round_ || id.lane != CallLane::Control || id.sequence == 0 ||
-        id.sequence > entries_.size()) return nullptr;
-    const auto& ref = entries_[static_cast<size_t>(id.sequence - 1)];
-    return ref->id == id ? ref.get() : nullptr;
+    const auto index = controlIndex(id);
+    return index == kNotFound ? nullptr : entries_[index].get();
 }
 
 size_t CallLogStore::pidCallCount(uint32_t pid) const {
@@ -529,7 +586,7 @@ size_t CallLogStore::size() const {
 
 CallLogExport CallLogStore::freezeExport() const {
     const size_t count = exportCount();
-    CallLogExport out{round_, count, {}};
+    CallLogExport out{round_, count ? entries_[count - 1]->id.sequence : 0, {}};
     out.records.assign(entries_.begin(), entries_.begin() + static_cast<std::ptrdiff_t>(count));
     return out;
 }

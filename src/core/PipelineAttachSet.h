@@ -25,6 +25,7 @@ public:
     bool anyAttached() const;
     std::vector<uint32_t> attachedPids() const;  // sorted ascending
     ProcessInstance instance(uint32_t pid) const;
+    uint32_t observationGeneration(uint32_t pid) const;
     std::string processName(uint32_t pid) const;
     std::vector<HookedCall> finish(uint32_t pid);
     HookTransportStatus transportStatus(uint32_t pid) const;
@@ -38,6 +39,7 @@ public:
 
     void setCaptureEnabled(bool on);
     Result publishMethods(ProcessInstance expected, uint32_t methods);
+    Result clear(ProcessInstance expected);
 
 private:
     std::unordered_map<uint32_t, std::unique_ptr<OnDemandAttach>> byPid_;

@@ -144,6 +144,7 @@ struct HookedCall {
     std::optional<std::string> format;
     uint64_t processCreated = 0;
     uint64_t attachToken = 0;  // Owning receiver attribution, never guessed by PID.
+    uint32_t observationGeneration = 0;
 };
 
 struct AdvertisedEffect {

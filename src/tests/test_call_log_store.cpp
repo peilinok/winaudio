@@ -41,6 +41,54 @@ TEST(CallLogStore, FormatHresultSymbolic) {
     EXPECT_EQ(CallLogStore::formatHresult(static_cast<int32_t>(0x80004005)), "E_FAIL");
 }
 
+TEST(CallLogStore, ClearEndedSegmentPreservesIdentityOtherSegmentsAndFrozenOwnership) {
+    CallLogStore store;
+    store.setPumpVisible(true);
+    const auto a = store.registerAttach({7, 100}, "A", 11, 1000);
+    const auto b = store.registerAttach({9, 200}, "B", 22, 1000);
+    auto call = sampleCall();
+    store.append(a, call);
+    store.append(b, call);
+    const auto removed = store.entries().front()->id;
+    const auto kept = store.entries().back()->id;
+    call.method = "GetBuffer";
+    call.pump = true;
+    store.appendPump(a, {{1, call}});
+    const auto window = store.pumpEntries().front();
+    store.view({});
+    ASSERT_TRUE(store.initializeHintForInstance({7, 100}).hint.present);
+    const auto frozen = store.freezeExport();
+    store.endAttach(a, true, 2000);
+    const auto round = store.round();
+    ASSERT_TRUE(store.clearSegment(a, 0, 3000));
+    EXPECT_EQ(store.round(), round);
+    ASSERT_NE(store.segment(a), nullptr);
+    EXPECT_EQ(store.segment(a)->instance, (ProcessInstance{7, 100}));
+    EXPECT_EQ(store.segment(a)->state, CallLogStore::SegmentState::Exited);
+    EXPECT_EQ(store.segment(a)->snapshotMs, 2000);
+    EXPECT_EQ(store.segment(a)->count, 0u);
+    EXPECT_EQ(store.segment(a)->windowReceived, 0u);
+    EXPECT_EQ(store.segment(a)->windowEvicted, 0u);
+    EXPECT_TRUE(store.segment(a)->coverageUnknown);
+    EXPECT_EQ(store.segment(b)->count, 1u);
+    EXPECT_EQ(store.find(removed), nullptr);
+    EXPECT_EQ(store.find(window->id), nullptr);
+    EXPECT_EQ(store.find(kept)->id, kept);
+    EXPECT_EQ(store.view({}).position(kept), 0u);
+    EXPECT_EQ(store.view({}).position(removed), CallLogStore::kNotFound);
+    EXPECT_EQ(store.freezeExport().upperSequence, kept.sequence);
+    EXPECT_FALSE(store.initializeHintForInstance({7, 100}).hint.present);
+    EXPECT_TRUE(store.ifaces(a).empty());
+    EXPECT_EQ(frozen.records.size(), 2u);
+    EXPECT_EQ(frozen.records.front()->call.parameters.front().name, "ShareMode");
+    EXPECT_EQ(window->call.method, "GetBuffer");
+    store.append(b, sampleCall());
+    EXPECT_NE(store.entries().back()->id, kept);
+    EXPECT_NE(store.entries().back()->id, removed);
+    EXPECT_EQ(store.view({}).position(kept), 0u);
+    EXPECT_EQ(store.view({}).position(store.entries().back()->id), 1u);
+}
+
 TEST(CallLogStore, JsonLineIncludesArgsAndHr) {
     const std::string line = CallLogStore::toJsonLine(sampleCall());
     EXPECT_NE(line.find("\"method\":\"Initialize\""), std::string::npos);

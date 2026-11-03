@@ -255,6 +255,7 @@ private:
     wa::CallRecordId pipelineCallSelected_;
     wa::pipeline_attach_ui::SegmentSelection pipelineSegmentSelection_;
     std::unordered_map<uint64_t, wa::pipeline_attach_ui::MethodDraft> pipelineMethodDrafts_;
+    std::unordered_map<uint64_t, wa::pipeline_attach_ui::ClearState> pipelineClearStates_;
     wa::ProcessInstance pipelineInitialInstance_;
     std::unordered_map<std::string, wa::pipeline_attach_ui::MethodDraft> pipelineInitialMethods_;
     bool pipelinePumpSelectionExpired_ = false;

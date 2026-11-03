@@ -27,6 +27,11 @@ struct MethodDraft {
     bool dirty(uint32_t published) const { return methods != published; }
 };
 
+struct ClearState {
+    bool pending = false;
+    std::string failure;
+};
+
 // Only presentation handoff is paced. The controller keeps receiving all PIDs.
 class PresentationRefresh {
 public:
@@ -61,6 +66,13 @@ public:
     }
     void apply(CallLogStore& store, PipelineAttachController::Batch batch) {
         for (const auto& event : batch.events) {
+            if (event.kind != PipelineAttachController::EventKind::Cleared || !event.result) continue;
+            const auto id = store.attachForToken(event.token);
+            if (const auto* segment = store.segment(id))
+                if (segment->instance == event.instance)
+                    store.clearSegment(id, event.observationGeneration, event.snapshotMs);
+        }
+        for (const auto& event : batch.events) {
             if (event.kind != PipelineAttachController::EventKind::Configured) continue;
             const auto id = store.attachForToken(event.token);
             if (const auto* segment = store.segment(id))
@@ -84,6 +96,7 @@ public:
             if (event.kind != PipelineAttachController::EventKind::Attached) continue;
             const auto id = store.registerAttach(event.instance, event.name, event.token, event.snapshotMs);
             store.setMethods(id, event.methods);
+            store.setObservationGeneration(id, event.observationGeneration);
             if (!selected_) selected_ = id;
         }
         for (auto& call : batch.calls) {

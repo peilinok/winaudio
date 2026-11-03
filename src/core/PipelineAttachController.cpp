@@ -30,7 +30,7 @@ struct PipelineAttachController::Impl {
     std::shared_ptr<Job> job;
     std::optional<Prepared> prepared;  // One owning handoff, never a borrowed view.
     std::deque<uint32_t> stops;       // PID zero means detach all.
-    struct Configuration { ProcessInstance instance; uint64_t token; uint32_t methods; };
+    struct Configuration { ProcessInstance instance; uint64_t token; uint32_t methods; bool clear = false; };
     std::deque<Configuration> configurations;
     std::map<std::pair<uint32_t, uint64_t>, uint32_t> lastMethods;
     std::deque<Batch> batches;
@@ -141,6 +141,7 @@ struct PipelineAttachController::Impl {
                 if (result) {
                     event.token = tokens[request->pid] = ++nextToken;
                     event.name = active.processName(request->pid);
+                    event.observationGeneration = active.observationGeneration(request->pid);
                     std::lock_guard<std::mutex> lock(mutex);
                     lastMethods[{request->instance.pid, request->instance.created}] = request->methods;
                 }
@@ -151,13 +152,19 @@ struct PipelineAttachController::Impl {
                 for (const auto& update : updates) {
                     const auto found = tokens.find(update.instance.pid);
                     const Result result = found != tokens.end() && found->second == update.token
-                        ? active.publishMethods(update.instance, update.methods)
+                        ? (update.clear ? active.clear(update.instance) : active.publishMethods(update.instance, update.methods))
                         : Result::Fail(static_cast<long>(E_INVALIDARG), "Monitor selection: stale segment");
-                    Event event{update.instance.pid, result ? EventKind::Configured : EventKind::ConfigurationFailed, result};
+                    Event event{update.instance.pid, update.clear
+                        ? (result ? EventKind::Cleared : EventKind::ClearFailed)
+                        : (result ? EventKind::Configured : EventKind::ConfigurationFailed), result};
                     event.instance = update.instance;
                     event.token = update.token;
                     event.methods = update.methods;
-                    if (result) {
+                    if (result && update.clear) {
+                        queueLoss[update.token] = {};
+                        event.observationGeneration = active.observationGeneration(update.instance.pid);
+                        event.snapshotMs = now();
+                    } else if (result) {
                         std::lock_guard<std::mutex> lock(mutex);
                         lastMethods[{update.instance.pid, update.instance.created}] = update.methods;
                     }
@@ -282,6 +289,15 @@ Result PipelineAttachController::configure(ProcessInstance instance, uint64_t to
         impl_->configurations.size() >= kQueueCapacity)
         return Result::Fail(static_cast<long>(E_INVALIDARG), "Monitor selection: invalid or busy command");
     impl_->configurations.push_back({instance, token, methods});
+    impl_->changed.notify_all();
+    return Result::Ok();
+}
+
+Result PipelineAttachController::clear(ProcessInstance instance, uint64_t token) {
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    if (!instance || !token || impl_->closing || impl_->configurations.size() >= kQueueCapacity)
+        return Result::Fail(static_cast<long>(E_INVALIDARG), "Clear segment: invalid or busy command");
+    impl_->configurations.push_back({instance, token, 0, true});
     impl_->changed.notify_all();
     return Result::Ok();
 }

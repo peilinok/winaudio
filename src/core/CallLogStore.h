@@ -61,6 +61,8 @@ public:
         ProcessInstance instance;
         std::string name;
         int64_t startedMs = 0, snapshotMs = 0;
+        int64_t statisticsStartedMs = 0;
+        uint32_t observationGeneration = 0;
         SegmentState state = SegmentState::Monitoring;
         bool coverageUnknown = true;
         size_t count = 0;
@@ -87,6 +89,7 @@ public:
     const std::vector<std::string>& ifaces();
     std::vector<std::string> ifaces(uint64_t attach) const;
     void clear();
+    bool clearSegment(uint64_t attach, uint32_t generation, int64_t startedMs);
     void beginRound();
     uint64_t round() const { return round_; }
     bool hasSources() const { return !attaches_.empty(); }
@@ -94,6 +97,7 @@ public:
     uint64_t registerAttach(ProcessInstance instance, std::string name, uint64_t token, int64_t startedMs);
     const Segment* segment(uint64_t attach) const;
     bool setMethods(uint64_t attach, uint32_t methods);
+    bool setObservationGeneration(uint64_t attach, uint32_t generation);
     bool updateTransport(const TransportUpdate& update);
     std::vector<Segment> segments(bool active) const;
     uint64_t attachForToken(uint64_t token) const;
@@ -160,6 +164,8 @@ private:
     bool pumpVisible_ = false;
     void rebuildPump();
     uint64_t round_ = 1;
+    uint64_t nextControlSequence_ = 0;
+    size_t controlIndex(CallRecordId id) const;
     enum class RecordingRange { Never, Following, Frozen };
     RecordingRange range_ = RecordingRange::Never;
     size_t frozenCount_ = 0;

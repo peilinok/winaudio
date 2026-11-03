@@ -636,6 +636,11 @@ TEST_F(GuiLanguageText, SourceStatisticsLabelsFitProductionFontRanges) {
     ImFontGlyphRangesBuilder available;
     available.AddRanges(atlas.GetGlyphRangesChineseSimplifiedCommon());
     const char* labels[] = {
+        wa::ui_text::kPipelineClearCurrent,
+        wa::ui_text::kPipelineClearHint,
+        wa::ui_text::kPipelineClearPending,
+        wa::ui_text::kPipelineClearFailed,
+        wa::ui_text::kPipelineStatisticsStartFmt,
         wa::ui_text::kPipelineWindowCountsFmt,
         wa::ui_text::kPipelineStatisticsMethodFmt,
         wa::ui_text::kPipelineStatisticsHint,
@@ -660,4 +665,13 @@ TEST_F(GuiLanguageText, SourceStatisticsLabelsFitProductionFontRanges) {
             }
         }
     }
+}
+
+TEST_F(GuiLanguageText, SegmentClearTextExplainsScopePendingAndFailedRetention) {
+    wa::ui_text::setLanguage(wa::gui_language::Language::ZhCn);
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kPipelineClearCurrent), "清空当前段");
+    EXPECT_NE(std::string(wa::ui_text::get(wa::ui_text::kPipelineClearHint)).find("保留监控选择及其他记录段"), std::string::npos);
+    EXPECT_NE(std::string(wa::ui_text::get(wa::ui_text::kPipelineClearPending)).find("正在发布"), std::string::npos);
+    EXPECT_NE(std::string(wa::ui_text::get(wa::ui_text::kPipelineClearFailed)).find("保留原数据及统计起点"), std::string::npos);
+    EXPECT_NE(std::string(wa::ui_text::get(wa::ui_text::kPipelineStatisticsStartFmt)).find("观测代次"), std::string::npos);
 }

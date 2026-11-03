@@ -304,6 +304,7 @@ struct OnDemandAttach::Impl {
     hook_ipc::Ring* ring = nullptr;
     HookTransportReader control;
     uint32_t reportedRejections = 0;
+    bool controlUnknown = false, pumpUnknown = false;
     PumpWindow pump;
 };
 
@@ -327,6 +328,7 @@ void OnDemandAttach::stop() {
     impl_->instance = {};
     impl_->name.clear();
     impl_->reportedRejections = 0;
+    impl_->controlUnknown = impl_->pumpUnknown = false;
     impl_->resources.reset();
     reapReservations();
 }
@@ -347,6 +349,7 @@ bool OnDemandAttach::targetExited() const {
 
 uint32_t OnDemandAttach::pid() const { return impl_ ? impl_->pid : 0; }
 ProcessInstance OnDemandAttach::instance() const { return impl_->instance; }
+uint32_t OnDemandAttach::observationGeneration() const { return impl_->generation; }
 const std::string& OnDemandAttach::processName() const { return impl_->name; }
 
 Result queryProcessInstance(uint32_t pid, ProcessInstance& instance, std::string* name) {
@@ -627,9 +630,17 @@ std::vector<HookedCall> OnDemandAttach::drain(bool finish) {
 HookTransportStatus OnDemandAttach::transportStatus() const {
     HookTransportStatus status;
     if (!attached()) return status;
+    // Do not replace the last verified snapshot with counters interpreted
+    // under an incompatible protocol or a different process identity.
+    if (!hook_ipc::compatibleRing(*impl_->ring) || impl_->ring->processCreated != impl_->instance.created)
+        return status;
+    status.observationGeneration = impl_->generation;
     status.control = impl_->control.snapshot(*impl_->ring);
     status.pump = impl_->pump.transportStatus(*impl_->ring);
+    status.control.unknown = status.control.unknown || impl_->controlUnknown;
+    status.pump.unknown = status.pump.unknown || impl_->pumpUnknown;
     status.statistics = hook_ipc::readMethodStatistics(*impl_->ring, impl_->generation);
+    if (!status.statistics.known) return {};
     return status;
 }
 
@@ -675,6 +686,14 @@ std::vector<PumpCall> OnDemandAttach::receivePump() {
 
 
 Result OnDemandAttach::publishMethods(ProcessInstance expected, uint32_t methods) {
+    return publish(expected, methods, false);
+}
+
+Result OnDemandAttach::clear(ProcessInstance expected) {
+    return publish(expected, 0, true);
+}
+
+Result OnDemandAttach::publish(ProcessInstance expected, uint32_t methods, bool clear) {
     if (!impl_ || !impl_->ring || !attached() || expected != impl_->instance)
         return win32Result(ERROR_PROCESS_ABORTED, "Monitor selection: target instance is no longer active");
     const auto target = waitRemoteThread(impl_->resources->process, 0);
@@ -693,6 +712,24 @@ Result OnDemandAttach::publishMethods(ProcessInstance expected, uint32_t methods
             "Monitor selection: identity or protocol mismatch; restart target app");
     if (methods & ~kAllMonitorMethods)
         return win32Result(ERROR_INVALID_PARAMETER, "Monitor selection: invalid methods");
+    if (clear) {
+        if (impl_->generation == UINT32_MAX)
+            return win32Result(ERROR_ARITHMETIC_OVERFLOW, "Clear segment: observation generation exhausted; restart target");
+        methods = static_cast<uint32_t>(hook_ipc::monitorState(ring));
+        const auto previous = transportStatus();
+        impl_->controlUnknown = previous.control.unknown;
+        impl_->pumpUnknown = previous.pump.unknown;
+        const auto generation = impl_->generation + 1;
+        // Prepare cursors before the atomic boundary, so the first new call
+        // can never precede the receiver's baseline. Old writers keep running.
+        impl_->control.begin(ring, false, generation);
+        impl_->pump.begin(ring, generation);
+        hook_ipc::publishMonitorState(ring, methods, generation);
+        impl_->generation = generation;
+        WA_LOG(wa::log::Level::Info, "Attach", "clear segment",
+            "pid=" + std::to_string(expected.pid) + " generation=" + std::to_string(generation), "S_OK");
+        return Result::Ok();
+    }
     hook_ipc::publishMonitorState(ring, methods, impl_->generation);
     WA_LOG(wa::log::Level::Debug, "Attach", "publishMethods",
            "pid=" + std::to_string(expected.pid) + " mask=" + std::to_string(methods), "S_OK");

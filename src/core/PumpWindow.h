@@ -11,6 +11,7 @@ namespace wa {
 class PumpWindow {
 public:
     void begin(const hook_ipc::Ring& ring);
+    void begin(const hook_ipc::Ring& ring, uint32_t generation);
     const std::vector<PumpCall>& poll(hook_ipc::Ring& ring);
     HookTransportLaneStatus transportStatus(const hook_ipc::Ring& ring) const { return reader_.snapshot(ring); }
     std::vector<PumpCall> takeReceived();
