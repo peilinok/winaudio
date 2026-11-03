@@ -2,8 +2,12 @@
 #include "StartupLaunch.h"
 #include "StartupGateHarness.h"
 #include "RemoteInjection.h"
+#include "PipelineAttachController.h"
+#include "PipelineAttachUiModel.h"
 #include <windows.h>
 #include <string>
+#include <future>
+#include <filesystem>
 
 namespace {
 class StartupLaunchTest : public testing::Test {
@@ -77,6 +81,210 @@ TEST_F(StartupLaunchTest, HoldsRealAslrEntryUntilPreparationThenRunsRestoredImag
     EXPECT_EQ(shared->crtEntered, 1u);
     EXPECT_EQ(shared->mainEntered, 1u);
     EXPECT_EQ(WaitForSingleObject(process, 0), WAIT_TIMEOUT);
+}
+
+TEST_F(StartupLaunchTest, ProductLaunchUsesCommonReceiverAndPreservesAnExistingSelection) {
+    wa::PipelineAttachController controller;
+    wa::CallLogStore store;
+    wa::pipeline_attach_ui::SegmentSelection selection;
+    const auto old = store.registerAttach({123, 456}, "existing", 999, 1);
+    ASSERT_TRUE(selection.select(store, old));
+    ASSERT_TRUE(controller.startStartup(request, 0));
+    const ULONGLONG deadline = GetTickCount64() + 10000;
+    while (controller.startupStatus().running && GetTickCount64() < deadline) {
+        for (auto& batch : controller.poll()) selection.apply(store, std::move(batch));
+        Sleep(1);
+    }
+    for (auto& batch : controller.poll()) selection.apply(store, std::move(batch));
+    const auto status = controller.startupStatus();
+    ASSERT_FALSE(status.running);
+    ASSERT_TRUE(status.outcome.result) << status.outcome.result.message;
+    EXPECT_TRUE(status.outcome.committed);
+    EXPECT_TRUE(status.outcome.entryRestored);
+    EXPECT_TRUE(status.outcome.entryAdvanced);
+    EXPECT_TRUE(status.outcome.debugDetached);
+    process = OpenProcess(SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE, FALSE, status.outcome.pid);
+    ASSERT_NE(process, nullptr);
+    ASSERT_EQ(WaitForSingleObject(ready, 5000), WAIT_OBJECT_0);
+    EXPECT_EQ(selection.selected(), old);
+    const auto id = store.activeAttach(status.outcome.pid);
+    ASSERT_NE(id, 0u);
+    const auto* segment = store.segment(id);
+    ASSERT_TRUE(segment->startup.has_value());
+    EXPECT_EQ(segment->methods, 0u);
+    EXPECT_EQ(segment->instance.created, status.outcome.creationTime);
+    EXPECT_EQ(segment->startup->entryAddress, shared->imageBase + shared->entryRva);
+    EXPECT_TRUE(segment->startup->receiverReady);
+    EXPECT_FALSE(segment->startup->hookPath.empty());
+    controller.shutdown();
+    EXPECT_EQ(WaitForSingleObject(process, 0), WAIT_TIMEOUT);
+    SetEvent(stop);
+    ASSERT_EQ(WaitForSingleObject(process, 5000), WAIT_OBJECT_0);
+    DWORD code = STILL_ACTIVE;
+    ASSERT_TRUE(GetExitCodeProcess(process, &code));
+    EXPECT_EQ(code, 0u);
+}
+
+TEST_F(StartupLaunchTest, ProductLaunchPreservesUnicodePathsRawArgumentsAndDefaultDirectory) {
+    const auto folder = std::filesystem::temp_directory_path() /
+        (L"WinAudio startup 空格-" + std::to_wstring(GetCurrentProcessId()));
+    std::filesystem::create_directories(folder);
+    const auto copy = folder / L"目标 空格.exe";
+    std::filesystem::copy_file(request.executable, copy, std::filesystem::copy_options::overwrite_existing);
+    request.executable = copy.wstring();
+    request.arguments += L" \"two words\" \"引号 参数\" raw\\tail";
+    wa::PipelineAttachController controller;
+    wa::CallLogStore store;
+    wa::pipeline_attach_ui::SegmentSelection selection;
+    ASSERT_TRUE(controller.startStartup(request));
+    const auto deadline = GetTickCount64() + 10000;
+    while (controller.startupStatus().running && GetTickCount64() < deadline) {
+        for (auto& batch : controller.poll()) selection.apply(store, std::move(batch));
+        Sleep(1);
+    }
+    for (auto& batch : controller.poll()) selection.apply(store, std::move(batch));
+    const auto status = controller.startupStatus();
+    ASSERT_TRUE(status.outcome.result) << status.outcome.result.message;
+    process = OpenProcess(SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE, FALSE, status.outcome.pid);
+    ASSERT_NE(process, nullptr);
+    ASSERT_EQ(WaitForSingleObject(ready, 5000), WAIT_OBJECT_0);
+    EXPECT_EQ(std::wstring(shared->commandLine), L"\"" + request.executable + L"\" " + request.arguments);
+    EXPECT_EQ(std::filesystem::path(shared->directory), folder);
+    ASSERT_NE(store.segment(store.activeAttach(status.outcome.pid)), nullptr);
+    EXPECT_EQ(store.segment(store.activeAttach(status.outcome.pid))->name, u8"目标 空格.exe");
+    controller.shutdown();
+    SetEvent(stop);
+    ASSERT_EQ(WaitForSingleObject(process, 5000), WAIT_OBJECT_0);
+    DWORD code = STILL_ACTIVE;
+    ASSERT_TRUE(GetExitCodeProcess(process, &code));
+    EXPECT_EQ(code, 0u);
+    std::filesystem::remove(copy);
+    std::filesystem::remove(folder);
+}
+
+TEST_F(StartupLaunchTest, RelativeExecutableLaunchSelectsTheRealImageAndPreservesExplicitDirectory) {
+    struct DirectoryReset {
+        std::filesystem::path saved = std::filesystem::current_path();
+        ~DirectoryReset() { std::filesystem::current_path(saved); }
+    } reset;
+    const auto folder = std::filesystem::temp_directory_path() /
+        (L"WinAudio relative 空格-" + std::to_wstring(GetCurrentProcessId()));
+    const auto nested = folder / L"子目录";
+    const auto explicitDirectory = folder / L"工作 目录";
+    std::filesystem::create_directories(nested);
+    std::filesystem::create_directories(explicitDirectory);
+    const auto filename = L"目标 空格.exe";
+    std::filesystem::copy_file(request.executable, folder / filename, std::filesystem::copy_options::overwrite_existing);
+    std::filesystem::copy_file(request.executable, nested / filename, std::filesystem::copy_options::overwrite_existing);
+    std::filesystem::current_path(folder);
+    request.arguments += L" \"two words\" \"引号 参数\" raw\\tail";
+    for (const bool explicitCwd : {false, true}) {
+        ResetEvent(ready);
+        ResetEvent(stop);
+        ZeroMemory(shared, sizeof(*shared));
+        const auto expectedExecutable = (explicitCwd ? nested : folder) / filename;
+        request.executable = explicitCwd ? (std::filesystem::path(L"子目录") / filename).wstring() : filename;
+        request.directory = explicitCwd ? explicitDirectory.wstring() : L"";
+        wa::PipelineAttachController controller;
+        ASSERT_TRUE(controller.startStartup(request, 0));
+        const auto deadline = GetTickCount64() + 10000;
+        while (controller.startupStatus().running && GetTickCount64() < deadline) { controller.poll(); Sleep(1); }
+        const auto status = controller.startupStatus();
+        ASSERT_FALSE(status.running);
+        ASSERT_TRUE(status.outcome.result) << status.outcome.result.message;
+        process = OpenProcess(SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE, FALSE, status.outcome.pid);
+        ASSERT_NE(process, nullptr);
+        ASSERT_EQ(WaitForSingleObject(ready, 5000), WAIT_OBJECT_0);
+        wchar_t actualImage[MAX_PATH]{};
+        DWORD length = MAX_PATH;
+        ASSERT_TRUE(QueryFullProcessImageNameW(process, 0, actualImage, &length));
+        EXPECT_EQ(std::filesystem::path(actualImage), expectedExecutable);
+        EXPECT_EQ(std::filesystem::path(shared->directory), explicitCwd ? explicitDirectory : folder);
+        EXPECT_EQ(std::wstring(shared->commandLine), L"\"" + expectedExecutable.wstring() + L"\" " + request.arguments);
+        controller.shutdown();
+        EXPECT_EQ(WaitForSingleObject(process, 0), WAIT_TIMEOUT);
+        SetEvent(stop);
+        ASSERT_EQ(WaitForSingleObject(process, 5000), WAIT_OBJECT_0);
+        DWORD code = STILL_ACTIVE;
+        ASSERT_TRUE(GetExitCodeProcess(process, &code));
+        EXPECT_EQ(code, 0u);
+        std::printf("relative_startup explicit_cwd=%d pid=%u created=%llu target_exit=%lu\n",
+            explicitCwd, status.outcome.pid, status.outcome.creationTime, code);
+        CloseHandle(process);
+        process = nullptr;
+    }
+    std::filesystem::current_path(reset.saved);
+    std::filesystem::remove(folder / filename);
+    std::filesystem::remove(nested / filename);
+    std::filesystem::remove(nested);
+    std::filesystem::remove(explicitDirectory);
+    std::filesystem::remove(folder);
+}
+
+TEST_F(StartupLaunchTest, CancellationWhileWaitingForCommitLockCannotCommitTarget) {
+    std::mutex boundary;
+    std::atomic_bool cancel{false};
+    boundary.lock();
+    auto work = std::async(std::launch::async, [&] {
+        return wa::launchAtEntry(request, [](uint32_t, const std::atomic_bool&) { return wa::Result::Ok(); }, &cancel,
+            [&](wa::StartupStage stage, const wa::StartupOutcome& out) {
+                if (stage == wa::StartupStage::DebugDetached) {
+                    shared->targetPid = out.pid;
+                    SetEvent(checkpoint);
+                }
+            }, &boundary);
+    });
+    const auto reached = WaitForSingleObject(checkpoint, 5000);
+    EXPECT_EQ(reached, WAIT_OBJECT_0);
+    if (reached == WAIT_OBJECT_0) {
+        process = OpenProcess(SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE, FALSE, shared->targetPid);
+        EXPECT_NE(process, nullptr);
+        if (process) EXPECT_EQ(WaitForSingleObject(process, 0), WAIT_TIMEOUT);
+    }
+    cancel.store(true);
+    boundary.unlock();
+    const auto out = work.get();
+    EXPECT_FALSE(out.result);
+    EXPECT_EQ(out.result.code, static_cast<long>(HRESULT_FROM_WIN32(ERROR_CANCELLED)));
+    EXPECT_FALSE(out.committed);
+    EXPECT_TRUE(out.targetExitConfirmed);
+    if (process) EXPECT_EQ(WaitForSingleObject(process, 0), WAIT_OBJECT_0);
+}
+
+TEST_F(StartupLaunchTest, ProductCancellationAndTimeoutConfirmExitWithoutAdmittingASegment) {
+    HANDLE gate = CreateEventW(nullptr, TRUE, FALSE, (token + L"-gate").c_str());
+    HANDLE entered = CreateEventW(nullptr, TRUE, FALSE, (token + L"-entered").c_str());
+    ASSERT_TRUE(gate && entered);
+    request.arguments += L" --remote-gate --hold-before-entry";
+    for (const bool timeout : {false, true}) {
+        ResetEvent(entered);
+        request.timeoutMs = timeout ? 1000u : 15000u;
+        wa::PipelineAttachController controller;
+        ASSERT_TRUE(controller.startStartup(request));
+        ASSERT_EQ(WaitForSingleObject(entered, 5000), WAIT_OBJECT_0);
+        const auto pid = controller.startupStatus().outcome.pid;
+        process = OpenProcess(SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE, FALSE, pid);
+        ASSERT_NE(process, nullptr);
+        EXPECT_EQ(shared->crtEntered, 0u);
+        if (!timeout) EXPECT_TRUE(controller.cancelStartup());
+        const auto deadline = GetTickCount64() + 6000;
+        while (controller.startupStatus().running && GetTickCount64() < deadline) { controller.poll(); Sleep(1); }
+        const auto result = controller.startupStatus();
+        EXPECT_FALSE(result.running);
+        EXPECT_FALSE(result.outcome.result);
+        EXPECT_FALSE(result.outcome.committed);
+        EXPECT_TRUE(result.outcome.targetExitConfirmed);
+        EXPECT_EQ(result.outcome.result.code, static_cast<long>(HRESULT_FROM_WIN32(timeout ? ERROR_TIMEOUT : ERROR_CANCELLED)));
+        EXPECT_EQ(WaitForSingleObject(process, 0), WAIT_OBJECT_0);
+        EXPECT_TRUE(controller.attachedPids().empty());
+        for (const auto& batch : controller.poll()) for (const auto& event : batch.events)
+            EXPECT_NE(event.kind, wa::PipelineAttachController::EventKind::Attached);
+        controller.shutdown();
+        CloseHandle(process);
+        process = nullptr;
+    }
+    CloseHandle(gate);
+    CloseHandle(entered);
 }
 
 TEST_F(StartupLaunchTest, RemoteLoaderRunsWhileExeEntryRemainsHeld) {

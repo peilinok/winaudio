@@ -11,7 +11,11 @@
 
 namespace {
 IAudioClient* retainedClient = nullptr;
+IAudioClient* retainedMainClient = nullptr;
+IAudioClient* retainedWorkerClient = nullptr;
 bool retainedCom = false;
+HANDLE workerStop = nullptr;
+DWORD lifetime() { return wcsstr(GetCommandLineW(), L"--long-lived") ? 600000u : 20000u; }
 std::wstring token() {
     const wchar_t* p = wcsstr(GetCommandLineW(), L"--token=");
     if (!p) return {};
@@ -49,6 +53,27 @@ DWORD WINAPI exitWorker(void*) {
     return 3;
 }
 void NTAPI tlsCallback(void*, DWORD reason, void*) {
+    if (reason == DLL_PROCESS_ATTACH) {
+        const wchar_t* p = wcsstr(GetCommandLineW(), L"--token=");
+        wchar_t name[256]{};
+        if (p) {
+            p += 8;
+            unsigned n = 0;
+            while (p[n] && p[n] != L' ' && n < 230) { name[n] = p[n]; ++n; }
+            lstrcatW(name, L"-map");
+            HANDLE map = OpenFileMappingW(FILE_MAP_ALL_ACCESS, FALSE, name);
+            auto* shared = map ? static_cast<wa::startup_probe::Shared*>(MapViewOfFile(map, FILE_MAP_ALL_ACCESS, 0, 0, 0)) : nullptr;
+            if (shared) {
+                shared->pid = GetCurrentProcessId();
+                LARGE_INTEGER counter{};
+                QueryPerformanceCounter(&counter);
+                shared->tlsCounter = counter.QuadPart;
+                InterlockedExchange(reinterpret_cast<volatile LONG*>(&shared->tlsEntered), 1);
+                UnmapViewOfFile(shared);
+            }
+            if (map) CloseHandle(map);
+        }
+    }
     if (reason == DLL_PROCESS_ATTACH && wcsstr(GetCommandLineW(), L"--remote-gate")) {
         // Test fixture only. The gate DLL reads this when loaded remotely
         // while EXE entry is held; production Hook code has no test gate.
@@ -65,6 +90,8 @@ void NTAPI tlsCallback(void*, DWORD reason, void*) {
         DebugBreak();
         ExitProcess(76);  // Reaching this proves that a target exception was swallowed.
     }
+    if (reason == DLL_PROCESS_ATTACH && wcsstr(GetCommandLineW(), L"--hold-before-entry"))
+        LoadLibraryW(L"RemoteInjectionGate.dll");
     if (reason == DLL_PROCESS_ATTACH && wcsstr(GetCommandLineW(), L"--exit-worker")) {
         HANDLE worker = CreateThread(nullptr, 0, exitWorker, nullptr, 0, nullptr);
         if (worker) CloseHandle(worker);
@@ -81,13 +108,16 @@ void NTAPI tlsCallback(void*, DWORD reason, void*) {
 extern "C" const PIMAGE_TLS_CALLBACK startupTls = tlsCallback;
 #pragma const_seg()
 
-HRESULT audioCalls(wa::startup_probe::Shared& shared) {
+HRESULT audioCalls(wa::startup_probe::Shared& shared, unsigned stage = 0) {
+    const auto previousCalls = shared.calls;
     using Microsoft::WRL::ComPtr;
     const HRESULT initialized = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
     std::printf("target CoInitializeEx hr=0x%08lX\n", initialized);
     if (FAILED(initialized)) return initialized;
     HRESULT result = E_FAIL;
     shared.sourceThread = GetCurrentThreadId();
+    auto& marker = shared.audioStages[stage];
+    marker.thread = GetCurrentThreadId();
     {
         ComPtr<IMMDeviceEnumerator> enumerator;
         ComPtr<IMMDevice> device;
@@ -99,11 +129,13 @@ HRESULT audioCalls(wa::startup_probe::Shared& shared) {
         LARGE_INTEGER counter{};
         QueryPerformanceCounter(&counter);
         shared.firstCallCounter = counter.QuadPart;
+        marker.counter = counter.QuadPart;
         if (SUCCEEDED(result)) {
             result = device->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
                 reinterpret_cast<void**>(client.GetAddressOf()));
             shared.sourceResults[0] = result;
             shared.clientAddress = reinterpret_cast<uintptr_t>(client.Get());
+            marker.client = shared.clientAddress;
             ++shared.calls;
             std::printf("target Activate/IAudioClient hr=0x%08lX\n", result);
         }
@@ -131,7 +163,11 @@ HRESULT audioCalls(wa::startup_probe::Shared& shared) {
             ++shared.calls;
             std::printf("target Stop hr=0x%08lX\n", result);
         }
-        if (!wcsstr(GetCommandLineW(), L"--release-before-main")) retainedClient = client.Detach();
+        if (!wcsstr(GetCommandLineW(), L"--release-before-main")) {
+            if (stage == 0) retainedClient = client.Detach();
+            else if (stage == 1) retainedMainClient = client.Detach();
+            else retainedWorkerClient = client.Detach();
+        }
         else {
             shared.releaseRowsBefore = emittedRows();
             client.Reset();
@@ -143,7 +179,23 @@ HRESULT audioCalls(wa::startup_probe::Shared& shared) {
         shared.uninitRowsAfter = emittedRows();
     }
     else retainedCom = true;
+    marker.calls = shared.calls - previousCalls;
+    for (unsigned i = 0; i < 4; ++i) marker.results[i] = shared.sourceResults[i];
+    marker.sampleRate = shared.sampleRate;
+    marker.bits = shared.bits;
+    marker.channels = shared.channels;
     return result;
+}
+DWORD WINAPI audioWorker(void* context) {
+    auto& shared = *static_cast<wa::startup_probe::Shared*>(context);
+    const auto result = audioCalls(shared, 2);
+    SetEvent(workerStop);
+    const auto base = token();
+    HANDLE stop = OpenEventW(SYNCHRONIZE, FALSE, (base + L"-stop").c_str());
+    if (stop) { WaitForSingleObject(stop, lifetime()); CloseHandle(stop); }
+    if (retainedWorkerClient) { retainedWorkerClient->Release(); retainedWorkerClient = nullptr; }
+    CoUninitialize();
+    return FAILED(result) ? 8u : 0u;
 }
 struct Initializer {
     Initializer() {
@@ -182,13 +234,46 @@ int wmain() {
     LARGE_INTEGER counter{};
     QueryPerformanceCounter(&counter);
     shared->mainCounter = counter.QuadPart;
+    wcsncpy_s(shared->commandLine, GetCommandLineW(), _TRUNCATE);
+    GetCurrentDirectoryW(static_cast<DWORD>(std::size(shared->directory)), shared->directory);
     InterlockedExchange(reinterpret_cast<volatile LONG*>(&shared->mainEntered), 1);
+    HMODULE lateModule = nullptr;
+    if (wcsstr(GetCommandLineW(), L"--late-system-dll")) {
+        shared->lateDllWasAbsent = GetModuleHandleW(L"winhttp.dll") == nullptr;
+        wchar_t library[MAX_PATH]{};
+        const auto length = GetSystemDirectoryW(library, MAX_PATH);
+        if (!length || length + 13 >= MAX_PATH) return 11;
+        wcscat_s(library, L"\\winhttp.dll");
+        lateModule = LoadLibraryW(library);
+        shared->lateDllLoaded = lateModule != nullptr;
+        QueryPerformanceCounter(&counter);
+        shared->lateDllCounter = counter.QuadPart;
+        std::printf("target late_dll=winhttp.dll absent_before=%u loaded=%u qpc=%lld\n",
+            shared->lateDllWasAbsent, shared->lateDllLoaded, shared->lateDllCounter);
+    }
+    HANDLE worker = nullptr;
+    if (wcsstr(GetCommandLineW(), L"--audio-all-stages")) {
+        shared->audioResult = audioCalls(*shared, 1);
+        workerStop = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        worker = CreateThread(nullptr, 0, audioWorker, shared, 0, nullptr);
+        if (!worker || WaitForSingleObject(workerStop, 10000) != WAIT_OBJECT_0) return 9;
+    }
     std::printf("target main pid=%lu crt=%u calls=%u hr=0x%08lX\n", GetCurrentProcessId(), shared->crtEntered,
                 shared->calls, shared->audioResult);
     SetEvent(ready);
-    const DWORD waited = WaitForSingleObject(stop, 20000);
+    const DWORD waited = WaitForSingleObject(stop, lifetime());
+    if (worker) {
+        if (WaitForSingleObject(worker, 5000) != WAIT_OBJECT_0) return 10;
+        DWORD code = STILL_ACTIVE;
+        GetExitCodeThread(worker, &code);
+        CloseHandle(worker);
+        CloseHandle(workerStop);
+        if (code) return static_cast<int>(code);
+    }
     if (retainedClient) { retainedClient->Release(); retainedClient = nullptr; }
+    if (retainedMainClient) { retainedMainClient->Release(); retainedMainClient = nullptr; CoUninitialize(); }
     if (retainedCom) { CoUninitialize(); retainedCom = false; }
+    if (lateModule) FreeLibrary(lateModule);
     UnmapViewOfFile(shared);
     CloseHandle(map);
     CloseHandle(ready);

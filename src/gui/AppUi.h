@@ -253,6 +253,12 @@ private:
     wa::pipeline_attach_ui::PresentationRefresh pipelinePresentationRefresh_;
     std::optional<wa::pipeline_attach_ui::AttachRequest> pipelinePreparing_;
     wa::pipeline_attach_ui::BatchSelection pipelineBatchSelection_;
+    char pipelineStartupExe_[1024] = "";
+    char pipelineStartupArguments_[4096] = "";
+    char pipelineStartupDirectory_[1024] = "";
+    uint32_t pipelineStartupMethods_ = wa::kDefaultMonitorMethods;
+    bool pipelineStartupRequested_ = false;
+    std::string pipelineStartupFailure_;
     wa::CallRecordId pipelineCallSelected_;
     wa::pipeline_attach_ui::SegmentSelection pipelineSegmentSelection_;
     std::unordered_map<uint64_t, wa::pipeline_attach_ui::MethodDraft> pipelineMethodDrafts_;

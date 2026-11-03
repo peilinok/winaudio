@@ -10,6 +10,7 @@
 #include <windows.h>
 #include <thread>
 #include <exception>
+#include <filesystem>
 
 namespace wa {
 const char* startupStageName(StartupStage stage) {
@@ -55,6 +56,7 @@ struct Launch {
     const StartupPrepare& prepare;
     const std::atomic_bool* cancelled;
     const StartupProgress& progress;
+    std::mutex* commitMutex;
     StartupOutcome out;
     HANDLE job = nullptr;
     PROCESS_INFORMATION child{};
@@ -71,7 +73,7 @@ struct Launch {
     ULONGLONG deadline = 0;
 
     Launch(const StartupRequest& r, const StartupPrepare& p, const std::atomic_bool* c,
-           const StartupProgress& s) : request(r), prepare(p), cancelled(c), progress(s) {}
+           const StartupProgress& s, std::mutex* m) : request(r), prepare(p), cancelled(c), progress(s), commitMutex(m) {}
 
     Result checkpoint(StartupStage stage) {
         WA_LOG(wa::log::Level::Info, "Startup", startupStageName(stage),
@@ -242,12 +244,19 @@ struct Launch {
             return failure(ERROR_PROCESS_ABORTED, "target exited before commit");
         }
         if (alive != WAIT_TIMEOUT) return failure(error, "verify live target before commit");
-        JOBOBJECT_EXTENDED_LIMIT_INFORMATION policy{};
-        const BOOL committed = SetInformationJobObject(job, JobObjectExtendedLimitInformation, &policy, sizeof(policy));
-        error = committed ? ERROR_SUCCESS : GetLastError();
-        // Publish the OS commit before logging, allocation, or a callback. If
-        // delivery is lost after this point the target is already independent.
-        if (committed) out.committed = true;
+        {
+            // A frontend cancellation and the OS ownership commit use the same
+            // lock. Never hold it while waiting for the target or calling progress.
+            std::unique_lock<std::mutex> boundary;
+            if (commitMutex) boundary = std::unique_lock<std::mutex>(*commitMutex);
+            if (cancelled && cancelled->load()) return failure(ERROR_CANCELLED, "cancelled before commit");
+            if (GetTickCount64() >= deadline) return failure(ERROR_TIMEOUT, "startup deadline expired");
+            JOBOBJECT_EXTENDED_LIMIT_INFORMATION policy{};
+            const BOOL committed = SetInformationJobObject(job, JobObjectExtendedLimitInformation, &policy, sizeof(policy));
+            error = committed ? ERROR_SUCCESS : GetLastError();
+            // Publish ownership before logging or callbacks can lose delivery.
+            if (committed) out.committed = true;
+        }
         observeResult("SetInformationJobObject(commit)", error, "clear KILL_ON_JOB_CLOSE; commit point");
         if (error) return failure(error, "commit independent target");
         out.result = Result::Ok();
@@ -258,14 +267,24 @@ struct Launch {
         deadline = GetTickCount64() + request.timeoutMs;
         STARTUPINFOW startup{};
         startup.cb = sizeof(startup);
-        std::wstring command = L"\"" + request.executable + L"\"";
+        const DWORD required = GetFullPathNameW(request.executable.c_str(), 0, nullptr, nullptr);
+        DWORD error = required ? ERROR_SUCCESS : GetLastError();
+        observeResult("GetFullPathNameW(executable size)", error, "exe=" + wa::narrowAscii(request.executable));
+        if (error) return failure(error, "resolve executable path");
+        std::wstring executable(required, L'\0');
+        const DWORD length = GetFullPathNameW(request.executable.c_str(), required, executable.data(), nullptr);
+        error = !length ? GetLastError() : length >= required ? ERROR_INSUFFICIENT_BUFFER : ERROR_SUCCESS;
+        observeResult("GetFullPathNameW(executable)", error, "characters=" + std::to_string(length));
+        if (error) return failure(error, "resolve executable path");
+        executable.resize(length);
+        std::wstring command = L"\"" + executable + L"\"";
         if (!request.arguments.empty()) command += L" " + request.arguments;
         const std::wstring directory = request.directory.empty()
-            ? request.executable.substr(0, request.executable.find_last_of(L"\\/")) : request.directory;
-        DWORD error = observe("CreateProcessW(debug startup)", CreateProcessW(request.executable.c_str(), command.data(), nullptr,
+            ? std::filesystem::path(executable).parent_path().wstring() : request.directory;
+        error = observe("CreateProcessW(debug startup)", CreateProcessW(executable.c_str(), command.data(), nullptr,
             nullptr, FALSE, DEBUG_ONLY_THIS_PROCESS | CREATE_SUSPENDED | CREATE_NO_WINDOW, nullptr,
             directory.empty() ? nullptr : directory.c_str(), &startup, &child) != FALSE,
-            "exe=" + wa::narrowAscii(request.executable) + " command=" + wa::narrowAscii(command) +
+            "exe=" + wa::narrowAscii(executable) + " command=" + wa::narrowAscii(command) +
             " directory=" + wa::narrowAscii(directory) +
             " DEBUG_ONLY_THIS_PROCESS|CREATE_SUSPENDED|CREATE_NO_WINDOW; inherit=FALSE", wa::log::Level::Info);
         if (error) return failure(error, "create debug target");
@@ -388,8 +407,8 @@ struct Launch {
 }  // namespace
 
 StartupOutcome launchAtEntry(const StartupRequest& request, const StartupPrepare& prepare,
-                             const std::atomic_bool* cancelled, const StartupProgress& progress) {
-    Launch launch(request, prepare, cancelled, progress);
+                             const std::atomic_bool* cancelled, const StartupProgress& progress, std::mutex* commitMutex) {
+    Launch launch(request, prepare, cancelled, progress, commitMutex);
     if (request.executable.empty() || !prepare || !request.timeoutMs || request.executable.find(L'"') != std::wstring::npos) {
         launch.out.result = failure(ERROR_INVALID_PARAMETER, "invalid startup request");
         return launch.out;

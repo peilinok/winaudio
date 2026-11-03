@@ -10,10 +10,26 @@
 #include <thread>
 #include <string>
 #include <cwchar>
+#include <filesystem>
 
 namespace {
 bool rejectThreadCreation = false;
 HANDLE debuggerFaultReady = nullptr;
+bool captureLaunchPaths = false;
+std::wstring launchedExecutable, launchedCommand, launchedDirectory;
+BOOL WINAPI createStartupProcess(LPCWSTR application, LPWSTR command, LPSECURITY_ATTRIBUTES processAttributes,
+    LPSECURITY_ATTRIBUTES threadAttributes, BOOL inherit, DWORD flags, LPVOID environment, LPCWSTR directory,
+    LPSTARTUPINFOW startup, LPPROCESS_INFORMATION process) {
+    if (captureLaunchPaths) {
+        launchedExecutable = application ? application : L"";
+        launchedCommand = command ? command : L"";
+        launchedDirectory = directory ? directory : L"";
+        SetLastError(ERROR_FILE_NOT_FOUND);
+        return FALSE;
+    }
+    return ::CreateProcessW(application, command, processAttributes, threadAttributes, inherit, flags,
+        environment, directory, startup, process);
+}
 HANDLE WINAPI createDebuggerThread(LPSECURITY_ATTRIBUTES attributes, SIZE_T stack, LPTHREAD_START_ROUTINE entry,
                                    LPVOID parameter, DWORD flags, LPDWORD id) {
     if (rejectThreadCreation) { SetLastError(ERROR_NOT_ENOUGH_MEMORY); return nullptr; }
@@ -34,9 +50,38 @@ BOOL WINAPI waitDebuggerEvent(LPDEBUG_EVENT event, DWORD timeout) {
 // WinAudioCore remains unchanged; its StartupLaunch object is not linked here.
 #define CreateThread createDebuggerThread
 #define WaitForDebugEvent waitDebuggerEvent
+#define CreateProcessW createStartupProcess
 #include "../core/StartupLaunch.cpp"
+#undef CreateProcessW
 #undef WaitForDebugEvent
 #undef CreateThread
+
+TEST(StartupLaunchBoundary, RootAndRelativeExecutablePathsUseAnExplicitImageAndCorrectDirectory) {
+    const auto current = std::filesystem::current_path();
+    struct Case { std::wstring input, executable, directory, expectedDirectory; };
+    const Case cases[] = {
+        {L"E:\\foo.exe", L"E:\\foo.exe", {}, L"E:\\"},
+        {L"foo.exe", (current / L"foo.exe").wstring(), {}, current.wstring()},
+        {L"子目录\\目标 空格.exe", (current / L"子目录\\目标 空格.exe").wstring(),
+            L"显式 工作目录", L"显式 工作目录"}
+    };
+    for (const auto& item : cases) {
+        SCOPED_TRACE(std::filesystem::path(item.input).u8string());
+        wa::StartupRequest request;
+        request.executable = item.input;
+        request.directory = item.directory;
+        request.arguments = L"\"two words\" \"引号 参数\" raw\\tail";
+        captureLaunchPaths = true;
+        const auto out = wa::launchAtEntry(request,
+            [](uint32_t, const std::atomic_bool&) { return wa::Result::Ok(); });
+        captureLaunchPaths = false;
+        EXPECT_FALSE(out.result);
+        EXPECT_EQ(out.pid, 0u);
+        EXPECT_EQ(launchedExecutable, item.executable);
+        EXPECT_EQ(launchedDirectory, item.expectedDirectory);
+        EXPECT_EQ(launchedCommand, L"\"" + item.executable + L"\" " + request.arguments);
+    }
+}
 
 TEST(StartupLaunchBoundary, ThreadCreationFailurePreservesOriginalSystemError) {
     wa::StartupRequest request;

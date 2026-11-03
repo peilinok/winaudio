@@ -28,9 +28,14 @@ std::string basenameUtf8(const wchar_t* path) {
     for (const wchar_t* p = path; *p; ++p) {
         if (*p == L'\\' || *p == L'/') slash = p + 1;
     }
-    std::string s;
-    for (const wchar_t* p = slash; *p; ++p)
-        s += static_cast<char>(*p);
+    const int length = static_cast<int>(wcslen(slash));
+    const int bytes = WideCharToMultiByte(CP_UTF8, 0, slash, length, nullptr, 0, nullptr, nullptr);
+    std::string s(bytes > 0 ? static_cast<size_t>(bytes) : 0, '\0');
+    const int converted = bytes > 0
+        ? WideCharToMultiByte(CP_UTF8, 0, slash, length, s.data(), bytes, nullptr, nullptr) : 0;
+    const auto error = converted == bytes && bytes > 0 ? ERROR_SUCCESS : GetLastError();
+    WA_LOG(wa::log::Level::Debug, "Attach", "WideCharToMultiByte(process basename)",
+        "UTF-8 bytes=" + std::to_string(converted), wa::log::hrName(HRESULT_FROM_WIN32(error)));
     return s;
 }
 
@@ -578,6 +583,8 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
         return Result::Fail(static_cast<long>(E_FAIL), installed == hook_ipc::kInstallPending
             ? "Attach: hook install timed out; cleanup pending; retry after completion"
             : attachInstallFailMessage(installed));
+    if (!hook_ipc::compatibleRing(*ring))
+        return win32Result(ERROR_REVISION_MISMATCH, "Attach: incompatible hook protocol; restart target");
 
     const auto waited = waitRemoteThread(resources->process, 0);
     WA_LOG(wa::log::Level::Debug, "Attach", "WaitForSingleObject(receive handoff)", "pid=" + std::to_string(pid),
@@ -592,6 +599,9 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
 
     if (cancelled && cancelled->load())
         return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_CANCELLED)), "Attach: cancelled before capture");
+    if (progress) progress(Stage::Receiving);
+    if (cancelled && cancelled->load())
+        return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_CANCELLED)), "Attach: cancelled before receiver publication");
     impl_->resources = std::move(resources);
     impl_->map = map;
     impl_->ring = ring;
@@ -605,6 +615,10 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
     impl_->pump.begin(*ring);
     InterlockedExchange(reinterpret_cast<volatile LONG*>(&ring->pumpEnabled), 1);
     InterlockedExchange(reinterpret_cast<volatile LONG*>(&ring->captureEnabled), 1);
+    if (hook_ipc::monitorState(*ring) != ((uint64_t(impl_->generation) << 32) | methods)) {
+        stop();
+        return win32Result(ERROR_REVISION_MISMATCH, "Attach: initial monitor selection handshake failed");
+    }
     WA_LOG(wa::log::Level::Info, "Attach", "start",
            "pid=" + std::to_string(pid) + " " + name,
            "attached; limited to discovered implementations, not all objects");

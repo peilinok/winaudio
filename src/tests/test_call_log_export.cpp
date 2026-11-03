@@ -85,6 +85,43 @@ TEST(CallLogExport, CurrentSegmentIncludesHiddenWindowAndIgnoresRecordingAndDisp
     EXPECT_EQ(snapshot.records[1]->call.method, "GetFrequency");
 }
 
+TEST(CallLogExport, StartupBoundaryAndCapabilityRemainInAFrozenHistorySnapshot) {
+    CallLogStore store;
+    const auto id = store.registerAttach({7, 100}, "startup", 11, 1000);
+    StartupObservation origin;
+    origin.mainThreadId = 12;
+    origin.entryAddress = 0x12345000;
+    origin.entryRva = 0x1000;
+    origin.protocolLayout = 10;
+    origin.acceptedAttempts = 74;
+    origin.rejectedAttempts = 1;
+    origin.capabilityError = 50;
+    origin.receiverReady = true;
+    origin.receiverReadyCounter = 123456;
+    origin.hookPath = "verified-content-addressed-hook.dll";
+    ASSERT_TRUE(store.setStartup(id, origin));
+    store.append(id, row());
+    store.endAttach(id, false, 2000);
+    const auto frozen = store.freezeExport(id, 3000);
+    ASSERT_TRUE(store.clearSegment(id, 0, 4000));
+    store.beginRound();
+    ASSERT_TRUE(frozen.segment && frozen.segment->startup);
+    EXPECT_EQ(frozen.records.size(), 1u);
+    EXPECT_EQ(frozen.segment->state, CallLogStore::SegmentState::Detached);
+    const auto json = CallLogStore::exportSummary(frozen, false);
+    ASSERT_EQ(json.size(), 1u);
+    EXPECT_NE(json[0].find("\"observationMode\":\"startup\""), std::string::npos);
+    EXPECT_NE(json[0].find("\"startup.entryAddress\":305418240"), std::string::npos);
+    EXPECT_NE(json[0].find("\"startup.acceptedAttempts\":74"), std::string::npos);
+    EXPECT_NE(json[0].find("\"startup.rejectedAttempts\":1"), std::string::npos);
+    EXPECT_NE(json[0].find("pre-entry-DLL-TLS"), std::string::npos);
+    const auto csv = CallLogStore::exportSummary(frozen, true);
+    EXPECT_TRUE(std::any_of(csv.begin(), csv.end(), [](const auto& line) {
+        return line.find("startup.hookPath") != std::string::npos &&
+            line.find("verified-content-addressed-hook.dll") != std::string::npos;
+    }));
+}
+
 TEST(CallLogExport, FrozenReferencesStayStableWhileGuiContinuesAndJobIsSingle) {
     CallLogStore store;
     store.append({row()});

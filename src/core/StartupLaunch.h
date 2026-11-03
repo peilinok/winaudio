@@ -3,6 +3,7 @@
 #include <atomic>
 #include <cstdint>
 #include <functional>
+#include <mutex>
 #include <string>
 
 namespace wa {
@@ -48,6 +49,7 @@ using StartupPrepare = std::function<Result(uint32_t, const std::atomic_bool&)>;
 using StartupProgress = std::function<void(StartupStage, const StartupOutcome&)>;
 StartupOutcome launchAtEntry(const StartupRequest& request, const StartupPrepare& prepare,
                              const std::atomic_bool* cancelled = nullptr,
-                             const StartupProgress& progress = {});
+                             const StartupProgress& progress = {},
+                             std::mutex* commitMutex = nullptr);
 
 }  // namespace wa

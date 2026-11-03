@@ -88,6 +88,12 @@ The **PID** input and the **Exclude** checkbox (unchecked by default) belong to 
 
 ### Pipeline (Live session API monitor)
 
+**启动并观测 / Launch and observe** 是 Pipeline 左上的独立入口，不要求已有 Live session。填写 EXE 路径、原始参数和工作目录（留空采用 EXE 所在目录），在“启动初始 API 选择”中确定本次新目标的方法，再开始。路径支持空格及 Unicode；参数按原样传给指定 EXE，不经过 shell。默认保留关键控制方法，缓冲区及查询仍关闭。启动等待期间可以继续查看、配置、分离已有目标及发起普通批量附加；新目标成功不抢走已有查看选择。
+
+本模式以主线程 EXE 的 PE 入口作为有限启动边界：保持入口，核验实际进程实例、内容命名 Hook、协议、已发现实现能力、初始方法和接收起点，再恢复入口、确认主线程已前进、解除调试并提交。接收交接不重置读起点。取消、超时或失败会结束并确认尚未提交的自建目标；提交后的目标独立运行，关闭 WinAudio 只停止观测。运行中 Attach 的目标不会因此被重启或终止。
+
+启动观测来源和导出摘要用 `observationMode=startup`、`startup.*` 标记实际入口／主线程、协议、就绪时能力、Hook 内容路径及就绪 QPC；`methods/initialMethods`、配置变化、代次与传输缺失继续使用共同段格式。能力快照仅覆盖就绪时发现的实现，不代表所有 Core Audio 对象。入口前 DLL／TLS、先行辅助线程、未知实现、其他 PID、子进程、转交既有实例均不保证记录；无调用、方法关闭、无音频会话和传输失败须分别核对，不能称作完整启动历史。实现及受控验证见[启动观测报告](docs/measurements/2026-11-03-startup-observation.md)，它记录 ADR-0004 既定路线当前实际交付的范围。
+
 Type a **PID** (or select a Live session / process row to fill it) and **Attach** to inject `WinAudioHook.dll` (same bitness) - no Live session is required. You can attach **multiple PIDs**; Attach adds the current PID without detaching others. The list shows all user processes (collapsible sessions under each PID; same-name groups share a root PID). Hook status is per process. **Detach** removes one PID; **Detach all** stops every hook. Watch Core Audio / WASAPI COM calls with parameters and HRESULT in the Call log (PID column when multi-attached). Filter the log with fuzzy Call/Args text, an Iface combo, and Failures only. Drag the splitters to resize Live sessions | graph, Call table | Parameters, and top row | Call Log. **保存当前段 / Save current segment** 将当前查看段的快照写为 JSONL，目录为 `%LOCALAPPDATA%\\WinAudio\\pipeline-calls`，不受录制范围、显示筛选或显示窗口开关限制。 The processing graph shows status banners for Initialize field source (none / ETW / Hooked), Shared-probe Probed vs Observed, and multi-Hooked-stream selection; the join uses only the selected Live session PID. Pump GetBuffer/ReleaseBuffer metadata stays opt-in. Not a full API Monitor: closed COM set only, no stack walks, no cross-bitness inject.
 
 导出格式：当前段快照的 `schemaVersion=2`。JSONL 首行 `rowType=segment` 为段摘要，其余 `rowType=call` 为控制调用和最近窗口；调用字段 `timeMs/pid/iface/method/args/hr/hrHex/hresult/streamId/pump/xrun`、可选格式字段及结构化 `parameters` 含义不变。调用另带 `roundId/attachId/lane/sequence/processCreated/attachToken/observationGeneration`；`lane=control|pump` 的序号各自解释。窗口至多 1024 条，只是最近仍保留的调用，不是完整高频历史。仅摘要、无调用的文件有效。

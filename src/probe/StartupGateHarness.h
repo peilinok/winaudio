@@ -2,6 +2,13 @@
 #include <cstdint>
 
 namespace wa::startup_probe {
+struct AudioStage {
+    uint32_t thread = 0, calls = 0;
+    uintptr_t client = 0;
+    int64_t counter = 0;
+    long results[4]{};
+    uint32_t sampleRate = 0, bits = 0, channels = 0;
+};
 struct Shared {
     uint32_t pid = 0;
     uint32_t crtEntered = 0;
@@ -26,5 +33,12 @@ struct Shared {
     uint32_t releaseRowsBefore = 0;
     uint32_t releaseRowsAfter = 0;
     uint32_t uninitRowsAfter = 0;
+    uint32_t tlsEntered = 0;
+    int64_t tlsCounter = 0;
+    AudioStage audioStages[3]{};
+    uint32_t lateDllWasAbsent = 0, lateDllLoaded = 0;
+    int64_t lateDllCounter = 0;
+    wchar_t commandLine[2048]{};
+    wchar_t directory[1024]{};
 };
 }  // namespace wa::startup_probe
