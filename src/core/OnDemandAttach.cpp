@@ -629,6 +629,7 @@ HookTransportStatus OnDemandAttach::transportStatus() const {
     if (!attached()) return status;
     status.control = impl_->control.snapshot(*impl_->ring);
     status.pump = impl_->pump.transportStatus(*impl_->ring);
+    status.statistics = hook_ipc::readMethodStatistics(*impl_->ring, impl_->generation);
     return status;
 }
 

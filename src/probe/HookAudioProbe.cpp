@@ -211,6 +211,27 @@ bool launch(Target& target, size_t index, uint32_t controlEvery = 20, float cont
     return ready;
 }
 
+bool loadedHook(DWORD pid) {
+    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, pid);
+    observeWin32("CreateToolhelp32Snapshot", snapshot != INVALID_HANDLE_VALUE);
+    bool found = false;
+    if (snapshot != INVALID_HANDLE_VALUE) {
+        MODULEENTRY32W module{};
+        module.dwSize = sizeof(module);
+        if (observeWin32("Module32FirstW", Module32FirstW(snapshot, &module) != FALSE)) do {
+            if (wa::isHookModuleName(module.szModule)) {
+                std::wprintf(L"loaded pid=%lu path=%ls layout=%u ring_bytes=%zu\n",
+                    pid, module.szExePath, wa::hook_ipc::kRingLayout, sizeof(wa::hook_ipc::Ring));
+                found = true;
+            }
+        } while (Module32NextW(snapshot, &module));
+        const DWORD moduleError = GetLastError();
+        observe("Module32NextW", moduleError == ERROR_NO_MORE_FILES ? S_OK : HRESULT_FROM_WIN32(moduleError));
+        observeWin32("CloseHandle/snapshot", CloseHandle(snapshot) != FALSE);
+    }
+    return found;
+}
+
 bool attach(Target& target) {
     const auto result = target.attach.start(target.pid, {}, wa::PipelineFlow::Render);
     if (!result) { std::printf("attach failed: %s\n", result.message.c_str()); return false; }
@@ -223,23 +244,7 @@ bool attach(Target& target) {
             MapViewOfFile(target.ringMap, FILE_MAP_READ, 0, 0, sizeof(wa::hook_ipc::Ring)));
         if (!observeWin32("MapViewOfFile/ring", target.ring != nullptr)) return false;
     }
-    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, target.pid);
-    observeWin32("CreateToolhelp32Snapshot", snapshot != INVALID_HANDLE_VALUE);
-    bool found = false;
-    if (snapshot != INVALID_HANDLE_VALUE) {
-        MODULEENTRY32W module{};
-        module.dwSize = sizeof(module);
-        if (observeWin32("Module32FirstW", Module32FirstW(snapshot, &module) != FALSE)) do {
-            if (wa::isHookModuleName(module.szModule)) {
-                std::wprintf(L"loaded pid=%lu path=%ls\n", target.pid, module.szExePath);
-                found = true;
-            }
-        } while (Module32NextW(snapshot, &module));
-        const DWORD moduleError = GetLastError();
-        observe("Module32NextW", moduleError == ERROR_NO_MORE_FILES ? S_OK : HRESULT_FROM_WIN32(moduleError));
-        observeWin32("CloseHandle/snapshot", CloseHandle(snapshot) != FALSE);
-    }
-    return found;
+    return loadedHook(target.pid);
 }
 
 int segments(bool methods = false) {
@@ -283,6 +288,7 @@ int segments(bool methods = false) {
         if (!wait([&] { return !controller.snapshot().pendingPid; })) return 33;
         ids[i] = store.latestAttach(instances[i]);
         if (!ids[i]) return 34;
+        if (!loadedHook(targets[i].pid)) return 53;
     }
     if (methods) {
         store.setPumpVisible(true);
@@ -303,6 +309,16 @@ int segments(bool methods = false) {
                 targets[i].shared->channels, targets[i].shared->bits, targets[i].shared->formatTag,
                 targets[i].shared->endpoint);
             if (!controls || (i == 1 && !buffers)) ok = false;
+            const auto& snapshot = store.segment(ids[i])->transport.statistics;
+            if (!snapshot.known) ok = false;
+            uint64_t completed = 0;
+            for (const auto& count : snapshot.methods) {
+                if (count.unknown || count.failed) ok = false;
+                completed += count.completed;
+            }
+            if ((i == 0 && completed) || (i == 1 && !completed)) ok = false;
+            std::printf("initial_source_statistics pid=%lu completed=%llu independent_selection=%d\n",
+                targets[i].pid, completed, i == 0 ? completed == 0 : completed > 0);
         }
         const uint32_t updated = wa::methodBit(wa::MonitorMethod::SetMasterVolume) |
             wa::methodBit(wa::MonitorMethod::CaptureGetBuffer) | wa::methodBit(wa::MonitorMethod::GetChannelCount);
@@ -362,6 +378,7 @@ int segments(bool methods = false) {
     controller.stop(targets[0].pid);
     if (!wait([&] { return !controller.attached(targets[0].pid); })) return 35;
     const auto frozenCount = store.segment(ids[0])->count;
+    const auto frozenStatistics = store.segment(ids[0])->transport.statistics;
     if (selection.selected() != ids[0] || store.segment(ids[0])->state != wa::CallLogStore::SegmentState::Detached) ok = false;
     if (methods) {
         if (!controller.configure(instances[1], store.segment(ids[1])->token, initialMasks[1])) return 48;
@@ -383,12 +400,33 @@ int segments(bool methods = false) {
     if (newest == ids[0] || selection.selected() != ids[0] || store.initializeHintForInstance(instances[0]).hint.present) ok = false;
     if (!wait([&] { return store.segment(newest)->count > 8; })) return 38;
     if (store.segment(ids[0])->count != frozenCount) ok = false;
+    for (size_t method = 0; method < frozenStatistics.methods.size(); ++method) {
+        const auto& before = frozenStatistics.methods[method];
+        const auto& after = store.segment(ids[0])->transport.statistics.methods[method];
+        if (before.completed != after.completed || before.failed != after.failed ||
+            before.discontinuities != after.discontinuities || before.unknown != after.unknown) ok = false;
+    }
     InterlockedExchange(&targets[0].shared->stop, 1);
     if (!wait([&] { return !controller.attached(targets[0].pid); })) return 39;
     if (store.segment(newest)->state != wa::CallLogStore::SegmentState::Exited) ok = false;
     controller.stopAll();
     if (!wait([&] { return !controller.anyAttached(); })) return 40;
     controller.shutdown();
+    if (methods) for (const auto& segment : store.segments(false)) {
+        const auto& snapshot = segment.transport.statistics;
+        if (!snapshot.known) ok = false;
+        std::printf("segment_window pid=%u segment=%llu retained=%zu received=%llu evicted=%llu snapshot_ms=%lld\n",
+            segment.instance.pid, segment.id, segment.windowRetained, segment.windowReceived,
+            segment.windowEvicted, segment.transport.snapshotMs);
+        for (size_t method = 0; method < snapshot.methods.size(); ++method) {
+            if (wa::kMonitorMethods[method].control) continue;
+            const auto& count = snapshot.methods[method];
+            std::printf("source_statistics pid=%u segment=%llu method=%s::%s completed=%llu failed=%llu discontinuities=%llu unknown=%d\n",
+                segment.instance.pid, segment.id, wa::kMonitorMethods[method].iface,
+                wa::kMonitorMethods[method].method, count.completed, count.failed, count.discontinuities, count.unknown);
+            if (count.unknown || count.failed) ok = false;
+        }
+    }
     for (auto& target : targets) InterlockedExchange(&target.shared->stop, 1);
     for (auto& target : targets) {
         const DWORD waited = WaitForSingleObject(target.process, 10000);

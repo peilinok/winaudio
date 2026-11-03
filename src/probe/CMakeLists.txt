@@ -25,3 +25,10 @@ wa_set_project_warnings(HookTransportProbe)
 add_test(NAME HookTransport.CrossProcessSynthetic
     COMMAND HookTransportProbe --output "${CMAKE_CURRENT_BINARY_DIR}/hook-transport-$<CONFIG>.json")
 set_tests_properties(HookTransport.CrossProcessSynthetic PROPERTIES TIMEOUT 45)
+
+add_executable(SegmentWindowProbe SegmentWindowProbe.cpp)
+target_link_libraries(SegmentWindowProbe PRIVATE WinAudioCore oleaut32)
+wa_set_project_warnings(SegmentWindowProbe)
+add_test(NAME SegmentWindow.CrossProcessCompletedCalls
+    COMMAND SegmentWindowProbe --output "${CMAKE_CURRENT_BINARY_DIR}/segment-window-$<CONFIG>.json")
+set_tests_properties(SegmentWindow.CrossProcessCompletedCalls PROPERTIES TIMEOUT 60)

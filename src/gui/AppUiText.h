@@ -12,6 +12,12 @@ namespace wa::ui_text {
 
 // One row: identifier, English literal, Chinese slot (nullptr or "" = fallback).
 #define WA_UI_TEXT_ROWS \
+    WA_UI_TEXT(kPipelineWindowCountsFmt, "Recent window: %llu / 1024 retained | %llu fully received | %llu evicted", "最近窗口：保留 %llu / 1024 | 完整接收 %llu | 窗口移除 %llu") \
+    WA_UI_TEXT(kPipelineSourceStatistics, "Source cumulative statistics", "源端累计统计") \
+    WA_UI_TEXT(kPipelineStatisticsUnknown, "Source statistics: unknown (no verifiable snapshot)", "源端统计：未知（尚无可验证快照）") \
+    WA_UI_TEXT(kPipelineStatisticsMethodFmt, "%s::%s: completed %llu | API failures %llu | audio discontinuities %llu | accuracy %s", "%s::%s：完成 %llu | API 失败 %llu | 数据不连续 %llu | 准确性 %s") \
+    WA_UI_TEXT(kPipelineStatisticsExact, "verified", "可验证") \
+    WA_UI_TEXT(kPipelineStatisticsHint, "Counts cover completed monitored calls in this segment, independently of retained rows and transport. Empty capture statuses do not count as discontinuities. Each atomic count and the received rows have different sampling times; differences do not prove loss. Unknown counts are lower bounds.", "统计覆盖本段已完成的受监控调用，与保留记录和传输独立。数据不连续仅统计采集有效包，空包状态不计入。各原子计数和接收记录的采样时点不同，差值不能证明丢失。准确性未知时数量仅为下界。") \
     WA_UI_TEXT(kPipelineMethods, "API monitoring selection", "API 监控选择") \
     WA_UI_TEXT(kPipelineMethodsInitial, "Before attach...", "附加前配置...") \
     WA_UI_TEXT(kPipelineMethodsDraft, "Draft - not applied", "草稿：尚未生效") \
@@ -540,6 +546,24 @@ inline std::string pipelineTransportText(const HookTransportStatus& status) {
         static_cast<unsigned long long>(status.controllerDroppedControl),
         static_cast<unsigned long long>(status.controllerDroppedPump));
     text += queue;
+    return text;
+}
+
+inline std::string pipelineStatisticsText(const MethodStatisticsSnapshot& snapshot) {
+    if (!snapshot.known) return get(kPipelineStatisticsUnknown);
+    std::string text;
+    for (size_t i = 0; i < snapshot.methods.size(); ++i) {
+        const auto& method = kMonitorMethods[i];
+        if (method.control) continue;
+        const auto& count = snapshot.methods[i];
+        char line[512]{};
+        std::snprintf(line, sizeof(line), get(kPipelineStatisticsMethodFmt), method.iface, method.method,
+            static_cast<unsigned long long>(count.completed), static_cast<unsigned long long>(count.failed),
+            static_cast<unsigned long long>(count.discontinuities),
+            get(count.unknown ? kPipelineTransportOtherUnknown : kPipelineStatisticsExact));
+        if (!text.empty()) text += '\n';
+        text += line;
+    }
     return text;
 }
 

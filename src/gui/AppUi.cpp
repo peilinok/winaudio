@@ -38,6 +38,7 @@
 #include <array>
 #include <filesystem>
 #include <cfloat>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -663,6 +664,9 @@ void AppUi::attemptPipelineAttach(const wa::pipeline_attach_ui::AttachRequest& r
 }
 
 void AppUi::pollPipelineAttach() {
+    const auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+    if (!pipelinePresentationRefresh_.take(static_cast<uint64_t>(now))) return;
     std::vector<wa::PipelineAttachController::Batch> batches;
     {
         wa::FrameBracket receive(frameProbe_, wa::FrameSlice::CallReceive);
@@ -1987,6 +1991,14 @@ void AppUi::drawPipelinePage() {
             if (segment->transport.snapshotMs > 0)
                 ImGui::TextDisabled(wa::ui_text::get(wa::ui_text::kPipelineTransportSnapshotFmt),
                     wa::pipeline_attach_ui::segmentTime(segment->transport.snapshotMs).c_str());
+            ImGui::Text(wa::ui_text::get(wa::ui_text::kPipelineWindowCountsFmt),
+                static_cast<unsigned long long>(segment->windowRetained),
+                static_cast<unsigned long long>(segment->windowReceived),
+                static_cast<unsigned long long>(segment->windowEvicted));
+            if (ImGui::CollapsingHeader(wa::ui_text::id(wa::ui_text::kPipelineSourceStatistics))) {
+                ImGui::TextWrapped("%s", wa::ui_text::pipelineStatisticsText(segment->transport.statistics).c_str());
+                ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineStatisticsHint));
+            }
             if (ImGui::CollapsingHeader(wa::ui_text::id(wa::ui_text::kPipelineMethods))) {
                 const bool readOnly = segment->state != wa::CallLogStore::SegmentState::Monitoring;
                 auto found = pipelineMethodDrafts_.find(segment->id);
@@ -2013,9 +2025,6 @@ void AppUi::drawPipelinePage() {
                 ImGui::EndDisabled();
             }
         }
-        if (pipelinePump_)
-            ImGui::Text("%s: %u", wa::ui_text::get(wa::ui_text::kPipelineActiveXruns),
-                        pipelineAttaches_.pumpXrunsSum());
         frameProbe_.addWork("control-total", pipelineCallStore_.size());
         frameProbe_.addWork("control-capacity", pipelineCallStore_.entries().capacity());
         frameProbe_.addWork("recording-copy-total", 0);

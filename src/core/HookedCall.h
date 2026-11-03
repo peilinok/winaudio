@@ -17,7 +17,7 @@ bool decodeCallArgBlob(const uint8_t* data, uint16_t len, std::vector<CallArg>& 
 
 const char* callArgDirName(uint8_t dir);
 
-inline constexpr size_t kDefaultPumpRingCap = 64;
+inline constexpr size_t kDefaultPumpRingCap = 1024;
 
 struct PumpCall {
     uint64_t sequence = 0;

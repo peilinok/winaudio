@@ -5,8 +5,12 @@
 #include <set>
 #include <chrono>
 #include <memory>
-namespace { void transportSchedule(const char* event); }
+namespace {
+void transportSchedule(const char* event);
+void statisticsSchedule(const char* event, uint64_t* counter);
+}
 #define WA_HOOK_TRANSPORT_OBSERVE(stage) transportSchedule(#stage)
+#define WA_HOOK_STATISTICS_OBSERVE(stage, counter) statisticsSchedule(#stage, counter)
 #include "PumpWindow.h"
 using wa::hook_ipc::Ring;
 using wa::hook_ipc::CallPod;
@@ -17,7 +21,18 @@ thread_local const char* pauseAt = "reserved";
 std::atomic<bool> reservationHeld{false}, releaseReservation{false};
 wa::hook_ipc::LaneCounters* contendCounter = nullptr;
 std::atomic<unsigned> contentionAttempts{0};
+Ring* suppressEmission = nullptr;
+thread_local unsigned statisticsWriter = 0;
+std::atomic<unsigned> statisticsHeld{0}, statisticsReleased{0};
+void statisticsSchedule(const char* event, uint64_t*) {
+    if (statisticsWriter && !std::strcmp(event, "unknown_attempt")) {
+        statisticsHeld.fetch_or(statisticsWriter);
+        while (!(statisticsReleased.load() & statisticsWriter)) std::this_thread::yield();
+    }
+}
 void transportSchedule(const char* event) {
+    if (suppressEmission && !std::strcmp(event, "precommit"))
+        InterlockedExchange(reinterpret_cast<volatile LONG*>(&suppressEmission->captureEnabled), 0);
     if (contendCounter && !std::strcmp(event, "counter_attempt")) {
         wa::hook_ipc::increment64(contendCounter->rejected);
         ++contentionAttempts;
@@ -263,4 +278,108 @@ TEST(HookTransport, BoundedCounterContentionReportsUnknownInsteadOfExactZero) {
     contendCounter = nullptr;
     EXPECT_EQ(contentionAttempts.load(), 8u);
     EXPECT_TRUE(receiver.snapshot(*views.reader).unknown);
+}
+
+TEST(HookTransport, LateOldUnknownMarkerCannotHideNewGenerationUncertainty) {
+    for (const bool oldFirst : {true, false}) {
+        SCOPED_TRACE(oldFirst);
+        MappingViews views;
+        ASSERT_TRUE(views.writer && views.reader);
+        auto& ring = *views.writer;
+        const auto method = wa::MonitorMethod::GetFrequency;
+        auto& counter = ring.methodCounters[static_cast<size_t>(method)];
+        wa::hook_ipc::atomicStore64(counter.completed, wa::hook_ipc::slotOwner(1, UINT32_MAX));
+        statisticsHeld = statisticsReleased = 0;
+        const auto held = [](unsigned mask) {
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+            while ((statisticsHeld.load() & mask) != mask && std::chrono::steady_clock::now() < deadline)
+                std::this_thread::yield();
+            return (statisticsHeld.load() & mask) == mask;
+        };
+        std::thread old([&] {
+            statisticsWriter = 1;
+            wa::hook_ipc::countMethodCompletion(ring, method, 1, S_OK, false);
+        });
+        EXPECT_TRUE(held(1));
+        wa::hook_ipc::publishMonitorState(ring, wa::kAllMonitorMethods, 2);
+        wa::hook_ipc::atomicStore64(counter.completed, wa::hook_ipc::slotOwner(2, UINT32_MAX));
+        std::thread current([&] {
+            statisticsWriter = 2;
+            wa::hook_ipc::countMethodCompletion(ring, method, 2, S_OK, false);
+        });
+        EXPECT_TRUE(held(3));
+        if (oldFirst) {
+            statisticsReleased.fetch_or(1);
+            old.join();
+            statisticsReleased.fetch_or(2);
+            current.join();
+        } else {
+            statisticsReleased.fetch_or(2);
+            current.join();
+            statisticsReleased.fetch_or(1);
+            old.join();
+        }
+        const auto snapshot = wa::hook_ipc::readMethodStatistics(ring, 2);
+        ASSERT_TRUE(snapshot.known);
+        EXPECT_TRUE(snapshot.methods[static_cast<size_t>(method)].unknown);
+        EXPECT_EQ(snapshot.methods[static_cast<size_t>(method)].completed, UINT32_MAX);
+    }
+}
+
+namespace {
+std::atomic<unsigned> completedOriginals{0};
+HRESULT STDMETHODCALLTYPE statisticsFrequency(IAudioClock*, UINT64* frequency) {
+    ++completedOriginals;
+    if (frequency) *frequency = 48000;
+    return S_OK;
+}
+}
+
+TEST(HookTransport, CompletedStatisticsExistBeforeEmissionAndSurviveSuppressedRecord) {
+    MappingViews views;
+    ASSERT_TRUE(views.writer && views.reader);
+    g_ring = views.writer;
+    const ClockFreqFn saved = g_clockFreq;
+    g_clockFreq = statisticsFrequency;
+    completedOriginals = 0;
+    suppressEmission = views.writer;
+    UINT64 frequency = 0;
+    EXPECT_EQ(HookClockFreq(nullptr, &frequency), S_OK);
+    suppressEmission = nullptr;
+    EXPECT_EQ(frequency, 48000u);
+    EXPECT_EQ(completedOriginals.load(), 1u);
+    const auto source = wa::hook_ipc::readMethodStatistics(*views.reader, 1);
+    EXPECT_EQ(source.methods[static_cast<size_t>(wa::MonitorMethod::GetFrequency)].completed, 1u);
+    EXPECT_EQ(wa::hook_ipc::atomicRead64(views.reader->pumpCounters.reserved), 0u);
+    EXPECT_FALSE(source.methods[static_cast<size_t>(wa::MonitorMethod::GetFrequency)].unknown);
+    g_clockFreq = saved;
+    g_ring = nullptr;
+}
+
+TEST(HookTransport, FourThreadsCountProductionCompletionsWithoutDependingOnRows) {
+    MappingViews views;
+    ASSERT_TRUE(views.writer && views.reader);
+    g_ring = views.writer;
+    const ClockFreqFn saved = g_clockFreq;
+    g_clockFreq = statisticsFrequency;
+    completedOriginals = 0;
+    std::vector<std::thread> callers;
+    for (unsigned caller = 0; caller < 4; ++caller) callers.emplace_back([] {
+        for (unsigned call = 0; call < 5000; ++call) {
+            UINT64 frequency = 0;
+            if (HookClockFreq(nullptr, &frequency) != S_OK || frequency != 48000)
+                ADD_FAILURE() << "Original forwarding changed";
+        }
+    });
+    for (auto& caller : callers) caller.join();
+    const auto source = wa::hook_ipc::readMethodStatistics(*views.reader, 1);
+    const auto& count = source.methods[static_cast<size_t>(wa::MonitorMethod::GetFrequency)];
+    EXPECT_EQ(completedOriginals.load(), 20000u);
+    EXPECT_LE(count.completed, 20000u);
+    EXPECT_TRUE(count.unknown || count.completed == 20000u);
+    EXPECT_EQ(count.failed, 0u);
+    EXPECT_EQ(count.discontinuities, 0u);
+    EXPECT_GT(wa::hook_ipc::atomicRead64(views.reader->pumpCounters.overwritten), 0u);
+    g_clockFreq = saved;
+    g_ring = nullptr;
 }
