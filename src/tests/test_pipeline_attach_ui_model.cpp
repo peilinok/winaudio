@@ -9,6 +9,23 @@
 
 using namespace wa;
 
+TEST(PipelineAttachUiModel, BatchCheckboxesShareAnInstanceAndFreezeVisibleOrderWithoutRetargeting) {
+    pipeline_attach_ui::BatchSelection selected;
+    selected.set({20, "render", PipelineFlow::Render, "a", {20, 200}}, true);
+    selected.set({10, "capture", PipelineFlow::Capture, "b", {10, 100}}, true);
+    EXPECT_TRUE(selected.contains(20, 200));
+    EXPECT_FALSE(selected.contains(20, 201));
+    const auto frozen = selected.freeze({10, 20, 20, 30});
+    ASSERT_EQ(frozen.size(), 2u);
+    EXPECT_EQ(frozen[0].instance, (ProcessInstance{10, 100}));
+    EXPECT_EQ(frozen[1].instance, (ProcessInstance{20, 200}));
+    selected.set({20}, false);
+    EXPECT_FALSE(selected.contains(20));
+    EXPECT_EQ(frozen[1].deviceId, "render");
+    EXPECT_EQ(frozen[1].flow, PipelineFlow::Render);
+    EXPECT_EQ(selected.freeze({20, 10}).size(), 1u);
+}
+
 TEST(PipelineAttachUiModel, CopyLiveSessionPidToBuffer) {
     std::vector<LiveSessionView> rows(2);
     rows[0].processId = 100u;

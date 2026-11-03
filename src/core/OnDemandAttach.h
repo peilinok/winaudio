@@ -10,6 +10,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <functional>
 
 namespace wa {
 
@@ -48,6 +49,8 @@ struct HookCoverage {
 
 class OnDemandAttach {
 public:
+    enum class Stage { Preparing, Injecting, Installing };
+    static Result freezeHook(std::wstring& path);
     OnDemandAttach();
     ~OnDemandAttach();
     OnDemandAttach(const OnDemandAttach&) = delete;
@@ -56,7 +59,9 @@ public:
     Result start(uint32_t pid, const std::string& deviceIdUtf8 = {},
                  PipelineFlow flow = PipelineFlow::Capture,
                  const std::atomic_bool* cancelled = nullptr, ProcessInstance expected = {},
-                 uint32_t methods = kDefaultMonitorMethods);
+                 uint32_t methods = kDefaultMonitorMethods,
+                 const std::wstring& frozenHook = {},
+                 const std::function<void(Stage)>& progress = {});
     void stop();
     bool attached() const;
     bool targetExited() const;

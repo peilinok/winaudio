@@ -12,6 +12,7 @@
 
 namespace wa {
 struct PipelineAttachController::Impl {
+    struct HookIdentity { std::wstring path; Result result; bool frozen = false; };
     struct Job {
         uint32_t pid = 0;
         std::string deviceId;
@@ -19,15 +20,21 @@ struct PipelineAttachController::Impl {
         ProcessInstance instance;
         uint32_t methods = kDefaultMonitorMethods;
         std::atomic_bool cancelled{false};
+        size_t batchIndex = kTargetCapacity;
+        std::shared_ptr<HookIdentity> hook;
     };
     struct Prepared {
         std::unique_ptr<OnDemandAttach> attach;
         Result result;
+        ItemState outcome = ItemState::Failed;
     };
     mutable std::mutex mutex;
     std::condition_variable changed;
     bool closing = false, installing = false;
     std::shared_ptr<Job> job;
+    std::deque<std::shared_ptr<Job>> queued;
+    BatchStatus batchStatus;
+    std::unordered_map<uint32_t, ProcessInstance> activeInstances;
     std::optional<Prepared> prepared;  // One owning handoff, never a borrowed view.
     std::deque<uint32_t> stops;       // PID zero means detach all.
     struct Configuration { ProcessInstance instance; uint64_t token; uint32_t methods; bool clear = false; };
@@ -44,6 +51,7 @@ struct PipelineAttachController::Impl {
             std::lock_guard<std::mutex> lock(mutex);
             closing = true;
             if (job) job->cancelled.store(true);
+            queued.clear();
         }
         changed.notify_all();
         if (installer.joinable()) installer.join();
@@ -59,18 +67,72 @@ struct PipelineAttachController::Impl {
             std::shared_ptr<Job> request;
             {
                 std::unique_lock<std::mutex> lock(mutex);
-                changed.wait(lock, [&] { return closing || (job && !installing); });
+                changed.wait(lock, [&] { return closing || (!installing && (job || !queued.empty())); });
                 if (closing) return;
+                if (!job) {
+                    job = queued.front();
+                    queued.pop_front();
+                    state.pendingPid = job->pid;
+                }
                 installing = true;
                 request = job;
+                if (request->hook) batchStatus.items[request->batchIndex].state = ItemState::Preparing;
             }
             auto attach = std::make_unique<OnDemandAttach>();
-            const Result result = attach->start(request->pid, request->deviceId,
-                                                request->flow, &request->cancelled, request->instance,
-                                                request->methods);
+            Result result = Result::Ok();
+            ItemState outcome = ItemState::Failed;
+            if (request->hook && !request->hook->frozen) {
+                request->hook->result = OnDemandAttach::freezeHook(request->hook->path);
+                request->hook->frozen = true;
+                std::lock_guard<std::mutex> lock(mutex);
+                batchStatus.hookPath = request->hook->path;
+            }
+            if (request->hook) result = request->hook->result;
+            ProcessInstance current;
+            if (result) {
+                result = queryProcessInstance(request->pid, current);
+                if (!result) {
+                    outcome = result.code == static_cast<long>(E_ACCESSDENIED) ? ItemState::Rejected : ItemState::TargetChanged;
+                } else if (current != request->instance) {
+                    outcome = ItemState::TargetChanged;
+                    result = Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_PROCESS_ABORTED)),
+                                          "Attach: queued target exited or identity changed");
+                }
+            }
+            if (result) {
+                std::lock_guard<std::mutex> lock(mutex);
+                if (request->cancelled.load()) {
+                    outcome = ItemState::Cancelled;
+                    result = Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_CANCELLED)), "Attach: cancelled");
+                } else if (activeInstances.count(request->pid) && activeInstances.at(request->pid) == current) {
+                    outcome = ItemState::Skipped;
+                } else if (activeInstances.size() >= kTargetCapacity) {
+                    outcome = ItemState::Rejected;
+                    result = Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_BUSY)), "Attach: target limit reached");
+                }
+            }
+            if (result && outcome != ItemState::Skipped) {
+                result = attach->start(request->pid, request->deviceId, request->flow, &request->cancelled,
+                    request->instance, request->methods, request->hook ? request->hook->path : std::wstring{},
+                    [this, request](OnDemandAttach::Stage stage) {
+                        if (!request->hook) return;
+                        std::lock_guard<std::mutex> lock(mutex);
+                        batchStatus.items[request->batchIndex].state = stage == OnDemandAttach::Stage::Injecting
+                            ? ItemState::Injecting : ItemState::Installing;
+                    });
+                if (!result) {
+                    const auto code = result.code;
+                    if (code == static_cast<long>(HRESULT_FROM_WIN32(ERROR_CANCELLED))) outcome = ItemState::Cancelled;
+                    else if (code == static_cast<long>(HRESULT_FROM_WIN32(ERROR_PROCESS_ABORTED))) outcome = ItemState::TargetChanged;
+                    else if (code == static_cast<long>(E_ACCESSDENIED) || code == static_cast<long>(HRESULT_FROM_WIN32(ERROR_BUSY)) ||
+                             code == static_cast<long>(HRESULT_FROM_WIN32(ERROR_REVISION_MISMATCH))) outcome = ItemState::Rejected;
+                    else if (code == static_cast<long>(HRESULT_FROM_WIN32(ERROR_TIMEOUT)) ||
+                             result.message.find("timed out; cleanup pending") != std::string::npos) outcome = ItemState::CleanupPending;
+                }
+            }
             {
                 std::lock_guard<std::mutex> lock(mutex);
-                prepared.emplace(Prepared{std::move(attach), result});
+                prepared.emplace(Prepared{std::move(attach), result, outcome});
             }
             // The sender never accesses the object after the owning move.
             changed.notify_all();
@@ -124,28 +186,39 @@ struct PipelineAttachController::Impl {
                     // Commit and cancellation share one linearization point.
                     // No target operation here waits for remote installation.
                     std::lock_guard<std::mutex> lock(mutex);
-                    if (closing || request->cancelled.load())
+                    if (closing || request->cancelled.load()) {
+                        handoff->outcome = ItemState::Cancelled;
                         result = Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_CANCELLED)),
                                               "Attach: cancelled; pending injection cleanup is managed");
-                    if (result && handoff->attach->targetExited())
+                    }
+                    if (result && handoff->attach->targetExited()) {
+                        handoff->outcome = ItemState::TargetChanged;
                         result = Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_PROCESS_ABORTED)),
                                               "Attach: target exited before commit");
-                    if (result) {
+                    }
+                    if (result && handoff->outcome != ItemState::Skipped) {
                         result = active.adopt(std::move(handoff->attach));
                     }
+                    if (request->hook) {
+                        auto& item = batchStatus.items[request->batchIndex];
+                        item.state = result && handoff->outcome != ItemState::Skipped ? ItemState::Succeeded : handoff->outcome;
+                        item.result = result;
+                    }
                 }
-                Event event{request->pid, result ? EventKind::Attached : EventKind::Failed, result};
-                event.instance = request->instance;
-                event.snapshotMs = now();
-                event.methods = request->methods;
-                if (result) {
-                    event.token = tokens[request->pid] = ++nextToken;
-                    event.name = active.processName(request->pid);
-                    event.observationGeneration = active.observationGeneration(request->pid);
-                    std::lock_guard<std::mutex> lock(mutex);
-                    lastMethods[{request->instance.pid, request->instance.created}] = request->methods;
+                if (handoff->outcome != ItemState::Skipped) {
+                    Event event{request->pid, result ? EventKind::Attached : EventKind::Failed, result};
+                    event.instance = request->instance;
+                    event.snapshotMs = now();
+                    event.methods = request->methods;
+                    if (result) {
+                        event.token = tokens[request->pid] = ++nextToken;
+                        event.name = active.processName(request->pid);
+                        event.observationGeneration = active.observationGeneration(request->pid);
+                        std::lock_guard<std::mutex> lock(mutex);
+                        lastMethods[{request->instance.pid, request->instance.created}] = request->methods;
+                    }
+                    batch.events.push_back(std::move(event));
                 }
-                batch.events.push_back(std::move(event));
                 handoff.reset();
             }
             if (outputReady) {
@@ -222,6 +295,8 @@ struct PipelineAttachController::Impl {
             {
                 std::lock_guard<std::mutex> lock(mutex);
                 state.attached = pids;
+                activeInstances.clear();
+                for (const auto pid : pids) activeInstances.emplace(pid, active.instance(pid));
                 state.sourceDroppedCalls = dropped;
                 state.pumpXruns = xruns;
                 state.cleanupPending = cleanup;
@@ -229,6 +304,7 @@ struct PipelineAttachController::Impl {
                     job.reset();
                     installing = false;
                     state.pendingPid = 0;
+                    batchStatus.running = !queued.empty();
                 }
                 if (!batch.events.empty() || !batch.calls.empty() || !batch.pump.empty() || !batch.transport.empty()) {
                     if (batches.size() < kQueueCapacity) {
@@ -253,6 +329,60 @@ struct PipelineAttachController::Impl {
 PipelineAttachController::PipelineAttachController() : impl_(std::make_unique<Impl>()) {}
 PipelineAttachController::~PipelineAttachController() = default;
 
+Result PipelineAttachController::startBatch(const std::vector<Target>& targets) {
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    if (targets.empty() || targets.size() > kTargetCapacity || impl_->closing || impl_->job ||
+        !impl_->queued.empty() || !impl_->stops.empty())
+        return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_BUSY)), "Batch attach: empty, busy or target limit reached");
+    BatchStatus status;
+    auto hook = std::make_shared<Impl::HookIdentity>();
+    std::deque<std::shared_ptr<Impl::Job>> queued;
+    for (auto target : targets) {
+        if (!target.instance || (target.methods != UINT32_MAX && (target.methods & ~kAllMonitorMethods)))
+            return Result::Fail(static_cast<long>(E_INVALIDARG), "Batch attach: invalid frozen target");
+        if (std::any_of(status.items.begin(), status.items.end(), [&](const Item& item) {
+                return item.target.instance == target.instance;
+            })) continue;
+        if (target.methods == UINT32_MAX) {
+            const auto found = impl_->lastMethods.find({target.instance.pid, target.instance.created});
+            target.methods = found == impl_->lastMethods.end() ? kDefaultMonitorMethods : found->second;
+        }
+        auto request = std::make_shared<Impl::Job>();
+        request->pid = target.instance.pid;
+        request->instance = target.instance;
+        request->deviceId = target.deviceId;
+        request->flow = target.flow;
+        request->methods = target.methods;
+        request->hook = hook;
+        request->batchIndex = status.items.size();
+        status.items.push_back({std::move(target)});
+        queued.push_back(std::move(request));
+    }
+    status.running = true;
+    impl_->batchStatus = std::move(status);
+    impl_->queued = std::move(queued);
+    impl_->changed.notify_all();
+    return Result::Ok();
+}
+bool PipelineAttachController::cancelBatch() {
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    if (impl_->closing) return false;
+    if (impl_->job && impl_->job->hook) impl_->job->cancelled.store(true);
+    for (const auto& request : impl_->queued) {
+        auto& item = impl_->batchStatus.items[request->batchIndex];
+        item.state = ItemState::Cancelled;
+        item.result = Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_CANCELLED)), "Attach: cancelled before preparation");
+    }
+    impl_->queued.clear();
+    impl_->batchStatus.running = impl_->job && impl_->job->hook;
+    impl_->changed.notify_all();
+    return true;
+}
+PipelineAttachController::BatchStatus PipelineAttachController::batchStatus() const {
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    return impl_->batchStatus;
+}
+
 Result PipelineAttachController::start(uint32_t pid, const std::string& deviceId, PipelineFlow flow,
                                        ProcessInstance expected, uint32_t methods) {
     if (pid && !expected) {
@@ -262,7 +392,7 @@ Result PipelineAttachController::start(uint32_t pid, const std::string& deviceId
     std::lock_guard<std::mutex> lock(impl_->mutex);
     if (pid == 0)
         return Result::Fail(static_cast<long>(E_INVALIDARG), attachBlockText(AttachBlock::PidZero));
-    if (impl_->job || impl_->state.attached.size() >= kTargetCapacity || impl_->closing ||
+    if (impl_->job || !impl_->queued.empty() || !impl_->stops.empty() || impl_->state.attached.size() >= kTargetCapacity || impl_->closing ||
         std::find(impl_->state.attached.begin(), impl_->state.attached.end(), pid) != impl_->state.attached.end()) {
         ++impl_->state.rejectedCommands;
         return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_BUSY)), "Attach: command busy or target limit reached");
@@ -308,6 +438,15 @@ bool PipelineAttachController::stop(uint32_t pid) {
     std::lock_guard<std::mutex> lock(impl_->mutex);
     if (impl_->closing) return false;
     if (impl_->job && (pid == 0 || impl_->job->pid == pid)) impl_->job->cancelled.store(true);
+    for (auto it = impl_->queued.begin(); it != impl_->queued.end();) {
+        const auto& request = *it;
+        if (pid != 0 && request->pid != pid) { ++it; continue; }
+        auto& item = impl_->batchStatus.items[request->batchIndex];
+        item.state = ItemState::Cancelled;
+        item.result = Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_CANCELLED)), "Attach: cancelled before preparation");
+        it = impl_->queued.erase(it);
+    }
+    if (!impl_->job && impl_->queued.empty()) impl_->batchStatus.running = false;
     if (impl_->stops.size() == kQueueCapacity) {
         ++impl_->state.rejectedCommands;
         return false;

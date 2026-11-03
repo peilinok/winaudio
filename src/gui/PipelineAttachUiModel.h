@@ -20,6 +20,30 @@ struct AttachRequest {
     ProcessInstance instance;
 };
 
+// Checkboxes belong to process instances, even when several session rows exist.
+class BatchSelection {
+public:
+    bool contains(uint32_t pid, uint64_t created = 0) const {
+        const auto found = selected_.find(pid);
+        return found != selected_.end() && (!created || found->second.instance.created == created);
+    }
+    void set(AttachRequest request, bool checked) {
+        if (checked && request.instance) selected_[request.pid] = std::move(request);
+        else selected_.erase(request.pid);
+    }
+    std::vector<AttachRequest> freeze(const std::vector<uint32_t>& visibleOrder) const {
+        std::vector<AttachRequest> frozen;
+        std::unordered_set<uint32_t> seen;
+        for (const auto pid : visibleOrder) {
+            const auto found = selected_.find(pid);
+            if (found != selected_.end() && seen.insert(pid).second) frozen.push_back(found->second);
+        }
+        return frozen;
+    }
+private:
+    std::unordered_map<uint32_t, AttachRequest> selected_;
+};
+
 struct MethodDraft {
     uint32_t methods = kDefaultMonitorMethods;
     bool pending = false;
