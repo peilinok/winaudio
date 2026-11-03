@@ -4,10 +4,15 @@ import sys
 import unittest
 from pathlib import Path
 
-from summarize import nearest_rank, summarize
+from summarize import nearest_rank, summarize, distribution
 
 
 class FrameSummaryTest(unittest.TestCase):
+    def test_distribution_keeps_mean_and_both_extremes(self):
+        stats = distribution([1, 2, 30])
+        self.assertEqual(stats['mean'], 11)
+        self.assertEqual(stats['minimum'], 1)
+        self.assertEqual(stats['maximum'], 30)
     def test_teardown_is_retained_outside_window_and_excluded_from_budget(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / 'probe.txt'
@@ -61,7 +66,7 @@ class FrameSummaryTest(unittest.TestCase):
             group = summarize(source)['groups'][0]
             self.assertEqual(group['operation_response_ms']['p95'], 10)
             self.assertEqual(group['operations_by_target_ms']['save'],
-                             dict(n=1, p50=250, p95=250, p99=250, maximum=250))
+                             dict(n=1, p50=250, p95=250, p99=250, maximum=250, minimum=250, mean=250))
             self.assertEqual(group['operations_by_target_ms']['select']['n'], 99)
             self.assertFalse(group['operation_budget_met'])
             command = [sys.executable, str(Path(__file__).with_name('summarize.py')),
@@ -89,7 +94,7 @@ class FrameSummaryTest(unittest.TestCase):
             group = summarize(source)['groups'][0]
             self.assertEqual(group['work']['upload:2:1:0'], 15)
             self.assertEqual(group['work_per_frame']['upload:2:1:0'],
-                             dict(n=3, p50=3, p95=12, p99=12, maximum=12))
+                             dict(n=3, p50=3, p95=12, p99=12, maximum=12, minimum=0, mean=5))
 
     def test_nearest_rank_and_separate_stages(self):
         self.assertEqual(nearest_rank([10, 40, 20, 30], 0.5), 20)

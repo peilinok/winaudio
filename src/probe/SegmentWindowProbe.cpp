@@ -26,9 +26,13 @@ struct SharedProbe {
     volatile LONG originals = 0;
     volatile LONG controls = 0;
     volatile LONG produced = 0;
+    volatile LONG finished = 0;
+    LONG warmOriginals = 0, warmControls = 0;
+    uint64_t start = 0, formalStart = 0, formalEnd = 0;
 };
 SharedProbe* probeShared = nullptr;
 uint32_t probeRow = 0;
+bool probeTimed = false;
 
 bool probeObserved(const char* call, bool success, const std::string& args,
                    wa::log::Level level = wa::log::Level::Debug) {
@@ -56,7 +60,7 @@ bool probeSet(HANDLE event) {
                          "handle=" + std::to_string(reinterpret_cast<uintptr_t>(event)));
 }
 HRESULT probeResult(uint32_t row) {
-    return row % 11 == 0 ? E_ACCESSDENIED : row % 7 == 0 ? S_FALSE : S_OK;
+    return !probeTimed && row % 11 == 0 ? E_ACCESSDENIED : row % 7 == 0 ? S_FALSE : S_OK;
 }
 HRESULT STDMETHODCALLTYPE probeFrequency(IAudioClock*, UINT64* value) {
     InterlockedIncrement(&probeShared->originals);
@@ -99,7 +103,8 @@ struct ProbeHandles {
     }
 };
 
-int probeChild(const wchar_t* name, unsigned index) {
+int probeChild(const wchar_t* name, unsigned index, unsigned rate = 0,
+               unsigned warmup = 0, unsigned seconds = 0, bool controls = true) {
     ProbeHandles handles;
     handles.mapping = OpenFileMappingW(FILE_MAP_ALL_ACCESS, FALSE, name);
     if (!probeObserved("OpenFileMappingW/control", handles.mapping != nullptr, "child")) return 10;
@@ -125,6 +130,47 @@ int probeChild(const wchar_t* name, unsigned index) {
     g_clockFreq = &probeFrequency;
     g_renRel = &probeRelease;
     g_start = &probeStart;
+    if (rate) {
+        probeTimed = true;
+        if (!probeSet(handles.ready) || probeWait(handles.resume, 10000) != WAIT_OBJECT_0) return 21;
+        LARGE_INTEGER frequency{}, now{};
+        QueryPerformanceFrequency(&frequency);
+        const auto tick = [&] { QueryPerformanceCounter(&now); return static_cast<uint64_t>(now.QuadPart); };
+        const auto start = probeShared->start;
+        const auto formal = start + warmup * static_cast<uint64_t>(frequency.QuadPart);
+        const auto end = formal + seconds * static_cast<uint64_t>(frequency.QuadPart);
+        uint64_t issued = 0, issuedControls = 0;
+        bool formalStarted = false;
+        while (tick() < end) {
+            const auto current = static_cast<uint64_t>(now.QuadPart);
+            if (current < start) { Sleep(1); continue; }
+            if (!formalStarted && current >= formal) {
+                probeShared->warmOriginals = ReadAcquire(&probeShared->originals);
+                probeShared->warmControls = ReadAcquire(&probeShared->controls);
+                probeShared->formalStart = formal;
+                formalStarted = true;
+            }
+            const auto elapsed = current - start;
+            const auto wanted = elapsed * rate / static_cast<uint64_t>(frequency.QuadPart);
+            // Catch up in bounded bursts; originals never wait for the receiver.
+            for (unsigned burst = 0; issued < wanted && burst < 256; ++burst) {
+                ++issued;
+                if (probeInvoke(index, static_cast<uint32_t>(issued)) != probeResult(static_cast<uint32_t>(issued))) return 22;
+            }
+            const auto wantedControls = elapsed / static_cast<uint64_t>(frequency.QuadPart) + 1;
+            if (controls && issuedControls < wantedControls) {
+                if (HookStart(reinterpret_cast<IAudioClient*>(static_cast<uintptr_t>(0x3000))) != S_OK) return 23;
+                ++issuedControls;
+            }
+            if (issued >= wanted) Sleep(1);
+        }
+        probeShared->formalEnd = tick();
+        InterlockedExchange(&probeShared->finished, 1);
+        if (!probeSet(handles.ready) || probeWait(handles.resume, 10000) != WAIT_OBJECT_0) return 24;
+        g_ring = nullptr;
+        probeShared = nullptr;
+        return 0;
+    }
     if (HookStart(reinterpret_cast<IAudioClient*>(static_cast<uintptr_t>(0x3000))) != S_OK) return 17;
     const auto enabled = wa::methodBit(probeMethod(index)) | wa::methodBit(wa::MonitorMethod::Start);
     for (uint32_t row = 1; row <= kCalls; ++row) {
@@ -168,7 +214,8 @@ struct ProbeTarget {
     }
 };
 
-bool probeLaunch(ProbeTarget& target, unsigned index, const wchar_t* self, wa::CallLogStore& store) {
+bool probeLaunch(ProbeTarget& target, unsigned index, const wchar_t* self, wa::CallLogStore& store,
+                 unsigned rate = 0, unsigned warmup = 0, unsigned seconds = 0, bool controls = true) {
     const std::wstring name = L"Local\\WinAudioSegmentProbe-" + std::to_wstring(GetCurrentProcessId()) +
         L"-" + std::to_wstring(index);
     target.handles.mapping = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE,
@@ -184,6 +231,8 @@ bool probeLaunch(ProbeTarget& target, unsigned index, const wchar_t* self, wa::C
     target.handles.resume = CreateEventW(nullptr, FALSE, FALSE, resumeName.c_str());
     if (!probeObserved("CreateEventW/resume", target.handles.resume != nullptr, "parent")) return false;
     std::wstring command = L"\"" + std::wstring(self) + L"\" --child \"" + name + L"\" " + std::to_wstring(index);
+    if (rate) command += L" " + std::to_wstring(rate) + L" " + std::to_wstring(warmup) + L" " +
+        std::to_wstring(seconds) + L" " + std::to_wstring(controls);
     STARTUPINFOW startup{sizeof(startup)};
     if (!probeObserved("CreateProcessW", CreateProcessW(self, command.data(), nullptr, nullptr, FALSE,
             CREATE_SUSPENDED | CREATE_NO_WINDOW, nullptr, nullptr, &startup, &target.process) != FALSE,
@@ -221,7 +270,7 @@ bool probeValidate(const wa::HookedCall& call, unsigned index, uint32_t row) {
     if (index == 0)
         return call.iface == "IAudioClock" && call.method == "GetFrequency" &&
             call.streamId == 0x1000 && call.args ==
-                (row % 11 == 0 ? "" : "hz=" + std::to_string(100000ULL + row));
+                (FAILED(probeResult(row)) ? "" : "hz=" + std::to_string(100000ULL + row));
     return call.iface == "IAudioRenderClient" && call.method == "ReleaseBuffer" &&
         call.streamId == 0x2000 && call.args == "frames=" + std::to_string(row) + " flags=0x2";
 }
@@ -362,12 +411,22 @@ int probeParent(const std::filesystem::path& output) {
 }
 }  // namespace
 
+#include "SegmentWindowTiming.h"
+
 int wmain(int argc, wchar_t** argv) {
     wa::log::init();
     wa::log::addStderrSink();
     int result = 34;
     if (argc == 4 && !std::wcscmp(argv[1], L"--child"))
         result = probeChild(argv[2], static_cast<unsigned>(std::wcstoul(argv[3], nullptr, 10)));
+    else if (argc == 8 && !std::wcscmp(argv[1], L"--child"))
+        result = probeChild(argv[2], static_cast<unsigned>(std::wcstoul(argv[3], nullptr, 10)),
+            static_cast<unsigned>(std::wcstoul(argv[4], nullptr, 10)),
+            static_cast<unsigned>(std::wcstoul(argv[5], nullptr, 10)),
+            static_cast<unsigned>(std::wcstoul(argv[6], nullptr, 10)), std::wcstoul(argv[7], nullptr, 10) != 0);
+    else if (argc == 7 && !std::wcscmp(argv[1], L"--timed"))
+        result = timedParent(argv[2], argv[3], static_cast<unsigned>(std::wcstoul(argv[4], nullptr, 10)),
+            static_cast<unsigned>(std::wcstoul(argv[5], nullptr, 10)), std::wcstoul(argv[6], nullptr, 10) != 0);
     else if (argc == 3 && !std::wcscmp(argv[1], L"--output")) result = probeParent(argv[2]);
     wa::log::shutdown();
     return result;

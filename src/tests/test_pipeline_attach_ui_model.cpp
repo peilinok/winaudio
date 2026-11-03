@@ -3,6 +3,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <chrono>
+#include <thread>
 #include "CallLogStore.h"
 #include "PipelineAttachUiModel.h"
 #include "PipelineGraph.h"
@@ -539,6 +541,117 @@ TEST(PipelineAttachUiModel, PresentationHandoffRunsAtMostTenTimesPerSecond) {
     EXPECT_TRUE(refresh.take(1000));
     EXPECT_FALSE(refresh.take(1099));
     EXPECT_TRUE(refresh.take(1100));
+}
+
+TEST(PipelineAttachUiModel, ImmediateClearFeedbackIsDeliveredOnceWithoutReplayingOldQueuedData) {
+    using namespace pipeline_attach_ui;
+    const ProcessInstance instance{7, 100};
+    CallLogStore store;
+    store.setPumpVisible(true);
+    SegmentSelection selection;
+    PipelineAttachController::Batch initial;
+    auto attached = segmentEvent(instance, 11);
+    attached.observationGeneration = 1;
+    initial.events = {attached};
+    auto old = segmentCall(instance, 11, "old");
+    old.observationGeneration = 1;
+    initial.calls = {old};
+    selection.apply(store, std::move(initial));
+    const auto id = selection.selected();
+    auto cleared = attached;
+    cleared.kind = PipelineAttachController::EventKind::Cleared;
+    cleared.observationGeneration = 2;
+    auto configured = cleared;
+    configured.kind = PipelineAttachController::EventKind::Configured;
+    configured.methods = methodBit(MonitorMethod::GetFrequency);
+    auto fresh = old;
+    fresh.args = "fresh";
+    fresh.observationGeneration = 2;
+    PipelineAttachController::Batch queued;
+    queued.events = {cleared, configured};
+    queued.calls = {old, fresh};
+    auto oldPump = old, freshPump = fresh;
+    oldPump.pump = freshPump.pump = true;
+    oldPump.iface = freshPump.iface = "IAudioClock";
+    oldPump.method = freshPump.method = "GetFrequency";
+    queued.pump = {{11, {{99, oldPump}, {1, freshPump}}}};
+    TransportUpdate stale{instance, 11, {}};
+    stale.status.observationGeneration = 1;
+    stale.status.snapshotSequence = 999;
+    stale.status.statistics.known = true;
+    stale.status.statistics.methods[19].completed = 99;
+    queued.transport = {stale};
+    auto feedback = queued.takeControlFeedback();
+    ASSERT_EQ(feedback.size(), 2u);
+    EXPECT_EQ(feedback[0].kind, PipelineAttachController::EventKind::Cleared);
+    EXPECT_EQ(feedback[1].kind, PipelineAttachController::EventKind::Configured);
+    EXPECT_TRUE(queued.takeControlFeedback().empty());
+    EXPECT_EQ(queued.calls.size(), 2u);
+    for (auto& event : feedback) {
+        PipelineAttachController::Batch completion;
+        completion.events.push_back(std::move(event));
+        selection.apply(store, std::move(completion));
+    }
+    EXPECT_EQ(store.segment(id)->observationGeneration, 2u);
+    EXPECT_EQ(store.segment(id)->methods, methodBit(MonitorMethod::GetFrequency));
+    EXPECT_EQ(store.segment(id)->count, 0u);
+    selection.apply(store, std::move(queued));
+    ASSERT_EQ(store.segment(id)->count, 1u);
+    EXPECT_EQ(store.entries().front()->call.args, "fresh");
+    EXPECT_EQ(store.segment(id)->windowRetained, 1u);
+    EXPECT_EQ(store.segment(id)->windowReceived, 1u);
+    EXPECT_EQ(store.segment(id)->transport.statistics.methods[19].completed, 0u);
+    auto current = stale;
+    current.status.observationGeneration = 2;
+    current.status.snapshotSequence = 1;
+    current.status.statistics.methods[19].completed = 1;
+    ASSERT_TRUE(store.updateTransport(current));
+    EXPECT_EQ(store.segment(id)->transport.statistics.methods[19].completed, 1u);
+    EXPECT_EQ(store.segment(id)->configurationChanges.size(), 1u);
+    EXPECT_EQ(selection.selected(), id);
+}
+
+TEST(PipelineAttachUiModel, FastFeedbackPreservesLifecycleBarriersAndFinalSnapshots) {
+    for (const auto kind : {PipelineAttachController::EventKind::Attached,
+                           PipelineAttachController::EventKind::Detached,
+                           PipelineAttachController::EventKind::Failed}) {
+        PipelineAttachController::Batch batch;
+        auto lifecycle = segmentEvent({7, 100}, 11);
+        lifecycle.kind = kind;
+        auto configured = lifecycle;
+        configured.kind = PipelineAttachController::EventKind::Configured;
+        batch.events = {lifecycle, configured};
+        batch.calls = {segmentCall({7, 100}, 11, "bounded tail")};
+        batch.transport = {{{7, 100}, 11, {}}};
+        batch.transport.front().status.snapshotSequence = 17;
+        EXPECT_TRUE(batch.takeControlFeedback().empty());
+        ASSERT_EQ(batch.events.size(), 2u);
+        EXPECT_EQ(batch.events.front().kind, kind);
+        EXPECT_EQ(batch.calls.front().args, "bounded tail");
+        EXPECT_EQ(batch.transport.front().status.snapshotSequence, 17u);
+    }
+}
+
+TEST(PipelineAttachUiModel, ControllerFeedbackDeliversCommandFailuresOnceWithoutOrdinaryPolling) {
+    PipelineAttachController controller;
+    ASSERT_TRUE(controller.configure({7, 100}, 11, kDefaultMonitorMethods));
+    ASSERT_TRUE(controller.clear({7, 100}, 11));
+    std::vector<PipelineAttachController::Event> events;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    while (events.size() < 2 && std::chrono::steady_clock::now() < deadline) {
+        auto next = controller.pollControlFeedback();
+        events.insert(events.end(), next.begin(), next.end());
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    ASSERT_EQ(events.size(), 2u);
+    EXPECT_EQ(events[0].kind, PipelineAttachController::EventKind::ConfigurationFailed);
+    EXPECT_EQ(events[1].kind, PipelineAttachController::EventKind::ClearFailed);
+    EXPECT_EQ(events[0].instance, (ProcessInstance{7, 100}));
+    EXPECT_EQ(events[1].token, 11u);
+    EXPECT_FALSE(events[0].result);
+    EXPECT_FALSE(events[1].result);
+    EXPECT_TRUE(controller.pollControlFeedback().empty());
+    for (const auto& batch : controller.poll()) EXPECT_TRUE(batch.events.empty());
 }
 
 TEST(PipelineAttachUiModel, SuccessfulClearRejectsQueuedOldRowsAndStatisticsWithoutChangingSelection) {

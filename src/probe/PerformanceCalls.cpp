@@ -6,16 +6,19 @@ std::vector<HookedCall> performanceCalls(size_t count, unsigned pidCount) {
     std::vector<HookedCall> calls;
     if (!pidCount) return calls;
     calls.reserve(count);
-    const char* methods[] = {"Initialize", "GetBufferSize", "GetStreamLatency", "GetCurrentPadding",
+    const char* methods[] = {"Initialize", "SetEventHandle", "SetMute", "SetChannelVolume",
                              "SetClientProperties", "InitializeSharedAudioStream", "GetService",
                              "Start", "Stop", "Reset"};
+    const char* interfaces[] = {"IAudioClient", "IAudioClient", "ISimpleAudioVolume", "IAudioStreamVolume",
+                                "IAudioClient2", "IAudioClient3", "IAudioClient", "IAudioClient",
+                                "IAudioClient", "IAudioClient"};
     for (size_t i = 0; i < count; ++i) {
         HookedCall call;
         call.pid = 42001 + static_cast<uint32_t>(i % pidCount);
         const size_t local = i / pidCount;
         call.streamId = 1 + static_cast<uint32_t>((local / 10) % 3);
         call.timeMs = 100000 + static_cast<int64_t>(i / 4) - (i % 19 == 18 ? 10 : 0);
-        call.iface = local % 10 == 5 ? "IAudioClient3" : "IAudioClient";
+        call.iface = interfaces[local % 10];
         call.method = methods[local % 10];
         call.hresult = i % 17 == 16 ? static_cast<int32_t>(0x80004005u) : (i % 31 == 30 ? 1 : 0);
         char sequence[32]{};

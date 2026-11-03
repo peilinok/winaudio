@@ -1,6 +1,22 @@
 #include <gtest/gtest.h>
 #include "PerformanceCalls.h"
 #include "CallLogStore.h"
+#include <algorithm>
+
+TEST(PerformanceCalls, ControlHistoryContainsOnlyCatalogControlMethods) {
+    const auto calls = wa::performanceCalls(10000, 2);
+    wa::CallLogStore store;
+    for (const auto& call : calls) {
+        const auto method = std::find_if(std::begin(wa::kMonitorMethods), std::end(wa::kMonitorMethods),
+            [&](const auto& item) { return call.iface == item.iface && call.method == item.method; });
+        ASSERT_NE(method, std::end(wa::kMonitorMethods)) << call.iface << "::" << call.method;
+        ASSERT_TRUE(method->control) << call.iface << "::" << call.method;
+    }
+    store.append(calls);
+    EXPECT_EQ(store.size(), 10000u);
+    EXPECT_EQ(store.pidCallCount(42001), 5000u);
+    EXPECT_EQ(store.pidCallCount(42002), 5000u);
+}
 
 TEST(PerformanceCalls, FixedInputHasTwoSourcesAndFullStructuredParameters) {
     const auto calls = wa::performanceCalls(10000, 2);

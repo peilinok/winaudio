@@ -615,9 +615,33 @@ std::vector<PipelineAttachController::Batch> PipelineAttachController::poll() {
     impl_->changed.notify_all();
     return out;
 }
+std::vector<PipelineAttachController::Event> PipelineAttachController::Batch::takeControlFeedback() {
+    for (const auto& event : events)
+        if (event.kind != EventKind::Configured && event.kind != EventKind::ConfigurationFailed &&
+            event.kind != EventKind::Cleared && event.kind != EventKind::ClearFailed) return {};
+    std::vector<Event> out;
+    out.swap(events);
+    return out;
+}
+std::vector<PipelineAttachController::Event> PipelineAttachController::pollControlFeedback() {
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    std::vector<Event> out;
+    for (auto& batch : impl_->batches) {
+        auto feedback = batch.takeControlFeedback();
+        out.insert(out.end(), std::make_move_iterator(feedback.begin()), std::make_move_iterator(feedback.end()));
+        if (!batch.events.empty()) break;
+    }
+    return out;
+}
 PipelineAttachController::Snapshot PipelineAttachController::snapshot() const {
     std::lock_guard<std::mutex> lock(impl_->mutex);
-    return impl_->state;
+    auto snapshot = impl_->state;
+    snapshot.queuedBatches = impl_->batches.size();
+    for (const auto& batch : impl_->batches) {
+        snapshot.queuedControls += batch.calls.size();
+        for (const auto& pump : batch.pump) snapshot.queuedPump += pump.second.size();
+    }
+    return snapshot;
 }
 std::vector<uint32_t> PipelineAttachController::attachedPids() const { return snapshot().attached; }
 bool PipelineAttachController::attached(uint32_t pid) const {
