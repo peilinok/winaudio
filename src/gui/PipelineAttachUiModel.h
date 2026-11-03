@@ -27,6 +27,20 @@ struct MethodDraft {
     bool dirty(uint32_t published) const { return methods != published; }
 };
 
+// Only presentation handoff is paced. The controller keeps receiving all PIDs.
+class PresentationRefresh {
+public:
+    bool take(uint64_t steadyMilliseconds) {
+        if (started_ && steadyMilliseconds - previous_ < 100) return false;
+        previous_ = steadyMilliseconds;
+        started_ = true;
+        return true;
+    }
+private:
+    uint64_t previous_ = 0;
+    bool started_ = false;
+};
+
 inline std::string segmentTime(int64_t milliseconds) {
     const auto seconds = static_cast<std::time_t>(milliseconds / 1000);
     std::tm local{};

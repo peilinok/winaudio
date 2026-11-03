@@ -320,6 +320,8 @@ TEST(PipelineAttachUiModel, TransportSnapshotBelongsToItsSegmentAndFreezesAtEnd)
     observed.status.pump = {7, 5, 4, true};
     observed.status.controllerDroppedControl = 8;
     observed.status.controllerDroppedPump = 9;
+    observed.status.statistics.known = true;
+    observed.status.statistics.methods[static_cast<size_t>(MonitorMethod::CaptureGetBuffer)] = {4096, 3, 2, false};
     PipelineAttachController::Batch progress;
     progress.transport = {observed};
     // API failure and audio discontinuity are unrelated to transport loss.
@@ -337,6 +339,11 @@ TEST(PipelineAttachUiModel, TransportSnapshotBelongsToItsSegmentAndFreezesAtEnd)
     EXPECT_TRUE(store.segment(first)->transport.pump.unknown);
     EXPECT_EQ(store.segment(first)->transport.controllerDroppedControl, 8u);
     EXPECT_EQ(store.segment(first)->transport.controllerDroppedPump, 9u);
+    const auto& statistics = store.segment(first)->transport.statistics;
+    EXPECT_TRUE(statistics.known);
+    EXPECT_EQ(statistics.methods[static_cast<size_t>(MonitorMethod::CaptureGetBuffer)].completed, 4096u);
+    EXPECT_EQ(statistics.methods[static_cast<size_t>(MonitorMethod::CaptureGetBuffer)].failed, 3u);
+    EXPECT_EQ(statistics.methods[static_cast<size_t>(MonitorMethod::CaptureGetBuffer)].discontinuities, 2u);
     EXPECT_TRUE(store.segment(second)->transport.control.unknown);
     EXPECT_EQ(store.segment(second)->transport.control.overwritten, 0u);
     PipelineAttachController::Batch invalid;
@@ -380,6 +387,8 @@ TEST(PipelineAttachUiModel, TransportSnapshotBelongsToItsSegmentAndFreezesAtEnd)
     EXPECT_EQ(store.segment(first)->transport.control.overwritten, 3u);
     EXPECT_TRUE(store.segment(current)->transport.control.unknown);
     EXPECT_EQ(store.segment(current)->transport.control.overwritten, 0u);
+    EXPECT_EQ(store.segment(first)->transport.statistics.methods[static_cast<size_t>(MonitorMethod::CaptureGetBuffer)].completed, 4096u);
+    EXPECT_FALSE(store.segment(current)->transport.statistics.known);
     EXPECT_EQ(selection.selected(), first);
 }
 
@@ -491,15 +500,26 @@ TEST(PipelineAttachUiModel, ReceivedPumpIncrementsKeepRecentHistoryWithoutInvent
         selection.apply(store, std::move(next));
     }
     const auto recent = store.view(query);
-    ASSERT_EQ(recent.size(), 64u);
-    EXPECT_EQ(recent.at(0)->id.sequence, 7u);
-    EXPECT_EQ(recent.at(63)->id.sequence, 70u);
+    ASSERT_EQ(recent.size(), 70u);
+    EXPECT_EQ(recent.at(0)->id.sequence, 1u);
+    EXPECT_EQ(recent.at(69)->id.sequence, 70u);
     PipelineAttachController::Batch late;
     late.pump = {{11, {{1, pump}}}};
     selection.apply(store, std::move(late));
-    EXPECT_EQ(store.view(query).size(), 64u);
-    EXPECT_EQ(store.view(query).at(0)->id.sequence, 7u);
+    EXPECT_EQ(store.view(query).size(), 70u);
+    EXPECT_EQ(store.view(query).at(0)->id.sequence, 1u);
     EXPECT_EQ(store.segment(id)->transport.pump.overwritten, 0u);
     EXPECT_EQ(store.segment(id)->transport.controllerDroppedPump, 0u);
     EXPECT_TRUE(store.segment(id)->transport.pump.unknown);
+}
+
+TEST(PipelineAttachUiModel, PresentationHandoffRunsAtMostTenTimesPerSecond) {
+    pipeline_attach_ui::PresentationRefresh refresh;
+    size_t accepted = 0;
+    for (uint64_t millisecond = 0; millisecond < 1000; ++millisecond)
+        if (refresh.take(millisecond)) ++accepted;
+    EXPECT_EQ(accepted, 10u);
+    EXPECT_TRUE(refresh.take(1000));
+    EXPECT_FALSE(refresh.take(1099));
+    EXPECT_TRUE(refresh.take(1100));
 }

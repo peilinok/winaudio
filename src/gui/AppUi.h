@@ -250,6 +250,7 @@ private:
     wa::EtwInitializeHint pipelineEtwHint_{};
     wa::PipelineJoinStatus pipelineJoinStatus_{};
     wa::PipelineAttachController pipelineAttaches_;
+    wa::pipeline_attach_ui::PresentationRefresh pipelinePresentationRefresh_;
     std::optional<wa::pipeline_attach_ui::AttachRequest> pipelinePreparing_;
     wa::CallRecordId pipelineCallSelected_;
     wa::pipeline_attach_ui::SegmentSelection pipelineSegmentSelection_;

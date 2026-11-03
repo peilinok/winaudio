@@ -1,8 +1,19 @@
 #pragma once
 #include "ProcessInstance.h"
+#include "MethodSelection.h"
+#include <array>
 #include <cstdint>
 
 namespace wa {
+
+struct MethodCallStatistics {
+    uint64_t completed = 0, failed = 0, discontinuities = 0;
+    bool unknown = false;
+};
+struct MethodStatisticsSnapshot {
+    bool known = false;
+    std::array<MethodCallStatistics, static_cast<size_t>(MonitorMethod::Count)> methods{};
+};
 
 struct HookTransportLaneStatus {
     uint64_t overwritten = 0;
@@ -20,6 +31,7 @@ struct HookTransportStatus {
     HookTransportLaneStatus control, pump;
     uint64_t controllerDroppedControl = 0;
     uint64_t controllerDroppedPump = 0;
+    MethodStatisticsSnapshot statistics;
 };
 
 struct TransportUpdate {

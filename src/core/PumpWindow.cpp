@@ -37,13 +37,23 @@ void PumpWindow::begin(const hook_ipc::Ring& ring) {
 const std::vector<PumpCall>& PumpWindow::poll(hook_ipc::Ring& ring) {
     // A second poll before a handoff must not create an unbounded inbox.
     received_.clear();
-    reader_.poll(ring, [&](const hook_ipc::CallPod& pod, uint64_t) {
+    batch_.clear();
+    reader_.poll(ring, [&](const hook_ipc::CallPod& pod, uint64_t ticket) {
         auto call = decodeHookedCallPod(pod);
         call.pump = true;
-        current_.push_back({++nextSequence_, std::move(call)});
-        received_.push_back(current_.back());
-        if (current_.size() > hook_ipc::kPumpCap) current_.erase(current_.begin());
+        batch_.emplace_back(ticket, std::move(call));
     });
+    // A slot scan can cross the physical tail. Order this bounded completed
+    // batch by tickets before assigning host receipt identities. Calls that
+    // complete in a later poll remain later receipts; never await a producer.
+    std::sort(batch_.begin(), batch_.end(), [](const auto& a, const auto& b) {
+        return a.first != b.first && b.first - a.first < (uint64_t{1} << 63);
+    });
+    for (auto& item : batch_) {
+        current_.push_back({++nextSequence_, std::move(item.second)});
+        received_.push_back(current_.back());
+        if (current_.size() > kDefaultPumpRingCap) current_.erase(current_.begin());
+    }
     return current_;
 }
 

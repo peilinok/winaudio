@@ -3,6 +3,7 @@
 #include "HookedCallPod.h"
 #include "HookTransportReader.h"
 #include <array>
+#include <utility>
 
 namespace wa {
 
@@ -18,6 +19,7 @@ private:
     HookTransportReader reader_;
     std::vector<PumpCall> current_;
     std::vector<PumpCall> received_;
+    std::vector<std::pair<uint64_t, HookedCall>> batch_;
 };
 
 HookedCall decodeHookedCallPod(const hook_ipc::CallPod& pod);

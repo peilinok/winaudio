@@ -506,6 +506,58 @@ TEST_F(HookMethodSelection, DisabledStartStillForwardsWithoutObservationWork) {
     EXPECT_EQ(selectionRing.writeIndex + selectionRing.pumpWriteIndex, 0u);
 }
 
+TEST_F(HookMethodSelection, WindowStatisticsCountCompletedCallsIndependentlyOfTransport) {
+    auto sdk = sdkObjects();
+    for (const auto& method : methodCases) {
+        if (method.control) continue;
+        SCOPED_TRACE(method.method);
+        resetObservation(wa::methodBit(method.id));
+        for (HRESULT hr : {S_OK, S_FALSE, E_ACCESSDENIED}) {
+            objects.result = hr;
+            EXPECT_EQ(invokeMethod(sdk, objects, method.id), hr);
+        }
+        wa::hook_ipc::publishMonitorState(selectionRing, 0, 7);
+        EXPECT_EQ(invokeMethod(sdk, objects, method.id), E_ACCESSDENIED);
+        wa::hook_ipc::publishMonitorState(selectionRing, wa::methodBit(method.id), 7);
+        objects.result = S_OK;
+        for (unsigned i = 0; i < 100; ++i) EXPECT_EQ(invokeMethod(sdk, objects, method.id), S_OK);
+        const auto snapshot = wa::hook_ipc::readMethodStatistics(selectionRing, 7);
+        ASSERT_TRUE(snapshot.known);
+        const auto& counts = snapshot.methods[static_cast<size_t>(method.id)];
+        EXPECT_FALSE(counts.unknown);
+        EXPECT_EQ(counts.completed, 103u);
+        EXPECT_EQ(counts.failed, 1u);
+        EXPECT_EQ(counts.discontinuities, method.id == Method::CaptureGetBuffer ? 101u : 0u);
+        EXPECT_GT(static_cast<uint32_t>(selectionRing.pumpCounters.overwritten), 0u);
+    }
+}
+
+HRESULT emptyPacketResult = S_OK;
+HRESULT STDMETHODCALLTYPE noPacket(IAudioCaptureClient*, BYTE**, UINT32*, DWORD*, UINT64*, UINT64*) {
+    return emptyPacketResult;
+}
+
+TEST_F(HookMethodSelection, EmptyCaptureStatusesNeverReadUnproducedOutputsOrCountDiscontinuity) {
+    resetObservation(wa::methodBit(Method::CaptureGetBuffer));
+    const CapGetBufFn saved = g_capGet;
+    g_capGet = noPacket;
+    auto* invalidFrames = reinterpret_cast<UINT32*>(static_cast<uintptr_t>(1));
+    auto* invalidFlags = reinterpret_cast<DWORD*>(static_cast<uintptr_t>(1));
+    for (HRESULT hr : {S_FALSE, AUDCLNT_S_BUFFER_EMPTY, E_ACCESSDENIED}) {
+        emptyPacketResult = hr;
+        EXPECT_EQ(HookCapGetBuffer(nullptr, nullptr, invalidFrames, invalidFlags, nullptr, nullptr), hr);
+    }
+    emptyPacketResult = S_OK;
+    UINT32 empty = 0;
+    EXPECT_EQ(HookCapGetBuffer(nullptr, nullptr, &empty, invalidFlags, nullptr, nullptr), S_OK);
+    g_capGet = saved;
+    const auto snapshot = wa::hook_ipc::readMethodStatistics(selectionRing, 7);
+    const auto& count = snapshot.methods[static_cast<size_t>(Method::CaptureGetBuffer)];
+    EXPECT_EQ(count.completed, 4u);
+    EXPECT_EQ(count.failed, 1u);
+    EXPECT_EQ(count.discontinuities, 0u);
+}
+
 TEST_F(HookMethodSelection, EverySdkMethodPreservesForwardingAndHasZeroDisabledRecordWork) {
 #if !defined(__IAudioEffectsManager_INTERFACE_DEFINED__)
     ADD_FAILURE() << "The acceptance SDK must expose IAudioEffectsManager for all 25 methods";
@@ -699,6 +751,9 @@ TEST_F(HookMethodSelection, InFlightCallsKeepEntrySelectionAndCannotEnterAnother
             EXPECT_EQ(selectionRing.writeIndex + selectionRing.pumpWriteIndex, recorded ? 1u : 0u);
             EXPECT_EQ(writes, recorded ? 1u : 0u);
             EXPECT_EQ(timestamps, recorded ? 1u : 0u);
+            const auto statistics = wa::hook_ipc::readMethodStatistics(selectionRing, transition == 3 ? 8 : 7);
+            EXPECT_EQ(statistics.methods[static_cast<size_t>(method.id)].completed,
+                recorded && !method.control ? 1u : 0u);
             if (recorded) {
                 const auto& pod = method.control ? selectionRing.slots[0] : selectionRing.pumpSlots[0];
                 EXPECT_EQ(pod.observationGeneration, 7u);

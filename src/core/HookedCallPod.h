@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstring>
 #include "MethodSelection.h"
+#include "HookTransportStatus.h"
 
 namespace wa {
 namespace hook_ipc {
@@ -23,8 +24,8 @@ constexpr uint32_t kPumpCap = 64;
 constexpr uint32_t kInstallPending = 0;
 constexpr uint32_t kInstallOk = 1;
 constexpr uint32_t kInstallFailed = 2;
-// Layout 9 uses exclusive slot ownership and complete publication.
-constexpr uint32_t kRingLayout = 9;
+// Layout 10 adds generation-tagged source method statistics to layout 9's slots.
+constexpr uint32_t kRingLayout = 10;
 constexpr uint32_t kCoverageDiscoveredImplementations = 1;
 constexpr uint32_t kCoverageInstallationFault = 2;
 
@@ -263,6 +264,10 @@ struct alignas(8) LaneCounters {
     uint64_t unknown;
 };
 
+struct alignas(8) MethodCounters {
+    uint64_t completed, failed, discontinuities, unknown;
+};
+
 struct Ring {
     uint32_t magic;
     uint32_t writeIndex;
@@ -290,6 +295,7 @@ struct Ring {
     LaneCounters controlCounters, pumpCounters;
     SlotPublication controlPublication[kCap];
     SlotPublication pumpPublication[kPumpCap];
+    MethodCounters methodCounters[static_cast<size_t>(MonitorMethod::Count)];
 };
 
 static_assert(offsetof(Ring, monitorMask) % 8 == 0, "Atomic selection must be aligned on x86 too");
@@ -415,9 +421,74 @@ inline bool compatibleRing(const Ring& ring) {
         ring.layoutBytes == sizeof(Ring) && atomicRead64(ring.transportEpoch) != 0;
 }
 
+inline MethodStatisticsSnapshot readMethodStatistics(const Ring& ring, uint32_t generation) {
+    MethodStatisticsSnapshot snapshot;
+    snapshot.known = compatibleRing(ring) && static_cast<uint32_t>(monitorState(ring) >> 32) == generation;
+    if (!snapshot.known) return snapshot;
+    const auto count = [generation](const uint64_t& value) -> uint64_t {
+        const auto tagged = atomicRead64(value);
+        return static_cast<uint32_t>(tagged >> 32) == generation ? static_cast<uint32_t>(tagged) : 0;
+    };
+    // Independent atomic samples, not one transaction with each other or rows.
+    for (size_t i = 0; i < snapshot.methods.size(); ++i) {
+        const auto& source = ring.methodCounters[i];
+        snapshot.methods[i] = {count(source.completed), count(source.failed),
+            count(source.discontinuities), count(source.unknown) != 0};
+    }
+    if (static_cast<uint32_t>(monitorState(ring) >> 32) != generation) snapshot.known = false;
+    return snapshot;
+}
+
+#ifndef WA_HOOK_STATISTICS_OBSERVE
+#define WA_HOOK_STATISTICS_OBSERVE(stage, counter) ((void)0)
+#endif
+
+static inline void countMethodCompletion(Ring& ring, MonitorMethod method, uint32_t generation,
+                                  HRESULT hr, bool discontinuity) {
+    auto& counters = ring.methodCounters[static_cast<size_t>(method)];
+    const auto unknown = [&] {
+        // Attach generations strictly increase; UINT32_MAX rejects reattach.
+        // Markers never move backwards. At most one older delayed writer can
+        // win against the first observed value: other old writers could not
+        // have observed its later value before this generation began. Retry
+        // once for that case; a same-generation winner already marks unknown.
+        for (unsigned attempt = 0; attempt < 2; ++attempt) {
+            const auto previous = atomicRead64(counters.unknown);
+            if (static_cast<uint32_t>(monitorState(ring) >> 32) != generation ||
+                static_cast<uint32_t>(previous >> 32) > generation) return;
+            const auto desired = slotOwner(generation, 1);
+            if (previous == desired) return;
+            WA_HOOK_STATISTICS_OBSERVE(unknown_attempt, &counters.unknown);
+            if (static_cast<uint64_t>(InterlockedCompareExchange64(
+                    reinterpret_cast<volatile LONG64*>(&counters.unknown),
+                    static_cast<LONG64>(desired), static_cast<LONG64>(previous))) == previous) return;
+        }
+    };
+    const auto increment = [&](uint64_t& value) {
+        for (unsigned attempt = 0; attempt < 8; ++attempt) {
+            const auto previous = atomicRead64(value);
+            if (static_cast<uint32_t>(monitorState(ring) >> 32) != generation) return;
+            const uint32_t count = static_cast<uint32_t>(previous >> 32) == generation
+                ? static_cast<uint32_t>(previous) : 0;
+            if (count == UINT32_MAX) { unknown(); return; }
+            WA_HOOK_STATISTICS_OBSERVE(count_attempt, &value);
+            if (static_cast<uint64_t>(InterlockedCompareExchange64(
+                    reinterpret_cast<volatile LONG64*>(&value),
+                    static_cast<LONG64>(slotOwner(generation, count + 1)),
+                    static_cast<LONG64>(previous))) == previous) return;
+        }
+        unknown();
+    };
+    increment(counters.completed);
+    if (FAILED(hr)) increment(counters.failed);
+    if (discontinuity) increment(counters.discontinuities);
+}
+
 static_assert(alignof(SlotPublication) >= 8 && sizeof(SlotPublication) == 24, "Shared slot ABI");
 static_assert(offsetof(Ring, controlCounters) % 8 == 0, "Shared counters must be aligned");
 static_assert(offsetof(Ring, controlPublication) % 8 == 0, "Shared ownership must be aligned");
+static_assert(sizeof(MethodCounters) == 32 && offsetof(Ring, methodCounters) % 8 == 0,
+              "Shared method statistics must be aligned on both architectures");
 
 inline void mapName(uint32_t pid, wchar_t* out, size_t n) {
     swprintf_s(out, n, L"Local\\WinAudioHook-%u-%u", kRingLayout, pid);

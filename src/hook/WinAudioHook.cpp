@@ -152,12 +152,17 @@ bool shouldEmit() {
 uint32_t observationGeneration() {
     return g_ring ? static_cast<uint32_t>(wa::hook_ipc::monitorState(*g_ring) >> 32) : UINT32_MAX;
 }
-struct EntrySelection { uint32_t generation; bool enabled; };
+struct EntrySelection { uint32_t generation; bool enabled; wa::MonitorMethod method; };
 EntrySelection enterMethod(wa::MonitorMethod method) {
     const bool capturing = shouldEmit();
     const auto state = g_ring ? wa::hook_ipc::monitorState(*g_ring) : 0;
     return {static_cast<uint32_t>(state >> 32), capturing &&
-        (static_cast<uint32_t>(state) & wa::methodBit(method)) != 0};
+        (static_cast<uint32_t>(state) & wa::methodBit(method)) != 0, method};
+}
+
+void completeMethod(const EntrySelection& selection, HRESULT hr, bool discontinuity = false) {
+    if (selection.enabled && g_ring)
+        wa::hook_ipc::countMethodCompletion(*g_ring, selection.method, selection.generation, hr, discontinuity);
 }
 
 void emit(CallPod pod, uint32_t observation) {
@@ -533,6 +538,7 @@ HRESULT STDMETHODCALLTYPE HookVolGet(ISimpleAudioVolume* self, float* level) {
     const auto observation = selection.generation;
     const HRESULT hr = g_volGet ? g_volGet(self, level) : E_UNEXPECTED;
     if (!selection.enabled) return hr;
+    completeMethod(selection, hr);
     WA_HOOK_OBSERVE(prepare);
     WA_HOOK_OBSERVE(format);
     WA_HOOK_OBSERVE(pack);
@@ -561,6 +567,7 @@ HRESULT STDMETHODCALLTYPE HookMuteGet(ISimpleAudioVolume* self, BOOL* mute) {
     const auto observation = selection.generation;
     const HRESULT hr = g_muteGet ? g_muteGet(self, mute) : E_UNEXPECTED;
     if (!selection.enabled) return hr;
+    completeMethod(selection, hr);
     WA_HOOK_OBSERVE(prepare);
     WA_HOOK_OBSERVE(format);
     WA_HOOK_OBSERVE(pack);
@@ -586,6 +593,7 @@ HRESULT STDMETHODCALLTYPE HookSessState(IAudioSessionControl* self, AudioSession
     const auto observation = selection.generation;
     const HRESULT hr = g_sessState ? g_sessState(self, st) : E_UNEXPECTED;
     if (!selection.enabled) return hr;
+    completeMethod(selection, hr);
     WA_HOOK_OBSERVE(prepare);
     WA_HOOK_OBSERVE(format);
     WA_HOOK_OBSERVE(pack);
@@ -604,6 +612,7 @@ HRESULT STDMETHODCALLTYPE HookClockFreq(IAudioClock* self, UINT64* freq) {
     const auto observation = selection.generation;
     const HRESULT hr = g_clockFreq ? g_clockFreq(self, freq) : E_UNEXPECTED;
     if (!selection.enabled) return hr;
+    completeMethod(selection, hr);
     WA_HOOK_OBSERVE(prepare);
     WA_HOOK_OBSERVE(format);
     WA_HOOK_OBSERVE(pack);
@@ -620,6 +629,10 @@ HRESULT STDMETHODCALLTYPE HookCapGetBuffer(IAudioCaptureClient* self, BYTE** dat
     const HRESULT hr =
         g_capGet ? g_capGet(self, data, frames, flags, pos, qpc) : E_UNEXPECTED;
     if (!selection.enabled) return hr;
+    // Empty/success statuses do not promise a packet or valid output flags.
+    const bool packet = hr == S_OK && frames && flags && *frames != 0;
+    const bool discontinuity = packet && (*flags & AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY) != 0;
+    completeMethod(selection, hr, discontinuity);
     WA_HOOK_OBSERVE(prepare);
     WA_HOOK_OBSERVE(format);
     WA_HOOK_OBSERVE(pack);
@@ -628,8 +641,8 @@ HRESULT STDMETHODCALLTYPE HookCapGetBuffer(IAudioCaptureClient* self, BYTE** dat
     p.pump = 1;
     copyStr(p.iface, sizeof(p.iface), "IAudioCaptureClient");
     copyStr(p.method, sizeof(p.method), "GetBuffer");
-    const UINT32 n = (SUCCEEDED(hr) && frames) ? *frames : 0;
-    const DWORD fl = (SUCCEEDED(hr) && flags) ? *flags : 0;
+    const UINT32 n = (hr == S_OK && frames) ? *frames : 0;
+    const DWORD fl = packet ? *flags : 0;
     sprintf_s(p.args, "frames=%u flags=0x%lX", n, static_cast<unsigned long>(fl));
     p.hresult = static_cast<int32_t>(hr);
     p.xrun = (FAILED(hr) || (fl & AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY)) ? 1 : 0;
@@ -642,6 +655,7 @@ HRESULT STDMETHODCALLTYPE HookCapReleaseBuffer(IAudioCaptureClient* self, UINT32
     const auto observation = selection.generation;
     const HRESULT hr = g_capRel ? g_capRel(self, frames) : E_UNEXPECTED;
     if (!selection.enabled) return hr;
+    completeMethod(selection, hr);
     WA_HOOK_OBSERVE(prepare);
     WA_HOOK_OBSERVE(format);
     WA_HOOK_OBSERVE(pack);
@@ -662,6 +676,7 @@ HRESULT STDMETHODCALLTYPE HookRenGetBuffer(IAudioRenderClient* self, UINT32 fram
     const auto observation = selection.generation;
     const HRESULT hr = g_renGet ? g_renGet(self, frames, data) : E_UNEXPECTED;
     if (!selection.enabled) return hr;
+    completeMethod(selection, hr);
     WA_HOOK_OBSERVE(prepare);
     WA_HOOK_OBSERVE(format);
     WA_HOOK_OBSERVE(pack);
@@ -683,6 +698,7 @@ HRESULT STDMETHODCALLTYPE HookRenReleaseBuffer(IAudioRenderClient* self, UINT32 
     const auto observation = selection.generation;
     const HRESULT hr = g_renRel ? g_renRel(self, frames, flags) : E_UNEXPECTED;
     if (!selection.enabled) return hr;
+    completeMethod(selection, hr);
     WA_HOOK_OBSERVE(prepare);
     WA_HOOK_OBSERVE(format);
     WA_HOOK_OBSERVE(pack);
@@ -703,6 +719,7 @@ HRESULT STDMETHODCALLTYPE HookGetBufferSize(IAudioClient* self, UINT32* frames) 
     const auto observation = selection.generation;
     const HRESULT hr = g_getBufSize ? g_getBufSize(self, frames) : E_UNEXPECTED;
     if (!selection.enabled) return hr;
+    completeMethod(selection, hr);
     WA_HOOK_OBSERVE(prepare);
     WA_HOOK_OBSERVE(format);
     WA_HOOK_OBSERVE(pack);
@@ -717,6 +734,7 @@ HRESULT STDMETHODCALLTYPE HookStreamVolCount(IAudioStreamVolume* self, UINT32* c
     const auto observation = selection.generation;
     const HRESULT hr = g_streamVolCount ? g_streamVolCount(self, count) : E_UNEXPECTED;
     if (!selection.enabled) return hr;
+    completeMethod(selection, hr);
     WA_HOOK_OBSERVE(prepare);
     WA_HOOK_OBSERVE(format);
     WA_HOOK_OBSERVE(pack);
@@ -745,6 +763,7 @@ HRESULT STDMETHODCALLTYPE HookStreamVolGet(IAudioStreamVolume* self, UINT32 inde
     const auto observation = selection.generation;
     const HRESULT hr = g_streamVolGet ? g_streamVolGet(self, index, level) : E_UNEXPECTED;
     if (!selection.enabled) return hr;
+    completeMethod(selection, hr);
     WA_HOOK_OBSERVE(prepare);
     WA_HOOK_OBSERVE(format);
     WA_HOOK_OBSERVE(pack);
@@ -763,6 +782,7 @@ HRESULT STDMETHODCALLTYPE HookFxGet(IAudioEffectsManager* self, AUDIO_EFFECT** e
     const auto observation = selection.generation;
     const HRESULT hr = g_fxGet ? g_fxGet(self, effects, n) : E_UNEXPECTED;
     if (!selection.enabled) return hr;
+    completeMethod(selection, hr);
     WA_HOOK_OBSERVE(prepare);
     WA_HOOK_OBSERVE(format);
     WA_HOOK_OBSERVE(pack);

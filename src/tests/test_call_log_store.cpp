@@ -121,7 +121,7 @@ TEST(CallLogStore, AttachSegmentsAndRoundsDoNotReuseRecordIdentity) {
     EXPECT_NE(store.entries().front()->id, kept->id);
 }
 
-TEST(CallLogStore, LegacyPumpViewKeepsExistingLimitAndRetainsHistoryUntilHidden) {
+TEST(CallLogStore, EachSegmentKeepsItsWindowAndRetainsHistoryUntilHidden) {
     CallLogStore store;
     const auto first = store.registerAttach(7), second = store.registerAttach(9);
     std::vector<PumpCall> window;
@@ -136,7 +136,7 @@ TEST(CallLogStore, LegacyPumpViewKeepsExistingLimitAndRetainsHistoryUntilHidden)
     store.updatePump(second, window);
     EXPECT_TRUE(store.pumpEntries().empty());
     store.setPumpVisible(true);
-    ASSERT_EQ(store.pumpEntries().size(), 64u);
+    ASSERT_EQ(store.pumpEntries().size(), 128u);
     const auto selected = store.pumpEntries().back()->id;
     EXPECT_EQ(selected.attach, second);
     EXPECT_NE(store.find(selected), nullptr);
@@ -144,10 +144,59 @@ TEST(CallLogStore, LegacyPumpViewKeepsExistingLimitAndRetainsHistoryUntilHidden)
     EXPECT_TRUE(store.freezeExport().records.empty());
     store.endAttach(second);
     EXPECT_NE(store.find(selected), nullptr);
-    EXPECT_EQ(store.pumpEntries().size(), 64u);
+    EXPECT_EQ(store.pumpEntries().size(), 128u);
     const auto remaining = store.pumpEntries().front()->id;
     store.setPumpVisible(false);
     EXPECT_EQ(store.find(remaining), nullptr);
+}
+
+TEST(CallLogStore, TwoSegmentsShare1024AcrossAllWindowMethodsWithoutEvictingControl) {
+    CallLogStore store;
+    store.setPumpVisible(true);
+    const auto a = store.registerAttach({71, 111}, "A", 10, 1);
+    const auto b = store.registerAttach({72, 222}, "B", 20, 1);
+    store.append(a, sampleCall());
+    store.append(b, sampleCall());
+    const auto control = store.entries().front();
+    std::vector<PumpCall> firstBatch, secondBatch;
+    for (uint64_t i = 1; i <= 10000; ++i) {
+        HookedCall call;
+        call.timeMs = static_cast<int64_t>(i);
+        call.iface = i % 2 ? "IAudioClock" : "IAudioRenderClient";
+        call.method = i % 2 ? "GetFrequency" : "ReleaseBuffer";
+        call.args = std::to_string(i);
+        firstBatch.push_back({i, call});
+        call.args = "B:" + call.args;
+        secondBatch.push_back({i, call});
+        if (i % 32 == 0 || i == 10000) {
+            store.appendPump(a, firstBatch);
+            store.appendPump(b, secondBatch);
+            firstBatch.clear();
+            secondBatch.clear();
+        }
+    }
+    EXPECT_EQ(store.size(), 2u);
+    EXPECT_EQ(store.find(control->id), control.get());
+    for (const auto id : {a, b}) {
+        EXPECT_EQ(store.segment(id)->windowRetained, 1024u);
+        EXPECT_EQ(store.segment(id)->windowReceived, 10000u);
+        EXPECT_EQ(store.segment(id)->windowEvicted, 8976u);
+        const auto view = store.view({"", "", false, id});
+        ASSERT_EQ(view.size(), 1025u);
+        for (size_t row = 1; row <= 1024; ++row) {
+            const auto* record = view.at(row);
+            ASSERT_NE(record, nullptr);
+            EXPECT_EQ(record->id.attach, id);
+            EXPECT_EQ(record->id.sequence, 8976u + row);
+            EXPECT_EQ(record->call.args, (id == b ? "B:" : "") + std::to_string(8976u + row));
+        }
+        EXPECT_EQ(view.work().sorted, id == a ? 2u : 0u);
+    }
+    store.endAttach(a, false, 123);
+    const auto fresh = store.registerAttach({71, 111}, "A", 30, 124);
+    store.appendPump(a, {{10001, sampleCall()}});
+    EXPECT_EQ(store.view({"", "", false, a}).size(), 1025u);
+    EXPECT_EQ(store.view({"", "", false, fresh}).size(), 0u);
 }
 
 TEST(CallLogStore, SaveJsonlRoundTrip) {

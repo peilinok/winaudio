@@ -228,36 +228,12 @@ void CallLogStore::rebuildPump() {
         if (a->id.attach != b->id.attach) return a->id.attach < b->id.attach;
         return a->id.sequence < b->id.sequence;
     });
-    if (pump_.size() > kDefaultPumpRingCap)
-        pump_.erase(pump_.begin(), pump_.end() - static_cast<std::ptrdiff_t>(kDefaultPumpRingCap));
 }
 
 void CallLogStore::updatePump(uint64_t attach, const std::vector<PumpCall>& window) {
-    if (attach == 0 || attach > attaches_.size()) return;
-    auto& segment = attaches_[static_cast<size_t>(attach - 1)];
-    if (!segment.active) return;
-    bool unchanged = segment.pump.size() == window.size();
-    for (size_t i = 0; unchanged && i < window.size(); ++i)
-        unchanged = segment.pump[i]->id.sequence == window[i].sequence;
-    if (unchanged) return;
-    std::vector<CallRecordRef> next;
-    next.reserve(window.size());
-    for (const auto& observed : window) {
-        const auto old = std::find_if(segment.pump.begin(), segment.pump.end(), [&](const CallRecordRef& ref) {
-            return ref->id.sequence == observed.sequence;
-        });
-        if (old != segment.pump.end()) { next.push_back(*old); continue; }
-        auto call = observed.call;
-        call.pid = segment.pid;
-        call.processCreated = segment.instance.created;
-        call.attachToken = segment.token;
-        call.pump = true;
-        call.args = sanitizeHookedArgs(std::move(call.args));
-        CallRecord record{{round_, attach, observed.sequence, CallLane::Pump}, std::move(call)};
-        next.push_back(std::make_shared<const CallRecord>(std::move(record)));
-    }
-    segment.pump = std::move(next);
-    rebuildPump();
+    // Legacy snapshot callers hand off the same completed identities. Only new
+    // rows enter the segment's shared window; a smaller snapshot never erases it.
+    appendPump(attach, window);
 }
 
 void CallLogStore::appendPump(uint64_t attach, const std::vector<PumpCall>& received) {
@@ -279,7 +255,12 @@ void CallLogStore::appendPump(uint64_t attach, const std::vector<PumpCall>& rece
         call.args = sanitizeHookedArgs(std::move(call.args));
         CallRecord record{{round_, attach, observed.sequence, CallLane::Pump}, std::move(call)};
         segment.pump.push_back(std::make_shared<const CallRecord>(std::move(record)));
-        if (segment.pump.size() > kDefaultPumpRingCap) segment.pump.erase(segment.pump.begin());
+        ++segment.windowReceived;
+        if (segment.pump.size() > kDefaultPumpRingCap) {
+            segment.pump.erase(segment.pump.begin());
+            ++segment.windowEvicted;
+        }
+        segment.windowRetained = segment.pump.size();
         changed = true;
     }
     if (changed) rebuildPump();

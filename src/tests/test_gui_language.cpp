@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include "AppUiText.h"
 #include "LogRegionPrefs.h"
+#include "imgui.h"
 
 #include <filesystem>
 #include <fstream>
@@ -612,4 +613,51 @@ TEST_F(GuiLanguageText, TransportLossTextSeparatesUnknownAndConfirmedCounts) {
     EXPECT_NE(chinese.find("控制器队列缺失：控制 8 | 高频 9"), std::string::npos);
     status = {};
     EXPECT_EQ(wa::ui_text::pipelineTransportText(status), "传输缺失：未知（尚无快照）");
+}
+
+TEST_F(GuiLanguageText, SourceStatisticsDistinguishUnknownZeroFailuresAndDiscontinuities) {
+    wa::MethodStatisticsSnapshot snapshot;
+    wa::ui_text::setLanguage(wa::gui_language::Language::En);
+    EXPECT_EQ(wa::ui_text::pipelineStatisticsText(snapshot), "Source statistics: unknown (no verifiable snapshot)");
+    snapshot.known = true;
+    const auto zero = wa::ui_text::pipelineStatisticsText(snapshot);
+    EXPECT_NE(zero.find("IAudioClock::GetFrequency: completed 0 | API failures 0 | audio discontinuities 0 | accuracy verified"), std::string::npos);
+    snapshot.methods[static_cast<size_t>(wa::MonitorMethod::CaptureGetBuffer)] = {4096, 3, 2, true};
+    const auto english = wa::ui_text::pipelineStatisticsText(snapshot);
+    EXPECT_NE(english.find("IAudioCaptureClient::GetBuffer: completed 4096 | API failures 3 | audio discontinuities 2 | accuracy unknown"), std::string::npos);
+    wa::ui_text::setLanguage(wa::gui_language::Language::ZhCn);
+    const auto chinese = wa::ui_text::pipelineStatisticsText(snapshot);
+    EXPECT_NE(chinese.find("完成 4096 | API 失败 3 | 数据不连续 2 | 准确性 未知"), std::string::npos);
+    EXPECT_NE(std::string(wa::ui_text::get(wa::ui_text::kPipelineWindowCountsFmt)).find("窗口移除"), std::string::npos);
+}
+
+TEST_F(GuiLanguageText, SourceStatisticsLabelsFitProductionFontRanges) {
+    ImFontAtlas atlas;
+    ImFontGlyphRangesBuilder available;
+    available.AddRanges(atlas.GetGlyphRangesChineseSimplifiedCommon());
+    const char* labels[] = {
+        wa::ui_text::kPipelineWindowCountsFmt,
+        wa::ui_text::kPipelineStatisticsMethodFmt,
+        wa::ui_text::kPipelineStatisticsHint,
+    };
+    const wa::gui_language::Language languages[] = {
+        wa::gui_language::Language::En,
+        wa::gui_language::Language::ZhCn,
+    };
+    for (const auto language : languages) {
+        wa::ui_text::setLanguage(language);
+        for (const char* label : labels) {
+            const char* visible = wa::ui_text::get(label);
+            SCOPED_TRACE(visible);
+            ImFontGlyphRangesBuilder required;
+            required.AddText(visible);
+            ImVector<ImWchar> ranges;
+            required.BuildRanges(&ranges);
+            for (int i = 0; ranges[i] != 0; i += 2) {
+                for (unsigned int cp = ranges[i]; cp <= ranges[i + 1]; ++cp) {
+                    EXPECT_TRUE(available.GetBit(cp)) << "Missing codepoint " << cp;
+                }
+            }
+        }
+    }
 }

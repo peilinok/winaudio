@@ -64,6 +64,8 @@ public:
         SegmentState state = SegmentState::Monitoring;
         bool coverageUnknown = true;
         size_t count = 0;
+        size_t windowRetained = 0;
+        uint64_t windowReceived = 0, windowEvicted = 0;
         uint32_t methods = kDefaultMonitorMethods;
         HookTransportStatus transport;
     };
