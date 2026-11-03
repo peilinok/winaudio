@@ -282,6 +282,13 @@ bool run(unsigned method, bool hooked) {
         return false;
     }
     std::printf("target_command=%ls\n", command.c_str());
+    FILETIME created{}, exited{}, kernel{}, user{};
+    const bool identityKnown = win32Call("GetProcessTimes/target identity", [&] {
+        return GetProcessTimes(process.hProcess, &created, &exited, &kernel, &user) != FALSE;
+    }, "pid=" + std::to_string(process.dwProcessId));
+    const uint64_t creationTime = (uint64_t(created.dwHighDateTime) << 32) | created.dwLowDateTime;
+    std::printf("target_identity pid=%lu created=%llu verified=%d\n", process.dwProcessId, creationTime,
+                identityKnown && creationTime != 0);
     closeHandle("CloseHandle/target thread", process.hThread);
     const HANDLE waits[] = {ready, process.hProcess};
     const DWORD readiness = WaitForMultipleObjects(2, waits, FALSE, 10000);
@@ -289,7 +296,7 @@ bool run(unsigned method, bool hooked) {
     observeWait("WaitForMultipleObjects/ready", readiness, readinessError,
                 "ready=" + std::to_string(reinterpret_cast<uintptr_t>(ready)) +
                 " target=" + std::to_string(process.dwProcessId) + " waitAll=FALSE timeout=10000", wa::log::Level::Info);
-    bool ok = readiness == WAIT_OBJECT_0;
+    bool ok = readiness == WAIT_OBJECT_0 && identityKnown && creationTime != 0;
     wa::OnDemandAttach attach;
     if (ok && hooked) {
         const auto attached = attach.start(process.dwProcessId, {}, wa::PipelineFlow::Render,

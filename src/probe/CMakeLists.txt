@@ -19,6 +19,10 @@ add_executable(HookAudioProbe HookAudioProbe.cpp)
 target_link_libraries(HookAudioProbe PRIVATE WinAudioCore)
 wa_set_project_warnings(HookAudioProbe)
 
+add_executable(PipelineIntegrationProbe PipelineIntegrationProbe.cpp)
+target_link_libraries(PipelineIntegrationProbe PRIVATE WinAudioCore)
+wa_set_project_warnings(PipelineIntegrationProbe)
+
 add_executable(HookTransportProbe HookTransportProbe.cpp)
 target_link_libraries(HookTransportProbe PRIVATE WinAudioCore)
 wa_set_project_warnings(HookTransportProbe)
