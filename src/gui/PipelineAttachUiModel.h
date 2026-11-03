@@ -64,6 +64,12 @@ public:
         selected_ = id;
         return true;
     }
+    template<class Receive>
+    CallLogExport freezeExport(CallLogStore& store, int64_t frozenMs, Receive&& receive) {
+        const auto selected = selected_;
+        receive();
+        return store.freezeExport(selected, frozenMs);
+    }
     void apply(CallLogStore& store, PipelineAttachController::Batch batch) {
         for (const auto& event : batch.events) {
             if (event.kind != PipelineAttachController::EventKind::Cleared || !event.result) continue;
@@ -76,7 +82,8 @@ public:
             if (event.kind != PipelineAttachController::EventKind::Configured) continue;
             const auto id = store.attachForToken(event.token);
             if (const auto* segment = store.segment(id))
-                if (segment->instance == event.instance) store.setMethods(id, event.methods);
+                if (segment->instance == event.instance)
+                    store.setMethods(id, event.methods, event.snapshotMs, event.observationGeneration);
         }
         // Finish already-known sources before admitting replacement instances.
         // One batch can carry the old source's bounded tail and a new success.
@@ -94,8 +101,7 @@ public:
         }
         for (const auto& event : batch.events) {
             if (event.kind != PipelineAttachController::EventKind::Attached) continue;
-            const auto id = store.registerAttach(event.instance, event.name, event.token, event.snapshotMs);
-            store.setMethods(id, event.methods);
+            const auto id = store.registerAttach(event.instance, event.name, event.token, event.snapshotMs, event.methods);
             store.setObservationGeneration(id, event.observationGeneration);
             if (!selected_) selected_ = id;
         }

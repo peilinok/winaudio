@@ -165,7 +165,8 @@ uint64_t CallLogStore::registerAttach(uint32_t pid) {
     return id;
 }
 
-uint64_t CallLogStore::registerAttach(ProcessInstance instance, std::string name, uint64_t token, int64_t startedMs) {
+uint64_t CallLogStore::registerAttach(ProcessInstance instance, std::string name, uint64_t token, int64_t startedMs,
+                                      uint32_t methods) {
     if (!instance || !token) return 0;
     if (const auto existing = attachForToken(token))
         return segment(existing)->instance == instance ? existing : 0;
@@ -182,6 +183,7 @@ uint64_t CallLogStore::registerAttach(ProcessInstance instance, std::string name
     next.name = std::move(name);
     next.startedMs = next.snapshotMs = startedMs;
     next.statisticsStartedMs = startedMs;
+    next.initialMethods = next.methods = methods;
     attaches_.push_back(std::move(next));
     const uint64_t id = attaches_.size();
     latestAttach_[instance.pid] = tokenAttach_[token] = id;
@@ -192,10 +194,13 @@ const CallLogStore::Segment* CallLogStore::segment(uint64_t attach) const {
     return attach && attach <= attaches_.size() ? &attaches_[static_cast<size_t>(attach - 1)] : nullptr;
 }
 
-bool CallLogStore::setMethods(uint64_t attach, uint32_t methods) {
+bool CallLogStore::setMethods(uint64_t attach, uint32_t methods, int64_t observedMs,
+                              std::optional<uint32_t> observedGeneration) {
     if (!attach || attach > attaches_.size() || (methods & ~kAllMonitorMethods)) return false;
     auto& target = attaches_[static_cast<size_t>(attach - 1)];
     if (!target.active) return false;
+    if (target.methods != methods)
+        target.configurationChanges.push_back({methods, observedGeneration.value_or(target.observationGeneration), observedMs});
     target.methods = methods;
     return true;
 }
@@ -591,6 +596,23 @@ CallLogExport CallLogStore::freezeExport() const {
     return out;
 }
 
+CallLogExport CallLogStore::freezeExport(uint64_t attach, int64_t frozenMs) const {
+    CallLogExport out;
+    const auto* selected = segment(attach);
+    if (!selected) return out;
+    out.round = round_;
+    out.segment = *selected;
+    out.frozenMs = frozenMs;
+    for (const auto& record : entries_) {
+        if (record->id.attach != attach) continue;
+        out.records.push_back(record);
+        out.upperSequence = record->id.sequence;
+    }
+    const auto& window = attaches_[static_cast<size_t>(attach - 1)].pump;
+    out.records.insert(out.records.end(), window.begin(), window.end());
+    return out;
+}
+
 size_t CallLogStore::exportCount() const {
     return range_ == RecordingRange::Frozen ? frozenCount_ : entries_.size();
 }
@@ -615,6 +637,8 @@ std::string CallLogStore::defaultFileStem(uint32_t pid) {
 }
 
 std::string CallLogStore::exportFileStem(const CallLogExport& snapshot) {
+    if (snapshot.segment)
+        return defaultFileStem(snapshot.segment->instance.pid) + "-segment" + std::to_string(snapshot.segment->id);
     const uint32_t pid = snapshot.records.empty() ? 0 : snapshot.records.front()->call.pid;
     std::string stem = defaultFileStem(pid);
     for (const auto& record : snapshot.records) {
@@ -663,8 +687,10 @@ std::string CallLogStore::toJsonLine(const HookedCall& c) {
     return oss.str();
 }
 
-std::string CallLogStore::toCsvHeader() {
-    return "timeMs,pid,iface,method,args,hr,hresult,streamId,pump,xrun";
+std::string CallLogStore::toCsvHeader(bool segment) {
+    std::string header = "timeMs,pid,iface,method,args,hr,hresult,streamId,pump,xrun";
+    if (segment) header += ",roundId,attachId,lane,sequence,processCreated,attachToken,observationGeneration,rowType,summaryKey,summaryValue";
+    return header;
 }
 
 std::string CallLogStore::toJsonLine(const CallRecord& record) {
@@ -672,7 +698,12 @@ std::string CallLogStore::toJsonLine(const CallRecord& record) {
     line.pop_back();
     line += ",\"roundId\":" + std::to_string(record.id.round) +
         ",\"attachId\":" + std::to_string(record.id.attach) +
-        ",\"lane\":\"control\",\"sequence\":" + std::to_string(record.id.sequence) + "}";
+        ",\"lane\":\"" + (record.id.lane == CallLane::Control ? "control" : "pump") +
+        "\",\"sequence\":" + std::to_string(record.id.sequence) +
+        ",\"processCreated\":" + std::to_string(record.call.processCreated) +
+        ",\"attachToken\":" + std::to_string(record.call.attachToken) +
+        ",\"observationGeneration\":" + std::to_string(record.call.observationGeneration) +
+        ",\"rowType\":\"call\"}";
     return line;
 }
 
@@ -682,6 +713,124 @@ std::string CallLogStore::toCsvLine(const HookedCall& c) {
         << csvEscape(c.args) << ',' << formatHresult(c.hresult) << ',' << c.hresult << ','
         << c.streamId << ',' << (c.pump ? 1 : 0) << ',' << (c.xrun ? 1 : 0);
     return oss.str();
+}
+
+std::string CallLogStore::toCsvLine(const CallRecord& record) {
+    return toCsvLine(record.call) + ',' + std::to_string(record.id.round) + ',' +
+        std::to_string(record.id.attach) + ',' + (record.id.lane == CallLane::Control ? "control" : "pump") +
+        ',' + std::to_string(record.id.sequence) + ',' + std::to_string(record.call.processCreated) +
+        ',' + std::to_string(record.call.attachToken) + ',' + std::to_string(record.call.observationGeneration) +
+        ",call,,";
+}
+
+std::vector<std::string> CallLogStore::exportSummary(const CallLogExport& snapshot, bool csv) {
+    if (!snapshot.segment) return {};
+    const auto& s = *snapshot.segment;
+    // Dotted summary keys have identical meanings in JSONL and flat CSV.
+    struct Field { std::string key, value; bool text = false; };
+    std::vector<Field> fields;
+    const auto number = [&](const std::string& key, auto value) { fields.push_back({key, std::to_string(value)}); };
+    const auto boolean = [&](const std::string& key, bool value) { fields.push_back({key, value ? "true" : "false"}); };
+    const auto text = [&](const std::string& key, const std::string& value) { fields.push_back({key, value, true}); };
+    number("schemaVersion", 2);
+    number("roundId", snapshot.round);
+    number("attachId", s.id);
+    number("pid", s.instance.pid);
+    number("processCreated", s.instance.created);
+    number("attachToken", s.token);
+    text("name", s.name);
+    text("state", s.state == SegmentState::Monitoring ? "monitoring" : s.state == SegmentState::Exited ? "exited" : "detached");
+    number("startedMs", s.startedMs);
+    number("segmentSnapshotMs", s.snapshotMs);
+    number("frozenMs", snapshot.frozenMs);
+    number("statisticsStartedMs", s.statisticsStartedMs);
+    number("observationGeneration", s.observationGeneration);
+    boolean("coverageUnknown", s.coverageUnknown);
+    text("windowScope", "recent-retained-not-complete-history");
+    text("configurationTimeScope", "host-observed-success-not-exact-source-publication");
+    text("snapshotScope", "host-received-at-click-not-simultaneous-source-snapshot");
+    number("methods", s.methods);
+    number("initialMethods", s.initialMethods);
+    number("configurationChanges.count", s.configurationChanges.size());
+    for (size_t i = 0; i < s.configurationChanges.size(); ++i) {
+        const auto prefix = "configurationChanges." + std::to_string(i) + '.';
+        const auto& change = s.configurationChanges[i];
+        number(prefix + "methods", change.methods);
+        number(prefix + "observedMs", change.observedMs);
+        number(prefix + "observationGeneration", change.observationGeneration);
+    }
+    number("controlRetained", s.count);
+    number("controlUpperSequence", snapshot.upperSequence);
+    number("windowRetained", s.windowRetained);
+    number("windowReceived", s.windowReceived);
+    number("windowEvicted", s.windowEvicted);
+    for (const auto lane : {CallLane::Control, CallLane::Pump}) {
+        const std::string prefix = lane == CallLane::Control ? "control" : "window";
+        bool known = false;
+        int64_t first = 0, last = 0;
+        uint64_t upper = 0;
+        for (const auto& record : snapshot.records) {
+            if (record->id.lane != lane) continue;
+            if (!known) first = last = record->call.timeMs;
+            first = (std::min)(first, record->call.timeMs);
+            last = (std::max)(last, record->call.timeMs);
+            upper = (std::max)(upper, record->id.sequence);
+            known = true;
+        }
+        boolean(prefix + "RecordTimeKnown", known);
+        number(prefix + "FirstRecordMs", first);
+        number(prefix + "LastRecordMs", last);
+        if (lane == CallLane::Pump) number("windowUpperSequence", upper);
+    }
+    const auto& t = s.transport;
+    number("transport.snapshotMs", t.snapshotMs);
+    number("transport.snapshotSequence", t.snapshotSequence);
+    number("transport.observationGeneration", t.observationGeneration);
+    const auto transport = [&](const std::string& prefix, const HookTransportLaneStatus& status, uint64_t dropped) {
+        number(prefix + ".overwritten", status.overwritten);
+        number(prefix + ".writeRejected", status.writeRejected);
+        number(prefix + ".pending", status.pending);
+        boolean(prefix + ".unknown", status.unknown);
+        number(prefix + ".controllerDropped", dropped);
+    };
+    transport("transport.control", t.control, t.controllerDroppedControl);
+    transport("transport.pump", t.pump, t.controllerDroppedPump);
+    boolean("statistics.known", t.statistics.known);
+    for (size_t i = 0; i < static_cast<size_t>(MonitorMethod::Count); ++i) {
+        if (kMonitorMethods[i].control) continue;
+        const auto prefix = std::string("statistics.") + kMonitorMethods[i].iface + '.' + kMonitorMethods[i].method;
+        const auto& method = t.statistics.methods[i];
+        number(prefix + ".completed", method.completed);
+        number(prefix + ".failed", method.failed);
+        number(prefix + ".discontinuities", method.discontinuities);
+        boolean(prefix + ".unknown", method.unknown);
+    }
+    std::vector<std::string> lines;
+    if (!csv) {
+        std::string line = "{\"rowType\":\"segment\"";
+        for (const auto& field : fields)
+            line += ",\"" + field.key + "\":" + (field.text ? '"' + jsonEscape(field.value) + '"' : field.value);
+        lines.push_back(line + '}');
+    } else {
+        for (const auto& field : fields) {
+            std::vector<std::string> columns(20);
+            columns[10] = std::to_string(snapshot.round);
+            columns[11] = std::to_string(s.id);
+            columns[14] = std::to_string(s.instance.created);
+            columns[15] = std::to_string(s.token);
+            columns[16] = std::to_string(s.observationGeneration);
+            columns[17] = "segment";
+            columns[18] = field.key;
+            columns[19] = field.value;
+            std::string line;
+            for (size_t i = 0; i < columns.size(); ++i) {
+                if (i) line += ',';
+                line += csvEscape(columns[i]);
+            }
+            lines.push_back(std::move(line));
+        }
+    }
+    return lines;
 }
 
 Result CallLogStore::saveJsonl(const std::wstring& path) const {

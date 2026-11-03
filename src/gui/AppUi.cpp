@@ -663,10 +663,10 @@ void AppUi::attemptPipelineAttach(const wa::pipeline_attach_ui::AttachRequest& r
     applyPipelineJoin();
 }
 
-void AppUi::pollPipelineAttach() {
+void AppUi::pollPipelineAttach(bool forExport) {
     const auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now().time_since_epoch()).count();
-    if (!pipelinePresentationRefresh_.take(static_cast<uint64_t>(now))) return;
+    if (!forExport && !pipelinePresentationRefresh_.take(static_cast<uint64_t>(now))) return;
     std::vector<wa::PipelineAttachController::Batch> batches;
     {
         wa::FrameBracket receive(frameProbe_, wa::FrameSlice::CallReceive);
@@ -771,12 +771,17 @@ bool AppUi::savePipelineCallLog(const std::wstring& destination) {
         logLines_.push_back("pipeline save calls: export is busy");
         return false;
     }
-    const auto count = pipelineCallStore_.exportCount();
-    if (count == 0) {
-        logLines_.push_back("pipeline save calls: recording range is empty");
+    const auto selected = pipelineSegmentSelection_.selected();
+    if (!pipelineCallStore_.segment(selected)) {
+        logLines_.push_back("pipeline save calls: no selected segment");
         return false;
     }
-    auto snapshot = pipelineCallStore_.freezeExport();
+    const auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    auto snapshot = pipelineSegmentSelection_.freezeExport(pipelineCallStore_, now, [&] {
+        pollPipelineAttach(true);
+    });
+    const auto count = snapshot.records.size();
     frameProbe_.addWork("export-reference-bytes", snapshot.records.capacity() * sizeof(wa::CallRecordRef));
     const auto r = pipelineExport_.start(std::move(snapshot), destination);
     if (!r) {
@@ -1620,11 +1625,12 @@ void AppUi::drawPipelinePage() {
             setPipelineRecording(pipelineRecord_);
         }
         ImGui::SameLine();
-        const bool canSave = pipelineCallStore_.size() > 0 && !pipelineExport_.busy();
+        const bool canSave = pipelineCallStore_.segment(pipelineSegmentSelection_.selected()) && !pipelineExport_.busy();
         if (!canSave) ImGui::BeginDisabled();
         if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineSaveCalls)))
             savePipelineCallLog();
         if (!canSave) ImGui::EndDisabled();
+        ImGui::SetItemTooltip("%s", wa::ui_text::get(wa::ui_text::kPipelineExportHint));
         if (pipelineRecord_)
             ImGui::Text("recording: %zu", pipelineCallStore_.exportCount());
         if (pipelinePreparing_)
@@ -1642,8 +1648,6 @@ void AppUi::drawPipelinePage() {
             ImGui::SameLine();
             if (ImGui::Button(wa::ui_text::get(wa::ui_text::kPipelineCancel))) pipelineExport_.cancel();
         }
-        if (pipelineCallStore_.size() && pipelineCallStore_.exportCount() == 0)
-            ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineEmptyRecording));
         {
             uint32_t statusPid = 0;
             wa::pipeline_attach_ui::parseAttachPid(pipelineAttachPid_, statusPid);
