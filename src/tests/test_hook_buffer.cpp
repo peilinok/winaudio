@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 #include <cstring>
+#include <future>
+#include "PumpWindow.h"
 
 namespace {
 void observeHook(const char* event);
@@ -46,6 +48,62 @@ void disableAfterOriginal() {
 void reattachAfterOriginal() {
     InterlockedIncrement(reinterpret_cast<volatile LONG*>(&hook_harness::ring.observationGeneration));
 }
+HANDLE originalEntered = nullptr, originalReleased = nullptr;
+void waitInsideOriginal() {
+    SetEvent(originalEntered);
+    EXPECT_EQ(WaitForSingleObject(originalReleased, 5000), WAIT_OBJECT_0);
+}
+}
+
+TEST(HookBuffer, EventGatedOriginalReturnsAcrossClearWithoutRefillingNewWindowOrCounts) {
+    struct Events {
+        Events() {
+            originalEntered = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+            originalReleased = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        }
+        ~Events() {
+            CloseHandle(originalEntered);
+            CloseHandle(originalReleased);
+            originalEntered = originalReleased = nullptr;
+        }
+    } events;
+    ASSERT_TRUE(originalEntered && originalReleased);
+    for (int entry = 0; entry < 4; ++entry) {
+        SCOPED_TRACE(entry);
+        ResetEvent(originalEntered);
+        ResetEvent(originalReleased);
+        reset();
+        wa::hook_ipc::initializeRing(hook_harness::ring);
+        hook_harness::ring.captureEnabled = hook_harness::ring.pumpEnabled = 1;
+        wa::hook_ipc::publishMonitorState(hook_harness::ring, wa::kAllMonitorMethods, 1);
+        hook_harness::result = S_FALSE;
+        hook_harness::afterOriginal = waitInsideOriginal;
+        auto call = std::async(std::launch::async, [entry] { return hook_harness::invoke(entry); });
+        EXPECT_EQ(WaitForSingleObject(originalEntered, 5000), WAIT_OBJECT_0);
+        // Exactly the production publication boundary, with the real Hook
+        // held inside its original API, never a sleep-based schedule.
+        wa::PumpWindow window;
+        window.begin(hook_harness::ring, 2);
+        wa::hook_ipc::publishMonitorState(hook_harness::ring, wa::kAllMonitorMethods, 2);
+        EXPECT_EQ(WaitForSingleObject(originalReleased, 0), WAIT_TIMEOUT);
+        SetEvent(originalReleased);
+        EXPECT_EQ(call.get(), S_FALSE);
+        EXPECT_EQ(hook_harness::calls, 1u);
+        EXPECT_TRUE(window.poll(hook_harness::ring).empty());
+        const auto afterOld = wa::hook_ipc::readMethodStatistics(hook_harness::ring, 2);
+        ASSERT_TRUE(afterOld.known);
+        for (const auto& method : afterOld.methods) EXPECT_EQ(method.completed, 0u);
+        hook_harness::afterOriginal = nullptr;
+        EXPECT_EQ(hook_harness::invoke(entry), S_FALSE);
+        EXPECT_EQ(hook_harness::calls, 2u);
+        const auto& fresh = window.poll(hook_harness::ring);
+        ASSERT_EQ(fresh.size(), 1u);
+        EXPECT_EQ(fresh.front().call.observationGeneration, 2u);
+        const auto afterNew = wa::hook_ipc::readMethodStatistics(hook_harness::ring, 2);
+        const wa::MonitorMethod methods[] = {wa::MonitorMethod::CaptureGetBuffer, wa::MonitorMethod::CaptureReleaseBuffer,
+            wa::MonitorMethod::RenderGetBuffer, wa::MonitorMethod::RenderReleaseBuffer};
+        EXPECT_EQ(afterNew.methods[static_cast<size_t>(methods[entry])].completed, 1u);
+    }
 }
 
 TEST(HookBuffer, InFlightCallCannotCrossReattachBoundary) {

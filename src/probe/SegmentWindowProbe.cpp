@@ -205,6 +205,7 @@ bool probeLaunch(ProbeTarget& target, unsigned index, const wchar_t* self, wa::C
     target.window.begin(ring);
     target.controls.begin(ring, false, kGeneration);
     target.attach = store.registerAttach(target.instance, index ? "render-child" : "clock-child", index + 1, 1);
+    store.setObservationGeneration(target.attach, kGeneration);
     target.zeroStatistics = ipc::readMethodStatistics(ring, kGeneration).known;
     const auto initial = ipc::readMethodStatistics(ring, kGeneration);
     for (const auto& item : initial.methods)
@@ -279,6 +280,7 @@ bool probeFinish(ProbeTarget& target, unsigned index, wa::CallLogStore& store) {
     wa::HookTransportStatus status;
     status.snapshotMs = 100;
     status.snapshotSequence = 1;
+    status.observationGeneration = kGeneration;
     status.pump = target.transport;
     status.statistics = target.statistics;
     ok = store.updateTransport({target.instance, index + 1, status}) && ok;

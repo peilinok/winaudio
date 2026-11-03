@@ -12,6 +12,11 @@ namespace wa::ui_text {
 
 // One row: identifier, English literal, Chinese slot (nullptr or "" = fallback).
 #define WA_UI_TEXT_ROWS \
+    WA_UI_TEXT(kPipelineClearCurrent, "Clear current segment", "清空当前段") \
+    WA_UI_TEXT(kPipelineClearHint, "Clear this segment's calls, recent window and counts. Monitoring selection and other segments stay unchanged.", "清空本段调用、最近窗口和本次统计；保留监控选择及其他记录段。") \
+    WA_UI_TEXT(kPipelineClearPending, "Publishing clear boundary...", "正在发布清空边界...") \
+    WA_UI_TEXT(kPipelineClearFailed, "Clear failed; original data and statistics start are retained", "清空失败；保留原数据及统计起点") \
+    WA_UI_TEXT(kPipelineStatisticsStartFmt, "Statistics start: %s | observation generation %u", "统计起点：%s | 观测代次 %u") \
     WA_UI_TEXT(kPipelineWindowCountsFmt, "Recent window: %llu / 1024 retained | %llu fully received | %llu evicted", "最近窗口：保留 %llu / 1024 | 完整接收 %llu | 窗口移除 %llu") \
     WA_UI_TEXT(kPipelineSourceStatistics, "Source cumulative statistics", "源端累计统计") \
     WA_UI_TEXT(kPipelineStatisticsUnknown, "Source statistics: unknown (no verifiable snapshot)", "源端统计：未知（尚无可验证快照）") \

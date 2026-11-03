@@ -10,7 +10,7 @@ class PipelineAttachController {
 public:
     static constexpr size_t kQueueCapacity = 32;
     static constexpr size_t kTargetCapacity = 64;
-    enum class EventKind { Attached, Failed, Detached, Configured, ConfigurationFailed };
+    enum class EventKind { Attached, Failed, Detached, Configured, ConfigurationFailed, Cleared, ClearFailed };
     struct Event {
         uint32_t pid = 0;
         EventKind kind = EventKind::Failed;
@@ -21,6 +21,7 @@ public:
         int64_t snapshotMs = 0;
         bool exited = false;
         uint32_t methods = kDefaultMonitorMethods;
+        uint32_t observationGeneration = 0;
     };
     struct Batch {
         std::vector<Event> events;
@@ -43,6 +44,7 @@ public:
                  PipelineFlow flow = PipelineFlow::Capture, ProcessInstance expected = {},
                  uint32_t methods = UINT32_MAX);
     Result configure(ProcessInstance instance, uint64_t token, uint32_t methods);
+    Result clear(ProcessInstance instance, uint64_t token);
     uint32_t lastMethods(ProcessInstance instance) const;
     bool stop(uint32_t pid);
     bool stopAll();

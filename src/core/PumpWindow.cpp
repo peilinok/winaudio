@@ -11,6 +11,7 @@ std::string boundedText(const char (&text)[N]) { return std::string(text, strnle
 HookedCall decodeHookedCallPod(const hook_ipc::CallPod& p) {
     HookedCall c;
     c.streamId = p.streamId;
+    c.observationGeneration = p.observationGeneration;
     c.timeMs = p.timeMs;
     c.iface = boundedText(p.iface);
     c.method = boundedText(p.method);
@@ -29,7 +30,11 @@ HookedCall decodeHookedCallPod(const hook_ipc::CallPod& p) {
 }
 
 void PumpWindow::begin(const hook_ipc::Ring& ring) {
-    reader_.begin(ring, true, static_cast<uint32_t>(hook_ipc::monitorState(ring) >> 32));
+    begin(ring, static_cast<uint32_t>(hook_ipc::monitorState(ring) >> 32));
+}
+
+void PumpWindow::begin(const hook_ipc::Ring& ring, uint32_t generation) {
+    reader_.begin(ring, true, generation);
     current_.clear();
     received_.clear();
 }

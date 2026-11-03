@@ -674,6 +674,18 @@ void AppUi::pollPipelineAttach() {
     }
     for (auto& batch : batches) {
         for (const auto& event : batch.events) {
+            if (event.kind == wa::PipelineAttachController::EventKind::Cleared ||
+                event.kind == wa::PipelineAttachController::EventKind::ClearFailed) {
+                const auto id = pipelineCallStore_.attachForToken(event.token);
+                auto& state = pipelineClearStates_[id];
+                state.pending = false;
+                state.failure = event.result ? "" : event.result.message;
+                if (event.result && pipelineCallSelected_.attach == id) {
+                    pipelineCallSelected_ = {};
+                    pipelinePumpSelectionExpired_ = false;
+                }
+                continue;
+            }
             if (event.kind == wa::PipelineAttachController::EventKind::Configured ||
                 event.kind == wa::PipelineAttachController::EventKind::ConfigurationFailed) {
                 const auto id = pipelineCallStore_.attachForToken(event.token);
@@ -1983,6 +1995,33 @@ void AppUi::drawPipelinePage() {
         if (const auto* segment = pipelineCallStore_.segment(pipelineSegmentSelection_.selected())) {
             ImGui::Text(wa::ui_text::get(wa::ui_text::kPipelineCallSourceFmt), segment->name.c_str(),
                 segment->instance.pid, static_cast<unsigned long long>(segment->id), segmentStatus(segment->state));
+            auto& clearState = pipelineClearStates_[segment->id];
+            ImGui::BeginDisabled(clearState.pending);
+            if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineClearCurrent))) {
+                if (segment->state == wa::CallLogStore::SegmentState::Monitoring) {
+                    const auto result = pipelineAttaches_.clear(segment->instance, segment->token);
+                    clearState.pending = static_cast<bool>(result);
+                    clearState.failure = result ? "" : result.message;
+                } else {
+                    const auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::system_clock::now().time_since_epoch()).count();
+                    if (pipelineCallStore_.clearSegment(segment->id, segment->observationGeneration, timestamp)) {
+                        pipelineCallSelected_ = {};
+                        pipelinePumpSelectionExpired_ = false;
+                        clearState.failure.clear();
+                        applyPipelineJoin();
+                    }
+                }
+            }
+            ImGui::EndDisabled();
+            ImGui::SetItemTooltip("%s", wa::ui_text::get(wa::ui_text::kPipelineClearHint));
+            if (clearState.pending) ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineClearPending));
+            if (!clearState.failure.empty()) {
+                ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineClearFailed));
+                ImGui::TextWrapped("%s", clearState.failure.c_str());
+            }
+            ImGui::TextDisabled(wa::ui_text::get(wa::ui_text::kPipelineStatisticsStartFmt),
+                wa::pipeline_attach_ui::segmentTime(segment->statisticsStartedMs).c_str(), segment->observationGeneration);
             if (segment->state != wa::CallLogStore::SegmentState::Monitoring)
                 ImGui::TextWrapped(wa::ui_text::get(wa::ui_text::kPipelineHistorySnapshotFmt),
                     wa::pipeline_attach_ui::segmentTime(segment->snapshotMs).c_str());

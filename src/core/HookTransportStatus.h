@@ -28,6 +28,7 @@ struct HookTransportStatus {
     int64_t snapshotMs = 0;
     // Receiver order is independent of wall-clock adjustments.
     uint64_t snapshotSequence = 0;
+    uint32_t observationGeneration = 0;
     HookTransportLaneStatus control, pump;
     uint64_t controllerDroppedControl = 0;
     uint64_t controllerDroppedPump = 0;

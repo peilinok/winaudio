@@ -3,6 +3,7 @@
 #include "RemoteInjectionHarness.h"
 #include "OnDemandAttach.h"
 #include "PipelineAttachController.h"
+#include "PipelineAttachUiModel.h"
 #include "HookedCallPod.h"
 #include "HookModuleIdentity.h"
 #include <tlhelp32.h>
@@ -399,6 +400,118 @@ TEST_F(RemoteInjectionTest, BackgroundTargetExitPublishesAnOwnedEndResult) {
     EXPECT_EQ(ended[0].kind, wa::PipelineAttachController::EventKind::Detached);
 }
 
+TEST_F(RemoteInjectionTest, ClearPublishesANewGenerationPreservesMethodsAndRejectsQueuedSourceData) {
+    wa::PipelineAttachController controller;
+    wa::CallLogStore store;
+    wa::pipeline_attach_ui::SegmentSelection selection;
+    const uint32_t methods = wa::methodBit(wa::MonitorMethod::Start) |
+        wa::methodBit(wa::MonitorMethod::GetChannelCount);
+    ASSERT_TRUE(controller.start(child.dwProcessId, {}, wa::PipelineFlow::Render, {}, methods));
+    ASSERT_TRUE(waitUntil([&] { return !controller.snapshot().pendingPid; }));
+    for (auto& batch : controller.poll()) selection.apply(store, std::move(batch));
+    const auto id = selection.selected();
+    ASSERT_NE(id, 0u);
+    const auto instance = store.segment(id)->instance;
+    const auto token = store.segment(id)->token;
+    struct Mapping {
+        HANDLE handle = nullptr;
+        wa::hook_ipc::Ring* ring = nullptr;
+        ~Mapping() { if (ring) UnmapViewOfFile(ring); if (handle) CloseHandle(handle); }
+    } mappingView;
+    wchar_t name[64]{};
+    wa::hook_ipc::mapName(instance.pid, name, 64);
+    mappingView.handle = OpenFileMappingW(FILE_MAP_ALL_ACCESS, FALSE, name);
+    ASSERT_NE(mappingView.handle, nullptr);
+    mappingView.ring = static_cast<wa::hook_ipc::Ring*>(MapViewOfFile(mappingView.handle, FILE_MAP_ALL_ACCESS, 0, 0, 0));
+    ASSERT_NE(mappingView.ring, nullptr);
+    auto& ring = *mappingView.ring;
+    const auto generation = static_cast<uint32_t>(wa::hook_ipc::monitorState(ring) >> 32);
+    wa::hook_ipc::CallPod pod{};
+    pod.observationGeneration = generation;
+    strcpy_s(pod.iface, "IAudioClient");
+    strcpy_s(pod.method, "Start");
+    ASSERT_TRUE(wa::hook_ipc::writeCall(ring, pod));
+    wa::hook_ipc::countMethodCompletion(ring, wa::MonitorMethod::Start, generation, S_OK, false);
+    auto pump = pod;
+    pump.pump = 1;
+    strcpy_s(pump.iface, "IAudioStreamVolume");
+    strcpy_s(pump.method, "GetChannelCount");
+    ASSERT_TRUE(wa::hook_ipc::writeCall(ring, pump));
+    wa::hook_ipc::countMethodCompletion(ring, wa::MonitorMethod::GetChannelCount, generation, S_OK, false);
+    ASSERT_TRUE(waitUntil([&] {
+        for (auto& batch : controller.poll()) selection.apply(store, std::move(batch));
+        return store.segment(id)->count == 1 && store.segment(id)->windowReceived == 1;
+    }));
+    const auto oldRecord = store.entries().front();
+    const auto frozen = store.freezeExport();
+    // Leave old data in both the shared ring and the controller result queue.
+    ASSERT_TRUE(wa::hook_ipc::writeCall(ring, pod));
+    wa::hook_ipc::countMethodCompletion(ring, wa::MonitorMethod::Start, generation, S_OK, false);
+    ASSERT_TRUE(wa::hook_ipc::writeCall(ring, pump));
+    wa::hook_ipc::countMethodCompletion(ring, wa::MonitorMethod::GetChannelCount, generation, S_OK, false);
+    ASSERT_TRUE(controller.clear(instance, token));
+    bool cleared = false;
+    ASSERT_TRUE(waitUntil([&] {
+        for (auto& batch : controller.poll()) {
+            for (const auto& event : batch.events)
+                if (event.kind == wa::PipelineAttachController::EventKind::Cleared) cleared = true;
+            selection.apply(store, std::move(batch));
+        }
+        return cleared;
+    }));
+    EXPECT_EQ(static_cast<uint32_t>(wa::hook_ipc::monitorState(ring)), methods);
+    EXPECT_EQ(static_cast<uint32_t>(wa::hook_ipc::monitorState(ring) >> 32), generation + 1);
+    EXPECT_EQ(store.segment(id)->count, 0u);
+    EXPECT_EQ(store.segment(id)->windowRetained, 0u);
+    EXPECT_EQ(store.segment(id)->windowReceived, 0u);
+    EXPECT_EQ(store.segment(id)->windowEvicted, 0u);
+    EXPECT_EQ(store.segment(id)->transport.statistics.methods[static_cast<size_t>(wa::MonitorMethod::GetChannelCount)].completed, 0u);
+    EXPECT_EQ(store.segment(id)->transport.statistics.methods[static_cast<size_t>(wa::MonitorMethod::Start)].completed, 0u);
+    EXPECT_EQ(controller.lastMethods(instance), methods);
+    EXPECT_EQ(selection.selected(), id);
+    EXPECT_EQ(store.find(oldRecord->id), nullptr);
+    EXPECT_EQ(frozen.records.front().get(), oldRecord.get());
+    // Old completions after publication cannot increment this generation.
+    wa::hook_ipc::countMethodCompletion(ring, wa::MonitorMethod::Start, generation, E_FAIL, false);
+    pod.observationGeneration = generation + 1;
+    ASSERT_TRUE(wa::hook_ipc::writeCall(ring, pod));
+    wa::hook_ipc::countMethodCompletion(ring, wa::MonitorMethod::Start, generation + 1, S_OK, false);
+    pump.observationGeneration = generation + 1;
+    ASSERT_TRUE(wa::hook_ipc::writeCall(ring, pump));
+    wa::hook_ipc::countMethodCompletion(ring, wa::MonitorMethod::GetChannelCount, generation + 1, E_FAIL, false);
+    ASSERT_TRUE(waitUntil([&] {
+        for (auto& batch : controller.poll()) selection.apply(store, std::move(batch));
+        return store.segment(id)->count == 1 && store.segment(id)->windowReceived == 1 &&
+            store.segment(id)->transport.statistics.methods[static_cast<size_t>(wa::MonitorMethod::Start)].completed == 1;
+    }));
+    const auto kept = store.entries().front();
+    EXPECT_EQ(store.segment(id)->transport.statistics.methods[static_cast<size_t>(wa::MonitorMethod::GetChannelCount)].failed, 1u);
+    const auto start = store.segment(id)->statisticsStartedMs;
+    const auto magic = ring.magic;
+    ring.magic = 0;
+    ASSERT_TRUE(controller.clear(instance, token));
+    bool failed = false;
+    ASSERT_TRUE(waitUntil([&] {
+        for (auto& batch : controller.poll()) {
+            for (const auto& event : batch.events)
+                if (event.kind == wa::PipelineAttachController::EventKind::ClearFailed) {
+                    failed = true;
+                    EXPECT_FALSE(event.result);
+                    EXPECT_NE(event.result.message.find("restart"), std::string::npos);
+                }
+            selection.apply(store, std::move(batch));
+        }
+        return failed;
+    }));
+    EXPECT_EQ(store.segment(id)->count, 1u);
+    EXPECT_EQ(store.segment(id)->statisticsStartedMs, start);
+    EXPECT_EQ(store.segment(id)->transport.statistics.methods[static_cast<size_t>(wa::MonitorMethod::Start)].completed, 1u);
+    EXPECT_EQ(store.find(kept->id), kept.get());
+    EXPECT_EQ(controller.lastMethods(instance), methods);
+    ring.magic = magic;
+    EXPECT_EQ(WaitForSingleObject(child.hProcess, 0), WAIT_TIMEOUT);
+}
+
 TEST_F(RemoteInjectionTest, FrozenExpectedIdentityRejectsPidReuseBeforeInjection) {
     wa::ProcessInstance expected;
     ASSERT_TRUE(wa::queryProcessInstance(child.dwProcessId, expected));
@@ -412,6 +525,38 @@ TEST_F(RemoteInjectionTest, FrozenExpectedIdentityRejectsPidReuseBeforeInjection
     EXPECT_EQ(events[0].token, 0u);
     EXPECT_EQ(events[0].result.code, static_cast<long>(HRESULT_FROM_WIN32(ERROR_PROCESS_ABORTED)));
     EXPECT_FALSE(controller.anyAttached());
+    EXPECT_EQ(WaitForSingleObject(child.hProcess, 0), WAIT_TIMEOUT);
+}
+
+TEST_F(RemoteInjectionTest, ClearFailsClosedAtGenerationExhaustionWithoutWrappingOrResettingCounts) {
+    wa::OnDemandAttach attach;
+    ASSERT_TRUE(attach.start(child.dwProcessId, {}, wa::PipelineFlow::Render));
+    const auto instance = attach.instance();
+    wchar_t name[64]{};
+    wa::hook_ipc::mapName(instance.pid, name, 64);
+    struct Mapping {
+        HANDLE handle = nullptr;
+        wa::hook_ipc::Ring* ring = nullptr;
+        ~Mapping() { if (ring) UnmapViewOfFile(ring); if (handle) CloseHandle(handle); }
+    } view;
+    view.handle = OpenFileMappingW(FILE_MAP_ALL_ACCESS, FALSE, name);
+    ASSERT_NE(view.handle, nullptr);
+    view.ring = static_cast<wa::hook_ipc::Ring*>(MapViewOfFile(view.handle, FILE_MAP_ALL_ACCESS, 0, 0, 0));
+    ASSERT_NE(view.ring, nullptr);
+    attach.stop();
+    wa::hook_ipc::publishMonitorState(*view.ring, wa::kDefaultMonitorMethods, UINT32_MAX - 1);
+    ASSERT_TRUE(attach.start(instance.pid, {}, wa::PipelineFlow::Render, nullptr, instance));
+    wa::hook_ipc::countMethodCompletion(*view.ring, wa::MonitorMethod::Start, UINT32_MAX, S_OK, false);
+    const auto before = wa::hook_ipc::monitorState(*view.ring);
+    const auto result = attach.clear(instance);
+    EXPECT_FALSE(result);
+    EXPECT_EQ(result.code, static_cast<long>(HRESULT_FROM_WIN32(ERROR_ARITHMETIC_OVERFLOW)));
+    EXPECT_EQ(wa::hook_ipc::monitorState(*view.ring), before);
+    EXPECT_EQ(attach.transportStatus().statistics.methods[static_cast<size_t>(wa::MonitorMethod::Start)].completed, 1u);
+    auto reused = instance;
+    ++reused.created;
+    EXPECT_FALSE(attach.clear(reused));
+    EXPECT_EQ(wa::hook_ipc::monitorState(*view.ring), before);
     EXPECT_EQ(WaitForSingleObject(child.hProcess, 0), WAIT_TIMEOUT);
 }
 

@@ -62,6 +62,7 @@ public:
     bool targetExited() const;
     uint32_t pid() const;
     ProcessInstance instance() const;
+    uint32_t observationGeneration() const;
     const std::string& processName() const;
     AttachBlock lastBlock() const;
     std::vector<HookedCall> drain(bool finish = false);
@@ -74,11 +75,13 @@ public:
     HookCoverage coverage() const;
     void setCaptureEnabled(bool on);
     Result publishMethods(ProcessInstance expected, uint32_t methods);
+    Result clear(ProcessInstance expected);
     // Nonblocking maintenance; returns the number of unresolved orphaned entries.
     static uint32_t reapPending();
 
 private:
     struct Impl;
+    Result publish(ProcessInstance expected, uint32_t methods, bool clear);
     std::unique_ptr<Impl> impl_;
 };
 
