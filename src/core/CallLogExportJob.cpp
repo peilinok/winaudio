@@ -107,7 +107,7 @@ CallLogExportJob::~CallLogExportJob() {
 
 Result CallLogExportJob::start(CallLogExport snapshot, std::wstring destination, bool csv) {
     if (busy()) return Result::Fail(E_PENDING, "export is busy");
-    if (snapshot.records.empty()) return Result::Fail(E_INVALIDARG, "recording range is empty");
+    if (snapshot.records.empty() && !snapshot.segment) return Result::Fail(E_INVALIDARG, "recording range is empty");
     if (destination.empty()) {
         const auto dir = CallLogStore::defaultDirectory();
         if (dir.empty()) return Result::Fail(E_FAIL, "default export directory unavailable");
@@ -137,10 +137,15 @@ void CallLogExportJob::run(CallLogExport snapshot, std::wstring destination, boo
         outcome.result = writer_->open(outcome.path);
         opened = static_cast<bool>(outcome.result);
         if (outcome.result && csv && !cancelled_.load(std::memory_order_relaxed))
-            outcome.result = writer_->write(CallLogStore::toCsvHeader() + '\n');
+            outcome.result = writer_->write(CallLogStore::toCsvHeader(snapshot.segment.has_value()) + '\n');
+        for (const auto& line : CallLogStore::exportSummary(snapshot, csv)) {
+            if (!outcome.result || cancelled_.load(std::memory_order_relaxed)) break;
+            outcome.result = writer_->write(line + '\n');
+        }
         for (const auto& ref : snapshot.records) {
             if (!outcome.result || cancelled_.load(std::memory_order_relaxed)) break;
-            const auto line = (csv ? CallLogStore::toCsvLine(ref->call) : CallLogStore::toJsonLine(*ref)) + '\n';
+            const auto line = (csv ? (snapshot.segment ? CallLogStore::toCsvLine(*ref) : CallLogStore::toCsvLine(ref->call))
+                                   : CallLogStore::toJsonLine(*ref)) + '\n';
             outcome.result = writer_->write(line);
             if (outcome.result) progress_.store(++outcome.recordsWritten, std::memory_order_relaxed);
         }

@@ -636,6 +636,8 @@ TEST_F(GuiLanguageText, SourceStatisticsLabelsFitProductionFontRanges) {
     ImFontGlyphRangesBuilder available;
     available.AddRanges(atlas.GetGlyphRangesChineseSimplifiedCommon());
     const char* labels[] = {
+        wa::ui_text::kPipelineSaveCalls,
+        wa::ui_text::kPipelineExportHint,
         wa::ui_text::kPipelineClearCurrent,
         wa::ui_text::kPipelineClearHint,
         wa::ui_text::kPipelineClearPending,

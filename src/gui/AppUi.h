@@ -105,7 +105,7 @@ private:
     void runPipelineProbe();
     void runPipelineAttach();
     void attemptPipelineAttach(const wa::pipeline_attach_ui::AttachRequest& request);
-    void pollPipelineAttach();
+    void pollPipelineAttach(bool forExport = false);
     void drawExportCloseDialog();
     void runPipelineDetach();
     void runPipelineDetachAll();

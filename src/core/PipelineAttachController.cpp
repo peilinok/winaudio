@@ -165,6 +165,8 @@ struct PipelineAttachController::Impl {
                         event.observationGeneration = active.observationGeneration(update.instance.pid);
                         event.snapshotMs = now();
                     } else if (result) {
+                        event.snapshotMs = now();
+                        event.observationGeneration = active.observationGeneration(update.instance.pid);
                         std::lock_guard<std::mutex> lock(mutex);
                         lastMethods[{update.instance.pid, update.instance.created}] = update.methods;
                     }

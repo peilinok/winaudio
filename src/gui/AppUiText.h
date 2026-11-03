@@ -205,7 +205,8 @@ namespace wa::ui_text {
     WA_UI_TEXT(kPipelineDetachAll, "Detach all", "全部分离") \
     WA_UI_TEXT(kPipelineAttachedPids, "Attached PIDs", "已附加 PID") \
     WA_UI_TEXT(kPipelineRecord, "Record calls", "录制调用") \
-    WA_UI_TEXT(kPipelineSaveCalls, "Save calls", "保存调用") \
+    WA_UI_TEXT(kPipelineSaveCalls, "Save current segment", "保存当前段") \
+    WA_UI_TEXT(kPipelineExportHint, "Save all retained calls, recent window and statistics of the current segment. Recording and display filters do not limit this snapshot; the window is not a complete history.", "保存当前段保留的全部调用、最近窗口和统计。不受录制和显示筛选影响；窗口不是完整历史。") \
     WA_UI_TEXT(kPipelineCancel, "Cancel", "取消") \
     WA_UI_TEXT(kPipelineExportBusy, "Saving calls. Retry after completion.", "调用正在保存，请完成后重试。") \
     WA_UI_TEXT(kPipelineExportExit, "Save before exit", "保存后退出") \

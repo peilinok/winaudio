@@ -7,6 +7,7 @@
 #include "HookTransportStatus.h"
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -32,10 +33,7 @@ struct CallRecord {
 };
 using CallRecordRef = std::shared_ptr<const CallRecord>;
 
-struct CallLogExport {
-    uint64_t round = 0, upperSequence = 0;
-    std::vector<CallRecordRef> records;
-};
+struct CallLogExport;
 
 enum class CallLogStage { Sort, Match, PumpMatch, Initialize };
 struct CallLogObserver {
@@ -56,6 +54,10 @@ struct CallLogViewWork {
 class CallLogStore {
 public:
     enum class SegmentState { Monitoring, Detached, Exited };
+    struct ConfigurationChange {
+        uint32_t methods = 0, observationGeneration = 0;
+        int64_t observedMs = 0;
+    };
     struct Segment {
         uint64_t id = 0, token = 0;
         ProcessInstance instance;
@@ -69,6 +71,8 @@ public:
         size_t windowRetained = 0;
         uint64_t windowReceived = 0, windowEvicted = 0;
         uint32_t methods = kDefaultMonitorMethods;
+        uint32_t initialMethods = kDefaultMonitorMethods;
+        std::vector<ConfigurationChange> configurationChanges;
         HookTransportStatus transport;
     };
     static constexpr size_t kNotFound = static_cast<size_t>(-1);
@@ -94,9 +98,11 @@ public:
     uint64_t round() const { return round_; }
     bool hasSources() const { return !attaches_.empty(); }
     uint64_t registerAttach(uint32_t pid);
-    uint64_t registerAttach(ProcessInstance instance, std::string name, uint64_t token, int64_t startedMs);
+    uint64_t registerAttach(ProcessInstance instance, std::string name, uint64_t token, int64_t startedMs,
+                            uint32_t methods = kDefaultMonitorMethods);
     const Segment* segment(uint64_t attach) const;
-    bool setMethods(uint64_t attach, uint32_t methods);
+    bool setMethods(uint64_t attach, uint32_t methods, int64_t observedMs = 0,
+                    std::optional<uint32_t> observedGeneration = {});
     bool setObservationGeneration(uint64_t attach, uint32_t generation);
     bool updateTransport(const TransportUpdate& update);
     std::vector<Segment> segments(bool active) const;
@@ -125,6 +131,7 @@ public:
     size_t size() const;
     const std::vector<CallRecordRef>& entries() const { return entries_; }
     CallLogExport freezeExport() const;
+    CallLogExport freezeExport(uint64_t attach, int64_t frozenMs) const;
     size_t exportCount() const;
 
     // Default dir: %LOCALAPPDATA%\WinAudio\pipeline-calls
@@ -141,8 +148,10 @@ public:
     static std::string toJsonLine(const HookedCall& c);
     static std::string toJsonLine(const CallRecord& record);
     static std::string exportFileStem(const CallLogExport& snapshot);
-    static std::string toCsvHeader();
+    static std::string toCsvHeader(bool segment = false);
     static std::string toCsvLine(const HookedCall& c);
+    static std::string toCsvLine(const CallRecord& record);
+    static std::vector<std::string> exportSummary(const CallLogExport& snapshot, bool csv);
 
 private:
     // Accessed by the GUI/control thread. Export workers only own frozen refs.
@@ -183,6 +192,13 @@ private:
     uint64_t combinedAttach_ = 0, combinedLegacy_ = 0;
     size_t combinedRevision_ = kNotFound, combinedLegacyRevision_ = kNotFound;
     HookedInitializeExtract combinedHint_;
+};
+
+struct CallLogExport {
+    uint64_t round = 0, upperSequence = 0;
+    std::vector<CallRecordRef> records;
+    std::optional<CallLogStore::Segment> segment;
+    int64_t frozenMs = 0;
 };
 
 // Stable key for Live-session attach UI state (instance id, else pid|device|flow).

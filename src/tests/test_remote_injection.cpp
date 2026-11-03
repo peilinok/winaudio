@@ -4,6 +4,7 @@
 #include "OnDemandAttach.h"
 #include "PipelineAttachController.h"
 #include "PipelineAttachUiModel.h"
+#include "CallLogExportJob.h"
 #include "HookedCallPod.h"
 #include "HookModuleIdentity.h"
 #include <tlhelp32.h>
@@ -510,6 +511,84 @@ TEST_F(RemoteInjectionTest, ClearPublishesANewGenerationPreservesMethodsAndRejec
     EXPECT_EQ(controller.lastMethods(instance), methods);
     ring.magic = magic;
     EXPECT_EQ(WaitForSingleObject(child.hProcess, 0), WAIT_TIMEOUT);
+}
+
+TEST_F(RemoteInjectionTest, ExportConsumesAlreadyQueuedControllerBatchOutsidePresentationCadence) {
+    wa::PipelineAttachController controller;
+    wa::CallLogStore store;
+    wa::pipeline_attach_ui::SegmentSelection selection;
+    wa::pipeline_attach_ui::PresentationRefresh presentation;
+    const auto initial = wa::methodBit(wa::MonitorMethod::Start) | wa::methodBit(wa::MonitorMethod::GetChannelCount);
+    ASSERT_TRUE(controller.start(child.dwProcessId, {}, wa::PipelineFlow::Render, {}, initial));
+    ASSERT_TRUE(waitUntil([&] { return !controller.snapshot().pendingPid; }));
+    for (auto& batch : controller.poll()) selection.apply(store, std::move(batch));
+    const auto id = selection.selected();
+    ASSERT_NE(id, 0u);
+    const auto instance = store.segment(id)->instance;
+    const auto token = store.segment(id)->token;
+    const auto generation = store.segment(id)->observationGeneration;
+    const auto other = store.registerAttach({9, 200}, "background", 999, 1);
+    struct Mapping {
+        HANDLE handle = nullptr;
+        wa::hook_ipc::Ring* ring = nullptr;
+        ~Mapping() { if (ring) UnmapViewOfFile(ring); if (handle) CloseHandle(handle); }
+    } mappingView;
+    wchar_t name[64]{};
+    wa::hook_ipc::mapName(instance.pid, name, 64);
+    mappingView.handle = OpenFileMappingW(FILE_MAP_ALL_ACCESS, FALSE, name);
+    ASSERT_NE(mappingView.handle, nullptr);
+    mappingView.ring = static_cast<wa::hook_ipc::Ring*>(MapViewOfFile(mappingView.handle, FILE_MAP_ALL_ACCESS, 0, 0, 0));
+    ASSERT_NE(mappingView.ring, nullptr);
+    auto& ring = *mappingView.ring;
+    wa::hook_ipc::CallPod call{};
+    call.observationGeneration = generation;
+    strcpy_s(call.iface, "IAudioClient");
+    strcpy_s(call.method, "Start");
+    ASSERT_TRUE(wa::hook_ipc::writeCall(ring, call));
+    call.pump = 1;
+    strcpy_s(call.iface, "IAudioStreamVolume");
+    strcpy_s(call.method, "GetChannelCount");
+    ASSERT_TRUE(wa::hook_ipc::writeCall(ring, call));
+    wa::hook_ipc::countMethodCompletion(ring, wa::MonitorMethod::GetChannelCount, generation, S_OK, false);
+    const auto configured = initial | wa::methodBit(wa::MonitorMethod::GetChannelVolume);
+    ASSERT_TRUE(controller.configure(instance, token, configured));
+    ASSERT_TRUE(controller.stop(instance.pid));
+    // The receiver has committed the tail and end event to its owned queue.
+    // Do not poll it into Store before exercising the production export seam.
+    ASSERT_TRUE(waitUntil([&] { return !controller.anyAttached(); }));
+    EXPECT_EQ(store.segment(id)->count, 0u);
+    EXPECT_EQ(store.segment(id)->windowReceived, 0u);
+    EXPECT_EQ(store.segment(id)->state, wa::CallLogStore::SegmentState::Monitoring);
+    EXPECT_TRUE(presentation.take(1000));
+    EXPECT_FALSE(presentation.take(1050));
+    auto snapshot = selection.freezeExport(store, 2000, [&] {
+        for (auto& batch : controller.poll()) selection.apply(store, std::move(batch));
+    });
+    ASSERT_TRUE(snapshot.segment);
+    EXPECT_EQ(selection.selected(), id);
+    EXPECT_NE(selection.selected(), other);
+    EXPECT_FALSE(presentation.take(1050));
+    EXPECT_TRUE(presentation.take(1100));
+    EXPECT_EQ(snapshot.segment->state, wa::CallLogStore::SegmentState::Detached);
+    EXPECT_EQ(snapshot.segment->methods, configured);
+    EXPECT_EQ(snapshot.segment->transport.statistics.methods[static_cast<size_t>(wa::MonitorMethod::GetChannelCount)].completed, 1u);
+    ASSERT_EQ(snapshot.records.size(), 2u);
+    EXPECT_EQ(snapshot.records[0]->call.method, "Start");
+    EXPECT_EQ(snapshot.records[1]->call.method, "GetChannelCount");
+    const auto path = std::filesystem::temp_directory_path() / L"winaudio-received-export.jsonl";
+    std::filesystem::remove(path);
+    wa::CallLogExportJob job;
+    ASSERT_TRUE(job.start(std::move(snapshot), path.wstring()));
+    wa::CallLogExportResult result;
+    ASSERT_TRUE(job.wait(result));
+    ASSERT_TRUE(result.result);
+    EXPECT_EQ(result.recordsWritten, 2u);
+    std::ifstream file(path, std::ios::binary);
+    const std::string content(std::istreambuf_iterator<char>(file), {});
+    EXPECT_NE(content.find("\"state\":\"detached\""), std::string::npos);
+    EXPECT_NE(content.find("\"statistics.IAudioStreamVolume.GetChannelCount.completed\":1"), std::string::npos);
+    EXPECT_NE(content.find("\"method\":\"Start\""), std::string::npos);
+    EXPECT_NE(content.find("\"method\":\"GetChannelCount\""), std::string::npos);
 }
 
 TEST_F(RemoteInjectionTest, FrozenExpectedIdentityRejectsPidReuseBeforeInjection) {
