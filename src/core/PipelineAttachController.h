@@ -32,6 +32,9 @@ public:
         std::vector<HookedCall> calls;
         std::vector<std::pair<uint64_t, std::vector<PumpCall>>> pump; // Receiver segment token.
         std::vector<TransportUpdate> transport;
+        // Completion feedback can precede the paced call/transport handoff,
+        // but never pass an unconsumed lifecycle event.
+        std::vector<Event> takeControlFeedback();
     };
     struct Snapshot {
         std::vector<uint32_t> attached;
@@ -39,6 +42,7 @@ public:
         uint64_t droppedCalls = 0, droppedBatches = 0, rejectedCommands = 0;
         uint64_t sourceDroppedCalls = 0;
         uint32_t pumpXruns = 0;
+        size_t queuedBatches = 0, queuedControls = 0, queuedPump = 0;
     };
     enum class ItemState { Queued, Preparing, Injecting, Installing, Succeeded, Skipped,
                            Rejected, Failed, TargetChanged, Cancelled, CleanupPending };
@@ -84,6 +88,7 @@ public:
     bool stopAll();
     void shutdown();  // Cancel and join before frontend logging/global teardown.
     std::vector<Batch> poll();
+    std::vector<Event> pollControlFeedback();
     Snapshot snapshot() const;
     bool attached(uint32_t pid) const;
     bool anyAttached() const;

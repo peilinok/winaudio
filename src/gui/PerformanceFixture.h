@@ -17,6 +17,9 @@ public:
     static void chartPosition(uint64_t source, bool spectrum);
     static bool inspector();
     static bool liveInspector();
+    static bool pipeline();
+    static bool successful();
+    static void visibility(bool occluded, bool minimized);
     static void prepareInspector(AppUi& ui);
     static bool filterEdited();
     static void scrollCalls();
@@ -24,4 +27,7 @@ public:
     static void inspectorSubmitted(AppUi& ui);
 private:
     static bool startInspector(AppUi& ui);
+    static void prepareLive(AppUi& ui);
+    static void restoreControls(AppUi& ui, uint64_t attach);
+    static void preparePipeline(AppUi& ui);
 };

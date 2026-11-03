@@ -206,6 +206,9 @@ int main(int, char**)
         // Handle window being minimized or screen locked
         if (g_SwapChainOccluded && g_pSwapChain->Present(0, DXGI_PRESENT_TEST) == DXGI_STATUS_OCCLUDED)
         {
+#ifdef WA_PERFORMANCE_FIXTURE
+            PerformanceFixture::visibility(true, ::IsIconic(hwnd) != FALSE);
+#endif
             // Reap while hidden; publish UI completion on the next measured frame.
             ui.pollBackground(false);
             if (ui.closeReady()) break;
@@ -213,6 +216,9 @@ int main(int, char**)
             continue;
         }
         g_SwapChainOccluded = false;
+#ifdef WA_PERFORMANCE_FIXTURE
+        PerformanceFixture::visibility(false, ::IsIconic(hwnd) != FALSE);
+#endif
 
         // Handle window resize (we don't resize directly in the WM_SIZE handler)
         if (g_ResizeWidth != 0 && g_ResizeHeight != 0)
@@ -312,7 +318,7 @@ int main(int, char**)
     ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
 
 #ifdef WA_PERFORMANCE_FIXTURE
-    return fixtureReady ? 0 : 2;
+    return fixtureReady && PerformanceFixture::successful() ? 0 : 2;
 #else
     return 0;
 #endif

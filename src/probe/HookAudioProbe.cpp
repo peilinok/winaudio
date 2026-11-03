@@ -14,10 +14,13 @@
 #include <cstdio>
 #include <string>
 #include <vector>
+#include <filesystem>
+#include <fstream>
+#include <numeric>
 
 namespace {
 using Microsoft::WRL::ComPtr;
-constexpr size_t kPhases = 7, kSamples = 4096;
+constexpr size_t kPhases = 7, kSamples = 65536;
 HRESULT observe(const char* operation, HRESULT hr) {
     WA_LOG(FAILED(hr) ? wa::log::Level::Warn : wa::log::Level::Debug,
            "HookAudioProbe", operation, "control", wa::log::hrName(hr));
@@ -39,17 +42,24 @@ struct ProbeLog {
 struct AudioStats {
     uint64_t callbacks = 0, failures = 0, discontinuities = 0, capturedFrames = 0;
     uint64_t nonzeroBytes = 0;
+    uint64_t originalCalls = 0;
     uint32_t count = 0, sampleOverflow = 0;
     int64_t ticks[kSamples]{};
+    int64_t starts[kSamples]{};
 };
 struct Shared {
     LONG ready = 0, stop = 0, phase = 0;
+    LONG timed = 0;
+    LONG64 formalStart = 0, formalEnd = 0;
     uint32_t controlEvery = 20;
     HRESULT error = S_OK;
     DWORD sampleRate = 0;
     WORD channels = 0, bits = 0, formatTag = 0;
+    WORD validBits = 0;
+    DWORD channelMask = 0;
+    UINT32 bufferFrames = 0;
     wchar_t endpoint[256]{};
-    AudioStats stats[kPhases]{};
+    AudioStats stats[kPhases + 1]{};
 };
 struct Target {
     HANDLE map = nullptr, process = nullptr, ringMap = nullptr;
@@ -102,6 +112,12 @@ int victim(const wchar_t* name, float controlVolume = -1.f) {
             state->channels = format->nChannels;
             state->bits = format->wBitsPerSample;
             state->formatTag = format->wFormatTag;
+            state->validBits = format->wBitsPerSample;
+            if (format->wFormatTag == WAVE_FORMAT_EXTENSIBLE && format->cbSize >= 22) {
+                const auto* extended = reinterpret_cast<const WAVEFORMATEXTENSIBLE*>(format);
+                state->validBits = extended->Samples.wValidBitsPerSample;
+                state->channelMask = extended->dwChannelMask;
+            }
         }
         if (device) {
             LPWSTR id = nullptr;
@@ -119,28 +135,37 @@ int victim(const wchar_t* name, float controlVolume = -1.f) {
         if (SUCCEEDED(hr)) hr = observe("GetService/render", output->GetService(IID_PPV_ARGS(&render)));
         if (SUCCEEDED(hr)) hr = observe("GetService/capture", input->GetService(IID_PPV_ARGS(&capture)));
         if (SUCCEEDED(hr)) hr = observe("GetBufferSize", output->GetBufferSize(&capacity));
+        state->bufferFrames = capacity;
         if (SUCCEEDED(hr)) hr = observe("Start/render", output->Start());
         if (SUCCEEDED(hr)) hr = observe("Start/capture", input->Start());
         WA_LOG(wa::log::Level::Info, "HookAudioProbe", "ready", std::to_string(GetCurrentProcessId()), wa::log::hrName(hr));
         state->error = hr;
         InterlockedExchange(&state->ready, 1);
         while (SUCCEEDED(hr) && !ReadAcquire(&state->stop)) {
-            const auto phase = static_cast<size_t>(ReadAcquire(&state->phase));
-            auto& stats = state->stats[phase];
             LARGE_INTEGER start{}, end{};
             QueryPerformanceCounter(&start);
+            auto phase = static_cast<size_t>(ReadAcquire(&state->phase));
+            if (state->timed && (start.QuadPart < ReadAcquire64(&state->formalStart) ||
+                start.QuadPart >= ReadAcquire64(&state->formalEnd))) phase = kPhases;
+            auto& stats = state->stats[phase];
             UINT32 padding = 0;
+            ++stats.originalCalls;
             if (FAILED(output->GetCurrentPadding(&padding))) ++stats.failures;
             const UINT32 available = capacity > padding ? capacity - padding : 0;
             if (available) {
                 BYTE* data = nullptr;
+                ++stats.originalCalls;
                 if (FAILED(render->GetBuffer(available, &data))) ++stats.failures;
-                else if (FAILED(render->ReleaseBuffer(available, AUDCLNT_BUFFERFLAGS_SILENT))) ++stats.failures;
+                else {
+                    ++stats.originalCalls;
+                    if (FAILED(render->ReleaseBuffer(available, AUDCLNT_BUFFERFLAGS_SILENT))) ++stats.failures;
+                }
             }
             for (;;) {
                 BYTE* data = nullptr;
                 UINT32 frames = 0;
                 DWORD flags = 0;
+                ++stats.originalCalls;
                 const HRESULT got = capture->GetBuffer(&data, &frames, &flags, nullptr, nullptr);
                 if (got == AUDCLNT_S_BUFFER_EMPTY) break;
                 if (FAILED(got)) { ++stats.failures; break; }
@@ -150,11 +175,15 @@ int victim(const wchar_t* name, float controlVolume = -1.f) {
                     for (size_t i = 0; i < static_cast<size_t>(frames) * alignment; ++i)
                         if (data[i]) ++stats.nonzeroBytes;
                 }
+                ++stats.originalCalls;
                 if (FAILED(capture->ReleaseBuffer(frames))) ++stats.failures;
             }
             QueryPerformanceCounter(&end);
             ++stats.callbacks;
-            if (stats.count < kSamples) stats.ticks[stats.count++] = end.QuadPart - start.QuadPart;
+            if (stats.count < kSamples) {
+                stats.starts[stats.count] = start.QuadPart;
+                stats.ticks[stats.count++] = end.QuadPart - start.QuadPart;
+            }
             else ++stats.sampleOverflow;
             // A low-frequency control call proves pump-off does not gate control.
             if (stats.callbacks % state->controlEvery == 0) {
@@ -182,7 +211,8 @@ int victim(const wchar_t* name, float controlVolume = -1.f) {
     return FAILED(hr) ? 4 : 0;
 }
 
-bool launch(Target& target, size_t index, uint32_t controlEvery = 20, float controlVolume = -1.f) {
+bool launch(Target& target, size_t index, uint32_t controlEvery = 20, float controlVolume = -1.f,
+            bool timed = false) {
     const std::wstring name = L"Local\\WinAudioHookAudioProbe-" + std::to_wstring(GetCurrentProcessId()) +
                               L"-" + std::to_wstring(index);
     target.map = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0,
@@ -191,6 +221,8 @@ bool launch(Target& target, size_t index, uint32_t controlEvery = 20, float cont
     target.shared = static_cast<Shared*>(MapViewOfFile(target.map, FILE_MAP_ALL_ACCESS, 0, 0, sizeof(Shared)));
     if (!observeWin32("MapViewOfFile/controller", target.shared != nullptr)) return false;
     target.shared->controlEvery = controlEvery;
+    target.shared->timed = timed;
+    target.shared->phase = timed ? static_cast<LONG>(kPhases) : 0;
     wchar_t self[MAX_PATH]{};
     const DWORD pathLength = GetModuleFileNameW(nullptr, self, MAX_PATH);
     observeWin32("GetModuleFileNameW", pathLength != 0);
@@ -483,8 +515,13 @@ int segments(bool methods = false, bool batchAttach = false) {
 }
 }
 
+#include "HookAudioTiming.h"
+
 int wmain(int argc, wchar_t** argv) {
     ProbeLog logging;
+    if ((argc == 3 || argc == 5) && !std::wcscmp(argv[1], L"--performance"))
+        return audioPerformance(argv[2], argc == 5 ? std::wcstoul(argv[3], nullptr, 10) : 30,
+            argc == 5 ? std::wcstoul(argv[4], nullptr, 10) : 120);
     if (argc == 3 && !std::wcscmp(argv[1], L"--victim")) return victim(argv[2]);
     if (argc == 4 && !std::wcscmp(argv[1], L"--victim"))
         return victim(argv[2], static_cast<float>(std::wcstod(argv[3], nullptr)));
@@ -505,6 +542,10 @@ int wmain(int argc, wchar_t** argv) {
         // This mode owns the targets but does not attach; the production GUI does.
         for (unsigned i = 0; i < seconds; ++i) {
             Sleep(1000);
+            wchar_t cancel[32768]{};
+            const DWORD length = GetEnvironmentVariableW(L"WINAUDIO_PERF_OWNER_CANCEL", cancel,
+                static_cast<DWORD>(std::size(cancel)));
+            if (length && length < std::size(cancel) && std::filesystem::exists(cancel)) break;
             for (auto& t : targets)
                 if (WaitForSingleObject(t.process, 0) == WAIT_OBJECT_0) return 22;
         }
@@ -513,11 +554,13 @@ int wmain(int argc, wchar_t** argv) {
         for (auto& t : targets) {
             if (WaitForSingleObject(t.process, 10000) != WAIT_OBJECT_0) return 23;
             const auto& s = t.shared->stats[0];
+            DWORD actualExit = STILL_ACTIVE;
+            if (!observeWin32("GetExitCodeProcess/continuous", GetExitCodeProcess(t.process, &actualExit) != FALSE)) return 26;
             std::printf("done pid=%lu callbacks=%llu failures=%llu discontinuities=%llu captured_frames=%llu "
-                        "timing_samples=%u timing_overflow=%u\n", t.pid, s.callbacks, s.failures,
-                        s.discontinuities, s.capturedFrames, s.count, s.sampleOverflow);
+                        "timing_samples=%u timing_overflow=%u actual_exit=%lu\n", t.pid, s.callbacks, s.failures,
+                        s.discontinuities, s.capturedFrames, s.count, s.sampleOverflow, actualExit);
             // The bounded timing reservoir is not an IPC or audio overflow counter.
-            if (!s.callbacks || !s.capturedFrames || s.failures) ok = false;
+            if (!s.callbacks || !s.capturedFrames || s.failures || actualExit) ok = false;
         }
         return ok ? 0 : 24;
     }

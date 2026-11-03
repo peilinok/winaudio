@@ -22,10 +22,11 @@ def nearest_rank(values, percentile):
 def distribution(values):
     return dict(n=len(values), p50=nearest_rank(values, .5),
                 p95=nearest_rank(values, .95), p99=nearest_rank(values, .99),
-                maximum=max(values) if values else None)
+                maximum=max(values) if values else None, minimum=min(values) if values else None,
+                mean=sum(values) / len(values) if values else None)
 
 
-def summarize(path, warmup_seconds=0, duration_seconds=None, phases=None):
+def summarize(path, warmup_seconds=0, duration_seconds=None, phases=None, start_tick=None, end_tick=None):
     data = Path(path).read_bytes()
     runs = [[]]
     completed_frame = None
@@ -98,6 +99,8 @@ def summarize(path, warmup_seconds=0, duration_seconds=None, phases=None):
         elapsed = (int(meta['start']) - first_tick) / frequency - warmup_seconds
         stage = meta['stage']
         teardown = stage == 'teardown'
+        if not teardown and start_tick is not None and not (start_tick <= int(meta['start']) < end_tick):
+            continue
         if not teardown and (elapsed < 0 or (duration_seconds is not None and elapsed >= duration_seconds)):
             continue
         if phases and not teardown:
@@ -119,6 +122,8 @@ def summarize(path, warmup_seconds=0, duration_seconds=None, phases=None):
             record = slices[frame].get(name)
             group['slices'][name].append(1000 * int(record['ticks']) / frequency if record else 0)
         for record in operations[frame]:
+            if start_tick is not None and not (start_tick <= int(record['start']) <= int(record['end']) <= end_tick):
+                raise ValueError('operation crosses the formal measurement boundary')
             latency = 1000 * (int(record['end']) - int(record['start'])) / frequency
             group['operations'].append(latency)
             group['operations_by_target'][record['target']].append(latency)

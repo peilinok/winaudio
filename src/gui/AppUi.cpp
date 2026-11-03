@@ -666,11 +666,21 @@ void AppUi::attemptPipelineAttach(const wa::pipeline_attach_ui::AttachRequest& r
 void AppUi::pollPipelineAttach(bool forExport) {
     const auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now().time_since_epoch()).count();
-    if (!forExport && !pipelinePresentationRefresh_.take(static_cast<uint64_t>(now))) return;
     std::vector<wa::PipelineAttachController::Batch> batches;
-    {
+    // Command completion is interactive feedback, independent of the paced
+    // high-frequency record/statistics presentation. Preserve event order.
+    for (auto& event : pipelineAttaches_.pollControlFeedback()) {
+        wa::PipelineAttachController::Batch feedback;
+        feedback.events.push_back(std::move(event));
+        batches.push_back(std::move(feedback));
+        frameProbe_.addWork("control-feedback", 1);
+    }
+    if (forExport || pipelinePresentationRefresh_.take(static_cast<uint64_t>(now))) {
+        frameProbe_.addWork(forExport ? "export-presentation-handoff" : "presentation-refresh", 1);
+        if (!forExport) frameProbe_.addWork("presentation-refresh-steady-ms", static_cast<uint64_t>(now));
         wa::FrameBracket receive(frameProbe_, wa::FrameSlice::CallReceive);
-        batches = pipelineAttaches_.poll();
+        auto received = pipelineAttaches_.poll();
+        batches.insert(batches.end(), std::make_move_iterator(received.begin()), std::make_move_iterator(received.end()));
     }
     for (auto& batch : batches) {
         for (const auto& event : batch.events) {
@@ -721,6 +731,13 @@ void AppUi::pollPipelineAttach(bool forExport) {
         {
             wa::FrameBracket receive(frameProbe_, wa::FrameSlice::CallReceive);
             frameProbe_.addWork("control-received", batch.calls.size());
+            for (const auto& pump : batch.pump) {
+                frameProbe_.addWork("pump-received", pump.second.size(), pump.first);
+                if (!pump.second.empty()) frameProbe_.addWork("receiver-pump-upper-sequence",
+                    pump.second.back().sequence, pump.first);
+            }
+            for (const auto& transport : batch.transport)
+                frameProbe_.addWork("receiver-snapshot-sequence", transport.status.snapshotSequence, transport.token);
             pipelineSegmentSelection_.apply(pipelineCallStore_, std::move(batch));
         }
         for (const auto& event : events) {
