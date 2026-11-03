@@ -695,9 +695,11 @@ void AppUi::pollPipelineAttach(bool forExport) {
                 continue;
             }
             if (event.kind == wa::PipelineAttachController::EventKind::Detached) continue;
-            if (!pipelinePreparing_ || pipelinePreparing_->pid != event.pid) continue;
-            const auto request = std::move(*pipelinePreparing_);
-            pipelinePreparing_.reset();
+            wa::pipeline_attach_ui::AttachRequest request;
+            if (pipelinePreparing_ && pipelinePreparing_->pid == event.pid) {
+                request = std::move(*pipelinePreparing_);
+                pipelinePreparing_.reset();
+            }
             if (event.kind == wa::PipelineAttachController::EventKind::Attached) {
                 pipelineInitialMethods_.erase(monitorInstanceKey(event.instance));
                 pipelineAttachFailByPid_.erase(event.pid);
@@ -1562,9 +1564,10 @@ void AppUi::drawPipelinePage() {
         uint32_t boxPid = 0;
         const bool boxPidOk = wa::pipeline_attach_ui::parseAttachPid(pipelineAttachPid_, boxPid);
         const auto attachedSet = pipelineAttachedPidSet();
+        const auto batchStatus = pipelineAttaches_.batchStatus();
         const bool canAttach = wa::pipeline_attach_ui::canAttach(
             boxPidOk ? boxPid : 0u, attachedSet.find(boxPidOk ? boxPid : 0u) != attachedSet.end()) &&
-            !pipelinePreparing_;
+            !pipelinePreparing_ && !batchStatus.running;
         if (!canAttach) ImGui::BeginDisabled();
         if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineAttach)))
             runPipelineAttach();
@@ -1591,14 +1594,16 @@ void AppUi::drawPipelinePage() {
         }
         ImGui::SameLine();
         const bool canDetach = wa::pipeline_attach_ui::canDetachPid(boxPidOk ? boxPid : 0u, attachedSet,
-            pipelineAttachFailByPid_) || (pipelinePreparing_ && pipelinePreparing_->pid == boxPid);
+            pipelineAttachFailByPid_) || (pipelinePreparing_ && pipelinePreparing_->pid == boxPid) ||
+            (batchStatus.running && std::any_of(batchStatus.items.begin(), batchStatus.items.end(),
+                [&](const auto& item) { return item.target.instance.pid == boxPid; }));
         if (!canDetach) ImGui::BeginDisabled();
         if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineDetach)))
             runPipelineDetach();
         if (!canDetach) ImGui::EndDisabled();
         ImGui::SameLine();
         const bool canDetachAll =
-            wa::pipeline_attach_ui::canDetachAll(attachedSet, pipelineAttachFailByPid_) || pipelinePreparing_;
+            wa::pipeline_attach_ui::canDetachAll(attachedSet, pipelineAttachFailByPid_) || pipelinePreparing_ || batchStatus.running;
         if (!canDetachAll) ImGui::BeginDisabled();
         if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineDetachAll)))
             runPipelineDetachAll();
@@ -1610,6 +1615,66 @@ void AppUi::drawPipelinePage() {
         if (ImGui::Checkbox(wa::ui_text::id(wa::ui_text::kPipelineAudioOnly), &pipelineAudioOnly_)) {
             if (!pipelineAudioOnly_) refreshPipelineProcesses();
             rebuildPipelineProcessTree();
+        }
+        std::vector<uint32_t> visibleOrder;
+        for (const auto& group : pipelineTree_)
+            for (const auto& process : group.processes) visibleOrder.push_back(process.pid);
+        const auto selectedBatch = pipelineBatchSelection_.freeze(visibleOrder);
+        char batchLabel[128]{};
+        std::snprintf(batchLabel, sizeof(batchLabel), wa::ui_text::get(wa::ui_text::kPipelineAttachSelected), selectedBatch.size());
+        ImGui::BeginDisabled(selectedBatch.empty() || batchStatus.running || pipelinePreparing_.has_value());
+        if (ImGui::Button(batchLabel)) {
+            std::vector<wa::PipelineAttachController::Target> targets;
+            for (const auto& request : selectedBatch) {
+                const auto initial = pipelineInitialMethods_.find(monitorInstanceKey(request.instance));
+                targets.push_back({request.instance, request.deviceId, request.flow,
+                    initial == pipelineInitialMethods_.end() ? UINT32_MAX : initial->second.methods});
+            }
+            const auto result = pipelineAttaches_.startBatch(targets);
+            if (!result) logLines_.push_back("pipeline batch rejected: " + result.message);
+        }
+        ImGui::EndDisabled();
+        ImGui::SameLine();
+        ImGui::BeginDisabled(!batchStatus.running);
+        if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineBatchCancel))) pipelineAttaches_.cancelBatch();
+        ImGui::EndDisabled();
+        if (!batchStatus.items.empty()) {
+            using State = wa::PipelineAttachController::ItemState;
+            unsigned success = 0, skipped = 0, failed = 0, cancelled = 0, unconfirmed = 0, pending = 0;
+            for (const auto& item : batchStatus.items) {
+                switch (item.state) {
+                case State::Succeeded: ++success; break;
+                case State::Skipped: ++skipped; break;
+                case State::Cancelled: ++cancelled; break;
+                case State::CleanupPending: ++unconfirmed; break;
+                case State::Rejected: case State::Failed: case State::TargetChanged: ++failed; break;
+                default: ++pending; break;
+                }
+            }
+            ImGui::TextWrapped(wa::ui_text::get(wa::ui_text::kPipelineBatchSummary), success, skipped, failed, cancelled, unconfirmed, pending);
+            if (ImGui::TreeNodeEx(wa::ui_text::id(wa::ui_text::kPipelineBatchResults), ImGuiTreeNodeFlags_DefaultOpen)) {
+                ImGui::BeginChild("pipelineBatchResults", ImVec2(0, 76), true);
+                for (const auto& item : batchStatus.items) {
+                    const char* text = wa::ui_text::kPipelineBatchQueued;
+                    switch (item.state) {
+                    case State::Preparing: text = wa::ui_text::kPipelineBatchPreparing; break;
+                    case State::Injecting: text = wa::ui_text::kPipelineBatchInjecting; break;
+                    case State::Installing: text = wa::ui_text::kPipelineBatchInstalling; break;
+                    case State::Succeeded: text = wa::ui_text::kPipelineBatchSucceeded; break;
+                    case State::Skipped: text = wa::ui_text::kPipelineBatchSkipped; break;
+                    case State::Rejected: text = wa::ui_text::kPipelineBatchRejected; break;
+                    case State::Failed: text = wa::ui_text::kPipelineBatchFailed; break;
+                    case State::TargetChanged: text = wa::ui_text::kPipelineBatchTargetChanged; break;
+                    case State::Cancelled: text = wa::ui_text::kPipelineBatchCancelled; break;
+                    case State::CleanupPending: text = wa::ui_text::kPipelineBatchCleanup; break;
+                    default: break;
+                    }
+                    ImGui::Text("PID %u: %s", item.target.instance.pid, wa::ui_text::get(text));
+                    if (!item.result) ImGui::SetItemTooltip("%s", item.result.message.c_str());
+                }
+                ImGui::EndChild();
+                ImGui::TreePop();
+            }
         }
         const wa::EtwWatchStatus etwStatus = pipelineEtw_.status();
         if (etwStatus == wa::EtwWatchStatus::Unavailable) {
@@ -1687,6 +1752,29 @@ void AppUi::drawPipelinePage() {
                 return wa::ui_text::get(wa::ui_text::kPipelineAttachFailed);
             return wa::ui_text::get(wa::ui_text::kPipelineAttachDetached);
         };
+        const auto drawBatchCheckbox = [&](uint32_t pid, uint64_t created, int session) {
+            bool checked = pipelineBatchSelection_.contains(pid, created);
+            ImGui::PushID(static_cast<int>(pid));
+            ImGui::PushID(session);
+            if (ImGui::Checkbox("##batch", &checked)) {
+                wa::pipeline_attach_ui::AttachRequest request;
+                request.pid = pid;
+                request.instance = {pid, created};
+                if (session >= 0) {
+                    const auto& row = pipelineSessions_[static_cast<size_t>(session)];
+                    request.deviceId = row.deviceId;
+                    request.flow = row.flow;
+                    request.sessionKey = wa::liveSessionAttachKey(row);
+                }
+                wa::Result identity = wa::Result::Ok();
+                if (checked && !request.instance) identity = wa::queryProcessInstance(pid, request.instance);
+                if (identity) pipelineBatchSelection_.set(std::move(request), checked);
+                else pipelineAttachFailByPid_[pid] = identity.message;
+            }
+            ImGui::PopID();
+            ImGui::PopID();
+            ImGui::SameLine();
+        };
 
         if (pipelineTree_.empty()) {
             ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineEmpty));
@@ -1741,6 +1829,8 @@ void AppUi::drawPipelinePage() {
                 ImGui::TableNextRow();
                 if (hasAudio) ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, audioProcessBg);
                 ImGui::TableSetColumnIndex(0);
+                drawBatchCheckbox(p.pid, p.sessions.empty() ? 0 : pipelineSessions_[static_cast<size_t>(p.sessions.front())].processCreated,
+                                  p.sessions.empty() ? -1 : p.sessions.front());
                 const bool procSelected = pipelineSelected_ < 0 && pipelineSelectedPid_ == p.pid;
                 ImGuiTreeNodeFlags tf = ImGuiTreeNodeFlags_SpanAllColumns;
                 if (!hasAudio) tf |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
@@ -1778,6 +1868,7 @@ void AppUi::drawPipelinePage() {
                     if (srow.state == "Active")
                         ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg0, activeSessionBg);
                     ImGui::TableSetColumnIndex(0);
+                    drawBatchCheckbox(srow.processId, srow.processCreated, i);
                     const bool selected = (i == pipelineSelected_);
                     char label[64];
                     std::snprintf(label, sizeof(label), "%s###ps%d",

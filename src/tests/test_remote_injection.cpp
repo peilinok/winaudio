@@ -12,6 +12,7 @@
 #include <filesystem>
 #include <string>
 #include <fstream>
+#include <cstdio>
 
 namespace {
 TEST(RemoteThreadWait, InvalidHandlePreservesWaitFailedSystemError) {
@@ -54,6 +55,15 @@ protected:
     void TearDown() override {
         if (gate) SetEvent(gate);
         if (stop) SetEvent(stop);
+        for (auto& sibling : siblings) {
+            EXPECT_EQ(WaitForSingleObject(sibling.hProcess, 5000), WAIT_OBJECT_0);
+            DWORD code = STILL_ACTIVE;
+            EXPECT_TRUE(GetExitCodeProcess(sibling.hProcess, &code));
+            std::printf("owned_target_exit pid=%lu code=%lu\n", sibling.dwProcessId, code);
+            EXPECT_EQ(code, 0u);
+            CloseHandle(sibling.hProcess);
+            CloseHandle(sibling.hThread);
+        }
         if (child.hProcess) {
             const DWORD waited = WaitForSingleObject(child.hProcess, 5000);
             EXPECT_EQ(waited, WAIT_OBJECT_0);
@@ -66,11 +76,29 @@ protected:
             DWORD exit = STILL_ACTIVE;
             EXPECT_TRUE(GetExitCodeProcess(child.hProcess, &exit));
             EXPECT_EQ(exit, 0u);
+            std::printf("owned_target_exit pid=%lu code=%lu\n", child.dwProcessId, exit);
             CloseHandle(child.hProcess);
         }
         if (child.hThread) CloseHandle(child.hThread);
         if (shared) UnmapViewOfFile(shared);
         for (HANDLE handle : {mapping, gate, entered, ready, stop}) if (handle) CloseHandle(handle);
+    }
+    PROCESS_INFORMATION spawnSibling(bool exitOnGo = false) {
+        wchar_t self[MAX_PATH]{};
+        GetModuleFileNameW(nullptr, self, MAX_PATH);
+        const auto exe = std::filesystem::path(self).parent_path() / L"RemoteInjectionTarget.exe";
+        std::wstring command = L"\"" + exe.wstring() + L"\" \"" + base + L"\"";
+        if (exitOnGo) command += L" --exit-on-go";
+        ResetEvent(ready);
+        PROCESS_INFORMATION process{};
+        STARTUPINFOW startup{sizeof(startup)};
+        EXPECT_TRUE(CreateProcessW(exe.c_str(), command.data(), nullptr, nullptr, FALSE,
+                                  CREATE_NO_WINDOW, nullptr, nullptr, &startup, &process));
+        if (process.hProcess) {
+            siblings.push_back(process);
+            EXPECT_EQ(WaitForSingleObject(ready, 5000), WAIT_OBJECT_0);
+        }
+        return process;
     }
     void begin(wa::RemoteInjection& operation) {
         const uint32_t value = wa::injection_probe::kValue;
@@ -139,6 +167,7 @@ protected:
     }
     std::wstring base;
     PROCESS_INFORMATION child{};
+    std::vector<PROCESS_INFORMATION> siblings;
     HANDLE mapping = nullptr, gate = nullptr, entered = nullptr, ready = nullptr, stop = nullptr;
     wa::injection_probe::Shared* shared = nullptr;
 };
@@ -306,6 +335,40 @@ TEST_F(RemoteInjectionTest, BackgroundAttachCommitsThenDetachesWithoutEndingTarg
     ASSERT_EQ(ended.size(), 1u);
     EXPECT_EQ(ended[0].kind, wa::PipelineAttachController::EventKind::Detached);
     EXPECT_EQ(WaitForSingleObject(child.hProcess, 0), WAIT_TIMEOUT);
+}
+
+TEST_F(RemoteInjectionTest, BatchCommitsEachTargetRejectsStaleIdentityAndSkipsActiveInstance) {
+    wa::PipelineAttachController controller;
+    wa::ProcessInstance instance, self;
+    ASSERT_TRUE(wa::queryProcessInstance(child.dwProcessId, instance));
+    ASSERT_TRUE(wa::queryProcessInstance(GetCurrentProcessId(), self));
+    const auto mask = wa::methodBit(wa::MonitorMethod::Start);
+    const wa::PipelineAttachController::Target target{instance, {}, wa::PipelineFlow::Render, mask};
+    auto stale = target;
+    ++stale.instance.created;
+    ASSERT_TRUE(controller.startBatch({{self}, stale, target, target}));
+    ASSERT_TRUE(waitUntil([&] { return !controller.batchStatus().running; }));
+    const auto status = controller.batchStatus();
+    ASSERT_EQ(status.items.size(), 3u);
+    using State = wa::PipelineAttachController::ItemState;
+    EXPECT_EQ(status.items[0].state, State::Rejected);
+    EXPECT_EQ(status.items[1].state, State::TargetChanged);
+    EXPECT_EQ(status.items[2].state, State::Succeeded);
+    EXPECT_FALSE(status.hookPath.empty());
+    EXPECT_TRUE(controller.attached(instance.pid));
+    const auto events = collectEvents(controller);
+    ASSERT_EQ(events.size(), 3u);
+    const auto token = events.back().token;
+    EXPECT_NE(token, 0u);
+    ASSERT_TRUE(controller.startBatch({{instance, {}, wa::PipelineFlow::Render, 0}}));
+    ASSERT_TRUE(waitUntil([&] { return !controller.batchStatus().running; }));
+    ASSERT_EQ(controller.batchStatus().items.size(), 1u);
+    EXPECT_EQ(controller.batchStatus().items[0].state, State::Skipped);
+    EXPECT_EQ(controller.lastMethods(instance), mask);
+    EXPECT_TRUE(collectEvents(controller).empty());
+    EXPECT_TRUE(controller.stopAll());
+    ASSERT_TRUE(waitUntil([&] { return !controller.anyAttached(); }));
+    EXPECT_EQ(collectEvents(controller).front().token, token);
 }
 
 TEST_F(RemoteInjectionTest, MethodSelectionPublishesWithoutAnApiAndRetainsOnlySuccessfulInstanceState) {
@@ -877,6 +940,157 @@ TEST_F(AttachLifecycleTest, ExistingTargetDetachesWhileSecondInstallationIsStill
 
 TEST_F(AttachLifecycleTest, CancellationRetainsRealInjectionAndPreventsLateCapture) {
     exercisePending(true);
+}
+
+TEST_F(AttachLifecycleTest, BatchTimeoutPreservesOldReceptionConfigurationAndDetachThenContinuesMixedQueue) {
+    HANDLE exitGo = CreateEventW(nullptr, TRUE, FALSE, (base + L"-exit").c_str());
+    ASSERT_NE(exitGo, nullptr);
+    struct Close { HANDLE value; ~Close() { SetEvent(value); CloseHandle(value); } } close{exitGo};
+    const auto old = spawnSibling();
+    const auto exiting = spawnSibling(true);
+    const auto success = spawnSibling();
+    wa::ProcessInstance oldInstance, gatedInstance, exitInstance, self, successInstance;
+    ASSERT_TRUE(wa::queryProcessInstance(old.dwProcessId, oldInstance));
+    ASSERT_TRUE(wa::queryProcessInstance(child.dwProcessId, gatedInstance));
+    ASSERT_TRUE(wa::queryProcessInstance(exiting.dwProcessId, exitInstance));
+    ASSERT_TRUE(wa::queryProcessInstance(GetCurrentProcessId(), self));
+    ASSERT_TRUE(wa::queryProcessInstance(success.dwProcessId, successInstance));
+    wa::PipelineAttachController controller;
+    wa::CallLogStore store;
+    wa::pipeline_attach_ui::SegmentSelection selection;
+    const auto initial = wa::methodBit(wa::MonitorMethod::Start);
+    ASSERT_TRUE(controller.start(old.dwProcessId, {}, wa::PipelineFlow::Render, oldInstance, initial));
+    ASSERT_TRUE(waitUntil([&] { return !controller.snapshot().pendingPid; }));
+    for (auto& batch : controller.poll()) selection.apply(store, std::move(batch));
+    const auto oldId = selection.selected();
+    ASSERT_NE(oldId, 0u);
+    const auto token = store.segment(oldId)->token;
+    wchar_t name[64]{};
+    wa::hook_ipc::mapName(old.dwProcessId, name, 64);
+    HANDLE map = OpenFileMappingW(FILE_MAP_ALL_ACCESS, FALSE, name);
+    ASSERT_NE(map, nullptr);
+    auto* ring = static_cast<wa::hook_ipc::Ring*>(MapViewOfFile(map, FILE_MAP_ALL_ACCESS, 0, 0, 0));
+    ASSERT_NE(ring, nullptr);
+    struct View { HANDLE handle; wa::hook_ipc::Ring* ring; ~View() { UnmapViewOfFile(ring); CloseHandle(handle); } } view{map, ring};
+    const auto threads = threadCount(child.dwProcessId);
+    std::vector<wa::PipelineAttachController::Target> requests{{gatedInstance}, {exitInstance}, {self},
+        {successInstance, {}, wa::PipelineFlow::Render, initial}};
+    ASSERT_TRUE(controller.startBatch(requests));
+    requests.back().methods = 0;
+    requests.clear();
+    ASSERT_TRUE(waitUntil([&] { return threadCount(child.dwProcessId) > threads; }));
+    EXPECT_FALSE(controller.start(old.dwProcessId));
+    EXPECT_FALSE(controller.startBatch({{self}}));
+    SetEvent(exitGo);
+    ASSERT_EQ(WaitForSingleObject(exiting.hProcess, 5000), WAIT_OBJECT_0);
+    const auto consume = [&] {
+        for (auto& batch : controller.poll()) selection.apply(store, std::move(batch));
+    };
+    for (uint32_t sequence = 1; sequence <= 3; ++sequence) {
+        wa::hook_ipc::CallPod call{};
+        call.observationGeneration = ring->observationGeneration;
+        strcpy_s(call.iface, "IAudioClient"); strcpy_s(call.method, "Start");
+        call.streamId = sequence;
+        ASSERT_TRUE(wa::hook_ipc::writeCall(*ring, call));
+        ASSERT_TRUE(waitUntil([&] { consume(); return store.segment(oldId)->count == sequence; }));
+        EXPECT_EQ(WaitForSingleObject(gate, 0), WAIT_TIMEOUT);
+    }
+    ASSERT_TRUE(controller.configure(oldInstance, token, 0));
+    ASSERT_TRUE(waitUntil([&] { consume(); return store.segment(oldId)->methods == 0; }));
+    EXPECT_EQ(WaitForSingleObject(gate, 0), WAIT_TIMEOUT);
+    ASSERT_TRUE(controller.stop(old.dwProcessId));
+    ASSERT_TRUE(waitUntil([&] { consume(); return !controller.attached(old.dwProcessId); }));
+    EXPECT_EQ(WaitForSingleObject(gate, 0), WAIT_TIMEOUT);
+    ASSERT_TRUE(waitUntil([&] { consume(); return !controller.batchStatus().running; }, 16000));
+    using State = wa::PipelineAttachController::ItemState;
+    const auto result = controller.batchStatus();
+    ASSERT_EQ(result.items.size(), 4u);
+    EXPECT_EQ(result.items[0].state, State::CleanupPending);
+    EXPECT_EQ(result.items[1].state, State::TargetChanged);
+    EXPECT_EQ(result.items[2].state, State::Rejected);
+    EXPECT_EQ(result.items[3].state, State::Succeeded);
+    EXPECT_EQ(result.items[3].target.methods, initial); // Frozen before the dynamic update.
+    EXPECT_FALSE(controller.attached(old.dwProcessId));
+    EXPECT_TRUE(controller.attached(success.dwProcessId));
+    EXPECT_EQ(controller.lastMethods(oldInstance), 0u);
+    EXPECT_EQ(controller.lastMethods(successInstance), initial);
+    EXPECT_EQ(selection.selected(), oldId);
+    EXPECT_EQ(store.segment(oldId)->count, 3u);
+    EXPECT_EQ(store.segment(oldId)->state, wa::CallLogStore::SegmentState::Detached);
+    EXPECT_EQ(controller.snapshot().cleanupPending, 1u);
+    SetEvent(gate);
+    ASSERT_TRUE(waitUntil([&] { consume(); return !controller.snapshot().cleanupPending; }));
+    EXPECT_FALSE(controller.attached(child.dwProcessId));
+    EXPECT_EQ(WaitForSingleObject(child.hProcess, 0), WAIT_TIMEOUT);
+    std::printf("batch_wait_progress controls=3 config=1 detach=1 timeout=1 exited=1 rejected=1 success=1 old_segment=%llu\n", oldId);
+}
+
+TEST_F(AttachLifecycleTest, BatchDetachAllPreventsQueuedInjectionAndLateCommit) {
+    const auto next = spawnSibling();
+    wa::ProcessInstance gatedInstance, nextInstance;
+    ASSERT_TRUE(wa::queryProcessInstance(child.dwProcessId, gatedInstance));
+    ASSERT_TRUE(wa::queryProcessInstance(next.dwProcessId, nextInstance));
+    wa::PipelineAttachController controller;
+    const auto threads = threadCount(child.dwProcessId);
+    ASSERT_TRUE(controller.startBatch({{gatedInstance}, {nextInstance}}));
+    ASSERT_TRUE(waitUntil([&] { return threadCount(child.dwProcessId) > threads; }));
+    EXPECT_EQ(controller.batchStatus().items[1].state, wa::PipelineAttachController::ItemState::Queued);
+    ASSERT_TRUE(controller.stopAll());
+    ASSERT_TRUE(waitUntil([&] { return !controller.batchStatus().running; }));
+    EXPECT_FALSE(controller.anyAttached());
+    const auto status = controller.batchStatus();
+    ASSERT_EQ(status.items.size(), 2u);
+    EXPECT_EQ(status.items[0].state, wa::PipelineAttachController::ItemState::Cancelled);
+    EXPECT_EQ(status.items[1].state, wa::PipelineAttachController::ItemState::Cancelled);
+    bool loaded = false;
+    EXPECT_TRUE(wa::inspectHookModules(next.dwProcessId, status.hookPath, loaded));
+    EXPECT_FALSE(loaded);
+    EXPECT_EQ(controller.snapshot().cleanupPending, 1u);
+    SetEvent(gate);
+    ASSERT_TRUE(waitUntil([&] { collectEvents(controller); return !controller.snapshot().cleanupPending; }));
+    EXPECT_FALSE(controller.anyAttached());
+    EXPECT_EQ(WaitForSingleObject(child.hProcess, 0), WAIT_TIMEOUT);
+    EXPECT_EQ(WaitForSingleObject(next.hProcess, 0), WAIT_TIMEOUT);
+    std::printf("batch_cancel queued_not_injected=1 late_not_committed=1 targets_running=2 cleanup=0\n");
+}
+
+TEST_F(AttachLifecycleTest, BatchCancelPreservesCommittedSuccessAndStopsRemainingTargets) {
+    const auto first = spawnSibling();
+    const auto queued = spawnSibling();
+    wa::ProcessInstance firstInstance, gatedInstance, queuedInstance;
+    ASSERT_TRUE(wa::queryProcessInstance(first.dwProcessId, firstInstance));
+    ASSERT_TRUE(wa::queryProcessInstance(child.dwProcessId, gatedInstance));
+    ASSERT_TRUE(wa::queryProcessInstance(queued.dwProcessId, queuedInstance));
+    wa::PipelineAttachController controller;
+    const auto threads = threadCount(child.dwProcessId);
+    ASSERT_TRUE(controller.startBatch({{firstInstance, {}, wa::PipelineFlow::Render}, {gatedInstance}, {queuedInstance}}));
+    ASSERT_TRUE(waitUntil([&] { collectEvents(controller); return threadCount(child.dwProcessId) > threads; }));
+    ASSERT_TRUE(controller.attached(first.dwProcessId));
+    EXPECT_EQ(controller.batchStatus().items[2].state, wa::PipelineAttachController::ItemState::Queued);
+    ASSERT_TRUE(controller.cancelBatch());
+    ASSERT_TRUE(waitUntil([&] { collectEvents(controller); return !controller.batchStatus().running; }));
+    const auto status = controller.batchStatus();
+    ASSERT_EQ(status.items.size(), 3u);
+    EXPECT_EQ(status.items[0].state, wa::PipelineAttachController::ItemState::Succeeded);
+    EXPECT_EQ(status.items[1].state, wa::PipelineAttachController::ItemState::Cancelled);
+    EXPECT_EQ(status.items[2].state, wa::PipelineAttachController::ItemState::Cancelled);
+    EXPECT_TRUE(controller.attached(first.dwProcessId));
+    bool loaded = false;
+    EXPECT_TRUE(wa::inspectHookModules(queued.dwProcessId, status.hookPath, loaded));
+    EXPECT_FALSE(loaded);
+    EXPECT_EQ(controller.snapshot().cleanupPending, 1u);
+    // The in-flight instance is reserved until the remote loader completes.
+    ASSERT_TRUE(controller.startBatch({{gatedInstance}}));
+    ASSERT_TRUE(waitUntil([&] { collectEvents(controller); return !controller.batchStatus().running; }));
+    EXPECT_EQ(controller.batchStatus().items[0].state, wa::PipelineAttachController::ItemState::Rejected);
+    EXPECT_TRUE(controller.attached(first.dwProcessId));
+    SetEvent(gate);
+    ASSERT_TRUE(waitUntil([&] { collectEvents(controller); return !controller.snapshot().cleanupPending; }));
+    EXPECT_TRUE(controller.attached(first.dwProcessId));
+    EXPECT_FALSE(controller.attached(child.dwProcessId));
+    EXPECT_EQ(WaitForSingleObject(child.hProcess, 0), WAIT_TIMEOUT);
+    EXPECT_EQ(WaitForSingleObject(queued.hProcess, 0), WAIT_TIMEOUT);
+    std::printf("batch_cancel committed_success=1 queued_not_injected=1 pending_duplicate_rejected=1 late_not_committed=1 cleanup=0\n");
 }
 
 TEST_F(AttachLifecycleTest, BackgroundCommandReturnsWhileRealLoaderRemainsBlocked) {

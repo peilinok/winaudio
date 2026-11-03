@@ -36,6 +36,24 @@ public:
         uint64_t sourceDroppedCalls = 0;
         uint32_t pumpXruns = 0;
     };
+    enum class ItemState { Queued, Preparing, Injecting, Installing, Succeeded, Skipped,
+                           Rejected, Failed, TargetChanged, Cancelled, CleanupPending };
+    struct Target {
+        ProcessInstance instance;
+        std::string deviceId;
+        PipelineFlow flow = PipelineFlow::Capture;
+        uint32_t methods = UINT32_MAX;
+    };
+    struct Item {
+        Target target;
+        ItemState state = ItemState::Queued;
+        Result result;
+    };
+    struct BatchStatus {
+        std::vector<Item> items;
+        bool running = false;
+        std::wstring hookPath;
+    };
     PipelineAttachController();
     ~PipelineAttachController();
     PipelineAttachController(const PipelineAttachController&) = delete;
@@ -43,6 +61,9 @@ public:
     Result start(uint32_t pid, const std::string& deviceId = {},
                  PipelineFlow flow = PipelineFlow::Capture, ProcessInstance expected = {},
                  uint32_t methods = UINT32_MAX);
+    Result startBatch(const std::vector<Target>& targets);
+    bool cancelBatch();
+    BatchStatus batchStatus() const;
     Result configure(ProcessInstance instance, uint64_t token, uint32_t methods);
     Result clear(ProcessInstance instance, uint64_t token);
     uint32_t lastMethods(ProcessInstance instance) const;

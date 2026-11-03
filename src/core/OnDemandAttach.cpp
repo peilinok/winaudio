@@ -394,8 +394,11 @@ uint32_t OnDemandAttach::reapPending() {
         [](const auto& entry) { return entry.use_count() == 1; }));
 }
 
+Result OnDemandAttach::freezeHook(std::wstring& path) { return stageHookDll(path); }
+
 Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, PipelineFlow flow,
-                            const std::atomic_bool* cancelled, ProcessInstance expected, uint32_t methods) {
+                            const std::atomic_bool* cancelled, ProcessInstance expected, uint32_t methods,
+                            const std::wstring& frozenHook, const std::function<void(Stage)>& progress) {
     if (methods & ~kAllMonitorMethods)
         return win32Result(ERROR_INVALID_PARAMETER, "Monitor selection: invalid methods");
     stop();
@@ -475,8 +478,10 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
     if (!reserved) { CloseHandle(inject); return reserved; }
 
     std::wstring dll;
-    Result staged = stageHookDll(dll);
+    Result staged = frozenHook.empty() ? stageHookDll(dll) : stageHookModule(frozenHook, dll);
     if (!staged) return staged;
+    if (!frozenHook.empty() && dll != frozenHook)
+        return win32Result(ERROR_REVISION_MISMATCH, "Attach: frozen hook identity changed");
     bool moduleLoaded = false;
     Result identity = inspectHookModules(pid, dll, moduleLoaded);
     if (!identity) return identity;
@@ -533,6 +538,7 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
     }
 
     if (!reuse) {
+        if (progress) progress(Stage::Injecting);
         Result inj = injectDll(*resources, dll, cancelled);
         if (!inj) {
             WA_LOG(wa::log::Level::Info, "Attach", "inject", inj.message, "fail");
@@ -541,6 +547,7 @@ Result OnDemandAttach::start(uint32_t pid, const std::string& deviceIdUtf8, Pipe
     }
 
     if (!reuse) {
+        if (progress) progress(Stage::Installing);
         for (int i = 0; i < 80 && ring->installed == hook_ipc::kInstallPending; ++i) {
             if (cancelled && cancelled->load())
                 return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_CANCELLED)),

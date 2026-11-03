@@ -83,6 +83,13 @@ int wmain(int argc, wchar_t** argv) {
     if (!shared) return 3;
     shared->entry = reinterpret_cast<uintptr_t>(&delayedRead);
     SetEvent(ready);
+    if (argc == 3 && std::wstring(argv[2]) == L"--exit-on-go") {
+        HANDLE exitGo = OpenEventW(SYNCHRONIZE, FALSE, (base + L"-exit").c_str());
+        if (!exitGo) return 11;
+        const DWORD waited = WaitForSingleObject(exitGo, 30000);
+        CloseHandle(exitGo);
+        return waited == WAIT_OBJECT_0 ? 0 : 12;
+    }
     if (argc == 3 && std::wstring(argv[2]) == L"--hold-loader") {
         SetEnvironmentVariableW(L"WA_REMOTE_GATE", base.c_str());
         wchar_t path[MAX_PATH] = {};

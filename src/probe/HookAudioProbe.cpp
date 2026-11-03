@@ -211,10 +211,11 @@ bool launch(Target& target, size_t index, uint32_t controlEvery = 20, float cont
     return ready;
 }
 
-bool loadedHook(DWORD pid) {
+bool loadedHook(DWORD pid, const std::wstring& expected = {}) {
     HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, pid);
     observeWin32("CreateToolhelp32Snapshot", snapshot != INVALID_HANDLE_VALUE);
-    bool found = false;
+    unsigned count = 0;
+    bool identityMatches = true;
     if (snapshot != INVALID_HANDLE_VALUE) {
         MODULEENTRY32W module{};
         module.dwSize = sizeof(module);
@@ -222,14 +223,16 @@ bool loadedHook(DWORD pid) {
             if (wa::isHookModuleName(module.szModule)) {
                 std::wprintf(L"loaded pid=%lu path=%ls layout=%u ring_bytes=%zu\n",
                     pid, module.szExePath, wa::hook_ipc::kRingLayout, sizeof(wa::hook_ipc::Ring));
-                found = true;
+                ++count;
+                if (!expected.empty() && _wcsicmp(module.szExePath, expected.c_str()) != 0) identityMatches = false;
             }
         } while (Module32NextW(snapshot, &module));
         const DWORD moduleError = GetLastError();
         observe("Module32NextW", moduleError == ERROR_NO_MORE_FILES ? S_OK : HRESULT_FROM_WIN32(moduleError));
         observeWin32("CloseHandle/snapshot", CloseHandle(snapshot) != FALSE);
     }
-    return found;
+    std::printf("hook_identity pid=%lu count=%u expected_match=%d\n", pid, count, identityMatches);
+    return count == 1 && identityMatches;
 }
 
 bool attach(Target& target) {
@@ -247,7 +250,7 @@ bool attach(Target& target) {
     return loadedHook(target.pid);
 }
 
-int segments(bool methods = false) {
+int segments(bool methods = false, bool batchAttach = false) {
     std::array<Target, 2> targets;
     for (size_t i = 0; i < targets.size(); ++i)
         if (!launch(targets[i], i, 4, i ? 0.75f : 0.25f)) return 30;
@@ -281,14 +284,26 @@ int segments(bool methods = false) {
     };
     std::array<uint64_t, 2> ids{};
     std::array<wa::ProcessInstance, 2> instances{};
+    std::vector<wa::PipelineAttachController::Target> requests;
     for (size_t i = 0; i < targets.size(); ++i) {
         if (!wa::queryProcessInstance(targets[i].pid, instances[i])) return 31;
-        if (!controller.start(targets[i].pid, {}, wa::PipelineFlow::Render, instances[i],
+        requests.push_back({instances[i], {}, wa::PipelineFlow::Render, methods ? initialMasks[i] : UINT32_MAX});
+    }
+    if (batchAttach) {
+        if (!controller.startBatch(requests)) return 54;
+        if (!wait([&] { return !controller.batchStatus().running; })) return 55;
+        const auto status = controller.batchStatus();
+        if (status.items.size() != 2) return 56;
+        for (const auto& item : status.items)
+            if (item.state != wa::PipelineAttachController::ItemState::Succeeded) return 57;
+    }
+    for (size_t i = 0; i < targets.size(); ++i) {
+        if (!batchAttach && !controller.start(targets[i].pid, {}, wa::PipelineFlow::Render, instances[i],
             methods ? initialMasks[i] : UINT32_MAX)) return 32;
-        if (!wait([&] { return !controller.snapshot().pendingPid; })) return 33;
+        if (!batchAttach && !wait([&] { return !controller.snapshot().pendingPid; })) return 33;
         ids[i] = store.latestAttach(instances[i]);
         if (!ids[i]) return 34;
-        if (!loadedHook(targets[i].pid)) return 53;
+        if (!loadedHook(targets[i].pid, batchAttach ? controller.batchStatus().hookPath : std::wstring{})) return 53;
     }
     if (methods) {
         store.setPumpVisible(true);
@@ -350,6 +365,14 @@ int segments(bool methods = false) {
         wa::call_log_filter::FilterOpts query;
         query.attach = selection.selected();
         const auto view = store.view(query);
+        const auto* segment = store.segment(selection.selected());
+        const auto selectedIndex = static_cast<size_t>(i % 2);
+        if (segment->instance != instances[selectedIndex] || segment->windowRetained > 1024 ||
+            (methods && segment->methods != (selectedIndex ?
+                wa::methodBit(wa::MonitorMethod::SetMasterVolume) | wa::methodBit(wa::MonitorMethod::CaptureGetBuffer) |
+                wa::methodBit(wa::MonitorMethod::GetChannelCount) : initialMasks[0]))) ok = false;
+        if (methods && !segment->transport.statistics.known) ok = false;
+        if (methods && selectedIndex == 0 && (segment->windowRetained || segment->windowReceived)) ok = false;
         for (size_t row = 0; row < view.size(); ++row) {
             const auto& call = view.at(row)->call;
             if (call.pid != targets[static_cast<size_t>(i % 2)].pid ||
@@ -374,7 +397,18 @@ int segments(bool methods = false) {
     }
     selection.select(store, ids[0]);
     const auto segmentsBeforeDuplicate = store.segments(true).size();
-    if (controller.start(targets[0].pid) || store.segments(true).size() != segmentsBeforeDuplicate) ok = false;
+    if (batchAttach) {
+        const auto firstMethods = store.segment(ids[0])->methods;
+        const auto secondMethods = store.segment(ids[1])->methods;
+        if (!controller.startBatch(requests) || !wait([&] { return !controller.batchStatus().running; })) return 58;
+        for (const auto& item : controller.batchStatus().items)
+            if (item.state != wa::PipelineAttachController::ItemState::Skipped) ok = false;
+        if (store.segments(true).size() != segmentsBeforeDuplicate ||
+            store.segment(ids[0])->methods != firstMethods || store.segment(ids[1])->methods != secondMethods ||
+            selection.selected() != ids[0]) ok = false;
+        std::printf("batch_duplicate skipped=2 preserved_segments=%zu preserved_configuration=1 selected=%llu\n",
+            segmentsBeforeDuplicate, selection.selected());
+    } else if (controller.start(targets[0].pid) || store.segments(true).size() != segmentsBeforeDuplicate) ok = false;
     controller.stop(targets[0].pid);
     if (!wait([&] { return !controller.attached(targets[0].pid); })) return 35;
     const auto frozenCount = store.segment(ids[0])->count;
@@ -456,6 +490,7 @@ int wmain(int argc, wchar_t** argv) {
         return victim(argv[2], static_cast<float>(std::wcstod(argv[3], nullptr)));
     if (argc == 2 && !std::wcscmp(argv[1], L"--segments")) return segments();
     if (argc == 2 && !std::wcscmp(argv[1], L"--method-selection")) return segments(true);
+    if (argc == 2 && !std::wcscmp(argv[1], L"--batch")) return segments(true, true);
     if (argc == 3 && !std::wcscmp(argv[1], L"--continuous")) {
         const unsigned seconds = static_cast<unsigned>(std::wcstoul(argv[2], nullptr, 10));
         if (!seconds) return 20;

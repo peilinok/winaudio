@@ -220,6 +220,22 @@ namespace wa::ui_text {
     WA_UI_TEXT(kPipelineAttachFailed, "Failed", "失败") \
     WA_UI_TEXT(kPipelineCallLog, "Call log", "调用日志") \
     WA_UI_TEXT(kPipelineAttached, "Attached", "已附加") \
+    WA_UI_TEXT(kPipelineAttachSelected, "Attach selected (%zu)", "附加所选（%zu）") \
+    WA_UI_TEXT(kPipelineBatchCancel, "Cancel batch", "取消批量") \
+    WA_UI_TEXT(kPipelineBatchResults, "Batch results", "批量结果") \
+    WA_UI_TEXT(kPipelineBatchSummary, "Success %u / skipped %u / failed %u / cancelled %u / unconfirmed %u / pending %u", \
+        "成功 %u / 跳过 %u / 失败 %u / 取消 %u / 未确认 %u / 等待 %u") \
+    WA_UI_TEXT(kPipelineBatchQueued, "Queued", "排队") \
+    WA_UI_TEXT(kPipelineBatchPreparing, "Preparing", "准备") \
+    WA_UI_TEXT(kPipelineBatchInjecting, "Injecting", "注入") \
+    WA_UI_TEXT(kPipelineBatchInstalling, "Installing", "安装") \
+    WA_UI_TEXT(kPipelineBatchSucceeded, "Succeeded", "成功") \
+    WA_UI_TEXT(kPipelineBatchSkipped, "Skipped (already active)", "跳过（已活动）") \
+    WA_UI_TEXT(kPipelineBatchRejected, "Rejected", "拒绝") \
+    WA_UI_TEXT(kPipelineBatchFailed, "Failed", "失败") \
+    WA_UI_TEXT(kPipelineBatchTargetChanged, "Exited / identity changed", "已退出／身份改变") \
+    WA_UI_TEXT(kPipelineBatchCancelled, "Cancelled", "已取消") \
+    WA_UI_TEXT(kPipelineBatchCleanup, "Timed out / cleanup pending", "超时／待收尾") \
     WA_UI_TEXT(kPipelineCallLogEmpty, \
         "No control-path calls yet. Attach to intercept Core Audio COM.", \
         "尚无控制路径调用。附加以拦截 Core Audio COM。") \
