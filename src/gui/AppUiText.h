@@ -12,6 +12,23 @@ namespace wa::ui_text {
 
 // One row: identifier, English literal, Chinese slot (nullptr or "" = fallback).
 #define WA_UI_TEXT_ROWS \
+    WA_UI_TEXT(kPipelineStartup, "Launch and observe", "启动并观测") \
+    WA_UI_TEXT(kPipelineStartupExe, "EXE path", "EXE 路径") \
+    WA_UI_TEXT(kPipelineStartupArguments, "Raw arguments", "原始参数") \
+    WA_UI_TEXT(kPipelineStartupDirectory, "Working directory", "工作目录") \
+    WA_UI_TEXT(kPipelineStartupDirectoryHint, "Empty: EXE directory", "留空：EXE 所在目录") \
+    WA_UI_TEXT(kPipelineStartupStart, "Start observation", "开始启动观测") \
+    WA_UI_TEXT(kPipelineStartupCancel, "Cancel startup", "取消启动") \
+    WA_UI_TEXT(kPipelineStartupMethods, "Initial API selection", "启动初始 API 选择") \
+    WA_UI_TEXT(kPipelineStartupWaiting, "Creating / holding EXE entry", "创建目标／等待 EXE 入口") \
+    WA_UI_TEXT(kPipelineStartupPreparing, "Entry held; preparing Hook, selection and receiver", "入口已保持；准备 Hook、配置及接收") \
+    WA_UI_TEXT(kPipelineStartupReleasing, "Readiness accepted; restoring entry and detaching debugger", "就绪已核验；恢复入口并解除调试") \
+    WA_UI_TEXT(kPipelineStartupCommitted, "Committed; target runs independently", "已提交；目标独立运行") \
+    WA_UI_TEXT(kPipelineStartupFailed, "Startup failed / cancelled", "启动失败／已取消") \
+    WA_UI_TEXT(kPipelineStartupExitConfirmed, "Uncommitted target exit confirmed", "未提交目标已确认退出") \
+    WA_UI_TEXT(kPipelineStartupBoundary, "Startup boundary: main-thread EXE PE entry, after Hook, initial selection and receiver readiness. Limited to discovered implementations. Excludes prior DLL/TLS, helper threads, unknown implementations, other PIDs, children or forwarded existing instances.", "启动边界：Hook、初始配置及接收就绪后的主线程 EXE PE 入口。仅限已发现的实现；不覆盖入口前 DLL／TLS、辅助线程、未知实现、其他 PID、子进程或转交既有实例。") \
+    WA_UI_TEXT(kPipelineStartupSourceFmt, "Startup | main TID %u | entry 0x%llX | protocol %u | at readiness: accepted %u / rejected %u", "启动观测 | 主线程 %u | 入口 0x%llX | 协议 %u | 就绪时接受 %u／拒绝 %u") \
+    WA_UI_TEXT(kPipelineStartupEmpty, "No selected calls received. An idle or forwarded process, disabled methods and unsupported implementations do not imply complete capture; check source, configuration and transport separately.", "尚未接收所选调用。空闲、转交其他实例、方法关闭或实现不支持均不表示完整捕获；请分别核对来源、配置和传输状态。") \
     WA_UI_TEXT(kPipelineClearCurrent, "Clear current segment", "清空当前段") \
     WA_UI_TEXT(kPipelineClearHint, "Clear this segment's calls, recent window and counts. Monitoring selection and other segments stay unchanged.", "清空本段调用、最近窗口和本次统计；保留监控选择及其他记录段。") \
     WA_UI_TEXT(kPipelineClearPending, "Publishing clear boundary...", "正在发布清空边界...") \

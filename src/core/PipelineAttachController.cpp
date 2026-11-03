@@ -1,4 +1,6 @@
 ﻿#include "PipelineAttachController.h"
+#include "HookedCallPod.h"
+#include "Log.h"
 #include <windows.h>
 #include <algorithm>
 #include <chrono>
@@ -9,6 +11,7 @@
 #include <thread>
 #include <unordered_map>
 #include <map>
+#include <filesystem>
 
 namespace wa {
 struct PipelineAttachController::Impl {
@@ -28,12 +31,26 @@ struct PipelineAttachController::Impl {
         Result result;
         ItemState outcome = ItemState::Failed;
     };
+    struct StartupJob {
+        StartupRequest request;
+        uint32_t methods = kDefaultMonitorMethods;
+        uint32_t pid = 0;
+        std::atomic_bool cancelled{false};
+    };
+    struct StartupPrepared {
+        std::unique_ptr<OnDemandAttach> attach;
+        StartupOutcome outcome;
+        StartupObservation observation;
+    };
     mutable std::mutex mutex;
     std::condition_variable changed;
     bool closing = false, installing = false;
     std::shared_ptr<Job> job;
     std::deque<std::shared_ptr<Job>> queued;
     BatchStatus batchStatus;
+    StartupStatus startupStatus;
+    std::shared_ptr<StartupJob> startupJob;
+    std::optional<StartupPrepared> startupPrepared;
     std::unordered_map<uint32_t, ProcessInstance> activeInstances;
     std::optional<Prepared> prepared;  // One owning handoff, never a borrowed view.
     std::deque<uint32_t> stops;       // PID zero means detach all.
@@ -42,7 +59,7 @@ struct PipelineAttachController::Impl {
     std::map<std::pair<uint32_t, uint64_t>, uint32_t> lastMethods;
     std::deque<Batch> batches;
     Snapshot state;
-    std::thread installer, receiver;
+    std::thread installer, receiver, starter;
 
     Impl() : installer([this] { install(); }), receiver([this] { receive(); }) {}
     ~Impl() { shutdown(); }
@@ -51,16 +68,73 @@ struct PipelineAttachController::Impl {
             std::lock_guard<std::mutex> lock(mutex);
             closing = true;
             if (job) job->cancelled.store(true);
+            if (startupJob) startupJob->cancelled.store(true);
             queued.clear();
         }
         changed.notify_all();
         if (installer.joinable()) installer.join();
+        if (starter.joinable()) starter.join();
         if (receiver.joinable()) receiver.join();
         std::lock_guard<std::mutex> lock(mutex);
         prepared.reset();
+        startupPrepared.reset();
+        startupJob.reset();
         job.reset();
         state.attached.clear();
         state.pendingPid = 0;
+    }
+    void launch(const std::shared_ptr<StartupJob>& request) {
+        auto attach = std::make_unique<OnDemandAttach>();
+        std::wstring hook;
+        StartupObservation observation;
+        StartupOutcome outcome;
+        outcome.result = OnDemandAttach::freezeHook(hook);
+        if (outcome.result) {
+            outcome = launchAtEntry(request->request, [&](uint32_t pid, const std::atomic_bool& cancelled) {
+                ProcessInstance expected;
+                {
+                    std::lock_guard<std::mutex> lock(mutex);
+                    expected = {startupStatus.outcome.pid, startupStatus.outcome.creationTime};
+                }
+                auto result = attach->start(pid, {}, PipelineFlow::Render, &cancelled, expected, request->methods, hook);
+                if (!result) return result;
+                const auto capability = attach->coverage();
+                const auto transport = attach->transportStatus();
+                if (!capability.acceptedAttempts || capability.restartRequired ||
+                    !transport.statistics.known || transport.observationGeneration != attach->observationGeneration())
+                    return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED)),
+                        "Startup: hook capability/configuration/receiver handshake failed");
+                observation.hookPath = std::filesystem::path(hook).u8string();
+                observation.protocolLayout = hook_ipc::kRingLayout;
+                observation.acceptedAttempts = capability.acceptedAttempts;
+                observation.rejectedAttempts = capability.rejectedAttempts;
+                observation.capabilityError = capability.lastError;
+                observation.receiverReady = true;
+                LARGE_INTEGER readyCounter{};
+                const BOOL measured = QueryPerformanceCounter(&readyCounter);
+                const auto counterError = measured ? ERROR_SUCCESS : GetLastError();
+                WA_LOG(wa::log::Level::Debug, "Startup", "QueryPerformanceCounter(receiver ready)",
+                    "pid=" + std::to_string(pid), wa::log::hrName(HRESULT_FROM_WIN32(counterError)));
+                if (!measured) return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(counterError)), "Startup: readiness counter unavailable");
+                observation.receiverReadyCounter = readyCounter.QuadPart;
+                return Result::Ok();
+            }, &request->cancelled, [&](StartupStage stage, const StartupOutcome& current) {
+                std::lock_guard<std::mutex> lock(mutex);
+                request->pid = current.pid;
+                startupStatus.stage = stage;
+                startupStatus.outcome = current;
+                if (stage >= StartupStage::ReceiverReady) startupStatus.observation = observation;
+            }, &mutex);
+        }
+        observation.mainThreadId = outcome.mainThreadId;
+        observation.imageBase = outcome.imageBase;
+        observation.entryAddress = outcome.entryAddress;
+        observation.entryRva = outcome.entryRva;
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            startupPrepared.emplace(StartupPrepared{std::move(attach), outcome, std::move(observation)});
+        }
+        changed.notify_all();
     }
     void install() {
         for (;;) {
@@ -106,7 +180,7 @@ struct PipelineAttachController::Impl {
                     result = Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_CANCELLED)), "Attach: cancelled");
                 } else if (activeInstances.count(request->pid) && activeInstances.at(request->pid) == current) {
                     outcome = ItemState::Skipped;
-                } else if (activeInstances.size() >= kTargetCapacity) {
+                } else if (activeInstances.size() + (startupJob ? 1u : 0u) >= kTargetCapacity) {
                     outcome = ItemState::Rejected;
                     result = Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_BUSY)), "Attach: target limit reached");
                 }
@@ -157,6 +231,7 @@ struct PipelineAttachController::Impl {
             std::deque<uint32_t> commands;
             std::deque<Configuration> updates;
             std::optional<Prepared> handoff;
+            std::optional<StartupPrepared> startupHandoff;
             std::shared_ptr<Job> request;
             bool outputReady = false;
             {
@@ -174,11 +249,51 @@ struct PipelineAttachController::Impl {
                         prepared.reset();
                         request = job;
                     }
+                    if (startupPrepared) {
+                        startupHandoff = std::move(startupPrepared);
+                        startupPrepared.reset();
+                    }
                 }
             }
             Batch batch;
             batch.calls = active.drainAll();
             for (auto& call : batch.calls) attribute(call);
+
+            if (startupHandoff) {
+                auto& launchHandoff = *startupHandoff;
+                Result result = launchHandoff.outcome.result;
+                Event event;
+                event.pid = launchHandoff.outcome.pid;
+                event.instance = {launchHandoff.outcome.pid, launchHandoff.outcome.creationTime};
+                event.snapshotMs = now();
+                {
+                    std::lock_guard<std::mutex> lock(mutex);
+                    event.methods = startupJob->methods;
+                    if (closing || startupJob->cancelled.load())
+                        result = Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_CANCELLED)),
+                            launchHandoff.outcome.committed ? "Startup: committed target detached after cancellation"
+                                                      : "Startup: cancelled before commit");
+                    // The source was prepared before entry release. Adopting the
+                    // owning receiver never resets its cursor or source generation.
+                    if (result) result = active.adopt(std::move(launchHandoff.attach));
+                    event.kind = result ? EventKind::Attached : EventKind::Failed;
+                    event.result = result;
+                    if (result) {
+                        event.token = tokens[event.pid] = ++nextToken;
+                        event.name = active.processName(event.pid);
+                        event.observationGeneration = active.observationGeneration(event.pid);
+                        event.startup = launchHandoff.observation;
+                        activeInstances[event.pid] = event.instance;
+                        lastMethods[{event.pid, event.instance.created}] = event.methods;
+                    }
+                    startupStatus.running = false;
+                    startupStatus.outcome = launchHandoff.outcome;
+                    startupStatus.outcome.result = result;
+                    startupStatus.observation = launchHandoff.observation;
+                    startupJob.reset();
+                }
+                batch.events.push_back(std::move(event));
+            }
 
             if (handoff) {
                 Result result = handoff->result;
@@ -198,6 +313,7 @@ struct PipelineAttachController::Impl {
                     }
                     if (result && handoff->outcome != ItemState::Skipped) {
                         result = active.adopt(std::move(handoff->attach));
+                        if (result) activeInstances[request->pid] = request->instance;
                     }
                     if (request->hook) {
                         auto& item = batchStatus.items[request->batchIndex];
@@ -329,6 +445,36 @@ struct PipelineAttachController::Impl {
 PipelineAttachController::PipelineAttachController() : impl_(std::make_unique<Impl>()) {}
 PipelineAttachController::~PipelineAttachController() = default;
 
+Result PipelineAttachController::startStartup(const StartupRequest& request, uint32_t methods) {
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    if (request.executable.empty() || !request.timeoutMs || (methods & ~kAllMonitorMethods))
+        return Result::Fail(static_cast<long>(E_INVALIDARG), "Startup: invalid launch/configuration");
+    if (impl_->closing || impl_->startupJob || impl_->activeInstances.size() + (impl_->job ? 1u : 0u) >= kTargetCapacity || !impl_->stops.empty())
+        return Result::Fail(static_cast<long>(HRESULT_FROM_WIN32(ERROR_BUSY)), "Startup: busy or target limit reached");
+    if (impl_->starter.joinable()) impl_->starter.join();
+    auto job = std::make_shared<Impl::StartupJob>();
+    job->request = request;
+    job->methods = methods;
+    impl_->startupStatus = {};
+    impl_->startupStatus.running = true;
+    impl_->startupJob = job;
+    impl_->starter = std::thread([impl = impl_.get(), job] { impl->launch(job); });
+    return Result::Ok();
+}
+
+bool PipelineAttachController::cancelStartup() {
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    if (impl_->closing || !impl_->startupJob) return false;
+    impl_->startupJob->cancelled.store(true);
+    impl_->changed.notify_all();
+    return true;
+}
+
+PipelineAttachController::StartupStatus PipelineAttachController::startupStatus() const {
+    std::lock_guard<std::mutex> lock(impl_->mutex);
+    return impl_->startupStatus;
+}
+
 Result PipelineAttachController::startBatch(const std::vector<Target>& targets) {
     std::lock_guard<std::mutex> lock(impl_->mutex);
     if (targets.empty() || targets.size() > kTargetCapacity || impl_->closing || impl_->job ||
@@ -438,6 +584,7 @@ bool PipelineAttachController::stop(uint32_t pid) {
     std::lock_guard<std::mutex> lock(impl_->mutex);
     if (impl_->closing) return false;
     if (impl_->job && (pid == 0 || impl_->job->pid == pid)) impl_->job->cancelled.store(true);
+    if (impl_->startupJob && (pid == 0 || impl_->startupJob->pid == pid)) impl_->startupJob->cancelled.store(true);
     for (auto it = impl_->queued.begin(); it != impl_->queued.end();) {
         const auto& request = *it;
         if (pid != 0 && request->pid != pid) { ++it; continue; }

@@ -5,6 +5,7 @@
 #include "ProcessInstance.h"
 #include "MethodSelection.h"
 #include "HookTransportStatus.h"
+#include "StartupObservation.h"
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -74,6 +75,7 @@ public:
         uint32_t initialMethods = kDefaultMonitorMethods;
         std::vector<ConfigurationChange> configurationChanges;
         HookTransportStatus transport;
+        std::optional<StartupObservation> startup;
     };
     static constexpr size_t kNotFound = static_cast<size_t>(-1);
     // Borrows the current query cache; consume before the next Store mutation/view.
@@ -104,6 +106,7 @@ public:
     bool setMethods(uint64_t attach, uint32_t methods, int64_t observedMs = 0,
                     std::optional<uint32_t> observedGeneration = {});
     bool setObservationGeneration(uint64_t attach, uint32_t generation);
+    bool setStartup(uint64_t attach, StartupObservation observation);
     bool updateTransport(const TransportUpdate& update);
     std::vector<Segment> segments(bool active) const;
     uint64_t attachForToken(uint64_t token) const;

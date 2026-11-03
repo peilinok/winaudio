@@ -49,7 +49,7 @@ struct HookCoverage {
 
 class OnDemandAttach {
 public:
-    enum class Stage { Preparing, Injecting, Installing };
+    enum class Stage { Preparing, Injecting, Installing, Receiving };
     static Result freezeHook(std::wstring& path);
     OnDemandAttach();
     ~OnDemandAttach();

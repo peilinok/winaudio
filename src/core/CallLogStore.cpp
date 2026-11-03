@@ -194,6 +194,14 @@ const CallLogStore::Segment* CallLogStore::segment(uint64_t attach) const {
     return attach && attach <= attaches_.size() ? &attaches_[static_cast<size_t>(attach - 1)] : nullptr;
 }
 
+bool CallLogStore::setStartup(uint64_t attach, StartupObservation observation) {
+    if (!attach || attach > attaches_.size()) return false;
+    auto& segment = attaches_[static_cast<size_t>(attach - 1)];
+    if (!segment.active || segment.startup) return false;
+    segment.startup = std::move(observation);
+    return true;
+}
+
 bool CallLogStore::setMethods(uint64_t attach, uint32_t methods, int64_t observedMs,
                               std::optional<uint32_t> observedGeneration) {
     if (!attach || attach > attaches_.size() || (methods & ~kAllMonitorMethods)) return false;
@@ -746,6 +754,24 @@ std::vector<std::string> CallLogStore::exportSummary(const CallLogExport& snapsh
     number("statisticsStartedMs", s.statisticsStartedMs);
     number("observationGeneration", s.observationGeneration);
     boolean("coverageUnknown", s.coverageUnknown);
+    text("observationMode", s.startup ? "startup" : "running-attach");
+    if (s.startup) {
+        const auto& origin = *s.startup;
+        text("startup.boundary", "main-thread-exe-pe-entry-after-readiness");
+        text("startup.exclusions", "pre-entry-DLL-TLS,prior-helper-threads,unknown-implementations,other-PIDs,forwarded-existing-instance,child-processes");
+        text("startup.capabilityScope", "discovered-implementations-at-readiness-not-complete-API-coverage");
+        text("startup.hookPath", origin.hookPath);
+        number("startup.mainThreadId", origin.mainThreadId);
+        number("startup.imageBase", origin.imageBase);
+        number("startup.entryAddress", origin.entryAddress);
+        number("startup.entryRva", origin.entryRva);
+        number("startup.protocolLayout", origin.protocolLayout);
+        number("startup.acceptedAttempts", origin.acceptedAttempts);
+        number("startup.rejectedAttempts", origin.rejectedAttempts);
+        number("startup.capabilityError", origin.capabilityError);
+        boolean("startup.receiverReady", origin.receiverReady);
+        number("startup.receiverReadyQpc", origin.receiverReadyCounter);
+    }
     text("windowScope", "recent-retained-not-complete-history");
     text("configurationTimeScope", "host-observed-success-not-exact-source-publication");
     text("snapshotScope", "host-received-at-click-not-simultaneous-source-snapshot");

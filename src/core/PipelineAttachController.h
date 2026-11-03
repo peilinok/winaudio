@@ -1,7 +1,10 @@
 #pragma once
 #include "PipelineAttachSet.h"
 #include "HookTransportStatus.h"
+#include "StartupLaunch.h"
+#include "StartupObservation.h"
 #include <memory>
+#include <optional>
 
 namespace wa {
 
@@ -22,6 +25,7 @@ public:
         bool exited = false;
         uint32_t methods = kDefaultMonitorMethods;
         uint32_t observationGeneration = 0;
+        std::optional<StartupObservation> startup;
     };
     struct Batch {
         std::vector<Event> events;
@@ -54,6 +58,12 @@ public:
         bool running = false;
         std::wstring hookPath;
     };
+    struct StartupStatus {
+        bool running = false;
+        StartupStage stage = StartupStage::Created;
+        StartupOutcome outcome;
+        StartupObservation observation;
+    };
     PipelineAttachController();
     ~PipelineAttachController();
     PipelineAttachController(const PipelineAttachController&) = delete;
@@ -64,6 +74,9 @@ public:
     Result startBatch(const std::vector<Target>& targets);
     bool cancelBatch();
     BatchStatus batchStatus() const;
+    Result startStartup(const StartupRequest& request, uint32_t methods = kDefaultMonitorMethods);
+    bool cancelStartup();
+    StartupStatus startupStatus() const;
     Result configure(ProcessInstance instance, uint64_t token, uint32_t methods);
     Result clear(ProcessInstance instance, uint64_t token);
     uint32_t lastMethods(ProcessInstance instance) const;

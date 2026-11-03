@@ -127,6 +127,7 @@ public:
             if (event.kind != PipelineAttachController::EventKind::Attached) continue;
             const auto id = store.registerAttach(event.instance, event.name, event.token, event.snapshotMs, event.methods);
             store.setObservationGeneration(id, event.observationGeneration);
+            if (event.startup) store.setStartup(id, *event.startup);
             if (!selected_) selected_ = id;
         }
         for (auto& call : batch.calls) {

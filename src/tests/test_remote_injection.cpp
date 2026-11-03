@@ -1,4 +1,4 @@
-#include <gtest/gtest.h>
+﻿#include <gtest/gtest.h>
 #include "RemoteInjection.h"
 #include "RemoteInjectionHarness.h"
 #include "OnDemandAttach.h"
@@ -7,6 +7,7 @@
 #include "CallLogExportJob.h"
 #include "HookedCallPod.h"
 #include "HookModuleIdentity.h"
+#include "StartupGateHarness.h"
 #include <tlhelp32.h>
 #include <future>
 #include <filesystem>
@@ -183,6 +184,69 @@ TEST_F(RemoteInjectionTest, TimeoutKeepsUnreadRemoteParameterAlive) {
     ASSERT_NE(VirtualQueryEx(child.hProcess, address, &memory, sizeof(memory)), 0u);
     EXPECT_EQ(memory.State, static_cast<DWORD>(MEM_COMMIT));
     releaseAndCheck(operation);
+}
+
+TEST_F(RemoteInjectionTest, StartupWaitingDoesNotBlockExistingConfigurationBatchOrDetach) {
+    wa::PipelineAttachController controller;
+    wa::CallLogStore store;
+    wa::pipeline_attach_ui::SegmentSelection selection;
+    ASSERT_TRUE(controller.start(child.dwProcessId));
+    const auto receiveUntil = [&](const auto& complete) {
+        const auto deadline = GetTickCount64() + 10000;
+        do {
+            for (auto& batch : controller.poll()) selection.apply(store, std::move(batch));
+            if (complete()) return true;
+            Sleep(1);
+        } while (GetTickCount64() < deadline);
+        return false;
+    };
+    ASSERT_TRUE(receiveUntil([&] { return store.activeAttach(child.dwProcessId) != 0; }));
+    const auto old = selection.selected();
+    const auto instance = store.segment(old)->instance;
+    const auto oldToken = store.segment(old)->token;
+    const auto startupToken = base + L"-startup";
+    HANDLE map = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0,
+        sizeof(wa::startup_probe::Shared), (startupToken + L"-map").c_str());
+    HANDLE startupGate = CreateEventW(nullptr, TRUE, FALSE, (startupToken + L"-gate").c_str());
+    HANDLE startupEntered = CreateEventW(nullptr, TRUE, FALSE, (startupToken + L"-entered").c_str());
+    ASSERT_TRUE(map && startupGate && startupEntered);
+    wchar_t self[MAX_PATH]{};
+    GetModuleFileNameW(nullptr, self, MAX_PATH);
+    wa::StartupRequest request;
+    request.executable = (std::filesystem::path(self).parent_path() / L"StartupGateTarget.exe").wstring();
+    request.arguments = L"--token=" + startupToken + L" --remote-gate --hold-before-entry";
+    ASSERT_TRUE(controller.startStartup(request));
+    ASSERT_EQ(WaitForSingleObject(startupEntered, 5000), WAIT_OBJECT_0);
+    const auto starting = controller.startupStatus();
+    ASSERT_TRUE(starting.running);
+    HANDLE startingProcess = OpenProcess(SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION, FALSE, starting.outcome.pid);
+    ASSERT_NE(startingProcess, nullptr);
+    const auto sibling = spawnSibling();
+    wa::ProcessInstance siblingInstance;
+    ASSERT_TRUE(wa::queryProcessInstance(sibling.dwProcessId, siblingInstance));
+    ASSERT_TRUE(controller.startBatch({{siblingInstance, {}, wa::PipelineFlow::Render, 0}}));
+    ASSERT_TRUE(controller.configure(instance, oldToken, 0));
+    ASSERT_TRUE(receiveUntil([&] {
+        return store.activeAttach(sibling.dwProcessId) && store.segment(old)->methods == 0;
+    }));
+    EXPECT_TRUE(controller.startupStatus().running);
+    EXPECT_EQ(selection.selected(), old);
+    ASSERT_TRUE(controller.stop(child.dwProcessId));
+    ASSERT_TRUE(receiveUntil([&] { return store.segment(old)->state == wa::CallLogStore::SegmentState::Detached; }));
+    EXPECT_TRUE(controller.startupStatus().running);
+    EXPECT_TRUE(controller.attached(sibling.dwProcessId));
+    ASSERT_TRUE(controller.cancelStartup());
+    ASSERT_TRUE(receiveUntil([&] { return !controller.startupStatus().running; }));
+    EXPECT_TRUE(controller.startupStatus().outcome.targetExitConfirmed);
+    EXPECT_EQ(WaitForSingleObject(startingProcess, 0), WAIT_OBJECT_0);
+    EXPECT_TRUE(controller.attached(sibling.dwProcessId));
+    EXPECT_EQ(store.activeAttach(starting.outcome.pid), 0u);
+    controller.shutdown();
+    EXPECT_EQ(WaitForSingleObject(child.hProcess, 0), WAIT_TIMEOUT);
+    CloseHandle(startingProcess);
+    CloseHandle(map);
+    CloseHandle(startupGate);
+    CloseHandle(startupEntered);
 }
 
 TEST_F(RemoteInjectionTest, CancellationKeepsUnreadRemoteParameterAlive) {

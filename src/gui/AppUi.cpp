@@ -1545,6 +1545,50 @@ void AppUi::drawPipelinePage() {
         // Live sessions | graph: draggable; default ~68% sessions.
         float leftW = wa::pipeline_split::firstPaneSize(usableX, pipelineSessionsFrac_, 280.0f, 180.0f);
         ImGui::BeginChild("pipelineLeft", ImVec2(leftW, 0), true);
+        const auto startupStatus = pipelineAttaches_.startupStatus();
+        if (ImGui::CollapsingHeader(wa::ui_text::id(wa::ui_text::kPipelineStartup))) {
+            ImGui::BeginDisabled(startupStatus.running);
+            ImGui::InputText(wa::ui_text::get(wa::ui_text::kPipelineStartupExe), pipelineStartupExe_, sizeof(pipelineStartupExe_));
+            ImGui::InputText(wa::ui_text::get(wa::ui_text::kPipelineStartupArguments), pipelineStartupArguments_, sizeof(pipelineStartupArguments_));
+            ImGui::InputTextWithHint(wa::ui_text::get(wa::ui_text::kPipelineStartupDirectory),
+                wa::ui_text::get(wa::ui_text::kPipelineStartupDirectoryHint), pipelineStartupDirectory_, sizeof(pipelineStartupDirectory_));
+            if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineStartupMethods))) ImGui::OpenPopup("startupMethods");
+            if (ImGui::BeginPopup("startupMethods")) {
+                drawMonitorMethods(pipelineStartupMethods_, false);
+                ImGui::EndPopup();
+            }
+            ImGui::SameLine();
+            ImGui::BeginDisabled(!pipelineStartupExe_[0]);
+            if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineStartupStart))) {
+                wa::StartupRequest request;
+                request.executable = utow(pipelineStartupExe_);
+                request.arguments = utow(pipelineStartupArguments_);
+                request.directory = utow(pipelineStartupDirectory_);
+                const auto result = pipelineAttaches_.startStartup(request, pipelineStartupMethods_);
+                pipelineStartupRequested_ = static_cast<bool>(result);
+                pipelineStartupFailure_ = result ? "" : result.message;
+            }
+            ImGui::EndDisabled();
+            ImGui::EndDisabled();
+            ImGui::SameLine();
+            ImGui::BeginDisabled(!startupStatus.running);
+            if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineStartupCancel))) pipelineAttaches_.cancelStartup();
+            ImGui::EndDisabled();
+            if (pipelineStartupRequested_) {
+                const auto stage = startupStatus.stage;
+                const char* status = !startupStatus.outcome.result ? wa::ui_text::kPipelineStartupFailed
+                    : startupStatus.outcome.committed ? wa::ui_text::kPipelineStartupCommitted
+                    : stage >= wa::StartupStage::ReceiverReady ? wa::ui_text::kPipelineStartupReleasing
+                    : stage >= wa::StartupStage::EntryHeld ? wa::ui_text::kPipelineStartupPreparing
+                    : wa::ui_text::kPipelineStartupWaiting;
+                ImGui::TextWrapped("%s | PID %u", wa::ui_text::get(status), startupStatus.outcome.pid);
+                if (!startupStatus.outcome.result) ImGui::TextWrapped("%s", startupStatus.outcome.result.message.c_str());
+                if (!startupStatus.outcome.committed && startupStatus.outcome.targetExitConfirmed)
+                    ImGui::TextUnformatted(wa::ui_text::get(wa::ui_text::kPipelineStartupExitConfirmed));
+            }
+            if (!pipelineStartupFailure_.empty()) ImGui::TextWrapped("%s", pipelineStartupFailure_.c_str());
+            ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineStartupBoundary));
+        }
         ImGui::SeparatorText(wa::ui_text::id(wa::ui_text::kPipelineSessions));
         if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineRefresh)))
             refreshPipelineSessions();
@@ -1603,7 +1647,7 @@ void AppUi::drawPipelinePage() {
         if (!canDetach) ImGui::EndDisabled();
         ImGui::SameLine();
         const bool canDetachAll =
-            wa::pipeline_attach_ui::canDetachAll(attachedSet, pipelineAttachFailByPid_) || pipelinePreparing_ || batchStatus.running;
+            wa::pipeline_attach_ui::canDetachAll(attachedSet, pipelineAttachFailByPid_) || pipelinePreparing_ || batchStatus.running || startupStatus.running;
         if (!canDetachAll) ImGui::BeginDisabled();
         if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineDetachAll)))
             runPipelineDetachAll();
@@ -2090,6 +2134,16 @@ void AppUi::drawPipelinePage() {
         if (const auto* segment = pipelineCallStore_.segment(pipelineSegmentSelection_.selected())) {
             ImGui::Text(wa::ui_text::get(wa::ui_text::kPipelineCallSourceFmt), segment->name.c_str(),
                 segment->instance.pid, static_cast<unsigned long long>(segment->id), segmentStatus(segment->state));
+            if (segment->startup) {
+                const auto& origin = *segment->startup;
+                ImGui::TextWrapped(wa::ui_text::get(wa::ui_text::kPipelineStartupSourceFmt), origin.mainThreadId,
+                    static_cast<unsigned long long>(origin.entryAddress), origin.protocolLayout,
+                    origin.acceptedAttempts, origin.rejectedAttempts);
+                ImGui::SetItemTooltip("%s\n%s", origin.hookPath.c_str(),
+                    wa::ui_text::get(wa::ui_text::kPipelineStartupBoundary));
+                if (!segment->count && !segment->windowReceived)
+                    ImGui::TextWrapped("%s", wa::ui_text::get(wa::ui_text::kPipelineStartupEmpty));
+            }
             auto& clearState = pipelineClearStates_[segment->id];
             ImGui::BeginDisabled(clearState.pending);
             if (ImGui::Button(wa::ui_text::id(wa::ui_text::kPipelineClearCurrent))) {
