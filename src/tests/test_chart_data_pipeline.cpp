@@ -148,6 +148,8 @@ TEST(ChartDataPipeline, EveryChannelFailurePreservesInitialIncrementalAndFullWin
             if (advance) ASSERT_TRUE(refreshCharts(p, b).waveChanged);
             const auto old = waves;
             const uint64_t revision = state.revision, end = state.filledThrough;
+            const int firstIndex = state.first;
+            const uint64_t updates = state.updatedSamples;
             const float tail[] = {5, 6, 7, 8, 9};
             if (advance) reader.data.pushMono(tail, advance);
             reader.failChannel = failed;
@@ -157,13 +159,16 @@ TEST(ChartDataPipeline, EveryChannelFailurePreservesInitialIncrementalAndFullWin
             EXPECT_EQ(waves, old);
             EXPECT_EQ(state.revision, revision);
             EXPECT_EQ(state.filledThrough, end);
+            EXPECT_EQ(state.first, firstIndex);
+            EXPECT_EQ(state.updatedSamples, updates);
             reader.failChannel = -1;
             ASSERT_TRUE(refreshCharts(p, b).waveChanged);
             EXPECT_EQ(state.revision, revision + 1);
             std::vector<float> reference(4);
             for (uint16_t ch = 0; ch < 3; ++ch) {
                 ASSERT_TRUE(reader.data.snapshotChannelEndingAt(ch, reader.data.written(), 4, reference.data()));
-                EXPECT_EQ(waves[ch], reference);
+                for (int i = 0; i < 4; ++i)
+                    EXPECT_FLOAT_EQ(state.view(waves[ch].data())[i], reference[static_cast<size_t>(i)]);
             }
         }
     }
@@ -242,14 +247,14 @@ TEST(ChartDataPipeline, EnvelopeIdentityIncludesSourceGenerationAndIndependentDi
     std::vector<float> capture(256, .1f), render(256, .9f);
     MinMaxPyramid cap, ren;
     WaveEnvelopeWork work;
-    ensureMinMaxPyramid(cap, capture.data(), 256, 1, &work, 3);
-    ensureMinMaxPyramid(ren, render.data(), 256, 1, &work, 3);
+    ensureMinMaxPyramid(cap, {capture.data(), 256}, 1, &work, 3);
+    ensureMinMaxPyramid(ren, {render.data(), 256}, 1, &work, 3);
     EXPECT_FLOAT_EQ(cap.blockMax[0], .1f);
     EXPECT_FLOAT_EQ(ren.blockMax[0], .9f);
     work = {};
-    ensureMinMaxPyramid(cap, capture.data(), 256, 1, &work, 3);
+    ensureMinMaxPyramid(cap, {capture.data(), 256}, 1, &work, 3);
     EXPECT_EQ(work.rebuildSamples, 0u);
-    ensureMinMaxPyramid(cap, render.data(), 256, 1, &work, 4);
+    ensureMinMaxPyramid(cap, {render.data(), 256}, 1, &work, 4);
     EXPECT_EQ(work.rebuildSamples, 256u);
     EXPECT_FLOAT_EQ(cap.blockMax[0], .9f);
 }
@@ -337,9 +342,9 @@ TEST(ChartDataPipeline, WorkRecordsDistinguishSnapshotMoveAndUnchangedReuse) {
     probe.beginFrame();
     ASSERT_TRUE(refreshCharts(params, buffers).haveWave);
     EXPECT_EQ(total("wave-request-samples"), 2u);
-    EXPECT_EQ(total("wave-move-bytes"), 24u);
+    EXPECT_EQ(total("wave-move-bytes"), 0u);
     EXPECT_EQ(total("wave-copy-bytes"), 8u);
-    EXPECT_FLOAT_EQ(wave.back(), 9.f);
+    EXPECT_FLOAT_EQ(filled.view(wave.data())[7], 9.f);
     probe.endFrame();
     probe.beginFrame();
     ASSERT_TRUE(refreshCharts(params, buffers).haveWave);
@@ -767,8 +772,8 @@ TEST(ChartDataPipeline, WaveIncrementalMatchesFullRefill) {
 
     for (int ch = 0; ch < 2; ++ch)
         for (int i = 0; i < 8; ++i)
-            EXPECT_FLOAT_EQ(wavesA[static_cast<size_t>(ch)][static_cast<size_t>(i)],
-                            wavesB[static_cast<size_t>(ch)][static_cast<size_t>(i)])
+            EXPECT_FLOAT_EQ(filledA.view(wavesA[static_cast<size_t>(ch)].data())[i],
+                            bState.view(wavesB[static_cast<size_t>(ch)].data())[i])
                 << "ch=" << ch << " i=" << i;
 }
 
@@ -801,4 +806,75 @@ TEST(ChartDataPipeline, WaveSkipWhenWrittenUnchanged) {
     EXPECT_FLOAT_EQ(wave[16], 123.f);
     EXPECT_EQ(filled.filledThrough, r.written());
     (void)mid;
+}
+
+TEST(ChartDataPipeline, AllEightHistoriesAndLazyEnvelopesSurviveWrapFreezeAndRefill) {
+    constexpr int n = 1031;
+    FakeScopeReader reader(8);
+    std::vector<std::vector<float>> waves(8, std::vector<float>(n, -7.f));
+    WaveRefreshState state;
+    WaveSnapshotScratch scratch;
+    ChartBuffers b;
+    b.channelWaves = &waves; b.channelCount = 8; b.waveN = n; b.waveSr = 48000;
+    b.waveState = &state; b.waveScratch = &scratch;
+    ChartRefreshParams p;
+    p.reader = &reader; p.streamActive = true;
+    MinMaxPyramid envelopes[8];
+    const int steps[] = {7, 1, 63, 64, 65, 800, 1000, 2, n, n + 3};
+    for (int iteration = 0; iteration < 60; ++iteration) {
+        const int count = steps[iteration % 10];
+        std::vector<float> input(static_cast<size_t>(count) * 8);
+        for (int i = 0; i < count; ++i)
+            for (int ch = 0; ch < 8; ++ch)
+                input[static_cast<size_t>(i) * 8 + ch] = .9f * std::sin(
+                    static_cast<float>(reader.written() + i) * .137f + static_cast<float>(ch));
+        reader.pushInterleaved(input.data(), static_cast<size_t>(count));
+        if (iteration % 3 == 1) {
+            const auto previous = waves;
+            const auto updates = state.updatedSamples;
+            const auto first = state.first;
+            const auto revision = state.revision;
+            p.frozen = true;
+            EXPECT_FALSE(refreshCharts(p, b).waveChanged);
+            EXPECT_EQ(waves, previous);
+            EXPECT_EQ(state.updatedSamples, updates);
+            EXPECT_EQ(state.first, first);
+            EXPECT_EQ(state.revision, revision);
+            p.frozen = false;
+        }
+        ASSERT_TRUE(refreshCharts(p, b).waveChanged);
+        for (int ch = 0; ch < 8; ++ch) {
+            std::vector<float> reference(n, 0.f);
+            const size_t available = static_cast<size_t>(std::min<uint64_t>(reader.written(), n));
+            ASSERT_TRUE(reader.snapshotChannelEndingAt(static_cast<uint16_t>(ch), reader.written(),
+                available, reference.data() + n - available));
+            for (int i = 0; i < n; ++i)
+                ASSERT_FLOAT_EQ(state.view(waves[static_cast<size_t>(ch)].data())[i], reference[static_cast<size_t>(i)]);
+            // Ch 8 is queried only occasionally: switching to it must recover its history/index.
+            if (ch != 0 && !(ch == 7 && iteration % 9 == 0) && iteration != 59) continue;
+            float x[7]{}, low[7]{}, high[7]{};
+            WaveEnvelopeWork work;
+            ASSERT_TRUE(fillWaveEnvelope(state.view(waves[static_cast<size_t>(ch)].data()),
+                17, n - 2, 7, 1.0 / 48000, &envelopes[ch], state.revision, x, low, high,
+                &work, state.generation));
+            for (int c = 0; c < 7; ++c) {
+                const int start = 17 + (n - 18) * c / 7;
+                const int end = 17 + (n - 18) * (c + 1) / 7;
+                const int snappedStart = start / 64 * 64;
+                const int snappedEnd = std::min(n, (end + 63) / 64 * 64);
+                const auto extremes = std::minmax_element(reference.begin() + snappedStart,
+                                                          reference.begin() + snappedEnd);
+                EXPECT_FLOAT_EQ(low[c], waveDbWarp(*extremes.first));
+                EXPECT_FLOAT_EQ(high[c], waveDbWarp(*extremes.second));
+            }
+            if (iteration == 1 && ch == 0) {
+                EXPECT_EQ(work.rebuildSamples, 0u);
+                EXPECT_LE(work.updateSamples, 128u);
+            }
+            WaveEnvelopeWork reused;
+            ensureMinMaxPyramid(envelopes[ch], state.view(waves[static_cast<size_t>(ch)].data()),
+                state.revision, &reused, state.generation);
+            EXPECT_EQ(reused.rebuildSamples + reused.updateSamples, 0u);
+        }
+    }
 }

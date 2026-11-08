@@ -164,7 +164,7 @@ private:
     void drawComboPanel(wa::ScopeReader& reader, const wa::MonitorStatus& status, VisualState& viz,
                         bool renderSide);
     void drawSpectrogramPanel(VisualState& viz, const char* plotId, wa::SpectrogramVisual* visual, double histSec, float height, int slot);
-    void drawWaveformPanel(VisualState& viz, const char* plotId, const float* wave, int n, uint32_t sr, bool haveData, float height, int slot, wa::MinMaxPyramid* pyr = nullptr);
+    void drawWaveformPanel(VisualState& viz, const char* plotId, wa::WaveHistoryView wave, uint32_t sr, bool haveData, float height, int slot, wa::MinMaxPyramid* pyr = nullptr);
     float logRegionHeight() const;
     void drawLogRegion(const char* regionId, const char* listId);
     void drawLogPanel(const char* listId);

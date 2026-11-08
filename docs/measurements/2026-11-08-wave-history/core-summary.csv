@@ -1,0 +1,12 @@
+﻿case,median_mean_us,min_p95_us,max_p95_us
+chart-push-refresh-1ch-800frames,60.707,77.6,91.6
+chart-wave-only-1ch-800frames,10.99,10.9,13.6
+chart-frozen-1ch-800frames,0.02,0.1,0.1
+chart-push-refresh-2ch-800frames,113.451,147.1,159.7
+chart-wave-only-2ch-800frames,15.427,15.6,19.6
+chart-frozen-2ch-800frames,0.021,0.1,0.1
+chart-push-refresh-8ch-800frames,441.789,571.4,622.5
+chart-wave-only-8ch-800frames,46.082,48.7,50.7
+chart-frozen-8ch-800frames,0.024,0.1,0.1
+wave-envelope-moving-491520,65.778,96.8,109.2
+wave-envelope-frozen-491520,34.318,34.8,57.3

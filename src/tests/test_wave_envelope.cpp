@@ -23,7 +23,7 @@ TEST(WaveEnvelope, ExactMatchesDirectMinMax) {
     // Three columns over 9 samples: [0..3), [3..6), [6..9).
     const float wave[] = {0.1f, -0.5f, 0.2f, 0.8f, -0.1f, 0.0f, -0.9f, 0.3f, 0.4f};
     float x[3], mn[3], mx[3];
-    ASSERT_TRUE(fillWaveEnvelopeExact(wave, 9, 0, 8, 3, 1.0, x, mn, mx));
+    ASSERT_TRUE(fillWaveEnvelopeExact({wave, 9}, 0, 8, 3, 1.0, x, mn, mx));
     EXPECT_FLOAT_EQ(mn[0], waveDbWarp(-0.5f));
     EXPECT_FLOAT_EQ(mx[0], waveDbWarp(0.2f));
     EXPECT_FLOAT_EQ(mn[1], waveDbWarp(-0.1f));
@@ -39,19 +39,19 @@ TEST(WaveEnvelope, PyramidReusedForSameEpoch) {
         wave[static_cast<size_t>(i)] = std::sin(0.01f * static_cast<float>(i));
 
     MinMaxPyramid pyr;
-    ensureMinMaxPyramid(pyr, wave.data(), kN, /*epoch=*/7);
+    ensureMinMaxPyramid(pyr, {wave.data(), kN}, /*epoch=*/7);
     EXPECT_EQ(pyr.epoch, 7u);
     EXPECT_EQ(pyr.n, kN);
     const float* minPtr = pyr.blockMin.data();
-    ensureMinMaxPyramid(pyr, wave.data(), kN, /*epoch=*/7);
+    ensureMinMaxPyramid(pyr, {wave.data(), kN}, /*epoch=*/7);
     EXPECT_EQ(pyr.blockMin.data(), minPtr);  // no realloc/rebuild
 
     wave[0] = 0.99f;  // mutate source; same epoch must not rebuild
-    ensureMinMaxPyramid(pyr, wave.data(), kN, /*epoch=*/7);
+    ensureMinMaxPyramid(pyr, {wave.data(), kN}, /*epoch=*/7);
     EXPECT_EQ(pyr.blockMin.data(), minPtr);
     EXPECT_FLOAT_EQ(pyr.blockMin[0], std::sin(0.f));  // stale vs mutated â€?by design
 
-    ensureMinMaxPyramid(pyr, wave.data(), kN, /*epoch=*/8);
+    ensureMinMaxPyramid(pyr, {wave.data(), kN}, /*epoch=*/8);
     EXPECT_EQ(pyr.epoch, 8u);
     EXPECT_FLOAT_EQ(pyr.blockMax[0], wave[0]);  // rebuilt â€?peak sits in block 0
 }
@@ -67,11 +67,11 @@ TEST(WaveEnvelope, PyramidPathCloseToExactWhenSppLarge) {
 
     std::vector<float> xA(kCols), mnA(kCols), mxA(kCols);
     std::vector<float> xB(kCols), mnB(kCols), mxB(kCols);
-    ASSERT_TRUE(fillWaveEnvelopeExact(wave.data(), kN, 0, kN - 1, kCols, 1.0 / 48000.0,
+    ASSERT_TRUE(fillWaveEnvelopeExact({wave.data(), kN}, 0, kN - 1, kCols, 1.0 / 48000.0,
                                       xA.data(), mnA.data(), mxA.data()));
 
     MinMaxPyramid pyr;
-    ASSERT_TRUE(fillWaveEnvelope(wave.data(), kN, 0, kN - 1, kCols, 1.0 / 48000.0, &pyr,
+    ASSERT_TRUE(fillWaveEnvelope({wave.data(), kN}, 0, kN - 1, kCols, 1.0 / 48000.0, &pyr,
                                  /*epoch=*/1, xB.data(), mnB.data(), mxB.data()));
 
     // Block snap can widen peaks slightly; stay within a small absolute tolerance on the
@@ -101,14 +101,14 @@ TEST(WaveEnvelope, EightChannelFullHistoryTiming) {
     // Warmup exact
     for (int w = 0; w < 2; ++w)
         for (int ch = 0; ch < kCh; ++ch)
-            fillWaveEnvelopeExact(wave.data(), kN, 0, kN - 1, kCols, 1.0 / 48000.0,
+            fillWaveEnvelopeExact({wave.data(), kN}, 0, kN - 1, kCols, 1.0 / 48000.0,
                                   x.data(), mn.data(), mx.data());
 
     constexpr int kIters = 16;
     const auto tExact0 = std::chrono::steady_clock::now();
     for (int i = 0; i < kIters; ++i) {
         for (int ch = 0; ch < kCh; ++ch)
-            fillWaveEnvelopeExact(wave.data(), kN, 0, kN - 1, kCols, 1.0 / 48000.0,
+            fillWaveEnvelopeExact({wave.data(), kN}, 0, kN - 1, kCols, 1.0 / 48000.0,
                                   x.data(), mn.data(), mx.data());
     }
     const auto tExact1 = std::chrono::steady_clock::now();
@@ -117,13 +117,13 @@ TEST(WaveEnvelope, EightChannelFullHistoryTiming) {
 
     // Warmup pyramid (includes first build)
     for (int ch = 0; ch < kCh; ++ch)
-        fillWaveEnvelope(wave.data(), kN, 0, kN - 1, kCols, 1.0 / 48000.0, &pyrs[static_cast<size_t>(ch)],
+        fillWaveEnvelope({wave.data(), kN}, 0, kN - 1, kCols, 1.0 / 48000.0, &pyrs[static_cast<size_t>(ch)],
                          /*epoch=*/1, x.data(), mn.data(), mx.data());
 
     const auto tPyr0 = std::chrono::steady_clock::now();
     for (int i = 0; i < kIters; ++i) {
         for (int ch = 0; ch < kCh; ++ch)
-            fillWaveEnvelope(wave.data(), kN, 0, kN - 1, kCols, 1.0 / 48000.0,
+            fillWaveEnvelope({wave.data(), kN}, 0, kN - 1, kCols, 1.0 / 48000.0,
                              &pyrs[static_cast<size_t>(ch)], /*epoch=*/1, x.data(), mn.data(),
                              mx.data());
     }
@@ -153,21 +153,64 @@ TEST(WaveEnvelope, WorkSeparatesRebuildFromReusedQueriesAndExactScan) {
     wa::MinMaxPyramid pyramid;
     float x[4]{}, low[4]{}, high[4]{};
     wa::WaveEnvelopeWork first;
-    ASSERT_TRUE(wa::fillWaveEnvelope(wave.data(), 256, 0, 255, 2, 1.0 / 48000,
+    ASSERT_TRUE(wa::fillWaveEnvelope({wave.data(), 256}, 0, 255, 2, 1.0 / 48000,
         &pyramid, 1, x, low, high, &first));
     EXPECT_EQ(first.rebuildSamples, 256u);
     EXPECT_EQ(first.blockQueries, 4u);
     EXPECT_EQ(first.exactSamples, 0u);
     EXPECT_EQ(first.columns, 2u);
     wa::WaveEnvelopeWork reused;
-    ASSERT_TRUE(wa::fillWaveEnvelope(wave.data(), 256, 0, 255, 2, 1.0 / 48000,
+    ASSERT_TRUE(wa::fillWaveEnvelope({wave.data(), 256}, 0, 255, 2, 1.0 / 48000,
         &pyramid, 1, x, low, high, &reused));
     EXPECT_EQ(reused.rebuildSamples, 0u);
     EXPECT_EQ(reused.blockQueries, 4u);
     wa::WaveEnvelopeWork exact;
-    ASSERT_TRUE(wa::fillWaveEnvelope(wave.data(), 256, 0, 15, 4, 1.0 / 48000,
+    ASSERT_TRUE(wa::fillWaveEnvelope({wave.data(), 256}, 0, 15, 4, 1.0 / 48000,
         &pyramid, 1, x, low, high, &exact));
     EXPECT_EQ(exact.exactSamples, 16u);
     EXPECT_EQ(exact.rebuildSamples, 0u);
     EXPECT_EQ(exact.columns, 4u);
+}
+
+TEST(WaveEnvelope, OverwrittenBlocksUpdateWithoutScanningTheWholeHistory) {
+    std::vector<float> samples(1024, .1f);
+    samples[0] = -.9f;
+    MinMaxPyramid pyramid;
+    wa::WaveHistoryView view{samples.data(), 1024, 0, 1024};
+    wa::WaveEnvelopeWork first;
+    ensureMinMaxPyramid(pyramid, view, 1, &first, 7);
+    ASSERT_EQ(first.rebuildSamples, 1024u);
+    samples[0] = .2f;
+    view.first = 1;
+    ++view.updatedSamples;
+    wa::WaveEnvelopeWork update;
+    ensureMinMaxPyramid(pyramid, view, 2, &update, 7);
+    EXPECT_EQ(update.rebuildSamples, 0u);
+    EXPECT_EQ(update.updateSamples, 64u);
+    EXPECT_FLOAT_EQ(pyramid.blockMin[0], .1f);
+    EXPECT_FLOAT_EQ(pyramid.blockMax[0], .2f);
+}
+
+TEST(WaveEnvelope, RingQueriesKeepLogicalBlockBoundariesAndExactZoom) {
+    constexpr int n = 1027; // Includes a partial physical block.
+    std::vector<float> linear(n), physical(n);
+    for (int i = 0; i < n; ++i) linear[static_cast<size_t>(i)] = .6f * std::sin(.7f * static_cast<float>(i));
+    linear[64] = -1.f;
+    linear[128] = 1.f;
+    for (int first : {1, 31, 63, 64, 65, 1000, 1026}) {
+        for (int i = 0; i < n; ++i) physical[static_cast<size_t>((first + i) % n)] = linear[static_cast<size_t>(i)];
+        for (int cols : {3, 7, 15, 80}) {
+            for (int lo : {0, 17, 63, 300}) {
+                float xa[80]{}, la[80]{}, ha[80]{}, xb[80]{}, lb[80]{}, hb[80]{};
+                MinMaxPyramid a, b;
+                ASSERT_TRUE(fillWaveEnvelope({linear.data(), n}, lo, n - 3, cols, .01, &a, 1, xa, la, ha));
+                ASSERT_TRUE(fillWaveEnvelope({physical.data(), n, first, n}, lo, n - 3, cols, .01, &b, 1, xb, lb, hb));
+                for (int c = 0; c < cols; ++c) {
+                    EXPECT_FLOAT_EQ(xa[c], xb[c]);
+                    EXPECT_FLOAT_EQ(la[c], lb[c]) << "first=" << first << " lo=" << lo << " cols=" << cols;
+                    EXPECT_FLOAT_EQ(ha[c], hb[c]);
+                }
+            }
+        }
+    }
 }

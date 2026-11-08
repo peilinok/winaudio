@@ -3697,10 +3697,11 @@ void AppUi::drawSpectrogramPanel(VisualState& viz, const char* plotId, wa::Spect
 // so the buffer's tail holds the newest samples (right edge). Level-of-detail: zoomed in -> raw
 // line; zoomed out -> per-pixel min/max envelope with translucent fill + opaque outline so far
 // view stays readable while remaining column-aligned with the spectrogram. Optional MinMaxPyramid
-// avoids a full raw history scan on later frames with the same committed window (freeze / pan / zoom).
-void AppUi::drawWaveformPanel(VisualState& viz, const char* plotId, const float* wave, int n,
+// updates overwritten blocks and reuses the index while frozen / panning / zooming.
+void AppUi::drawWaveformPanel(VisualState& viz, const char* plotId, wa::WaveHistoryView wave,
                               uint32_t sr, bool haveData, float height, int slot,
                               wa::MinMaxPyramid* pyr) {
+    const int n = wave.n;
     if (!ImPlot::BeginPlot(plotId, ImVec2(-1, height))) return;
     const int channel = slot == kSlotRenWave ? 0 : slot - kSlotCapWaveBase;
     const auto note = [&](const char* metric, uint64_t value) {
@@ -3725,7 +3726,7 @@ void AppUi::drawWaveformPanel(VisualState& viz, const char* plotId, const float*
     static const double kAmpV[] = {-1.0, -0.9, -0.8, -0.6, -0.2, 0.0, 0.2, 0.6, 0.8, 0.9, 1.0};
     static const char*  kAmpL[] = {"0", "-6", "-12", "-24", "-48", "-inf", "-48", "-24", "-12", "-6", "0"};
     ImPlot::SetupAxisTicks(ImAxis_Y1, kAmpV, 11, kAmpL);
-    if (haveData && n > 0 && sr > 0 && wave) {
+    if (haveData && n > 0 && sr > 0 && wave.data) {
         const double invSr = 1.0 / (double)sr;
         int iLo = (int)std::floor(viz.xLink0 * (double)sr);
         int iHi = (int)std::ceil (viz.xLink1 * (double)sr);
@@ -3749,11 +3750,12 @@ void AppUi::drawWaveformPanel(VisualState& viz, const char* plotId, const float*
                     // Resize stays outside: it can allocate. The bracket times the min/max fill only.
                     wa::FrameBracket envelope(frameProbe_, wa::FrameSlice::Envelope);
                     const auto& state = slot == kSlotRenWave ? viz.renderWaveState : viz.capWaveState;
-                    wa::fillWaveEnvelope(wave, n, iLo, iHi, cols, invSr, pyr, state.revision,
+                    wa::fillWaveEnvelope(wave, iLo, iHi, cols, invSr, pyr, state.revision,
                                          viz.envX.data(), viz.envMin.data(), viz.envMax.data(),
                                          frameProbe_.enabled() ? &work : nullptr, state.generation);
                 }
                 note("wave-block-rebuild-samples", work.rebuildSamples);
+                note("wave-block-update-samples", work.updateSamples);
                 note("wave-exact-samples", work.exactSamples);
                 note("wave-block-queries", work.blockQueries);
                 note("wave-envelope-columns", work.columns);
@@ -3850,7 +3852,7 @@ void AppUi::drawComboPanel(wa::ScopeReader& reader, const wa::MonitorStatus& sta
                 continue;
             }
             const std::string plotId = "##capWaveCh" + std::to_string(ch);
-            drawWaveformPanel(viz, plotId.c_str(), wave.data(), viz.waveN, viz.waveSr,
+            drawWaveformPanel(viz, plotId.c_str(), viz.capWaveState.view(wave.data()), viz.waveSr,
                               refreshed.haveWave, kMultiWaveH, kSlotCapWaveBase + (int)ch,
                               &viz.capEnvPyramids[(size_t)ch]);
         }
@@ -3892,7 +3894,7 @@ void AppUi::drawComboPanel(wa::ScopeReader& reader, const wa::MonitorStatus& sta
     bool ok = refreshed.haveWave;
 
     const float waveH = kComboH * viz.comboRatio;
-    drawWaveformPanel(viz, renderSide ? "##renWave" : "##capWave", wave.data(), viz.waveN, viz.waveSr, ok,
+    drawWaveformPanel(viz, renderSide ? "##renWave" : "##capWave", buffers.waveState->view(wave.data()), viz.waveSr, ok,
                       waveH, renderSide ? kSlotRenWave : kSlotCapWaveBase, renderSide ? &viz.renderEnvPyramid : &viz.capEnvPyramid);
 
     // Splitter: drag to rebalance waveform vs spectrogram height (the axes re-lay out to fit).
