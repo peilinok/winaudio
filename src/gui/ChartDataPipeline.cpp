@@ -63,18 +63,23 @@ ChartRefreshResult refreshWave(const ChartRefreshParams& p, ChartBuffers& b, uin
     }
     // All reads succeeded. Only this commit phase may touch displayed history.
     const size_t head = static_cast<size_t>(b.waveN) - count;
+    const size_t start = incremental ? static_cast<size_t>(state.first) : head;
+    const size_t firstCount = std::min(count, static_cast<size_t>(b.waveN) - start);
     for (uint32_t ch = 0; ch < channels; ++ch) {
         float* wave = multi ? (*b.channelWaves)[ch].data() : b.wave;
-        if (incremental) {
-            std::memmove(wave, wave + count, head * sizeof(float));
-            note(p, "wave-move-bytes", head * sizeof(float), static_cast<int>(ch));
-        } else {
+        if (!incremental) {
             std::fill(wave, wave + head, 0.f);
             note(p, "wave-zero-bytes", head * sizeof(float), static_cast<int>(ch));
         }
-        std::memcpy(wave + head, scratch.data() + static_cast<size_t>(ch) * count, count * sizeof(float));
+        const float* source = scratch.data() + static_cast<size_t>(ch) * count;
+        std::memcpy(wave + start, source, firstCount * sizeof(float));
+        if (firstCount < count)
+            std::memcpy(wave, source + firstCount, (count - firstCount) * sizeof(float));
         note(p, "wave-copy-bytes", count * sizeof(float), static_cast<int>(ch));
     }
+    state.first = incremental ? static_cast<int>((start + count) % static_cast<size_t>(b.waveN)) : 0;
+    // A full refill dirties the entire index, including progressive-fill zeros.
+    state.updatedSamples += incremental ? count : static_cast<size_t>(b.waveN);
     state.valid = true;
     state.filledThrough = written;
     ++state.revision;

@@ -1,6 +1,7 @@
 #pragma once
 #include "ScopeReader.h"
 #include "Spectrogram.h"
+#include "WaveHistoryView.h"
 #include <complex>
 #include <cstdint>
 #include <memory>
@@ -20,12 +21,19 @@ struct WaveRefreshState {
     int samples = 0;
     uint32_t sampleRate = 0;
     uint32_t channels = 0;
+    int first = 0;
+    uint64_t updatedSamples = 0;
+    WaveHistoryView view(const float* data) const {
+        return {data, samples, first, updatedSamples};
+    }
     void invalidate() {
         ++generation;
         revision = filledThrough = 0;
         valid = false;
         samples = 0;
         sampleRate = channels = 0;
+        first = 0;
+        updatedSamples = 0;
     }
 };
 
@@ -51,7 +59,7 @@ struct ChartRefreshParams {
 // - Mono/downmix: set wave + spectrogram + specWin; channelCount = 0 or 1.
 // - Multi-channel capture: set channelWaves / channelSpecs / channelSpecWindows; channelCount >= 2.
 struct ChartBuffers {
-    // Wave history (latest rolling window, progressive fill into tail).
+    // Wave history (ring storage; waveState->view() exposes chronological samples).
     float*                         wave = nullptr;          // mono path, size waveN
     std::vector<std::vector<float>>* channelWaves = nullptr;  // multi-ch
     uint32_t                       channelCount = 0;        // 0/1 => mono; >=2 multi

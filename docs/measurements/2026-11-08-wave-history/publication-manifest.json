@@ -1,0 +1,16 @@
+{
+  "base_commit": "d4e76d05520513b089155da36835431572e12f25",
+  "gui_measurement_scope": "Original workspace with existing uncommitted UI changes; published AppUi contains only waveform integration.",
+  "source_sha256": {
+    "src/gui/AppUi.cpp": "e96f6cab7af27848e4821198fa1550cd58aa4ba3355c33f47f3fd9ab08bc039f",
+    "src/gui/AppUi.h": "0c78074208fa34050d375ed3a926001944ec38bb0b5d9bc11225c7bf40ad0646",
+    "src/gui/ChartDataPipeline.cpp": "9e32f3cff41515538b5a46dbdbcac43164a80913295bfa8ec0f0ebd096974fc0",
+    "src/gui/ChartDataPipeline.h": "97e16dda9c52f7c2ed2fb11870d91918d9011a3d075370545a682820bb26150c",
+    "src/gui/WaveHistoryView.h": "f9027fa4f405a5a6be1282982b78ed40911b9cb01610bb5fa31f85cef0565661",
+    "src/gui/WaveEnvelope.cpp": "ea123dd140136735c8132b1f7e5455f190719868d763bd53a6fbe823887e201b",
+    "src/gui/WaveEnvelope.h": "90e40feab45a50cbd1ba63280acf33257d0a4143f2b227f1b0ff4b65b6b820e3",
+    "src/tests/test_chart_data_pipeline.cpp": "a07eb4cd0e7b9ef057f1e68e2f43d075312a688f1a3f043134b0ef1a148177ee",
+    "src/tests/test_wave_envelope.cpp": "d1eca6130b2a8874d57e8dc958188a40599f4baa8a3766c1df2de760a8c28376"
+  },
+  "measured_algorithm_files_identical": true
+}
