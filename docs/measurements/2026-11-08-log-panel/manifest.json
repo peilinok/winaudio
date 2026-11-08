@@ -1,0 +1,94 @@
+{
+  "base_commit": "d724a1bcd46226044364e6108218e7dd2ed39932",
+  "main_sources": {
+    "src/gui/AppUi.cpp": "6261e0d69e66c95893b9812a6b17600ec9319c7e3954b235b3e237f98fc89afa",
+    "src/gui/AppUi.h": "bedcf41d00bbf19fd64d9aa51e760dc729262ed17e1fc9bdbeda7278c645c769",
+    "src/gui/LogPanel.h": "a3f81be9501c6eaf322f1bed30a63e8c9b412ab72534f04f8666938bf4436ae3",
+    "src/gui/PerformanceFixture.cpp": "f26e4d0683796757bfece039307dd8797c2eec86812bed5268a42e0735d06422",
+    "src/gui/main.cpp": "146a9bbbc8eae2cde6abc9d9b60f22728a2b93e88783a34a6cce538522557614",
+    "src/gui/FrameProbe.cpp": "83142cbd01d5fd154921caf76a667a1db1a8e60e83d42b8ac0bb9deef5dbe143",
+    "src/tests/test_log_panel.cpp": "693680137a413ad84f8946bb4de815783c541e1ccae72d6e497f3dc147f0b109",
+    "src/tests/CMakeLists.txt": "0e29c5a6bcc65acfbb46d829095dad97f3912545b28aae71330c75dc387f8056",
+    "third_party/imgui/imgui.cpp": "89526ba06e108e1f3e36cfd83eb991ca48f6fbdf9b713b5777fe57c308a3f328",
+    "third_party/imgui/imgui_widgets.cpp": "648ca8b8760dc94cb4f6e6a7b1f1b4c49c3cdf008f2144cc7ab8b27e5246515c"
+  },
+  "original_sources": {
+    "src/gui/AppUi.cpp": "ddc5a4a275c34046fc24710444cc5a2783094ad5b5fbc705e263ed1ba7aefaac",
+    "src/gui/AppUi.h": "cf17154109d2af7d70b3e401aeb2008834d1cabccdee699a559d1c4fe83edb20",
+    "src/gui/LogPanel.h": "a3f81be9501c6eaf322f1bed30a63e8c9b412ab72534f04f8666938bf4436ae3",
+    "src/gui/PerformanceFixture.cpp": "e0f7771d835689709bfd9a043339c36809ba102ddbdf64bfe72fb15b5ff51988",
+    "src/gui/main.cpp": "ad6ce8ec4176589717c7aca66f82aba02d0e0be541067f59bf7f568960cb2e32",
+    "src/gui/FrameProbe.cpp": "83142cbd01d5fd154921caf76a667a1db1a8e60e83d42b8ac0bb9deef5dbe143",
+    "src/tests/test_log_panel.cpp": "693680137a413ad84f8946bb4de815783c541e1ccae72d6e497f3dc147f0b109",
+    "src/tests/CMakeLists.txt": "0e29c5a6bcc65acfbb46d829095dad97f3912545b28aae71330c75dc387f8056",
+    "third_party/imgui/imgui.cpp": "89526ba06e108e1f3e36cfd83eb991ca48f6fbdf9b713b5777fe57c308a3f328",
+    "third_party/imgui/imgui_widgets.cpp": "648ca8b8760dc94cb4f6e6a7b1f1b4c49c3cdf008f2144cc7ab8b27e5246515c"
+  },
+  "original_baseline_sources": {
+    "src/gui/AppUi.cpp": "c2bfeb47cdaf808742537b6b6cbfc78fcaeee8ff2600d9543303915698675fdc",
+    "src/gui/AppUi.h": "a429c3b1b34cc436a2cae28017b2e26faa8656034d08bdae6523b67d2edb5ac0",
+    "src/gui/PerformanceFixture.cpp": "e0f7771d835689709bfd9a043339c36809ba102ddbdf64bfe72fb15b5ff51988",
+    "src/gui/main.cpp": "ad6ce8ec4176589717c7aca66f82aba02d0e0be541067f59bf7f568960cb2e32"
+  },
+  "production_and_test_binaries": {
+    "C:\\Users\\peili\\.codex\\worktrees\\wave-history-ring\\winaudio": {
+      "build/bin/Debug/WinAudioGui.exe": "e5b52cff3ae88073f41a1da97b40cff10e4711b9402bae2d9a0dd2f43c88d641",
+      "build/bin/Release/WinAudioGui.exe": "8da783a247ea3ad0e862ff87999ab56c20b008058261262ca9be83176bbf3a16",
+      "build/bin/Debug/WinAudioTests.exe": "df3ff34bb0aff67b2fee3bc4f345f0790ea41573eb2633c5bc7a0f873dd662d1",
+      "build/bin/Release/WinAudioTests.exe": "5f89afb9587ee55dcec60a6cebd0fe9354f4868c991ad728da4fef96b9749496"
+    },
+    "E:\\WORK\\vibecoding\\winaudio": {
+      "build/bin/Debug/WinAudioGui.exe": "b8869b08422c50d8211cb62e228714fe3e99ebebef10c36ac9bc788a4928f484",
+      "build/bin/Release/WinAudioGui.exe": "3f52c48ee4e79f04f7289437b4a20114c108e100463be79e0110177ceb707c63",
+      "build/bin/Debug/WinAudioTests.exe": "4c8a7090bb7a37a53359b19577f22fe8b06a4259ade6ddbe02e938be84a0c9ad",
+      "build/bin/Release/WinAudioTests.exe": "9827524c4c88804072a8ff46cb906bce45b3725649a529165969d2d2ffca414f"
+    }
+  },
+  "measurement_binaries": {
+    "baseline-main-build": {
+      "sha256": "ce62b9377d9b7fcf9a259a04b9bf372e357d8895cf50d544e0013de0ae99fb8c"
+    },
+    "baseline-original-build": {
+      "sha256": "35024d701008ad0b11ffbc0263c3c491ca8c589c5a9e1789268697c8bfae6cf9"
+    },
+    "optimized-main-build": {
+      "sha256": "2b31f71d2655d74a2bf3db6e0d6184ab3862cd1c18205bcfc9f92955109e0b69"
+    },
+    "optimized-original-build": {
+      "sha256": "2959df4ec6e33c8118629f383e26b57f51348e4579c6736b9bd4603ff8acb950"
+    }
+  },
+  "tools": {
+    "capture.ps1": "d138ffc0c292537d38d177108a15017f466cab04cc4fa4b02ccf78e5722813ae",
+    "CMakeLists.txt": "6d9721ee4a10bb028ee8e77ec2ac26e33b41b44b10a3693027ad4a211d8348e8",
+    "prepare_fixture.py": "dd3e952d81db1779e4a69d74a9e36193f5a0b5b7abb3645cd9995b3b85b39cd0",
+    "run_gui.py": "8aae9217ccd9aa21b8e5d04fd20a817000116372dbeae697280389fe13260749",
+    "summarize_runs.py": "a64a3b5fdbcc7aba4618e0ef492663aef76e135335760c3992eb1863b50cf9bc"
+  },
+  "environment": {
+    "recorded_utc": "2026-11-08T11:08:48.1829133Z",
+    "logical_processors": 16,
+    "os": {
+      "Caption": "Microsoft Windows 11 专业版",
+      "Version": "10.0.26200",
+      "BuildNumber": "26200"
+    },
+    "cpu": {
+      "Name": "Intel(R) Core(TM) i7-10875H CPU @ 2.30GHz",
+      "NumberOfCores": 8,
+      "NumberOfLogicalProcessors": 16
+    },
+    "power_scheme": "电源方案 GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (平衡)"
+  },
+  "screenshots": {
+    "before.png": "b5395c14a140011b1a05862c2806c0eca503842a8a75c6566ea323de9b84ceeb",
+    "after.png": "59986ef7b89575b61271b187d6c756f5796dad0ae5126a45ccae9e7a6e707068"
+  },
+  "preservation": {
+    "all_original_files_preserved": true,
+    "original_count": 156,
+    "original_appui_only_task_delta": true,
+    "shared_module_and_tests_identical": true
+  },
+  "note": "Independent runs retain their executable hashes in metrics.json; alternate fixtures add phase controls without changing production sources."
+}
