@@ -16,6 +16,7 @@
 #include "DeviceEnumerator.h"
 #include "DumpUi.h"
 #include "FrameProbe.h"
+#include "LogPanel.h"
 #include "OsSoundUi.h"
 #include "EndpointGraphReader.h"
 #include "EtwInitialize.h"
@@ -193,6 +194,8 @@ private:
     std::vector<int>         chartOrder_      = {0, 1};   // 0=cap combo, 1=ren combo
     int                      prevRenderState_ = 0;
     std::vector<std::string> logLines_;
+    uint64_t                 logFirstLine_ = 0;
+    wa::log_panel::View       logView_;
     std::mutex               logMutex_;    // guards pendingLog_ (pump thread → draw drains it)
     std::vector<std::string> pendingLog_;
     wa::FrameProbe           frameProbe_;  // off until main() enables it; slots only, no logging

@@ -1259,9 +1259,11 @@ void AppUi::draw() {
             pendingLog_.clear();
         }
         constexpr size_t kMaxLogLines = 5000;
-        if (logLines_.size() > kMaxLogLines)
+        if (logLines_.size() > kMaxLogLines) {
+            logFirstLine_ += logLines_.size() - kMaxLogLines;
             logLines_.erase(logLines_.begin(),
                             logLines_.begin() + (logLines_.size() - kMaxLogLines));
+        }
     }
 
     applyDumpPick();
@@ -3365,7 +3367,10 @@ void AppUi::drawLogPanel(const char* listId) {
     if (ImGui::Combo("##loglevel", &logLevelIdx_, kLevels, IM_ARRAYSIZE(kLevels)))
         wa::log::setLevel(static_cast<wa::log::Level>(logLevelIdx_));
     ImGui::SameLine();
-    if (ImGui::Button("Clear##logRegion")) logLines_.clear();
+    if (ImGui::Button("Clear##logRegion")) {
+        logFirstLine_ += logLines_.size();
+        logLines_.clear();
+    }
 
     if (collapsed) {
         ImGui::SameLine();
@@ -3391,11 +3396,15 @@ void AppUi::drawLogPanel(const char* listId) {
 
     if (collapsed) return;
 
-    ImGui::BeginChild(listId, ImVec2(0, 0), true);
+    if (!ImGui::BeginChild(listId, ImVec2(0, 0), true)) {
+        ImGui::EndChild();
+        return;
+    }
     const bool wasPinned = ImGui::GetScrollY() >= ImGui::GetScrollMaxY() - 1.0f;
-    ImGui::PushTextWrapPos(0.0f);
-    for (const auto& l : logLines_) ImGui::TextUnformatted(l.c_str());
-    ImGui::PopTextWrapPos();
+    const auto work = logView_.draw(logLines_, logFirstLine_, {}, [](const std::string&) { return true; });
+    frameProbe_.addWork("log-filter-checked", work.checked);
+    frameProbe_.addWork("log-height-measured", work.measured);
+    frameProbe_.addWork("log-rows-submitted", work.submitted);
     if (logPinToBottomOnExpand_ || wasPinned)
         ImGui::SetScrollHereY(1.0f);
     logPinToBottomOnExpand_ = false;
