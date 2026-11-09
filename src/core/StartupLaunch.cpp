@@ -59,6 +59,7 @@ struct Launch {
     std::mutex* commitMutex;
     StartupOutcome out;
     HANDLE job = nullptr;
+    DWORD cleanupSlot = FLS_OUT_OF_INDEXES;
     PROCESS_INFORMATION child{};
     std::atomic_bool stop{false};
     std::atomic_bool prepared{false};
@@ -393,8 +394,32 @@ struct Launch {
         }
     }
 
+    static void NTAPI threadExit(void* parameter) {
+        auto& self = *static_cast<Launch*>(parameter);
+        if (self.workerFinished || self.out.committed || !self.child.hProcess) return;
+        self.stop.store(true);
+        // ExitThread does not unwind C++ objects. Under WOW64 it can also leave
+        // debug events blocking termination after the debugger thread is gone.
+        // FLS cleanup still runs on that owning thread: terminate before detach
+        // so no uncommitted application code can resume in the detached window.
+        observe("TerminateProcess(debugger exit)", TerminateProcess(self.child.hProcess, ERROR_CANCELLED) != FALSE,
+                "pid=" + std::to_string(self.out.pid), wa::log::Level::Info);
+        if (!self.out.debugDetached) {
+            const DWORD error = observe("DebugActiveProcessStop(debugger exit)", DebugActiveProcessStop(self.out.pid) != FALSE,
+                                        "pid=" + std::to_string(self.out.pid));
+            if (!error) self.out.debugDetached = true;
+        }
+    }
+
     static DWORD WINAPI threadEntry(void* parameter) {
         auto& self = *static_cast<Launch*>(parameter);
+        const DWORD error = observe("FlsSetValue(startup cleanup)", FlsSetValue(self.cleanupSlot, &self) != FALSE,
+                                    "slot=" + std::to_string(self.cleanupSlot));
+        if (error) {
+            self.out.result = failure(error, "register debugger exit cleanup");
+            self.workerFinished = true;
+            return 0;
+        }
         try { self.out.result = self.runDebugger(); }
         catch (const std::exception& e) { self.out.result = Result::Fail(static_cast<long>(E_FAIL), e.what()); }
         catch (...) { self.out.result = failure(ERROR_UNHANDLED_EXCEPTION, "debug controller fault"); }
@@ -431,6 +456,14 @@ StartupOutcome launchAtEntry(const StartupRequest& request, const StartupPrepare
         close(launch.job);
         return launch.out;
     }
+    launch.cleanupSlot = FlsAlloc(&Launch::threadExit);
+    error = launch.cleanupSlot == FLS_OUT_OF_INDEXES ? GetLastError() : ERROR_SUCCESS;
+    observeResult("FlsAlloc(startup cleanup)", error, "per-launch debugger exit callback");
+    if (error) {
+        launch.out.result = failure(error, "allocate debugger exit cleanup");
+        close(launch.job);
+        return launch.out;
+    }
     HANDLE worker = CreateThread(nullptr, 0, &Launch::threadEntry, &launch, 0, nullptr);
     error = worker ? ERROR_SUCCESS : GetLastError();
     observeResult("CreateThread(startup debugger)", error, "dedicated debugger ownership");
@@ -455,6 +488,8 @@ StartupOutcome launchAtEntry(const StartupRequest& request, const StartupPrepare
         launch.out.targetExitConfirmed = waited == WAIT_OBJECT_0;
     }
     if (launch.installer.joinable()) launch.installer.join();
+    observe("FlsFree(startup cleanup)", FlsFree(launch.cleanupSlot) != FALSE,
+            "slot=" + std::to_string(launch.cleanupSlot) + "; debugger thread joined");
     close(launch.job);
     close(launch.child.hThread);
     close(launch.child.hProcess);

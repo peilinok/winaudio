@@ -14,6 +14,8 @@
 
 namespace {
 bool rejectThreadCreation = false;
+bool rejectCleanupAllocation = false;
+bool rejectCleanupRegistration = false;
 HANDLE debuggerFaultReady = nullptr;
 bool captureLaunchPaths = false;
 std::wstring launchedExecutable, launchedCommand, launchedDirectory;
@@ -35,6 +37,14 @@ HANDLE WINAPI createDebuggerThread(LPSECURITY_ATTRIBUTES attributes, SIZE_T stac
     if (rejectThreadCreation) { SetLastError(ERROR_NOT_ENOUGH_MEMORY); return nullptr; }
     return ::CreateThread(attributes, stack, entry, parameter, flags, id);
 }
+DWORD WINAPI allocateDebuggerCleanup(PFLS_CALLBACK_FUNCTION callback) {
+    if (rejectCleanupAllocation) { SetLastError(ERROR_NOT_ENOUGH_MEMORY); return FLS_OUT_OF_INDEXES; }
+    return ::FlsAlloc(callback);
+}
+BOOL WINAPI registerDebuggerCleanup(DWORD slot, PVOID value) {
+    if (rejectCleanupRegistration) { SetLastError(ERROR_NOT_ENOUGH_MEMORY); return FALSE; }
+    return ::FlsSetValue(slot, value);
+}
 BOOL WINAPI waitDebuggerEvent(LPDEBUG_EVENT event, DWORD timeout) {
     const BOOL available = ::WaitForDebugEvent(event, timeout);
     const DWORD error = available ? ERROR_SUCCESS : GetLastError();
@@ -51,7 +61,11 @@ BOOL WINAPI waitDebuggerEvent(LPDEBUG_EVENT event, DWORD timeout) {
 #define CreateThread createDebuggerThread
 #define WaitForDebugEvent waitDebuggerEvent
 #define CreateProcessW createStartupProcess
+#define FlsAlloc allocateDebuggerCleanup
+#define FlsSetValue registerDebuggerCleanup
 #include "../core/StartupLaunch.cpp"
+#undef FlsSetValue
+#undef FlsAlloc
 #undef CreateProcessW
 #undef WaitForDebugEvent
 #undef CreateThread
@@ -95,6 +109,25 @@ TEST(StartupLaunchBoundary, ThreadCreationFailurePreservesOriginalSystemError) {
     EXPECT_EQ(out.result.message, "Startup: startup debugger unavailable");
     EXPECT_EQ(out.pid, 0u);
     EXPECT_FALSE(out.committed);
+}
+
+TEST(StartupLaunchBoundary, CleanupSetupFailureCreatesNoTarget) {
+    for (bool allocation : {true, false}) {
+        SCOPED_TRACE(allocation ? "allocation" : "registration");
+        wa::StartupRequest request;
+        request.executable = L"not-created.exe";
+        rejectCleanupAllocation = allocation;
+        rejectCleanupRegistration = !allocation;
+        const auto out = wa::launchAtEntry(request,
+            [](uint32_t, const std::atomic_bool&) { return wa::Result::Ok(); });
+        rejectCleanupAllocation = rejectCleanupRegistration = false;
+        EXPECT_FALSE(out.result);
+        EXPECT_EQ(out.result.code, static_cast<long>(HRESULT_FROM_WIN32(ERROR_NOT_ENOUGH_MEMORY)));
+        EXPECT_EQ(out.result.message, allocation ? "Startup: allocate debugger exit cleanup"
+                                                : "Startup: register debugger exit cleanup");
+        EXPECT_EQ(out.pid, 0u);
+        EXPECT_FALSE(out.committed);
+    }
 }
 
 namespace {

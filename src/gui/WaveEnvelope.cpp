@@ -42,15 +42,24 @@ void queryPhysicalRange(WaveHistoryView wave, const MinMaxPyramid& pyr, int star
     mx = maximum;
 }
 
-// Compile the contiguous path separately so freeze queries retain their original cost.
+// Keep contiguous/frozen queries separate from physical ring edge scans.
 template<bool Ring>
 void fillIndexedColumns(WaveHistoryView wave, int iLo, int visN, int cols, double invSr,
                         const MinMaxPyramid* pyr, float* envX, float* envMin, float* envMax,
                         WaveEnvelopeWork* work) {
     const int n = wave.n;
+    // Preserve floor(visN * c / cols) with a carried remainder, avoiding
+    // per-column 64-bit division on x86. Unsigned keeps the remainder sum safe.
+    const int step = visN / cols;
+    const unsigned extra = static_cast<unsigned>(visN % cols);
+    unsigned remainder = 0;
+    int boundary = iLo;
     for (int c = 0; c < cols; ++c) {
-        int s0 = iLo + static_cast<int>((static_cast<int64_t>(visN) * c) / cols);
-        int s1 = iLo + static_cast<int>((static_cast<int64_t>(visN) * (c + 1)) / cols);
+        const int s0 = boundary;
+        boundary += step;
+        remainder += extra;
+        if (remainder >= static_cast<unsigned>(cols)) { ++boundary; remainder -= cols; }
+        int s1 = boundary;
         if (s1 <= s0) s1 = s0 + 1;
         if (s1 > n) s1 = n;
         float mn, mx;
@@ -58,11 +67,11 @@ void fillIndexedColumns(WaveHistoryView wave, int iLo, int visN, int cols, doubl
             // Common contiguous/frozen case: the logical blocks are already indexed.
             const int b0 = s0 / kWaveEnvBlock;
             const int b1 = (s1 - 1) / kWaveEnvBlock;
-            mn = pyr->blockMin[static_cast<size_t>(b0)];
-            mx = pyr->blockMax[static_cast<size_t>(b0)];
+            mn = pyr->blockMinWarped[static_cast<size_t>(b0)];
+            mx = pyr->blockMaxWarped[static_cast<size_t>(b0)];
             for (int b = b0 + 1; b <= b1; ++b) {
-                mn = std::min(mn, pyr->blockMin[static_cast<size_t>(b)]);
-                mx = std::max(mx, pyr->blockMax[static_cast<size_t>(b)]);
+                mn = std::min(mn, pyr->blockMinWarped[static_cast<size_t>(b)]);
+                mx = std::max(mx, pyr->blockMaxWarped[static_cast<size_t>(b)]);
             }
             if (work) work->blockQueries += static_cast<uint64_t>(b1 - b0 + 1);
         } else {
@@ -79,8 +88,13 @@ void fillIndexedColumns(WaveHistoryView wave, int iLo, int visN, int cols, doubl
                 queryPhysicalRange(wave, *pyr, 0, physical + end - begin - n, mn, mx, work);
         }
         envX[static_cast<size_t>(c)] = static_cast<float>(0.5 * static_cast<double>(s0 + s1) * invSr);
-        envMin[static_cast<size_t>(c)] = waveDbWarp(mn);
-        envMax[static_cast<size_t>(c)] = waveDbWarp(mx);
+        if constexpr (Ring) {
+            envMin[static_cast<size_t>(c)] = waveDbWarp(mn);
+            envMax[static_cast<size_t>(c)] = waveDbWarp(mx);
+        } else {
+            envMin[static_cast<size_t>(c)] = mn;
+            envMax[static_cast<size_t>(c)] = mx;
+        }
     }
 }
 
@@ -94,11 +108,14 @@ void ensureMinMaxPyramid(MinMaxPyramid& pyr, WaveHistoryView wave, uint64_t epoc
         pyr.n = 0;
         pyr.blockMin.clear();
         pyr.blockMax.clear();
+        pyr.blockMinWarped.clear();
+        pyr.blockMaxWarped.clear();
         return;
     }
     const int nb = (n + kWaveEnvBlock - 1) / kWaveEnvBlock;
     const bool compatible = pyr.generation == generation && pyr.n == n &&
-        static_cast<int>(pyr.blockMin.size()) == nb && pyr.blockMax.size() == pyr.blockMin.size();
+        static_cast<int>(pyr.blockMin.size()) == nb && pyr.blockMax.size() == pyr.blockMin.size() &&
+        pyr.blockMinWarped.size() == pyr.blockMin.size() && pyr.blockMaxWarped.size() == pyr.blockMin.size();
     if (compatible && pyr.epoch == epoch && pyr.updatedSamples == wave.updatedSamples)
         return;
 
@@ -107,6 +124,8 @@ void ensureMinMaxPyramid(MinMaxPyramid& pyr, WaveHistoryView wave, uint64_t epoc
         wave.updatedSamples - pyr.updatedSamples < static_cast<uint64_t>(n);
     pyr.blockMin.resize(static_cast<size_t>(nb));
     pyr.blockMax.resize(static_cast<size_t>(nb));
+    pyr.blockMinWarped.resize(static_cast<size_t>(nb));
+    pyr.blockMaxWarped.resize(static_cast<size_t>(nb));
     const auto updateBlock = [&](int b) {
         const int s0 = b * kWaveEnvBlock;
         const int s1 = std::min(n, s0 + kWaveEnvBlock);
@@ -123,6 +142,8 @@ void ensureMinMaxPyramid(MinMaxPyramid& pyr, WaveHistoryView wave, uint64_t epoc
         }
         pyr.blockMin[static_cast<size_t>(b)] = mn;
         pyr.blockMax[static_cast<size_t>(b)] = mx;
+        pyr.blockMinWarped[static_cast<size_t>(b)] = waveDbWarp(mn);
+        pyr.blockMaxWarped[static_cast<size_t>(b)] = waveDbWarp(mx);
     };
     if (incremental) {
         const int count = static_cast<int>(wave.updatedSamples - pyr.updatedSamples);

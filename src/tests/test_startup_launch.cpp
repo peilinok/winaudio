@@ -501,7 +501,12 @@ TEST_F(StartupLaunchTest, OriginalTargetBreakpointBeforeExeEntryIsNotSwallowed) 
     EXPECT_TRUE(out.targetExitConfirmed);
     DWORD code = STILL_ACTIVE;
     ASSERT_TRUE(GetExitCodeProcess(process, &code));
-    EXPECT_EQ(code, static_cast<DWORD>(EXCEPTION_BREAKPOINT));
+    BOOL wow64 = FALSE;
+    ASSERT_TRUE(IsWow64Process(GetCurrentProcess(), &wow64));
+    // WOW64 reports an unhandled x86 breakpoint as STATUS_WX86_BREAKPOINT.
+    EXPECT_EQ(code, wow64 ? 0x4000001Fu : static_cast<DWORD>(EXCEPTION_BREAKPOINT));
+    EXPECT_EQ(shared->crtEntered, 0u);
+    EXPECT_EQ(shared->mainEntered, 0u);
 }
 
 TEST_F(StartupLaunchTest, ForeignSuspensionIsNotSilentlyDrainedDuringRelease) {
