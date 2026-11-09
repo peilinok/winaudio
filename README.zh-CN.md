@@ -52,13 +52,13 @@ cd winaudio
 
 端点音频增强开关只能在开始音频流之前修改。需要管理员权限时，GUI 会弹出 UAC，并启动自身的第二个实例完成这一项操作；取消或失败会显示在原窗口。辅助实例不创建窗口、不启动音频流，执行后立即退出。
 
-运行 `WinAudioGui.exe`，包含 **Monitor** / **Loopback** / **Application Loopback** 三个 tab。日志默认写运行目录下的 `winaudio.log`（双击启动即 exe 目录），左栏日志面板可运行时切换级别、清空、自动滚动。
+运行 `WinAudioGui.exe`，可切换 **Monitor** / **Loopback** / **Application Loopback** / **Render** / **Pipeline**。页签数量表示后台运行的任务、轨道或已附加进程，空闲时不显示数量。顶部的 `mmsys.cpl` 统一打开 Windows 声音控制面板的播放页，`ms-settings` 打开声音设置。日志默认写入工作目录的 `winaudio.log`（双击启动时通常是程序目录）；面板支持调整高度、收起、搜索、跟随最新、清空及复制或保存筛选结果。记录级别控制实际写入的日志，显示级别只筛选面板内容；没有级别标记的界面事件仍保留。
 
 领域用语：**Track** 是一路可单独创建/销毁的单向流（采集或播放），Create 立即开流，没有 idle Track；**Capture source** 是配方（设备 / PID+mode），不是正在跑的那一路；**Capture Track** 绑定一个 Capture source，GUI 上可随时 Dump / Stop dump；**Monitor** 是唯一的双流会话名；**Chart Host** 是一路图的工具栏 + 面板。两个 loopback 页各自一份列表，每次启动为空；切走 tab 不会停采集。
 
 ### Monitor（双流延迟监听）
 
-两列布局：左列为设备 / 控制 / 状态 / 日志，右列为采集、播放两路「波形 + 声谱图」单元。采集端实际格式为 1ch 时保持单张视图；2ch+ 时按 `Ch N` 垂直堆叠显示各 channel 的 waveform，再显示各 channel 的 spectrogram（最多前 8 个 channel，超出时标出 `8 / N channels`），并按同一 capture end index 同步推进。播放端仍为单张延迟播放视图。所有图共享时间轴，单声道/播放单元中间分割线可上下调节，单元可拖拽重排。
+顶部控制 Start / Stop 和同步播放；左侧配置设备、格式和参数，右侧显示图表，底部是日志。配置区宽度可以拖动调整。图表提供双流适屏、纵向详细、仅采集或仅播放布局，可交换两流位置或恢复布局。多声道采集默认显示 `Ch 1`，可选择前 8 个声道之一或全部声道；所有采集声道的历史仍按同一个结束位置更新。Monitor 的播放图表保持单声道降混，采集和播放共用时间轴。
 
 - **Devices**：选择采集设备（默认系统默认设备）与后端（Shared / Exclusive）；「Capture caps…」弹窗显示该设备的三来源格式与 Shared/Exclusive 能力矩阵。
 - **Format**：显示当前将用格式（如 `48000 Hz, 16-bit, 2-ch`）；候选下拉第一项为 System default，随后是当前后端支持的候选格式，末项 Custom 可手动输入；切换设备或后端时自动重算默认值。
@@ -70,32 +70,33 @@ cd winaudio
 
 本页是一份 System Loopback **Capture Track** 列表（Shared-only），不是单路 Start/Stop。
 
-- **Create Track**：选一个 render device 作为 Capture source。Format 下拉为 System default（不传 requested，走 mix）+ 当前 render 设备 Shared 候选 + Custom Apply（`sr/bits/ch[f]`，与 Monitor 相同）。Options 为采集列（Set client properties、category、offload、stream option、buffer；无 Ducking、无 AutoConvert 控件），写入下一次 Create 的 Stream params。Silent render keepalive 默认开启，且始终全默认 mix，不继承本页配方。Create 立即开流，没有第二步 Start。同一 render device 允许同时开多路。本页配方与 Monitor / Application Loopback 互不共用；Destroy 和切 tab 不清配方。
-- **Destroy** / **Destroy all**：Destroy 只拆这一路（采集、silent render helper、该路若在 dump 则收尾 WAV、该路图）。Destroy all 只清本页，不动 Application Loopback 或 Monitor。
-- 右侧为每路独立的 Capture-only **Chart Host**（波形 + 声谱图；2ch+ 时 `Ch N` 拆分仍在该 Track 内，最多前 8 个 channel）。Chart freeze 与 linked time axis 按 Track，路与路不共享时间轴或格式。
-- **Dump** / **Stop dump**：每路独立、运行中随时开停的 WAV sink。Start dump 选保存文件夹，文件名按固定 prefix、实际格式和时间戳生成；Stop dump（或 Destroy）成功后用资源管理器选中该文件。多路不会混成一个流或一个文件。
+- **Create Track**：选一个 render device 作为 Capture source。Format 下拉为 System default（不传 requested，走 mix）+ 当前 render 设备 Shared 候选 + Custom Apply（`sr/bits/ch[f]`，与 Monitor 相同）。Options 为采集列（Set client properties、category、offload、stream option、buffer；无 Ducking、无 AutoConvert 控件），写入下一次 Create 的 Stream params。Silent render keepalive 默认开启，且始终全默认 mix，不继承本页配方。Create 立即开流，没有第二步 Start。同一 render device 允许同时开多路。本页配方与 Monitor / Application Loopback 互不共用；移除轨道和切 tab 不清配方。
+- **Stop and remove** / **Stop and remove all**：停止并移除单条或本页全部轨道，同时结束对应 WAV 录音并保留文件，不影响其他页。
+- 右侧先显示轨道摘要，再按“当前轨道”“两轨比较”或“全部展开”显示图表。选择比较对象后可并排查看两条轨道，移除或刷新时会修正选择。图表暂停、声道选择和时间轴归各条轨道独立管理。
+- **Dump** / **Stop dump**：每路独立、运行中随时开停的 WAV sink。Start dump 选保存文件夹，文件名按固定 prefix、实际格式和时间戳生成；Stop dump（或移除轨道）成功后用资源管理器选中该文件。多路不会混成一个流或一个文件。
 
 ### Application Loopback（按进程回采）
 
-本页是一份 Application Loopback Capture Track 列表（Create / Destroy / Destroy all、堆叠 Chart Host、每路独立 Dump）。Capture source 是 **PID + IncludeTree / ExcludeTree**。Format 下拉只有 System default，外加 Custom Apply（没有麦克风或扬声器候选表）。Options 同采集列，Create 把该页 Stream params 送进开流（enabled 时会 SetClientProperties）。配方与 Monitor / System Loopback 互不共用。Dump 文件名带进程名和 PID。Destroy 只拆这一路；Destroy all 只清本页的 Application Loopback Capture Track，不动 Loopback 页或 Monitor。运行中 Track 行只显示实际格式。
+本页独立管理 Application Loopback 采集轨道，支持创建、停止并移除、两轨比较及逐轨 WAV Dump。采集源是 **PID + IncludeTree / ExcludeTree**；可直接输入 PID，也可搜索进程名或 PID 后选择音频会话。“格式参考”仅提供格式候选，不限制实际采集设备；不选参考时可使用自动格式或自定义格式。参数只用于下一次创建，轨道摘要显示实际格式，Dump 文件名包含进程名和 PID。本页操作不影响 Monitor 或系统 Loopback 轨道。
 
 打开 tab 后自动枚举当前有 Audio Session 的进程（进程名 + PID，按进程名排序），「Refresh」重新枚举。Session 列表只做发现：点击一行把 PID 填入输入框，也可手输任意非零 PID（不必出现在列表中）。点列表不会开流。
 
-**PID** 输入 + **Exclude** checkbox（默认未勾选）属于下一次 Create 的配方，写入该 Track 的 Capture source。已在跑的那一路 mode 不再改；要换 mode 或再采同一 PID，再 Create 一路即可。同 PID 不同 mode 不是相等 Capture source；同 PID+mode 也允许同时开两路。
+**PID** 与采集范围选项用于下一次创建，并保存在该轨道的采集源中。默认采集此进程及子进程；另一选项采集除此进程树外的音频。运行中轨道的范围不随选项改变；需要改变范围或再次采集同一 PID 时，创建新轨道。
 
 | 模式 | UI | 该路状态 | 语义（Windows process tree） |
 |------|----|----------|------------------------------|
-| **IncludeTree**（默认） | Exclude 未勾 | `IncludeTree` | 只采集目标 PID 及其**子进程树**的音频 |
-| **ExcludeTree** | 勾选 Exclude | `ExcludeTree` | 采集 process-loopback 混音中**除**该进程树以外的部分 |
+| **IncludeTree**（默认） | 采集此进程及子进程 | `IncludeTree` | 只采集目标 PID 及其**子进程树**的音频 |
+| **ExcludeTree** | 采集除此进程树外的音频 | `ExcludeTree` | 采集 process-loopback 混音中**除**该进程树以外的部分 |
+
+### Render（按声道试听）
+
+左侧选择输出端点和声道布局，也可输入 1–8 的自定义声道数。客户端格式固定为 48000 Hz / PCM16。新轨道的全部声道默认暂停；在右侧按声道选择继续循环、暂停、播放一次或调整音量。轨道摘要显示客户端格式、实际格式及流状态；全部声道暂停时播放流仍可能运行，因此页签数量按运行中的流统计。图表支持声道选择、两轨比较和全部展开。
 
 ### Pipeline（Live 会话 API 监控）
 
-在 **PID** 框输入目标进程（或点选 Live 会话自动填入）后点 **附加 (Attach)** 注入 `WinAudioHook.dll`（需同位数）；**不要求**该进程已有 Live 会话。在调用日志中查看 Core Audio / WASAPI COM 调用、参数与 HRESULT。Hook 列与 PID 框下方状态对应该 PID 显示已附加 / 失败 / 未附加（即使不在会话列表中）。**分离 (Detach)** 会安静停止采集并解除映射。可选 **录制调用 / 保存调用**，JSONL 默认写入 `%LOCALAPPDATA%\\WinAudio\\pipeline-calls`。GetBuffer/ReleaseBuffer 的 pump 元数据默认关闭。处理图会标明 Initialize 字段来源（无/ETW/Hooked）、Shared 探针的 Probed 与 Observed 区别，以及多路 Hooked 流时使用最新一路；图只合并所选 Live 会话 PID。这不是完整 API Monitor：仅闭合 COM 集合、无调用栈、无跨位数注入。
+输入 **PID**，或从左侧进程/会话列表选择目标，再点击 **Attach** 注入同架构的 `WinAudioHook.dll`。可同时附加多个 PID；新增目标不会分离其他目标。目标列表支持进程名/PID 搜索和音频会话筛选；PID 只有一个会话时自动选中管线目标，多设备或多方向时需明确选择会话。管线图和调用记录分别选择目标，查看不同进程时会提示。**Detach PID** 分离输入框中的进程，调用记录旁的“分离此进程”分离当前记录段所属进程，**Detach all** 分离全部目标；历史记录继续保留。
 
-- 一轮观察可同时附加多个 PID，分离单个或全部 PID 后仍保留本轮调用，供查看和保存。全部分离后再次附加，会先提示保存、放弃或取消；新目标实际附加成功才替换旧轮，失败保留旧记录。
-- **录制调用**控制保存范围，关闭后仍继续接收和显示控制调用。从未开启录制时保存全部历史；开启时纳入当时全部历史并跟随新增，关闭时冻结上界。例如先收到 A、B，开启后收到 C，关闭后收到 D，界面可看 A～D，保存 A～C。再次开启会重新纳入当时全部历史。
-- 空录制范围会明确提示，不回退保存后来收到的记录。pump 只显示近期元数据；选中项移出窗口后清除选择并提示，不自动跳到另一条调用。主表摘要保持单行，完整内容可悬停查看或在参数面板查看。
-- **保存调用**在后台执行，每次只允许一个任务；保存期间可继续浏览和接收调用，暂不能替换整轮历史。退出时可等待保存完成或取消保存；取消须等当前写入返回，失败或取消均保留历史。
+管线图、调用表、参数、API 监控选择及统计可同屏显示，各区域分隔条可拖动，图或调用区域可单独最大化后恢复。调用记录支持模糊搜索、接口和失败结果筛选；API 监控选择控制实际采集的方法，显示窗口开关只影响显示。**保存当前段 / Save current segment** 将当前查看段快照写为 JSONL，目录为 `%LOCALAPPDATA%\WinAudio\pipeline-calls`，不受显示筛选或显示窗口开关限制。管线图继续区分 Initialize 来源（none / ETW / Hooked）、主动探测与观察结果，以及多个 Hooked 流；只合并所选会话所属进程的调用。高频 GetBuffer/ReleaseBuffer 方法默认关闭；不支持跨架构注入、任意 API 或调用栈采集。
 
 性能测量、复跑方法及已知验证限制见 [性能实施与验收记录](docs/measurements/performance-acceptance/README.md)。控制历史仍完整保存在内存，新增记录时内存会增长；本轮未加入长期归档。
 
