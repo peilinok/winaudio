@@ -115,8 +115,8 @@ TEST(ChartsTimeZoomUiText, ExposesZoomAndResetLabels) {
     EXPECT_STREQ(wa::ui_text::kChartsZoomIn, "Zoom in");
     EXPECT_STREQ(wa::ui_text::kChartsResetView, "Reset view");
     EXPECT_STREQ(wa::ui_text::kLoopbackCreate, "Create Track");
-    EXPECT_STREQ(wa::ui_text::kLoopbackDestroy, "Destroy");
-    EXPECT_STREQ(wa::ui_text::kLoopbackDestroyAll, "Destroy all");
+    EXPECT_STREQ(wa::ui_text::kLoopbackDestroy, "Stop and remove");
+    EXPECT_STREQ(wa::ui_text::kLoopbackDestroyAll, "Stop and remove all");
     EXPECT_STREQ(wa::ui_text::kLoopbackTracks, "Tracks");
     EXPECT_STREQ(wa::ui_text::kLoopbackSilentRender, "Silent render keepalive");
     EXPECT_STREQ(wa::ui_text::kOptions, "Options");

@@ -387,7 +387,7 @@ TEST(PipelineUiText, ExposesPipelineTabControls) {
     EXPECT_STREQ(wa::etwWatchStatusText(wa::EtwWatchStatus::Listening),
                  wa::ui_text::kPipelineEtwListening);
     EXPECT_STREQ(wa::ui_text::kPipelineAttach, "Attach");
-    EXPECT_STREQ(wa::ui_text::kPipelineDetach, "Detach");
+    EXPECT_STREQ(wa::ui_text::kPipelineDetach, "Detach PID");
     EXPECT_STREQ(wa::ui_text::kPipelineDetachAll, "Detach all");
     EXPECT_STREQ(wa::ui_text::kPipelineAttachedPids, "Attached PIDs");
     EXPECT_STREQ(wa::ui_text::kPipelineCallColPid, "PID");

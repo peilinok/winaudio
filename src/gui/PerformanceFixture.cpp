@@ -310,7 +310,23 @@ bool PerformanceFixture::advance(AppUi& ui) {
 }
 
 void PerformanceFixture::scrollCharts(AppUi& ui) {
-    if (manualCharts) return;
+    if (manualCharts || inspector() || monitorDump()) return;
+    const auto current = ui.renderTracks_.poll();
+    const size_t target = static_cast<size_t>(phase / 2);
+    if (target >= current.size()) { fixtureFailed = true; return; }
+    ui.renderView_.mode = 0;
+    ui.renderView_.selected = current[target].id;
+}
+
+void PerformanceFixture::scrollChartPanel(AppUi& ui, uint64_t source) {
+    if (manualCharts || inspector() || monitorDump()) return;
+    for (auto& entry : ui.renderViz_) {
+        if (entry.first != source) continue;
+        entry.second.chartChannel = -1;
+        entry.second.fitCharts = false;
+    }
+    // The workspace scrolls charts inside the selected track, independently
+    // of its summary and channel controls.
     const float target = positions[static_cast<size_t>(phase / 2)][static_cast<size_t>(phase % 2)];
     if (!warming && std::abs(ImGui::GetScrollY() - target) > 1.f)
         ui.frameProbe_.setStage("transition");
@@ -390,9 +406,9 @@ bool PerformanceFixture::startInspector(AppUi& ui) {
     ui.pipelineSessionsLoaded_ = true;
     ui.pipelineAudioOnly_ = true;
     ui.rebuildPipelineProcessTree();
-    ui.pipelineTopRowFrac_ = 0.25f;
     ui.receivePipelineCalls(std::move(calls));
     ui.pipelineCallSelected_ = ui.pipelineCallStore_.entries().front()->id;
+    ui.pipelineSegmentSelection_.select(ui.pipelineCallStore_, ui.pipelineCallSelected_.attach);
     return true;
 }
 
@@ -466,7 +482,6 @@ void PerformanceFixture::prepareLive(AppUi& ui) {
         inputFile.close();
         if (!inputFile) { fixtureFailed = true; return; }
         for (const auto id : liveSegments) restoreControls(ui, id);
-        ui.pipelineTopRowFrac_ = .25f;
     }
     uint64_t startTick = fixtureTick();
     QueryPerformanceFrequency(&frequency);

@@ -14,6 +14,7 @@ public:
     static bool start(AppUi& ui);
     static bool advance(AppUi& ui);
     static void scrollCharts(AppUi& ui);
+    static void scrollChartPanel(AppUi& ui, uint64_t source);
     static void chartPosition(uint64_t source, bool spectrum);
     static bool inspector();
     static bool liveInspector();

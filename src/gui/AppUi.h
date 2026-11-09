@@ -38,6 +38,7 @@
 #include "WaveEnvelope.h"
 #include "SpectrogramVisual.h"
 #include "TrackScopeReader.h"
+#include "WorkspaceView.h"
 
 class AppUi {
 public:
@@ -77,6 +78,8 @@ private:
         float comboRatio = 0.5f;
         bool  chartsFrozen = false; // pause chart data refresh only; audio continues
         bool  resetYAxes = false;   // one-shot: next draw restores default Y on all plots
+        bool  fitCharts = true;
+        int   chartChannel = 0; // -1 = all channels
         bool  plotHovPrev[18] = {}; // capture wave/spec slots for up to 8 channels + render slots
 
         std::vector<std::complex<float>> workCap, workRender;
@@ -108,7 +111,7 @@ private:
     void attemptPipelineAttach(const wa::pipeline_attach_ui::AttachRequest& request);
     void pollPipelineAttach(bool forExport = false);
     void drawExportCloseDialog();
-    void runPipelineDetach();
+    void runPipelineDetach(uint32_t pid = 0);
     void runPipelineDetachAll();
     bool savePipelineCallLog(const std::wstring& destination = {});
     void setPipelineRecording(bool on);
@@ -119,6 +122,14 @@ private:
                              const std::string& banner = {});
     void drawMonitorPage();
     void drawPipelinePage();
+    void drawPipelineControls();
+    void drawPipelineTargets();
+    void drawPipelineSegments();
+    void drawPipelineCalls();
+    void drawPipelineGraph();
+    void drawPipelineMethods(const wa::CallLogStore::Segment& segment);
+    void drawPipelineStatistics(const wa::CallLogStore::Segment& segment);
+    void drawPipelinePaneHeader(const char* title, int pane);
     void drawLoopbackPage();
     void drawApplicationLoopbackPage();
     void drawRenderPage();
@@ -127,7 +138,7 @@ private:
     void drawRenderLeftPanel();
     void recomputeRenderFormat();
     enum class DumpPickKind { None, Loopback, AppLoopback, MonitorCap, MonitorRen };
-    void drawDumpControls(wa::CaptureTrackList& list, const wa::CaptureTrackStatus& t,
+    bool drawDumpControls(wa::CaptureTrackList& list, const wa::CaptureTrackStatus& t,
                           DumpPickKind kind, const char* destroyedLog);
     void beginDumpPick(DumpPickKind kind, wa::TrackId trackId = 0);
     void applyDumpPick();
@@ -137,9 +148,9 @@ private:
     void drawStackedCaptureTrackHosts(wa::CaptureTrackList& list,
                                       std::vector<std::pair<wa::TrackId, VisualState>>& viz,
                                       const char* emptyHint);
-    void drawOsSoundButtons(wa::os_sound_ui::Page page);
-    void openOsSound(wa::os_sound_ui::Page page, wa::os_sound_ui::Button button);
+    void openOsSound(wa::os_sound_ui::Button button);
     void drawLeftPanel();
+    void drawMonitorControls();
     void drawAdvancedModal();
     void drawCapsModal();
     void drawFormatRegion();
@@ -189,9 +200,20 @@ private:
     wa::EndpointGraphReader endpointGraphReader_;
     wa::MonitorStatus    ms_;   // polled once per frame in draw(); shared by helper methods
 
+    uint64_t activityTick_ = 0;
+    size_t activityLoopback_ = 0, activityAppLoopback_ = 0, activityRender_ = 0;
+    void refreshActivityCounts();
     int  backendIdx_      = 0;
     bool playbackEnabled_ = false;
     std::vector<int>         chartOrder_      = {0, 1};   // 0=cap combo, 1=ren combo
+    int monitorChartLayout_ = 0; // 0 = fit, 1 = detailed, 2 = capture, 3 = render
+    float monitorConfigFrac_ = 0.27f;
+    float loopbackConfigFrac_ = 0.27f;
+    float appLoopbackConfigFrac_ = 0.30f;
+    float renderConfigFrac_ = 0.27f;
+    wa::workspace_view::Tracks loopbackView_, appLoopbackView_, renderView_;
+    float trackSummaryFrac_ = 0.30f;
+    float appSessionListHeight_ = 130.f;
     int                      prevRenderState_ = 0;
     std::vector<std::string> logLines_;
     uint64_t                 logFirstLine_ = 0;
@@ -201,6 +223,9 @@ private:
     wa::FrameProbe           frameProbe_;  // off until main() enables it; slots only, no logging
     int                      logLevelIdx_ = 2;   // 0=Trace..4=Err; default Info
     bool                     logCollapsed_ = false;
+    float                    logHeight_ = 200.f;
+    int                      logDisplayLevel_ = 0;
+    std::string              logSaveStatus_;
     bool                     logPinToBottomOnExpand_ = false; // one-shot after clicking +
     std::wstring             logPrefsPath_;
 
@@ -214,23 +239,32 @@ private:
     int                         renderPageDevIdx_ = 0;
     int                         delayMs_      = 100;
     bool                        monitorStarted_ = false;
+    std::string                 monitorStartError_;
     bool                        loopbackSilentRender_ = true;
     wa::create_recipe::CreateRecipe loopbackRecipe_{};
     bool                        appLoopbackExclude_ = false; // create recipe; false = IncludeTree
     bool                        appLoopbackSessionsLoaded_ = false;
     std::vector<wa::AudioSessionProcess> appLoopbackSessions_;
     int                         appLoopbackSessionIdx_ = -1;
+    char                        appLoopbackFilter_[128] = "";
     char                        appLoopbackPid_[32] = "";
     int                         appLoopbackReferenceIdx_ = 0;
     wa::create_recipe::CreateRecipe appLoopbackRecipe_{};
     wa::create_recipe::CreateRecipe renderRecipe_{};
     int                         renderLayoutIdx_ = 0; // 0 = system default, -1 = custom
-    char                        renderCustom_[32] = "48000/16/2";
+    char                        renderCustom_[32] = "2";
     bool                        renderHaveCustom_ = false;
     wa::RenderCustomLayout      renderCustomLayout_{};
 
+    std::unordered_map<std::string, std::string> formatErrors_;
+    std::string loopbackCreateError_, appLoopbackCreateError_, renderCreateError_, renderFormatError_;
+    std::unordered_map<wa::TrackId, std::string> renderControlErrors_;
+    char logFilter_[128] = "";
+    bool logFollow_ = true;
+
     bool pipelineSessionsLoaded_ = false;
     bool pipelineShowSelf_ = false;
+    char pipelineProcessFilter_[128] = "";
     int  pipelineSelected_ = -1;
     std::vector<wa::LiveSessionView> pipelineSessions_;
     // Default: list every user process; sessions grouped under their process.
@@ -273,15 +307,20 @@ private:
     char pipelineCallIfaceFilter_[96] = "";  // empty => all ifaces
     bool pipelineCallFailuresOnly_ = false;
     bool pipelineCallScrollToSelected_ = false;
-    // Pipeline draggable split fractions (in-session; defaults match prior fixed layout).
-    float pipelineSessionsFrac_ = wa::pipeline_split::kDefaultSessionsFrac;    // Live sessions | graph
+    // In-session Call table | Parameters split.
     float pipelineCallTableFrac_ = wa::pipeline_split::kDefaultCallTableFrac;  // Call table | Parameters (~4:6)
-    float pipelineTopRowFrac_ = wa::pipeline_split::kDefaultTopRowFrac;        // Top row | Call Log
+    float pipelineTargetsFrac_ = 0.28f;
+    float pipelineTargetsHeightFrac_ = 0.65f;
+    float pipelineGraphHeightFrac_ = 0.40f;
+    float pipelineMethodsFrac_ = 0.27f;
+    int pipelineFocusedPane_ = 0; // 0 = workspace, 1 = graph, 2 = calls
+    bool pipelineShowMethods_ = true;
+    bool pipelineShowStatistics_ = false;
+    float pipelineStatisticsFrac_ = 0.35f;
     char pipelineAttachPid_[32] = "";
     // Per-PID attach failure message (bitness / debug rights / inject).
     std::unordered_map<uint32_t, std::string> pipelineAttachFailByPid_;
     bool pipelinePump_ = false;
-    bool pipelineRecord_ = false;
     wa::CallLogStore pipelineCallStore_;
     wa::CallLogExportJob pipelineExport_;
     std::optional<wa::CallLogExportResult> pipelineExportCompleted_;
@@ -306,6 +345,10 @@ private:
     wa::DeviceCapabilities capsCache_{};
     wa::DeviceCapabilities capsModal_{};
     const char*            capsModalContext_ = nullptr;
+    std::string           capsDeviceSummary_;
+    int                   capsSelected_ = -1;
+    char                  capsFilter_[96] = "";
+    int                   capsSupportFilter_ = 0;
 
     // On-demand IAudioEffectsManager probe cache (not filled by enumerate).
     wa::DeviceId                        streamFxDeviceId_;
