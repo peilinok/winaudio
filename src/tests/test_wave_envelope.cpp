@@ -214,3 +214,72 @@ TEST(WaveEnvelope, RingQueriesKeepLogicalBlockBoundariesAndExactZoom) {
         }
     }
 }
+
+TEST(WaveEnvelope, CachedDisplayEnvelopeTracksWrapGenerationAndReset) {
+    constexpr int n = 256, cols = 4;
+    std::vector<float> samples(n, .1f);
+    samples[n - 1] = -.9f;
+    MinMaxPyramid pyramid;
+    uint64_t epoch = 1, generation = 7;
+    wa::WaveHistoryView view{samples.data(), n, n - 1, n};
+    const auto compare = [&] {
+        float x[cols]{}, low[cols]{}, high[cols]{};
+        float exactX[cols]{}, exactLow[cols]{}, exactHigh[cols]{};
+        ASSERT_TRUE(fillWaveEnvelope(view, 0, n - 1, cols, .01, &pyramid, epoch,
+                                    x, low, high, nullptr, generation));
+        ASSERT_TRUE(fillWaveEnvelopeExact(view, 0, n - 1, cols, .01, exactX, exactLow, exactHigh));
+        for (int c = 0; c < cols; ++c) {
+            EXPECT_FLOAT_EQ(x[c], exactX[c]);
+            EXPECT_FLOAT_EQ(low[c], exactLow[c]);
+            EXPECT_FLOAT_EQ(high[c], exactHigh[c]);
+        }
+    };
+    compare();
+    // The next overwrite wraps to a contiguous view; its display cache must
+    // update with the raw physical block, including removal of the old peak.
+    samples[n - 1] = .2f;
+    view.first = 0;
+    ++view.updatedSamples;
+    ++epoch;
+    compare();
+    // A new source generation must rebuild even with unchanged sample counts.
+    samples[128] = -1.f;
+    ++generation;
+    compare();
+    ensureMinMaxPyramid(pyramid, {}, ++epoch, nullptr, generation);
+    samples[0] = .8f;
+    compare();
+}
+
+TEST(WaveEnvelope, IndexedColumnsKeepExactIntegerPartitions) {
+    // The largest visible-range/column product exceeds signed 32-bit range.
+    constexpr int n = 700003;
+    std::vector<float> samples(n);
+    for (int i = 0; i < n; ++i) samples[i] = .8f * std::sin(.01f * static_cast<float>(i));
+    for (const int first : {0, 31}) {
+        wa::WaveHistoryView view{samples.data(), n, first, n};
+        MinMaxPyramid pyramid;
+        for (const int cols : {7, 4093}) {
+            for (const int lo : {0, 17}) {
+                const int hi = n - 13, visible = hi - lo + 1;
+                std::vector<float> x(cols), low(cols), high(cols);
+                ASSERT_TRUE(fillWaveEnvelope(view, lo, hi, cols, .01, &pyramid, 1,
+                                            x.data(), low.data(), high.data()));
+                for (int c = 0; c < cols; ++c) {
+                    const int begin = lo + static_cast<int>(static_cast<int64_t>(visible) * c / cols);
+                    const int end = lo + static_cast<int>(static_cast<int64_t>(visible) * (c + 1) / cols);
+                    const int snapBegin = begin / kWaveEnvBlock * kWaveEnvBlock;
+                    const int snapEnd = std::min(n, ((end - 1) / kWaveEnvBlock + 1) * kWaveEnvBlock);
+                    float minimum = view[snapBegin], maximum = minimum;
+                    for (int i = snapBegin + 1; i < snapEnd; ++i) {
+                        minimum = std::min(minimum, view[i]);
+                        maximum = std::max(maximum, view[i]);
+                    }
+                    EXPECT_FLOAT_EQ(x[c], static_cast<float>(.5 * (begin + end) * .01));
+                    EXPECT_FLOAT_EQ(low[c], waveDbWarp(minimum));
+                    EXPECT_FLOAT_EQ(high[c], waveDbWarp(maximum));
+                }
+            }
+        }
+    }
+}

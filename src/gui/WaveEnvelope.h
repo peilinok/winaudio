@@ -33,6 +33,9 @@ struct MinMaxPyramid {
     uint64_t updatedSamples = UINT64_MAX;
     std::vector<float> blockMin;
     std::vector<float> blockMax;
+    // Monotonic dB warp commutes with min/max; reuse it for contiguous queries.
+    std::vector<float> blockMinWarped;
+    std::vector<float> blockMaxWarped;
 };
 
 struct WaveEnvelopeWork {
