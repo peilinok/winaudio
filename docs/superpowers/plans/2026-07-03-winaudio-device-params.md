@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- **零行为变化铁律**:`StreamParams{}`(全默认)= 一个额外 Windows 调用都不加,打开路径与当前 master 逐字节一致;CLI 永远传 `StreamParams{}`。
+- **零行为变化铁律**:`StreamParams{}`(全默认)= 一个额外 Windows 调用都不加,打开路径与当前 master 逐字节一致。
 - 虚函数 `open` **不用默认实参**(默认实参绑定静态类型是陷阱);所有调用点显式传参。
 - 高级参数(除 `bufferMs`)仅 WASAPI-**Shared** 有效;Exclusive + 任一非默认(category/option/offload/ducking)→ `open` 同步报错。**显式设置绝不静默降级**(QI 失败、IsOffloadCapable 不过、SetDuckingPreference 失败都返回 Fail)。
 - 构建:`.\build.bat Debug` / `.\build.bat Release`,/W4 **零告警**;测试 `.\build\bin\Debug\WinAudioTests.exe`(或 `.\test.bat Debug`)。`cmake` 不在 PATH 时用 `D:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin`(build.bat 已处理)。
@@ -23,7 +23,6 @@
 | `src/core/StreamParams.h` | 新建 | windows-free 参数类型 + 谓词(唯一的参数定义处) |
 | `src/core/IAudioBackend.h` | 修改 | `open` 签名 + include |
 | `src/core/WasapiStream.h/.cpp` | 修改 | 签名、`params_` 存储、注入(SetClientProperties/bufferMs/ducking)、映射 free function |
-| `src/core/Engine.cpp` | 修改 | 2 处调用点传 `StreamParams{}` |
 | `src/core/MonitorEngine.h/.cpp` | 修改 | start 增参、`setRenderParams`、engage 快照 |
 | `src/tests/test_streamparams.cpp` | 新建 | 谓词 + 映射数值 + Exclusive 拒绝测试 |
 | `src/tests/test_monitorengine.cpp` | 修改 | fake 记录参数;端到端传递 + re-engage 测试 |
@@ -40,7 +39,6 @@
 - Create: `src/tests/test_streamparams.cpp`
 - Modify: `src/core/IAudioBackend.h:32`(open 签名)
 - Modify: `src/core/WasapiStream.h:22`、`src/core/WasapiStream.cpp:16-20`(签名 + 存 params_)
-- Modify: `src/core/Engine.cpp:92`、`src/core/Engine.cpp:130`(传 `StreamParams{}`)
 - Modify: `src/core/MonitorEngine.cpp:97`、`src/core/MonitorEngine.cpp:157`(传 `StreamParams{}`,T3 换真值)
 - Modify: `src/tests/test_monitorengine.cpp:37-40`(fake 签名 + 记录)
 - Modify: `src/tests/CMakeLists.txt:2`(加测试文件)
@@ -145,11 +143,6 @@ Result WasapiStream::open(const DeviceId& id, const AudioFormat& /*fmt*/, RingBu
 }
 ```
 
-`src/core/Engine.cpp:92` 与 `:130`(两处相同改法):
-```cpp
-        Result r = backend_->open(id, AudioFormat{}, ring_.get(), StreamParams{});
-```
-
 `src/core/MonitorEngine.cpp:97`:
 ```cpp
     if (Result r = capBackend_->open(capId, AudioFormat{}, captureRing_.get(), StreamParams{}); !r)
@@ -178,7 +171,7 @@ Expected: 构建 0 错 0 警,`62 tests ... PASSED`(60 旧 + 2 新)。
 - [ ] **Step 7: 提交**
 
 ```bash
-git add src/core/StreamParams.h src/core/IAudioBackend.h src/core/WasapiStream.h src/core/WasapiStream.cpp src/core/Engine.cpp src/core/MonitorEngine.cpp src/tests/test_streamparams.cpp src/tests/test_monitorengine.cpp src/tests/CMakeLists.txt
+git add src/core/StreamParams.h src/core/IAudioBackend.h src/core/WasapiStream.h src/core/WasapiStream.cpp src/core/MonitorEngine.cpp src/tests/test_streamparams.cpp src/tests/test_monitorengine.cpp src/tests/CMakeLists.txt
 git commit -m "feat(core): StreamParams type + explicit open(params) signature (all-default = zero behavior change)"
 ```
 
@@ -651,7 +644,7 @@ git commit -m "feat(gui): device dropdowns (default = system default) + Advanced
 
 ## 验收对照(spec §9)
 
-1. 全默认零行为变化:T1 即保证(60 旧测试全绿 + CLI 传 `StreamParams{}`)。
+1. 全默认零行为变化:T1 即保证(60 旧测试全绿)。
 2. 启动即选中系统默认设备:T4 Step 2(`pick` 兜底 isDefault)。
 3. Advanced 弹窗布局与初值:T4 Step 4。
 4. SetClientProperties 于 Initialize 前 / Exclusive 拒绝:T2(代码位置 + `ExclusiveRejectsAdvancedParams` 单测)。

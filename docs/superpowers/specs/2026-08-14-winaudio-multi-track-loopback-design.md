@@ -11,7 +11,7 @@ This document supersedes product behavior in `2026-07-09-winaudio-system-loopbac
 
 I use WinAudio to compare system output and individual process trees. Today the Loopback page and the Application Loopback page each run only one capture at a time. To watch a second render device or a second PID I have to stop the capture I am already looking at. I need several independent captures alive together, each with its own picture and, when I choose, its own WAV. I do not want them mixed into one stream or one file.
 
-Monitor delayed listen should stay the single pair I already understand. CLI should start several captures in one command so I can script the same comparison.
+Monitor delayed listen should stay the single pair I already understand.
 
 ## Solution
 
@@ -19,9 +19,8 @@ WinAudio gains a global **Track**: a unidirectional live stream the user creates
 
 - The System Loopback page is a list of System Loopback Capture Tracks. The Application Loopback page is a list of Application Loopback Capture Tracks. Each page: create one, destroy one, destroy all **on this page only**.
 - Each live Capture Track has its own scope tap and, on a loopback page, its own stacked Capture-only **Chart Host** (full wave + spectrogram, multi-channel split inside that Track). The page scrolls. Freeze and the linked time axis are per Track. Tracks do not share an axis or a format.
-- GUI WAV path is optional per Track (omit = charts only). CLI `capture` requires a WAV path per Track. One file per Track; no mixdown.
-- **Monitor** remains one session: exactly one Capture Track plus at most one Render Track. DelayFifo belongs to the Monitor. GUI Monitor and CLI `monitor` do not grow a multi-Track list.
-- CLI `capture` is one process-lifetime **group** of Capture Tracks. Repeat `--track` for each member. No `--track` plus one `--out` remains one Capture Track. A group may mix Endpoint, System Loopback, and Application Loopback. `list` / `caps` do not change model.
+- GUI WAV path is optional per Track (omit = charts only). One file per Track; no mixdown.
+- **Monitor** remains one session: exactly one Capture Track plus at most one Render Track. DelayFifo belongs to the Monitor. GUI Monitor does not grow a multi-Track list.
 - No product-side numeric cap. Live Tracks may bind equal recipes. Failures stay on the Track that hit them; siblings and the other Monitor side are not auto-stopped. GUI lists are empty every launch.
 
 ## User Stories
@@ -61,20 +60,6 @@ WinAudio gains a global **Track**: a unidirectional live stream the user creates
 33. As a test engineer, I want a silent render helper failure to mark only that helper, so that capture on that Track continues.
 34. As a test engineer on Monitor, I want a failed Capture Track or Render Track to report Error without auto-stopping the other side, so that I can observe a half-dead pair as a test phenomenon.
 35. As a test engineer, I want Monitor’s DelayFifo not to be torn down automatically on one-side Error, so that I stop the session myself when I am done looking.
-36. As a CLI user, I want one `capture` invocation to start a group of Capture Tracks, so that I can script a multi-path recording without a GUI.
-37. As a CLI user, I want every Capture Track in that group to require its own `--out`, so that the command cannot imply a shared or mixed WAV.
-38. As a CLI user, I want to write `capture --track --out a.wav --loopback --track --out b.wav --pid 4242`, so that one process records mixed kinds.
-39. As a CLI user, I want a command with no `--track` and one `--out` to remain one Capture Track, so that existing scripts keep working.
-40. As a CLI user, I want `--pid` (optional `--exclude-tree`), else `--loopback`, else Endpoint, mutually exclusive in a segment, so that I do not need `loopback:` prefixes.
-41. As a CLI user, I want `--format` and `--no-silent-render` inside the `--track` segment, so that those choices stay per Track.
-42. As a CLI user, I want `--backend` and `--seconds` once per group, so that process lifetime and backend kind stay shared.
-43. As a CLI user, I want `--pid` plus `--loopback` in the same segment to be a usage error, so that a bad recipe fails before open.
-44. As a CLI user, I want Ctrl+C or `--seconds` to stop the whole group together, so that a script has one lifetime.
-45. As a CLI user, I want some Tracks in the group to be allowed to Error while others keep writing, so that one bad path does not abort the recording set.
-46. As a CLI user, I want a non-zero exit code when any Track failed, so that automation can detect partial failure.
-47. As a CLI user, I want `list` and `caps` to keep their current model, so that discovery commands do not grow Track lists.
-48. As a CLI user, I want `monitor` to stay a single Monitor pair, so that delayed listen on the command line matches the GUI Monitor limit.
-49. As a CLI user, I want the capture group itself not to be a Track, so that logs and status talk about member Tracks, not a fictional mixed stream.
 50. As a test engineer, I want Application Loopback create to still accept a PID that is not in the session list, so that I can target a process that has not shown a session yet.
 51. As a test engineer, I want IncludeTree vs ExcludeTree to remain a property of the Application Loopback Capture source bound to that Track, so that two Tracks can express different modes on the same PID.
 52. As a test engineer, I want System Loopback Capture sources to remain render endpoints, not fake capture devices, so that existing device language stays intact.
@@ -86,25 +71,24 @@ WinAudio gains a global **Track**: a unidirectional live stream the user creates
 58. As a test engineer, I want the empty loopback page (no Tracks) to be a valid state, so that I am not forced to keep a placeholder Track.
 59. As a test engineer, I want every GUI launch to start with empty Track lists, so that restart does not auto-grab devices or processes.
 60. As a test engineer, I want no product-side maximum number of live Tracks, so that I can open as many paths as the machine will take.
-61. As a documentation reader, I want Track, Capture Track, Render Track, Capture source, and Monitor to match `CONTEXT.md`, so that GUI copy, CLI help, and this spec do not invent synonyms.
+61. As a documentation reader, I want Track, Capture Track, Render Track, Capture source, and Monitor to match `CONTEXT.md`, so that GUI copy and this spec do not invent synonyms.
 62. As an implementer writing tests, I want a Capture Track list I can create/destroy/destroy-all/poll without WASAPI, so that CI can lock lifetime rules.
 63. As an implementer, I want each live Track’s audio path to stay injectable via the existing backend factory style, so that I do not need real devices to prove a Track pumps.
 64. As an implementer, I want each Track’s scope tap to be readable through the existing Scope Reader / Chart Data Pipeline ideas, so that chart tests do not take a dependency on ImGui.
 65. As an implementer, I want GUI drawing and real WASAPI to stay outside the lifetime contract tests, so that create/destroy rules do not rot behind click tests.
 66. As an implementer, I want this spec not to name `MonitorEngine` vs a new type as the required shape, so that the implementation plan can choose composition behind the Capture Track list.
 67. As a test engineer on Monitor, I want creating extra Capture Tracks on that page to be impossible, so that the single-pair limit is a product rule, not a missing button.
-68. As a test engineer, I want CLI `play` / `probe` to stay outside this spec’s Track group, so that playback-from-file is not silently redefined as multi Render Tracks.
 
 ## Implementation Decisions
 
-- Domain language is the `CONTEXT.md` glossary. Track is the live instance; Capture source is the recipe; Monitor is the only named session; silent render is not a Track; a CLI capture group is not a Track.
-- One new testable seam: a **Capture Track list**. Operations: create (bind Capture source + optional WAV + per-Track format / silent render, start immediately), destroy one, destroy all, poll per-Track status. GUI loopback pages each own one list. CLI `capture` uses the same list idea as one group with a single process lifetime.
-- Reuse the existing backend-factory injection for each live Track’s pump (fake backends in tests). Reuse Scope Reader / Chart Data Pipeline for per-Track taps. Reuse CLI option-parser tests for `--track` segmentation. Do not use ImGui or real WASAPI as the lifetime contract.
+- Domain language is the `CONTEXT.md` glossary. Track is the live instance; Capture source is the recipe; Monitor is the only named session; silent render is not a Track.
+- One new testable seam: a **Capture Track list**. Operations: create (bind Capture source + optional WAV + per-Track format / silent render, start immediately), destroy one, destroy all, poll per-Track status. GUI loopback pages each own one list.
+- Reuse the existing backend-factory injection for each live Track’s pump (fake backends in tests). Reuse Scope Reader / Chart Data Pipeline for per-Track taps. Do not use ImGui or real WASAPI as the lifetime contract.
 - The spec does **not** mandate one existing engine object per Track or a new multi-Track engine type. The implementation plan chooses composition behind the list.
 - No second Start/Stop vocabulary on loopback pages. Create starts; destroy stops and removes.
 - Destroy all is scoped to that list / page, never to the whole application and never to Monitor.
-- WAV is per Capture Track. GUI path optional; CLI path required. One file per Track; no shared file; no mixdown into one file.
-- Failures stay on the Track that hit them: WAV write, capture open/start, runtime source loss, silent render helper. Siblings on the page or in the CLI group keep running. CLI `--seconds` / Ctrl+C still stop the whole group; exit code may be non-zero if any Track failed.
+- WAV is per Capture Track. GUI path optional. One file per Track; no shared file; no mixdown into one file.
+- Failures stay on the Track that hit them: WAV write, capture open/start, runtime source loss, silent render helper. Siblings on the page keep running.
 - Monitor: a failed Capture Track or Render Track is Error (overall too). The other side is not auto-stopped; DelayFifo is not auto-torn down. The user stops the session.
 - No product-side maximum number of live Tracks (page, process, or kind). No soft warning threshold. Do not document a number as a Windows / WASAPI limit. Primary sources do not state a concurrent-loopback cap.
 - GUI Track lists do not persist across process restart. Every launch is an empty list. Window-layout persistence may remain chrome-only.
@@ -112,7 +96,6 @@ WinAudio gains a global **Track**: a unidirectional live stream the user creates
 - Loopback pages stack one Capture-only Chart Host per live Capture Track (prototype variant B). Chart freeze, linked time axis, requested/actual format, and (for System Loopback) the silent render toggle are per Track. Silent render is chosen at create, default on, immutable while live.
 - Monitor remains one Capture Track + at most one Render Track. DelayFifo belongs to Monitor.
 - Loopback stays Shared-only. No application resampler. No mixdown of Tracks.
-- CLI `capture` spelling: repeatable `--track` segments; per-segment `--out`, `--format`, `--no-silent-render`, `--pid` / `--exclude-tree` / `--loopback` / `--device`. No `--track` + one `--out` = one Capture Track. `--pid` and `--loopback` in the same segment is a usage error. `--backend` once per group. No manifest file.
 - Do not change `list` / `caps` models.
 
 ## Testing Decisions
@@ -122,17 +105,15 @@ WinAudio gains a global **Track**: a unidirectional live stream the user creates
 - Those tests must run without audio hardware, using the existing fake-backend factory pattern already used for Monitor session tests.
 - Scope tap independence: reading one Track’s tap must not require another Track’s samples. Prefer the existing Scope Reader / Chart Data Pipeline test style.
 - Loopback source representation and Shared-only rejection stay covered by the existing loopback / monitor session tests; extend them only where a Track list must plumb a Capture source through.
-- CLI parser tests belong next to the current CLI options tests: `--track` segmentation, one-`--out` compat, `--pid` vs `--loopback` vs endpoint, `--pid`+`--loopback` rejected, each segment has `--out`, per-segment `--format` / `--no-silent-render`. No WASAPI.
 - Do not use GUI click-through or `PrintWindow` as the contract for create/destroy.
 - Real-device overlap (two loopbacks on one endpoint, two process loopbacks on one PID) is manual smoke, not CI.
 
 ## Out of Scope
 
 - Mixing multiple Tracks into one audio stream or one WAV.
-- Multi-Track GUI Monitor or multi-Track CLI `monitor`.
+- Multi-Track GUI Monitor.
 - Mixing Capture source kinds on one GUI page.
 - waveIn / waveOut, an in-app resampler, Exclusive-mode loopback.
-- Redefining CLI `play` / `probe` as multi Render Tracks.
 - Inventing a documented Windows concurrent-loopback guarantee.
 - Persisting GUI Track lists or adding a preset / start-all model.
 - Mandating a specific engine class layout in this spec.

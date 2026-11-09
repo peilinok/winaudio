@@ -108,7 +108,7 @@ Result MonitorEngine::start(BackendKind kind, const DeviceId& capId, const Devic
     delayMsAtomic_.store(delayMs, std::memory_order_relaxed);
     capDataReadyEvent_ = capBackend_->dataReadyEvent();
 
-    // --- Optional render at start (synchronous engage -> full rollback on failure = CLI parity) ---
+    // --- Optional render at start (synchronous engage -> full rollback on failure) ---
     wantPlayback_.store(playbackEnabled, std::memory_order_relaxed);
     if (playbackEnabled) {
         if (Result r = engageRender(); !r) {
@@ -317,8 +317,8 @@ git -c commit.gpgsign=false commit -m "feat(core): MonitorEngine runtime playbac
 **Interfaces consumed:** T1 的 `monitor_.start(kind,capId,renId,delayMs,playbackEnabled)`、`setPlaybackEnabled(bool)`、`poll().renderState`。
 
 - [ ] **Step 1: `AppUi.h`** — 去单流、加 DeviceEnumerator + 播放态。
-  - 删 `#include "Engine.h"`；加 `#include "DeviceEnumerator.h"`（`BackendKind` 经 `MonitorEngine.h` 传递仍可用）。
-  - 删成员：`wa::Engine engine_`、`modeIdx_/prevMode_`、`deviceIdx_/devices_/devicesLoaded_`、`wavPath_`、`rateIdx_/bitsIdx_/chIdx_/isFloat_`。删方法：`refreshDevices()`、`drawSingleStream(bool)`。
+  - 加 `#include "DeviceEnumerator.h"`（`BackendKind` 经 `MonitorEngine.h` 传递仍可用）。
+  - 删成员：`modeIdx_/prevMode_`、`deviceIdx_/devices_/devicesLoaded_`、`wavPath_`、`rateIdx_/bitsIdx_/chIdx_/isFloat_`。删方法：`refreshDevices()`、`drawSingleStream(bool)`。
   - 加成员：`wa::DeviceEnumerator enumerator_;`、`bool playbackEnabled_ = false;`、`std::vector<int> chartOrder_ = {0,1,2,3,4,5};`（0=采集波形 1=播放波形 2=采集频谱 3=播放频谱 4=采集声谱图 5=播放声谱图，默认同类相邻；T2 固定序渲染，T3 加拖拽）、`int prevRenderState_ = 0;`（检测 Running→非 以重置播放侧分析）。
   - 加私有方法声明：`void drawLeftPanel();`、`void drawChartsColumn();`、`void drawChartPanel(int id);`、`const char* chartTitle(int id);`。删 `drawMonitor(bool)` 声明（其体拆入上述方法）。
   - 保留：`monitor_`、`backendIdx_`、`capDevices_/renderDevices_/capDevIdx_/renderDevIdx_/monitorDevicesLoaded_`、`delayMs_`、`monitorStarted_`、`logLines_`、所有分析缓冲（`capWave_...capSpec_`）。
@@ -326,7 +326,7 @@ git -c commit.gpgsign=false commit -m "feat(core): MonitorEngine runtime playbac
 
 - [ ] **Step 2: `AppUi.cpp` 删死代码 + 改 enumerate 源**
   - 删文件顶 `utow()`（保留 `wtou()`）、`kRates/kRatesS/kBits/kBitsS/kChans/kChansS` 数组。删 `drawSingleStream` 整个函数、`refreshDevices()`。
-  - `refreshMonitorDevices()` 改用 enumerator（`Engine::enumerate` 已无）：
+  - `refreshMonitorDevices()` 改用 enumerator：
 ```cpp
 void AppUi::refreshMonitorDevices() {
     capDevices_.clear(); renderDevices_.clear();
@@ -435,7 +435,7 @@ git -c commit.gpgsign=false commit -m "feat(gui): drag-reorder monitor charts (s
 
 **Files:** Modify `CLAUDE.md`.
 
-- [ ] **Step 1:** 更新 GUI 相关描述：GUI 现为 **monitor-only**（无 Capture/Playback/Monitor mode 切换，恒监听）；"同步播放" checkbox 实时控制播放（关时释放渲染设备）；两列布局（左 设备/控制/状态/日志，右 波形+频谱+声谱图，**可拖拽重排**）；录制到 WAV / 播放 WAV 文件仅 CLI 提供。同步 `## 项目状态` 里 WinAudioGui 一句与"GUI（首选）"用法段（去掉 mode/格式控件描述）。保持 CLI 段不变。
+- [ ] **Step 1:** 更新 GUI 相关描述：GUI 现为 **monitor-only**（无 Capture/Playback/Monitor mode 切换，恒监听）；"同步播放" checkbox 实时控制播放（关时释放渲染设备）；两列布局（左 设备/控制/状态/日志，右 波形+频谱+声谱图，**可拖拽重排**）。同步 `## 项目状态` 里 WinAudioGui 一句与"GUI（首选）"用法段（去掉 mode/格式控件描述）。
 
 - [ ] **Step 2: 构建确认 + 提交**
 ```

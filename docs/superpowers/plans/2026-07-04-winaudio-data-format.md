@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 为 WinAudio 增加音频数据格式的显示/枚举/能力查询/设置能力，贯穿 core/CLI/GUI，理念"默认就好、允许修改"。
+**Goal:** 为 WinAudio 增加音频数据格式的显示/枚举/能力查询/设置能力，贯穿 core/GUI，理念"默认就好、允许修改"。
 
-**Architecture:** core 新增纯函数能力层（`Capabilities.*`：候选空间 + 能力矩阵 + 默认格式选择，全部注入探测谓词故可无硬件单测）；`DeviceEnumerator` 扩展三来源查询 + 真实 `queryCapabilities`（复用 `IsFormatSupported` 探测模板）；`WasapiStream` Shared 路径改用指定格式（引擎转换）；`MonitorEngine`/CLI/GUI 把格式插管进来。
+**Architecture:** core 新增纯函数能力层（`Capabilities.*`：候选空间 + 能力矩阵 + 默认格式选择，全部注入探测谓词故可无硬件单测）；`DeviceEnumerator` 扩展三来源查询 + 真实 `queryCapabilities`（复用 `IsFormatSupported` 探测模板）；`WasapiStream` Shared 路径改用指定格式（引擎转换）；`MonitorEngine`/GUI 把格式插管进来。
 
 **Tech Stack:** C++17，MSVC v143，CMake（VS 2022 生成器），WASAPI（`IAudioClient`/`IMMDevice` property store），gtest，Dear ImGui + ImPlot。
 
@@ -27,7 +27,6 @@
 - **Modify** `src/core/WasapiStream.cpp` — `prepareClient` Shared 分支用指定格式。
 - **Modify** `src/core/MonitorEngine.h` / `.cpp` — `start()` 加 `capFormat`；`BackendFactory` 加 requested 参数。
 - **Modify** `src/tests/test_monitorengine.cpp` — 更新 `FakeRig::factory` 签名 + `FakeBackend` 记录 requested；加 capFormat 到达断言。
-- **Modify** `src/cli/main.cpp` — `--format` 放行 shared；`monitor --format`；`caps` 子命令；`usage`。
 - **Modify** `src/gui/AppUi.h` / `.cpp` — 左栏格式区 + `Device caps…` 弹窗 + 新成员。
 - **Modify** `src/core/CMakeLists.txt`、`src/tests/CMakeLists.txt` — 注册新源。
 - **Modify** `CLAUDE.md` — 文档。
@@ -41,7 +40,7 @@
 - Modify: `src/core/CMakeLists.txt`（`MonitorEngine.cpp` 后加 `    Capabilities.cpp`）、`src/tests/CMakeLists.txt`（`test_spectrogram.cpp` 后加 `    test_capabilities.cpp`）
 
 **Interfaces:**
-- Consumes: `AudioFormat`（`AudioFormatDef.h`）、`BackendKind`（`Engine.h`）、`selectSupportedFormat`（`FormatSpec.h`）。
+- Consumes: `AudioFormat`（`AudioFormatDef.h`）、`BackendKind`（`IAudioBackend.h`）、`selectSupportedFormat`（`FormatSpec.h`）。
 - Produces:
   ```cpp
   struct FormatSupport { AudioFormat fmt; bool sharedOk; bool exclusiveOk; };
@@ -121,7 +120,7 @@ TEST(Capabilities, DefaultExclusiveFallsBackWhenDeviceUnsupported) {
 #include <functional>
 #include <vector>
 #include "AudioFormatDef.h"
-#include "Engine.h"   // BackendKind
+#include "IAudioBackend.h"   // BackendKind
 namespace wa {
 struct FormatSupport { AudioFormat fmt{}; bool sharedOk=false; bool exclusiveOk=false; };
 struct DeviceCapabilities {
@@ -370,7 +369,7 @@ git commit -m "feat(core): DeviceEnumerator::queryCapabilities (dual IsFormatSup
 
 **Interfaces:** Consumes 既有 `requestedFormat_`/`hasRequested_`（构造传入）、`toWaveFormatExtensible`。行为：`hasRequested_` → 用它 `Initialize`（引擎转换）；否则回落 `GetMixFormat`（现状）。
 
-**测试策略：** `Initialize` I/O 无单测；靠 CLI `capture --format`(shared) smoke + monitor smoke。Exclusive 分支不动，现有测试不回归。
+**测试策略：** `Initialize` I/O 无单测；靠 GUI 格式选择与 Monitor smoke。Exclusive 分支不动，现有测试不回归。
 
 - [ ] **Step 1: 改写 Shared 分支** — 用 Explore 底稿 §5 的完整改写替换 `WasapiStream.cpp:154-168`（`if (mode_ == WasapiMode::Shared) { ... }` 整块）：`hasRequested_` 时 `CoTaskMemFree(mix)` 后用 `toWaveFormatExtensible(requestedFormat_)` 做 `Initialize`，`actualFormat_=requestedFormat_`；`else` 分支保持原 `GetMixFormat` 路径。`bufferMs` 逻辑两分支都保留。
 
@@ -423,72 +422,6 @@ git commit -m "feat(core): MonitorEngine threads an optional capture format to t
 
 ---
 
-### Task 6: CLI — `--format` 放行 shared + `monitor --format`
-
-**Files:** Modify `src/cli/main.cpp`
-
-**测试策略：** CLI 无单测，靠 smoke。步骤含 smoke 命令与期望。
-
-- [ ] **Step 1: capture 放行 shared** — 删除/改写 `main.cpp:97-101` 的 shared 拒绝 block（shared + `--format` 现在合法：直接把 `haveFmt ? &fmt : nullptr` 传给 capture 路径的 requested）。
-
-- [ ] **Step 2: monitor 接受 `--format`** — 在 monitor block（`:153`）前 `AudioFormat capFmt{}; bool haveFmt = formatArg(argc, argv, capFmt);`，`mon.start(...)` 末传 `haveFmt ? &capFmt : nullptr`。
-
-- [ ] **Step 3: `usage()` 同步** — capture 行标注 `--format` 现对两后端有效；monitor 行加 `[--format R/B/C[f]]`。
-
-- [ ] **Step 4: smoke + 双验证** — 双配置 build 零告警、67 全绿；手动：`WinAudioCli.exe capture --out t.wav --seconds 1 --backend wasapi-shared --format 44100/16/1`（应成功、WAV 头为 44100/16/1）。提交：
-
-```bash
-git add src/cli/main.cpp
-git commit -m "feat(cli): --format applies to shared (engine converts); monitor accepts --format"
-```
-
----
-
-### Task 7: CLI — `caps` 子命令
-
-**Files:** Modify `src/cli/main.cpp`（新 block + usage）
-
-**Interfaces:** Consumes `DeviceEnumerator::queryCapabilities`。
-
-- [ ] **Step 1: 加 `caps` block**（仿 `probe`，`:143` 附近）
-
-```cpp
-if (cmd == L"caps") {
-    DataFlow flow = has(argc, argv, L"--capture") ? DataFlow::Capture : DataFlow::Render;
-    DeviceId id = arg(argc, argv, L"--device");
-    DeviceEnumerator de;
-    DeviceCapabilities caps;
-    wa::Result r = de.queryCapabilities(flow, id, caps);
-    if (!r) { std::printf("caps failed: %s\n", r.message.c_str()); return 2; }
-    auto pf = [](const char* tag, bool has, const AudioFormat& f){
-        if (has) std::printf("%s: %u/%u/%u%s\n", tag, f.sampleRate, f.bitsPerSample, f.channels, f.isFloat?"f":"");
-        else     std::printf("%s: (none)\n", tag);
-    };
-    pf("Mix",    caps.hasMix,    caps.mixFormat);
-    pf("Device", caps.hasDevice, caps.deviceFormat);
-    pf("OEM",    caps.hasOem,    caps.oemFormat);
-    std::printf("%-16s %-8s %-9s\n", "Format", "Shared", "Exclusive");
-    for (const auto& s : caps.matrix) {
-        char fmt[32];
-        std::snprintf(fmt, sizeof fmt, "%u/%u/%u%s", s.fmt.sampleRate, s.fmt.bitsPerSample, s.fmt.channels, s.fmt.isFloat?"f":"");
-        std::printf("%-16s %-8s %-9s\n", fmt, s.sharedOk?"yes":"-", s.exclusiveOk?"yes":"-");
-    }
-    return 0;
-}
-```
-（`caps` 需 `#include "Capabilities.h"`、`DeviceEnumerator.h`；`<cstdio>` 已在。）
-
-- [ ] **Step 2: `usage()` 加行** — `"WinAudioCli caps  [--device <id>] [--render|--capture]\n"`。
-
-- [ ] **Step 3: smoke + 双验证** — build 零告警、67 全绿；手动 `WinAudioCli.exe caps --capture` 打印三来源 + 48 行矩阵，核对与控制面板一致。提交：
-
-```bash
-git add src/cli/main.cpp
-git commit -m "feat(cli): caps command prints three-source formats + capability matrix"
-```
-
----
-
 ### Task 8: GUI — 左栏格式区
 
 **Files:** Modify `src/gui/AppUi.h`、`src/gui/AppUi.cpp`（`drawLeftPanel` Control 区）
@@ -537,15 +470,14 @@ git commit -m "feat(gui): Device capabilities modal (three sources + one-row-per
 
 **Files:** Modify `CLAUDE.md`
 
-- [ ] **Step 1: 更新 CLI 章节** — `caps` 命令用法；capture/monitor `--format` 现对 shared 有效（引擎转换）。
 - [ ] **Step 2: 更新 GUI 章节** — 左栏格式区（模式默认 + 下拉 + 自定义）、`Device caps…` 弹窗。
 - [ ] **Step 3: 更新能力范围** — "数据格式：三来源查询 + 能力矩阵 + 每模式默认 + 可改（shared 经引擎转换）"。
-- [ ] **Step 4: 提交** — `git add CLAUDE.md && git commit -m "docs: data-format feature (caps, --format on shared, GUI format region)"`
+- [ ] **Step 4: 提交** — `git add CLAUDE.md && git commit -m "docs: GUI format selection and device capabilities"`
 
 ---
 
 ## Self-Review
 
-- **Spec 覆盖**：三来源查询→T2/T3；能力矩阵+候选空间→T1/T3；`defaultFormatFor`→T1（`chooseDefaultFormat`）；open 改动→T4；簇 A GUI→T8、CLI→T6；簇 B CLI→T7、GUI→T9；错误处理散落各任务（Start 失败打日志=T8/T6，缺来源=T2，解析失败=T8）；测试→T1（纯函数 TDD）+ T5（fake 到达）+ 其余 smoke（与 spec 测试节一致）。无遗漏。
+- **Spec 覆盖**：三来源查询→T2/T3；能力矩阵+候选空间→T1/T3；`defaultFormatFor`→T1（`chooseDefaultFormat`）；open 改动→T4；簇 A GUI→T8；簇 B GUI→T9；错误处理散落各任务（Start 失败打日志=T8，缺来源=T2，解析失败=T8）；测试→T1（纯函数 TDD）+ T5（fake 到达）+ 其余 smoke（与 spec 测试节一致）。无遗漏。
 - **类型一致**：`FormatSupport`/`DeviceCapabilities`（T1 定义）在 T3/T7/T8/T9 一致使用；`BackendFactory` 新签名（T5）与 `test_monitorengine`（T5 Step1）一致更新；`chooseDefaultFormat`/`queryCapabilities` 签名跨任务一致。
 - **占位符**：全部步骤含完整代码或精确改点（抽出 `openDevice`/`readFormatKey` 复用后，T3 早期的 `…` 已消除），无 TODO。

@@ -1,6 +1,6 @@
 # WinAudio System Loopback Design
 
-> **Historical.** Product behavior for how many captures a page may run, Track lifetime, per-Track silent render, and CLI multi-path is specified in [2026-08-14-winaudio-multi-track-loopback-design.md](2026-08-14-winaudio-multi-track-loopback-design.md). Keep the WASAPI narrative below (Shared-only, loopback flag, silent-render *mechanism*) as background only. One-session-per-page and a single page-level silent-render checkbox are obsolete.
+> **历史设计。** 当前多路 Capture Track 的生命周期、每路 silent render 与页面行为见 [多路回采设计](2026-08-14-winaudio-multi-track-loopback-design.md)。下文仅保留 WASAPI 机制背景；一页一个 MonitorEngine 的旧布局已过时。
 
 ## Scope
 
@@ -25,8 +25,7 @@ OS dependent: loopback may deliver silent packets or may have no packets at all.
 The UI treats no-packet gaps as a frozen capture scope, not generated silence.
 
 Requested shared formats are passed through the normal shared initialization
-path. `--format 48000/16/2 --loopback` was verified to initialize on the target
-machine; failures should surface as normal WASAPI Initialize errors.
+path. Failures surface as normal WASAPI Initialize errors.
 
 ## Core Architecture
 
@@ -45,13 +44,7 @@ tests can assert source plumbing. Feedback protection lives in core: loopback
 capture with playback enabled is rejected when source and output are the same
 render endpoint, including the runtime `setPlaybackEnabled(true)` path.
 
-## CLI and GUI
-
-`capture --loopback` records system output to WAV. In loopback mode, `--device`
-is a render endpoint id.
-
-`monitor --loopback` uses `--cap` as the loopback source render endpoint and
-`--render` as the playback output. Exclusive mode is rejected before start.
+## GUI
 
 The GUI has a top-level Loopback page. It uses a separate `MonitorEngine`
 instance in capture-only mode:

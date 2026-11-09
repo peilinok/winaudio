@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/peilinok/winaudio/actions/workflows/ci.yml/badge.svg)](https://github.com/peilinok/winaudio/actions/workflows/ci.yml)
 
-小巧的 Windows 音频测试工具：对系统音频设备做采集、播放、回环（loopback）与延迟监听测试，带实时波形 / 声谱图可视化。GUI（Dear ImGui + DX11）为首选交互方式，另有轻量 CLI。
+小巧的 Windows 音频测试工具：对系统音频设备做采集、播放、回环（loopback）与延迟监听测试，带实时波形 / 声谱图可视化。桌面界面使用 Dear ImGui + DX11。
 
 ## 运行截图
 
@@ -15,10 +15,10 @@
 ## 功能
 
 - **WASAPI 双后端**：Shared（共享模式）与 Exclusive（独占模式、低延迟），同一流程可切换后端做对比测试。
-- **采集 / 播放**：采集落盘 WAV，播放标准 RIFF WAV；可用 `--format` 指定目标格式（Shared 经 WASAPI 引擎 `AUTOCONVERTPCM` 转换；Exclusive 要求硬件原生支持）。
+- **采集 / 播放**：Capture Track 支持随时开始或停止 WAV Dump；Render Track 播放声道识别语音。目标格式在 GUI 中选择（Shared 通过 WASAPI `AUTOCONVERTPCM` 转换；Exclusive 要求硬件原生支持）。
 - **系统 loopback**：以 render endpoint 为 **Capture source** 回采系统输出，可选静音 render keepalive 保持时钟推进。GUI Loopback 页可同时跑多路 **Capture Track**。
 - **Application Loopback**：按 PID 做 WASAPI process loopback（Shared-only；Windows 10 build 20348+）。默认 **IncludeTree**（只采目标进程及其子进程树）；可选 **ExcludeTree**（采 process-loopback 混音中除该进程树以外的部分）。GUI Application Loopback 页同样是多路 Capture Track。
-- **双流延迟监听**：**Monitor** 仍是一对：正好一路 Capture Track，加上至多一路 Render Track（capture → 固定延迟 FIFO（漂移补偿）→ render），显示 fifo 水位 / drift / xrun。GUI 与 CLI `monitor` 都不做多路列表。
+- **双流延迟监听**：**Monitor** 仍是一对：正好一路 Capture Track，加上至多一路 Render Track（capture → 固定延迟 FIFO（漂移补偿）→ render），显示 fifo 水位 / drift / xrun。Monitor 不做多路列表。
 - **设备能力查询**：Mix / Device / OEM 三来源格式 + 候选格式在 Shared/Exclusive 下的支持矩阵。
 - **格式探测**：检测设备是否支持指定格式（shared 反映 WASAPI 混音器转换能力，exclusive 反映硬件独占可用性）。
 - **实时分析**：dB 时域波形 + 滚动 log 频率声谱图（自带 radix-2 FFT，Hann 窗，dBFS 标定）；GUI 采集侧 2ch+ 按实际 channel 分开显示。
@@ -42,13 +42,15 @@ cd winaudio
 .\test.bat Release         # 运行测试套件（ctest / gtest）
 ```
 
-产物在 `build\bin\<Config>\`：`WinAudioGui.exe`、`WinAudioCli.exe`、`WinAudioTests.exe`。
+产物在 `build\bin\<Config>\`：`WinAudioGui.exe`、`WinAudioTests.exe`。
 
 - 若 `cmake` / `ctest` 不在 PATH，可用 VS 自带的（`<VS 安装目录>\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin`）。
 - 也可直接用 CMake preset：`cmake --preset vs2022`，然后 `cmake --build build --config Release -j`。
 - Windows SDK 低于 10.0.20348 时仍可构建，但 Application Loopback 功能会被编译为不可用（运行时报错提示）。
 
-## GUI 使用（首选）
+## GUI 使用
+
+端点音频增强开关只能在开始音频流之前修改。需要管理员权限时，GUI 会弹出 UAC，并启动自身的第二个实例完成这一项操作；取消或失败会显示在原窗口。辅助实例不创建窗口、不启动音频流，执行后立即退出。
 
 运行 `WinAudioGui.exe`，包含 **Monitor** / **Loopback** / **Application Loopback** 三个 tab。日志默认写运行目录下的 `winaudio.log`（双击启动即 exe 目录），左栏日志面板可运行时切换级别、清空、自动滚动。
 
@@ -98,110 +100,10 @@ cd winaudio
 性能测量、复跑方法及已知验证限制见 [性能实施与验收记录](docs/measurements/performance-acceptance/README.md)。控制历史仍完整保存在内存，新增记录时内存会增长；本轮未加入长期归档。
 
 
-## CLI 使用
-
-`WinAudioCli.exe <子命令> [参数]`，子命令：`list` / `caps` / `probe` / `capture` / `play` / `monitor` / `effects` / `enhancements`。
-
-
-
-### list — 枚举设备
-
-```powershell
-WinAudioCli list [--render|--capture] [--effects]
-```
-
-默认列出 render 设备。`*` 标记系统默认设备，同时打印混音格式、设备 id（供 `--device` / `--cap` 使用），以及端点增强状态（`enhancements=on|off|unknown`，若有则附带 APO CLSID 槽位）。
-
-`--effects` 会再对每个设备短暂打开 Shared 流（Initialize，**不 Start**），通过 `IAudioEffectsManager` 打印流级效果（`类型:on|off[+set]`）。需要 **Windows 11 build 22000+**；在 Windows 10 或接口不可用时输出 `streamEffects=(none)`。不加 `--effects` 的枚举不会打开音频流。
-
-### effects set — 配置流效果
-
-```powershell
-WinAudioCli effects set [--capture|--render] [--device <id>] <effect> on|off
-```
-
-短暂打开 Shared 流（Initialize，**不 Start**），在 `canSetState` 为 true 时调用 `IAudioEffectsManager::SetAudioEffectState`，然后重新列出效果。`<effect>` 可以是带花括号的 GUID、已知类型名（如 `"Noise Suppression"`），或 kebab/下划线 slug（如 `noise-suppression`）。在 Windows 10、接口不可用、未知效果或只读（`canSetState=false`）时干净失败。默认 flow 为 render。
-
-### enhancements set — 端点 SysFx 总开关
-
-```powershell
-WinAudioCli enhancements set [--capture|--render] [--device <id>] on|off
-```
-
-通过未文档化的 `IPolicyConfig` 写入 `PKEY_AudioEndpoint_Disable_SysFx`（`on` → 0 / 开启增强，`off` → 1 / 关闭增强）到 **两处**属性库：特效库（`FxProperties`，与「声音」CPL / Win11 设置里的增强开关一致）以及端点属性库（`IMMDevice::OpenPropertyStore` 可见），然后重新读取 `DeviceInfo.enhancements`（优先读 Fx 库）。**必须在本进程启动任何采集/播放流之前设置**（否则报错：`start stream 前才能改`）。写入常需管理员权限；遇到 `ACCESS_DENIED` 时 CLI 会自动提权重新启动（UAC 提示）。`--no-elevate` 可跳过提权（供提权子进程与 GUI 助手使用）。默认 flow 为 render。
-
-**怎样才能听出差别：** 仅翻转属性不会重建其它进程里已打开的 Shared 流 APO 图（Chrome、播放器等）。声音 CPL 点「应用」通常会触发重建；执行 `enhancements set` 后请停止再开始播放（或重启 WinAudio 流），音频引擎才会按新的 SysFx 状态挂载/卸下 APO。空间音效以及 INF SysFx 以外的 OEM/硬件 DSP 不受此开关影响。
-
-### caps — 设备能力
-
-```powershell
-WinAudioCli caps [--device <id>] [--render|--capture]
-```
-
-显示 Mix / Device / OEM 三来源格式，以及每个候选格式在 Shared / Exclusive 下的支持情况（`yes` / `-`）。
-
-### probe — 格式探测
-
-```powershell
-WinAudioCli probe --format 48000/16/2 [--device <id>] [--render|--capture] [--backend wasapi-shared|wasapi-exclusive]
-```
-
-输出 `SUPPORTED` / `NOT SUPPORTED`（退出码 0 / 1）。exclusive 精确反映硬件独占可用性；shared 反映 WASAPI 混音器能否转换该格式（即本工具实际可用性）。
-
-### capture — 采集
-
-一次 `capture` 是一组 **Capture Track**，共享进程寿命（`--seconds` / Ctrl+C 一起停）。组本身不是 Track。
-
-```powershell
-# 一路（无 --track，兼容旧脚本）
-WinAudioCli capture --out <file.wav> [--seconds N] [--device <id>] [--loopback]
-                    [--pid N] [--exclude-tree] [--no-silent-render]
-                    [--backend wasapi-shared|wasapi-exclusive] [--format 48000/16/2]
-
-# 一组：每个 --track 一段，每段必须有自己的 --out
-WinAudioCli capture --track --out a.wav --loopback --track --out b.wav --pid 4242 [--seconds N]
-```
-
-- 不加 `--track`、只写一个 `--out`：仍是一路 Capture Track。
-- 重复 `--track`：每段一路。段内 `--pid`（可选 `--exclude-tree`）= Application Loopback；否则 `--loopback` = System Loopback；否则 Endpoint。`--device` 省略则用该种类的默认设备。`--pid` 与 `--loopback` 同段是 usage error。
-- `--format` 与 `--no-silent-render` 按段；`--backend` 与 `--seconds` 整组一次。
-- 一组可混 Endpoint / System Loopback / Application Loopback。相等 Capture source 允许同时开。某一路 Error 不中止其余路；任一路失败则退出码非 0。
-- 每路一个 WAV，没有把多路混成一个文件。默认采集 5 秒，状态行打印 `tracks=` 与电平 / overrun。
-- `--loopback` 时 `--device` 填 render 设备 id；loopback 仅支持 Shared；默认启动静音 render keepalive，`--no-silent-render` 关闭（只作用于 System Loopback 段）。
-- `--format` 两个后端均可用：Shared 经 WASAPI 引擎转换（无本工具重采样）；Exclusive 要求硬件原生支持（loopback 段仍会因 Shared-only 被拒绝）。
-
-### play — 播放
-
-```powershell
-WinAudioCli play --in <file.wav> [--device <id>] [--backend wasapi-shared|wasapi-exclusive]
-```
-
-格式从 WAV 文件头读取，不接受 `--format`。Shared 下由 WASAPI 引擎转换到设备混音格式；Exclusive 要求设备原生支持 WAV 的格式。
-
-### monitor — 双流延迟监听
-
-```powershell
-WinAudioCli monitor [--cap <id>] [--render <id>] [--delay-ms N] [--seconds N] [--loopback]
-                    [--no-silent-render] [--format 48000/16/2] [--backend wasapi-shared|wasapi-exclusive]
-```
-
-- capture → 固定延迟（默认 100 ms）→ render 直通，默认运行 5 秒；状态行实时打印 cap/ren 状态、采样率、fifo ms、drift、xrun。
-- `--format` 仅作用于采集端。
-- Shared：WASAPI 引擎在渲染侧桥接采样率，采集/渲染可用不同采样率的设备；Exclusive：渲染设备必须支持采集格式，否则 render 启动失败。
-- `--loopback` 以 render endpoint 为采集源（`--cap` 填 render 设备 id），仅支持 Shared；注意不要把同一个 render 设备既作 loopback 输入又作监听输出。
-- `monitor` 仍是单一 Monitor 对，不接受 `--track` 列表。`list` / `caps` 也不做 Track 列表。
-
-### 通用参数
-
-- `--log-level <trace|debug|info|warn|err>`（默认 `info`）与 `--log-file <path>`：日志走 stderr，状态行走 stdout（互不干扰，方便重定向）；`--log-file` 额外写入文件。
-- `--format` 语法为 `采样率/位深/声道[f]`，如 `48000/16/2`、`48000/32/2f`（`f` 表示 float）。
-- 设备 id 通过 `list` 查询。
-
 ## 日志
 
 - 级别：`Info`（默认，流生命周期：open/close/start/stop、选中设备、最终格式）；`Debug`（所有控制路径调用的参数 + 返回值，HRESULT 译成符号名，如 `AUDCLNT_E_DEVICE_INVALIDATED`）；`Trace`（音频热路径逐帧，诊断用，开启时可能对被测音频有轻微扰动）。
 - GUI：左栏日志面板（运行时切级别）+ 运行目录 `winaudio.log`（轮转文件）。
-- CLI：stderr 输出 + 可选 `--log-file`。
 
 ## 已知限制
 

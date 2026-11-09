@@ -26,15 +26,6 @@ TEST(DeviceEnhancements, ToSysFxUlVal) {
     EXPECT_FALSE(enhancementsStateToSysFxUlVal(EnhancementsState::Unknown, v));
 }
 
-TEST(DeviceEnhancements, StateFromName) {
-    EXPECT_EQ(enhancementsStateFromName("on"), EnhancementsState::Enabled);
-    EXPECT_EQ(enhancementsStateFromName("ON"), EnhancementsState::Enabled);
-    EXPECT_EQ(enhancementsStateFromName("off"), EnhancementsState::Disabled);
-    EXPECT_EQ(enhancementsStateFromName("Off"), EnhancementsState::Disabled);
-    EXPECT_EQ(enhancementsStateFromName("maybe"), EnhancementsState::Unknown);
-    EXPECT_EQ(enhancementsStateFromName(""), EnhancementsState::Unknown);
-}
-
 TEST(DeviceEnhancements, DeviceInfoDefaultsUnknown) {
     DeviceInfo info{};
     EXPECT_EQ(info.enhancements, EnhancementsState::Unknown);

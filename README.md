@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/peilinok/winaudio/actions/workflows/ci.yml/badge.svg)](https://github.com/peilinok/winaudio/actions/workflows/ci.yml)
 
-A small Windows audio test tool. It captures, plays, loopbacks, and listens for latency on system audio devices, with a live waveform and spectrogram. The GUI (Dear ImGui + DX11) is the preferred interface. A small CLI is included.
+A small Windows audio test tool. It captures, plays, loopbacks, and listens for latency on system audio devices, with a live waveform and spectrogram. The desktop interface uses Dear ImGui + DX11.
 
 ## Screenshot
 
@@ -15,12 +15,12 @@ More GUI modes are in [GUI screenshots](docs/gui-screenshots.md).
 ## Features
 
 - **Two WASAPI backends**: Shared and Exclusive (low latency). The same flow can switch backend for a comparison.
-- **Capture / playback**: capture writes a WAV file, and playback reads a standard RIFF WAV. `--format` sets the target format (Shared is converted by the WASAPI engine `AUTOCONVERTPCM`; Exclusive requires native hardware support).
+- **Capture / playback**: Capture Tracks support live WAV Dump; Render Tracks play channel ident clips. The GUI selects the target format (Shared uses WASAPI `AUTOCONVERTPCM`; Exclusive requires native hardware support).
 - **System loopback**: a render endpoint is the **Capture source** for the system output. An optional silent render keepalive keeps the clock moving. The GUI Loopback page can run several **Capture Track**s at once.
 - **Application Loopback**: WASAPI process loopback by PID (Shared-only; Windows 10 build 20348+). The default is **IncludeTree** (the target process and its child tree only). **ExcludeTree** takes the process-loopback mix except that process tree. The GUI Application Loopback page is also a list of Capture Tracks.
-- **Dual-stream latency listener**: **Monitor** is still one pair: exactly one Capture Track, plus at most one Render Track (capture → fixed-delay FIFO with drift compensation → render). It shows the fifo level, drift, and xrun. Neither the GUI nor CLI `monitor` is a multi-track list.
+- **Dual-stream latency listener**: **Monitor** is still one pair: exactly one Capture Track, plus at most one Render Track (capture → fixed-delay FIFO with drift compensation → render). It shows the fifo level, drift, and xrun. Monitor does not use a multi-track list.
 - **Device capabilities**: Mix / Device / OEM formats, plus a Shared/Exclusive support matrix for the candidate formats.
-- **Format probe**: checks whether a device supports a format (shared reports what the WASAPI mixer can convert; exclusive reports native exclusive availability).
+- **Format support**: device capability dialogs show Shared conversion support and native Exclusive availability.
 - **Live analysis**: a dB time-domain waveform and a scrolling log-frequency spectrogram (built-in radix-2 FFT, Hann window, dBFS). On the GUI capture side, 2ch+ formats are drawn per channel.
 - **Detailed API logs**: parameters and return values of WASAPI/COM/Win32 calls are observable (spdlog, level adjustable at runtime).
 
@@ -42,15 +42,17 @@ cd winaudio
 .\test.bat Release         # run the suite (ctest / gtest)
 ```
 
-Outputs are in `build\bin\<Config>\`: `WinAudioGui.exe`, `WinAudioCli.exe`, and `WinAudioTests.exe`.
+Outputs are in `build\bin\<Config>\`: `WinAudioGui.exe` and `WinAudioTests.exe`.
 
 - If `cmake` / `ctest` are not on PATH, use the copy shipped with Visual Studio (`<VS install>\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin`).
 - Or use the CMake preset: `cmake --preset vs2022`, then `cmake --build build --config Release -j`.
 - A Windows SDK older than 10.0.20348 still builds. Application Loopback is compiled out and reports an error at runtime.
 
-## GUI use (preferred)
+## GUI use
 
 Run `WinAudioGui.exe`. The window has **Monitor** / **Loopback** / **Application Loopback** tabs. The log defaults to `winaudio.log` in the working directory (double-click starts in the exe directory). The log panel can change the level, clear, and follow the latest line while running.
+
+The endpoint enhancements switch is available before streaming. If Windows requires Administrator rights, the GUI requests UAC and starts a second instance for that single operation. Cancellation or failure is shown in the original window. The helper exits without opening a window or starting audio streams.
 
 Domain terms: a **Track** is one one-way stream (capture or playback) that is created and destroyed on its own. Create opens the stream immediately; there is no idle Track. A **Capture source** is the recipe (device, or PID + mode), not the running stream. A **Capture Track** binds one Capture source, and the GUI can Dump / Stop dump at any time. **Monitor** is the only dual-stream session name. A **Chart Host** is one chart's toolbar plus its panels. Each loopback page has its own list, empty at startup. Leaving the tab does not stop capture.
 
@@ -103,110 +105,10 @@ Type a **PID** (or select a Live session / process row to fill it) and **Attach*
 CSV 继续保留前十列 `timeMs,pid,iface,method,args,hr,hresult,streamId,pump,xrun` 及平面 `args`，追加 `roundId,attachId,lane,sequence,processCreated,attachToken,observationGeneration,rowType,summaryKey,summaryValue`。调用行 `rowType=call`，摘要键值列为空；段摘要每项一行，`rowType=segment`，前十列为空，身份列标明归属，`summaryKey/summaryValue` 对应上述 JSONL 摘要键及值。按标准 CSV 解析引号、逗号与多行内容；CSV 不展开结构化参数。导出在点击时冻结宿主已接收内容，不等待目标；随后接收、切换、退出、重附加及清空不修改已启动快照。后台取消或失败保留内存历史，成功后才原子发布文件，且拒绝覆盖已有文件。
 
 
-## CLI use
-
-`WinAudioCli.exe <subcommand> [options]`. Subcommands: `list` / `caps` / `probe` / `capture` / `play` / `monitor` / `effects` / `enhancements`.
-
-
-
-### list — enumerate devices
-
-```powershell
-WinAudioCli list [--render|--capture] [--effects]
-```
-
-Render devices are listed by default. `*` marks the system default. The line also prints the mix format, the device id (for `--device` / `--cap`), and endpoint enhancement status (`enhancements=on|off|unknown` plus APO CLSID slots when published).
-
-`--effects` additionally opens a short Shared stream per device (Initialize, **no Start**) and prints stream-level effects from `IAudioEffectsManager` (`type:on|off[+set]`). Requires **Windows 11 build 22000+**; on Windows 10 or when the manager is unavailable the line is `streamEffects=(none)`. Enumeration without `--effects` never opens a stream.
-
-### effects set — configure a stream effect
-
-```powershell
-WinAudioCli effects set [--capture|--render] [--device <id>] <effect> on|off
-```
-
-Opens a short Shared stream (Initialize, **no Start**), calls `IAudioEffectsManager::SetAudioEffectState` when `canSetState` is true, then re-lists effects. `<effect>` may be a braced GUID, a known type name (`"Noise Suppression"`), or a kebab/underscore slug (`noise-suppression`). Fails cleanly on Windows 10, missing manager, unknown effect, or read-only (`canSetState=false`) effects. Default flow is render.
-
-### enhancements set — endpoint SysFx master switch
-
-```powershell
-WinAudioCli enhancements set [--capture|--render] [--device <id>] on|off
-```
-
-Writes `PKEY_AudioEndpoint_Disable_SysFx` (`on` → 0 / enabled, `off` → 1 / disabled) via undocumented `IPolicyConfig` into **both** the effects store (`FxProperties`, what Sound CPL / Win11 Settings toggle) and the endpoint property store (what `IMMDevice::OpenPropertyStore` sees), then re-reads `DeviceInfo.enhancements` (Fx store preferred). **Only allowed before a capture/render stream is started** in this process (error: `start stream 前才能改`). Writing often needs Administrator rights; on `ACCESS_DENIED` the CLI auto-relaunches itself elevated (UAC prompt). Pass `--no-elevate` to skip the relaunch (used by the elevated child and by the GUI helper). Default flow is render.
-
-**Hearing a difference:** the property flip alone does not rebuild APO graphs for Shared streams that are already open elsewhere (Chrome, music apps, etc.). Sound CPL Apply typically forces that rebuild; after `enhancements set`, stop/start playback (or the WinAudio stream) so the engine picks up the new SysFx state. Spatial sound and OEM/hardware DSP outside INF SysFx APOs are unaffected.
-
-### caps — device capabilities
-
-```powershell
-WinAudioCli caps [--device <id>] [--render|--capture]
-```
-
-Shows Mix / Device / OEM formats, and whether each candidate is supported in Shared / Exclusive (`yes` / `-`).
-
-### probe — format probe
-
-```powershell
-WinAudioCli probe --format 48000/16/2 [--device <id>] [--render|--capture] [--backend wasapi-shared|wasapi-exclusive]
-```
-
-Prints `SUPPORTED` / `NOT SUPPORTED` (exit code 0 / 1). Exclusive reports native exclusive availability. Shared reports whether the WASAPI mixer can convert the format (whether this tool can use it).
-
-### capture — capture
-
-One `capture` command is a set of **Capture Track**s that share the process lifetime (`--seconds` / Ctrl+C stops them together). The set itself is not a Track.
-
-```powershell
-# one track (no --track; compatible with older scripts)
-WinAudioCli capture --out <file.wav> [--seconds N] [--device <id>] [--loopback]
-                    [--pid N] [--exclude-tree] [--no-silent-render]
-                    [--backend wasapi-shared|wasapi-exclusive] [--format 48000/16/2]
-
-# a set: one segment per --track, and each segment needs its own --out
-WinAudioCli capture --track --out a.wav --loopback --track --out b.wav --pid 4242 [--seconds N]
-```
-
-- No `--track`, and a single `--out`: still one Capture Track.
-- Repeated `--track`: one track per segment. `--pid` in a segment (optional `--exclude-tree`) is Application Loopback; otherwise `--loopback` is System Loopback; otherwise Endpoint. An omitted `--device` uses the default device for that kind. `--pid` and `--loopback` in the same segment is a usage error.
-- `--format` and `--no-silent-render` are per segment. `--backend` and `--seconds` are once for the set.
-- A set can mix Endpoint / System Loopback / Application Loopback. Equal Capture sources may be opened together. One track's Error does not stop the others. Any failed track makes the exit code non-zero.
-- One WAV per track. Tracks are not mixed into one file. The default capture is 5 seconds. The status line prints `tracks=` plus level / overrun.
-- With `--loopback`, `--device` is a render device id. Loopback is Shared-only. A silent render keepalive starts by default. `--no-silent-render` turns it off (System Loopback segments only).
-- `--format` works for both backends. Shared is converted by the WASAPI engine (this tool has no resampler). Exclusive requires native hardware support (a loopback segment is still rejected because it is Shared-only).
-
-### play — playback
-
-```powershell
-WinAudioCli play --in <file.wav> [--device <id>] [--backend wasapi-shared|wasapi-exclusive]
-```
-
-The format is read from the WAV header. `--format` is not accepted. In Shared, the WASAPI engine converts to the device mix format. Exclusive requires the device to support the WAV format natively.
-
-### monitor — dual-stream latency listener
-
-```powershell
-WinAudioCli monitor [--cap <id>] [--render <id>] [--delay-ms N] [--seconds N] [--loopback]
-                    [--no-silent-render] [--format 48000/16/2] [--backend wasapi-shared|wasapi-exclusive]
-```
-
-- Capture → fixed delay (default 100 ms) → render passthrough, for 5 seconds by default. The status line prints cap/ren state, sample rate, fifo ms, drift, and xrun.
-- `--format` applies to the capture side only.
-- Shared: the WASAPI engine bridges the sample rate on the render side, so capture and render can use devices with different rates. Exclusive: the render device must support the capture format, or render fails to start.
-- `--loopback` uses the render endpoint as the capture source (`--cap` is a render device id) and is Shared-only. Do not use the same render device as both the loopback input and the monitor output.
-- `monitor` is still a single Monitor pair and does not accept a `--track` list. `list` / `caps` are not Track lists either.
-
-### Common options
-
-- `--log-level <trace|debug|info|warn|err>` (default `info`) and `--log-file <path>`: logs go to stderr, and the status line goes to stdout (so either can be redirected). `--log-file` also writes a file.
-- `--format` syntax is `rate/bits/channels[f]`, for example `48000/16/2` or `48000/32/2f` (`f` means float).
-- Device ids come from `list`.
-
 ## Logging
 
 - Levels: `Info` (default; stream lifetime: open/close/start/stop, the selected device, and the final format); `Debug` (parameters and return values on the control path, with HRESULT names such as `AUDCLNT_E_DEVICE_INVALIDATED`); `Trace` (per buffer on the audio thread; for diagnosis, and it can slightly disturb the audio under test).
 - GUI: the log panel (level can change while running) plus `winaudio.log` in the working directory (rotating file).
-- CLI: stderr, plus an optional `--log-file`.
 
 ## Known limits
 

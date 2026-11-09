@@ -1,5 +1,7 @@
 # WAV Dump 实施记录：#233
 
+> 原始构建输出及设备能力查询附件已随对应产品入口移除；以下保留当时的结果与 GUI/Core 测试、WAV 和性能证据。
+
 ## 目标与基线
 
 - 按 #233 → #234 串行实施；#233 合并且关闭、#234 原生 open blocker 为 0 后才启动 #234。
@@ -23,7 +25,7 @@
 - [x] 可选/必需文件策略固定、正常拒收与真正失败区分、兄弟 Track 隔离。
 - [x] overflow/stop 交错、write 后 close 失败、首错保留、重复 stop、失败后重试。
 - [x] destroy/destroyAll/析构/启动准备异常与失败正确回收；pump 只请求停止。
-- [x] 原有格式、命名、碰撞后缀、应用名/PID、目录与 CLI 精确路径、失败文件保留。
+- [x] 原有格式、命名、碰撞后缀、应用名/PID、目录、失败文件保留。
 - [x] 生产路径无锁/分配/等待/文件操作/共享所有权/测试钩子；不改变生产类布局。
 - [x] 既有 Monitor 显式停止和文件读回通过；不提前迁移 #234 自动停用与 GUI 语义。
 - [x] 同格式、块大小、producer/writer 负载的前后吞吐与 p50/p95/p99；关闭路径另记。
@@ -102,14 +104,14 @@
 
 ### 2026-10-25：最终构建与直接回归
 
-本机 MSVC 14.51.36231 / VS2026；CMake 生成器差异仅属于本机环境，仓库预设及 windows-2022 CI 未修改。全量构建包含 CLI、GUI、core、已有测试和专用测试 target；运行只限定本票直接组。
+本机 MSVC 14.51.36231 / VS2026；CMake 生成器差异仅属于本机环境，仓库预设及 windows-2022 CI 未修改。全量构建包含 GUI、core、已有测试和专用测试 target；运行只限定本票直接组。
 
 | 架构 / 配置 | 完整构建 | 生产直接组 | 专用同源组 | 证据 |
 | --- | --- | --- | --- | --- |
-| x64 Debug | 通过 | 102/102 | 58/58 | [构建](artifacts/build-x64-debug.txt)、[直接组](artifacts/direct-x64-debug.txt)、[同源组](artifacts/lifecycle-x64-debug.txt) |
-| x64 Release | 通过 | 102/102 | 58/58 | [构建](artifacts/build-x64-release.txt)、[直接组](artifacts/direct-x64-release.txt)、[同源组](artifacts/lifecycle-x64-release.txt) |
-| x86 Debug | 通过 | 102/102 | 58/58 | [构建](artifacts/build-x86-debug.txt)、[直接组](artifacts/direct-x86-debug.txt)、[同源组](artifacts/lifecycle-x86-debug.txt) |
-| x86 Release | 通过 | 102/102 | 58/58 | [构建](artifacts/build-x86-release.txt)、[直接组](artifacts/direct-x86-release.txt)、[同源组](artifacts/lifecycle-x86-release.txt) |
+| x64 Debug | 通过 | 102/102 | 58/58 | [直接组](artifacts/direct-x64-debug.txt)、[同源组](artifacts/lifecycle-x64-debug.txt) |
+| x64 Release | 通过 | 102/102 | 58/58 | [直接组](artifacts/direct-x64-release.txt)、[同源组](artifacts/lifecycle-x64-release.txt) |
+| x86 Debug | 通过 | 102/102 | 58/58 | [直接组](artifacts/direct-x86-debug.txt)、[同源组](artifacts/lifecycle-x86-debug.txt) |
+| x86 Release | 通过 | 102/102 | 58/58 | [直接组](artifacts/direct-x86-release.txt)、[同源组](artifacts/lifecycle-x86-release.txt) |
 
 可复现命令（在本票工作区执行）：
 

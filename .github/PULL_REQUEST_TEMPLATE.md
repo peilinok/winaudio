@@ -23,4 +23,4 @@ Full rules: CLAUDE.md, section "Commit 与 PR 规范".
 - [ ] `test.bat Debug` and `test.bat Release` pass locally
 - [ ] New core logic has gtest coverage that runs without real audio devices
 - [ ] GUI changes: screenshots attached
-- [ ] Real-device behavior touched: manual smoke done (CLI `monitor` or GUI), result stated above
+- [ ] Real-device behavior touched: manual smoke done (GUI), result stated above

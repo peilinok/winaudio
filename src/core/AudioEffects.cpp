@@ -7,7 +7,6 @@
 #include <audioclient.h>
 #include <mmdeviceapi.h>
 #include <objbase.h>
-#include <cctype>
 #include <cstring>
 
 #ifndef AUDCLNT_E_EFFECT_NOT_AVAILABLE
@@ -66,25 +65,6 @@ const EffectNameRow kEffectNames[] = {
     {{0x6f64add0, 0x8211, 0x11e2, {0x8c, 0x70, 0x2c, 0x27, 0xd7, 0xf0, 0x01, 0xfa}},
      "Deep Noise Suppression"},
 };
-
-// "Noise Suppression" / "noise-suppression" / "noise_suppression" -> "noisesuppression"
-std::string effectSlug(const std::string& s) {
-    std::string out;
-    out.reserve(s.size());
-    for (unsigned char c : s) {
-        if (std::isalnum(c)) out += static_cast<char>(std::tolower(c));
-    }
-    return out;
-}
-
-bool looksLikeGuidToken(const std::string& s) {
-    if (s.empty()) return false;
-    if (s.front() == '{' || s.front() == '(') return true;
-    // xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-    size_t dashes = 0;
-    for (char c : s) if (c == '-') ++dashes;
-    return dashes == 4 && s.size() >= 36;
-}
 
 Result openSharedClientForEffects(DataFlow flow, const DeviceId& id,
                                   const StreamParams& params,
@@ -188,22 +168,6 @@ std::string audioEffectTypeName(const GUID& id) {
     }
     const std::string braced = guidToBracedString(id);
     return braced.empty() ? "Unknown effect" : braced;
-}
-
-bool resolveAudioEffectId(const std::string& token, GUID& out) {
-    out = {};
-    if (token.empty()) return false;
-    if (looksLikeGuidToken(token) && parseGuidBraced(token, out)) return true;
-
-    const std::string wantSlug = effectSlug(token);
-    if (wantSlug.empty()) return false;
-    for (const auto& row : kEffectNames) {
-        if (effectSlug(row.name) == wantSlug) {
-            out = row.g;
-            return true;
-        }
-    }
-    return false;
 }
 
 Result readAudioEffectsFromClient(IAudioClient* client, std::vector<StreamAudioEffect>& out) {
@@ -383,14 +347,14 @@ Result setStreamAudioEffect(DataFlow flow, const DeviceId& id,
 }
 
 Result setStreamAudioEffect(DataFlow flow, const DeviceId& id,
-                            const std::string& effectToken, AudioEffectState state,
+                            const std::string& effectId, AudioEffectState state,
                             std::vector<StreamAudioEffect>* outEffects,
                             const StreamParams& params) {
     GUID g{};
-    if (!resolveAudioEffectId(effectToken, g)) {
+    if (!parseGuidBraced(effectId, g)) {
         return Result::Fail(-1,
-                            "AudioEffects: unknown effect \"" + effectToken +
-                                "\" (want braced GUID or type name / kebab slug)");
+                            "AudioEffects: invalid effect GUID \"" + effectId +
+                                "\" (want GUID)");
     }
     return setStreamAudioEffect(flow, id, g, state, outEffects, params);
 }

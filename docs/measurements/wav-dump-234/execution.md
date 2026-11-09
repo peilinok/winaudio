@@ -6,6 +6,8 @@
 - 全部修改、构建与测试使用原目录；`.archify/`、`_shots/`、`shots/` 保留。
 - 测试边界：生产 MonitorEngine 的 BackendFactory 和 WavSinkOutput、实际 WavSink、生产 GUI 接线。文件系统用可控 adapter；不加入生产调度钩子。
 
+> 原始构建输出及设备能力查询附件已随对应产品入口移除；以下保留当时的结果与 GUI/Core 测试、WAV 和性能证据。
+
 ## 逐行为红绿
 
 1. 基线 Release：MonitorEngine、WavSink、WavFile、CaptureTrackList、DumpUi 共 103/103 通过（[日志](artifacts/baseline-release.txt)、[XML](artifacts/baseline-release.xml)）。原目录当时没有 Debug 二进制，后续已完整构建。
@@ -51,10 +53,10 @@
 
 | 配置 | 构建状态 | 直接 CTest | 证据 |
 | --- | --- | --- | --- |
-| x64 Debug | 既有 cache 中本配置首次完整编译，随后增量复核 | 223/223，16.13 秒 | [首次构建](artifacts/build-x64-debug-initial.txt)、[最终构建](artifacts/build-x64-debug.txt)、[测试](artifacts/direct-x64-debug.txt)、[XML](artifacts/direct-x64-debug.xml) |
-| x64 Release | 增量完整目标构建，随后增量复核 | 223/223，13.27 秒 | [首次记录](artifacts/build-x64-release-initial.txt)、[最终构建](artifacts/build-x64-release.txt)、[测试](artifacts/direct-x64-release.txt)、[XML](artifacts/direct-x64-release.xml) |
-| x86 Debug | 新 build-x86，本配置首次完整编译，测试转换修正后增量复核 | 223/223，16.86 秒 | [首次构建](artifacts/build-x86-debug-initial.txt)、[最终构建](artifacts/build-x86-debug.txt)、[测试](artifacts/direct-x86-debug.txt)、[XML](artifacts/direct-x86-debug.xml) |
-| x86 Release | 新 build-x86，本配置首次完整编译 | 223/223，13.73 秒 | [构建](artifacts/build-x86-release.txt)、[测试](artifacts/direct-x86-release.txt)、[XML](artifacts/direct-x86-release.xml) |
+| x64 Debug | 既有 cache 中本配置首次完整编译，随后增量复核 | 223/223，16.13 秒 | [测试](artifacts/direct-x64-debug.txt)、[XML](artifacts/direct-x64-debug.xml) |
+| x64 Release | 增量完整目标构建，随后增量复核 | 223/223，13.27 秒 | [测试](artifacts/direct-x64-release.txt)、[XML](artifacts/direct-x64-release.xml) |
+| x86 Debug | 新 build-x86，本配置首次完整编译，测试转换修正后增量复核 | 223/223，16.86 秒 | [测试](artifacts/direct-x86-debug.txt)、[XML](artifacts/direct-x86-debug.xml) |
+| x86 Release | 新 build-x86，本配置首次完整编译 | 223/223，13.73 秒 | [测试](artifacts/direct-x86-release.txt)、[XML](artifacts/direct-x86-release.xml) |
 
 四份 XML 均为 `failures=0, skipped=0`。直接相关过滤器固定为：
 

@@ -4,7 +4,7 @@
 
 **Goal:** Add a delayed monitor pass-through (capture → frame-domain DelayFifo with active drift control → render) with real-time visualization of both streams (waveform + FFT spectrum + scrolling spectrogram) in the ImGui GUI via ImPlot.
 
-**Architecture:** Core gains pure-STL DSP primitives (FFT, ScopeBuffer seqlock snapshot, SampleConvert, DelayFifo+drift) and a `MonitorEngine` that runs two backends + a pump thread (the only thread doing format conversion / downmix / framing / drift; capture/render I/O threads only move bytes). The pump is woken by a dedicated per-backend event (NOT the shared WASAPI event). The GUI owns both `Engine` and `MonitorEngine`, drives analysis by sample-index hops (FPS-independent), and renders with ImPlot.
+**Architecture:** Core gains pure-STL DSP primitives (FFT, ScopeBuffer seqlock snapshot, SampleConvert, DelayFifo+drift) and a `MonitorEngine` that runs two backends + a pump thread (the only thread doing format conversion / downmix / framing / drift; capture/render I/O threads only move bytes). The pump is woken by a dedicated per-backend event (NOT the shared WASAPI event). The GUI owns `MonitorEngine`, drives analysis by sample-index hops (FPS-independent), and renders with ImPlot.
 
 **Tech Stack:** C++17, MSBuild (x64), MSVC v143, Win32 + WASAPI, gtest, Dear ImGui + ImPlot + DX11.
 
@@ -12,7 +12,7 @@
 - MSBuild, Debug/Release, **x64** only, PlatformToolset v143, `/std:c++17`, `/W4`, Core warning-clean.
 - **msbuild NOT on PATH.** Build with the PowerShell tool (Git-Bash mangles `/p:`):
   `& "d:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" WinAudio.sln /p:Configuration=Debug /p:Platform=x64 /m` — build the **solution**, never a single vcxproj standalone.
-- WinAudioCore + WinAudioCli: pure **Win32 + STL, zero third-party**. ImPlot only in WinAudioGui; gtest only in WinAudioTests. ImPlot vendored under `third_party/implot/`.
+- WinAudioCore: pure **Win32 + STL, zero third-party**. ImPlot only in WinAudioGui; gtest only in WinAudioTests. ImPlot vendored under `third_party/implot/`.
 - All Core symbols in namespace `wa`. Core never printf/cout, never throws across its public API; returns `wa::Result`. COM: each WASAPI thread its own `ComInitGuard` (MTA), ComPtr RAII, no raw `Release()`. No resampler.
 - `wa::Result::Fail(long, std::string)` / `Result::Ok()` (no `Result::Error`).
 - Commit with `git -c commit.gpgsign=false commit -m "..."` (a clang-format pre-commit hook prints a harmless `cannot use -i when reading from stdin`; the commit still succeeds — verify with `git log --oneline -1`).
@@ -34,11 +34,9 @@ src/core/
   IAudioBackend.h          MODIFIED — add virtual void* dataReadyEvent() const
   WasapiStream.h/.cpp      MODIFIED — capture: dedicated pumpReadyEvent_, SetEvent after ring write
   MonitorEngine.h/.cpp     NEW — dual-stream monitor orchestration
-  Engine.cpp               MODIFIED — call peakLevel from SampleConvert; free-function conversions
   Analysis.h/.cpp          NEW — advanceAnalysis() FPS-independent cadence (pure, testable)
-src/cli/main.cpp           MODIFIED — `monitor` subcommand
 src/gui/
-  AppUi.h/.cpp             MODIFIED — own Engine + MonitorEngine; mode selector; Monitor view
+  AppUi.h/.cpp             MODIFIED — own MonitorEngine; Monitor view
   Spectrogram.h/.cpp       NEW — log-resampled rolling 2D buffer (GUI-side)
 third_party/implot/        NEW — vendored ImPlot
 src/tests/
@@ -52,7 +50,7 @@ src/tests/
 
 ## Task 1: Split AudioFormat into a windows-free POD header
 
-**Files:** Create `src/core/AudioFormatDef.h`; Modify `src/core/AudioFormat.h`, `src/core/AudioFormat.cpp`, `src/core/WasapiStream.cpp`, `src/core/DeviceEnumerator.cpp`, `src/core/Engine.cpp`, `src/tests/test_audioformat.cpp`, `src/core/WinAudioCore.vcxproj`.
+**Files:** Create `src/core/AudioFormatDef.h`; Modify `src/core/AudioFormat.h`, `src/core/AudioFormat.cpp`, `src/core/WasapiStream.cpp`, `src/core/DeviceEnumerator.cpp`, `src/tests/test_audioformat.cpp`, `src/core/WinAudioCore.vcxproj`.
 
 **Interfaces:**
 - Produces: `wa::AudioFormat` POD in `AudioFormatDef.h`; free functions `WAVEFORMATEXTENSIBLE wa::toWaveFormatExtensible(const AudioFormat&)` and `AudioFormat wa::fromWaveFormat(const WAVEFORMATEX*)` in `AudioFormat.h`.
@@ -97,7 +95,6 @@ AudioFormat fromWaveFormat(const WAVEFORMATEX* wf);
   - `WasapiStream.cpp:84` `AudioFormat::fromWaveFormat(mix)` → `fromWaveFormat(mix)`
   - `WasapiStream.cpp:101,116,129` `X.toWaveFormatExtensible()` → `toWaveFormatExtensible(X)`
   - `DeviceEnumerator.cpp:35,110` `AudioFormat::fromWaveFormat(mix)` → `fromWaveFormat(mix)`
-  - `Engine.cpp:74` `fmt.toWaveFormatExtensible()` → `toWaveFormatExtensible(fmt)`
   - `test_audioformat.cpp` (lines 18,19,26,28,41,49,52,56,61) similarly; aggregate-init temporaries → use a named local then `toWaveFormatExtensible(local)`.
   - Add `AudioFormatDef.h` to the Core vcxproj `<ClInclude>`.
 
@@ -455,7 +452,6 @@ TEST(DelayFifo, HoldsTargetUnderProducerFaster) {
 
 - [ ] **Step 3: `WasapiStream.cpp` (capture)** — create the event in `start()` alongside `hEvent_`: `pumpEvent_ = CreateEventW(nullptr, FALSE, FALSE, nullptr);` (auto-reset). In the capture drain loop, **after** `ring_->write(...)` (both the data and SILENT paths), call `if (pumpEvent_) SetEvent(static_cast<HANDLE>(pumpEvent_));`. In `close()`, after the thread is joined, `if (pumpEvent_) { CloseHandle(pumpEvent_); pumpEvent_ = nullptr; }`. Apply the same start()-failure cleanup pattern used for `hEvent_`. **Do not touch the render class.**
 
-- [ ] **Step 4: Build + regress** — solution build; `& ".\x64\Debug\WinAudioTests.exe"` → 27 PASS (unchanged); Shared CLI smoke: `& ".\x64\Debug\WinAudioCli.exe" capture --out c.wav --seconds 2` then `play --in c.wav` → still works (the dataReadyEvent addition must not perturb single-stream capture). Don't commit c.wav.
 
 - [ ] **Step 5: Commit** — `feat(core): IAudioBackend.dataReadyEvent + WasapiCaptureStream pump event`
 
@@ -498,20 +494,6 @@ TEST(DelayFifo, HoldsTargetUnderProducerFaster) {
 
 ---
 
-# GATE 4 — CLI monitor smoke
-
-## Task 9: CLI `monitor` subcommand (hardware smoke)
-
-**Files:** Modify `src/cli/main.cpp`.
-
-- [ ] **Step 1: Add the `monitor` command** — parse `--cap <id>` `--render <id>` `--delay-ms N` `--backend ...` `--seconds N`; construct a `MonitorEngine` (default WASAPI factory), `start(...)`, loop `poll()` printing `capState/renderState sr fifoMs drift xrun(c/r)` each 200ms for N seconds, then `stop()`. Update `usage()`.
-
-- [ ] **Step 2: Build + hardware smoke** — `& ".\x64\Debug\WinAudioCli.exe" monitor --delay-ms 100 --seconds 5`. Expected: both states Running, fifoMs ≈ 100 stable, drift small, no crash, clean stop (no hang via watchdog). If capture/render default devices differ in sample rate, it prints the rate-mismatch error — try `--cap`/`--render` ids from `list` with matching rates and report.
-
-- [ ] **Step 3: Commit** — `feat(cli): monitor subcommand (dual-stream smoke)`
-
----
-
 # GATE 5 — ImPlot vendoring
 
 ## Task 10: Vendor ImPlot + build wiring (blank compile)
@@ -530,11 +512,11 @@ TEST(DelayFifo, HoldsTargetUnderProducerFaster) {
 
 # GATE 6 — GUI mode switch
 
-## Task 11: AppUi owns Engine + MonitorEngine; Monitor mode selector
+## Task 11: AppUi owns MonitorEngine; Monitor controls
 
 **Files:** Modify `src/gui/AppUi.h`, `src/gui/AppUi.cpp`, `src/gui/main.cpp`.
 
-- [ ] **Step 1:** Make `Engine` and `MonitorEngine` **members of `AppUi`** (AppUi owns them). Change `AppUi::draw()` to take no engine argument; update `main.cpp` (`static AppUi ui; ui.draw();`). Add a top-level mode: `Capture | Playback | Monitor` (e.g., a `ImGui::Combo` or radio at the top). Capture/Playback keep the existing single-stream UI driven by `Engine`; Monitor selects a new (initially minimal) Monitor panel driven by `MonitorEngine`. Only one engine is started at a time; switching mode calls `stop()` on the other.
+- [ ] **Step 1:** AppUi owns MonitorEngine and reads its status snapshots in draw().
 
 - [ ] **Step 2:** Minimal Monitor panel: capture device combo, render device combo, delay slider (ms), Start/Stop, and a status line from `MonitorStatus` (no plots yet).
 
@@ -615,15 +597,12 @@ if (ImPlot::BeginPlot("Capture spectrogram", ImVec2(-1,160))) {
 
 **Files:** Modify `CLAUDE.md`.
 
-- [ ] **Step 1:** Update CLAUDE.md: new `monitor` CLI command; GUI Monitor mode (waveform/spectrum/spectrogram); note ImPlot vendored under `third_party/implot` (GUI-only); known limitations (mono analysis, capture=render sample rate, monitor drift drop/dup). Bump test count.
 - [ ] **Step 2:** Release build of all 4 projects clean; `& ".\x64\Release\WinAudioTests.exe"` all PASS.
-- [ ] **Step 3:** Hardware smoke (Release): CLI `monitor --seconds 5` stable; GUI Monitor mode — waveform/spectrum/spectrogram live for both streams, clean close, ~1 min drift-stable.
 - [ ] **Step 4:** Commit — `docs: Phase 3 monitor + visualization complete`
 
 ---
 
 ## Self-Review
-**Spec coverage:** dual monitor + drift (Tasks 5,8) ✅; dedicated pump event (Task 6) ✅; frame-aligned reads (Task 8 pump) ✅; FFT window-length dBFS calibration + on-bin/zero-pad tests (Task 2) ✅; single magnitudeSpectrumDb contract, GUI calls only it (Tasks 2,13) ✅; seqlock {endIdx,window} (Task 4) ✅; sample-index cadence free function (Task 7), used in GUI (Tasks 13,14) ✅; SampleConvert int24/clamp/avg-downmix (Task 3) ✅; AudioFormat split for windows-free DSP (Task 1) ✅; startup prefill + teardown order + rollback + atomic status (Task 8) ✅; delayMs single domain + renderBufMs (Task 8 status) ✅; ImPlot vendoring + per-file warning suppress (Task 10) ✅; AppUi owns both engines + mode switch (Task 11) ✅; log-resampled spectrogram (Task 14) ✅; CLI monitor (Task 9) ✅; acceptance/tests (each gate) ✅; gating order = spec §9 ✅.
 **Placeholder scan:** FFT, ScopeBuffer, AudioFormat split, IAudioBackend/WasapiStream change carry complete code. DelayFifo/MonitorEngine/Spectrogram give signatures + test cases + precise algorithm prose (their exact line code depends on the running device/ImPlot API and is bounded by the tests). GUI gates give exact ImPlot call patterns. No "TODO".
 **Type consistency:** `AudioFormat` POD, free `toWaveFormatExtensible/fromWaveFormat`; `magnitudeSpectrumDb(samples,count,workBuf,out,floorDb)`; `ScopeBuffer::snapshotLatest(n,out,endIdxOut)`; `advanceAnalysis(written,&nextEndIdx,windowSize,hop,maxCatchup,fn)`; `MonitorEngine` per §4.5; `IAudioBackend::dataReadyEvent()` used by Task 8 pump. Consistent across tasks.
 **Known limitation (explicit):** DelayFifo/MonitorEngine/Spectrogram are specified by interface + tests + algorithm, not line-complete — by design for the device/ImPlot-dependent units; their unit tests are the executable contract.

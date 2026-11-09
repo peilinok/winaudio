@@ -41,15 +41,6 @@ TEST(AudioEffects, StateToWin32) {
     EXPECT_FALSE(audioEffectStateToWin32(AudioEffectState::Unknown, v));
 }
 
-TEST(AudioEffects, StateFromName) {
-    EXPECT_EQ(audioEffectStateFromName("on"), AudioEffectState::On);
-    EXPECT_EQ(audioEffectStateFromName("ON"), AudioEffectState::On);
-    EXPECT_EQ(audioEffectStateFromName("off"), AudioEffectState::Off);
-    EXPECT_EQ(audioEffectStateFromName("Off"), AudioEffectState::Off);
-    EXPECT_EQ(audioEffectStateFromName("maybe"), AudioEffectState::Unknown);
-    EXPECT_EQ(audioEffectStateFromName(""), AudioEffectState::Unknown);
-}
-
 TEST(AudioEffects, TypeNameKnownGuids) {
     // AUDIO_EFFECT_TYPE_BASS_BOOST
     const GUID bass = makeGuid(0x6f64adc5, 0x8211, 0x11e2,
@@ -96,28 +87,6 @@ TEST(AudioEffects, ParseGuidBraced) {
     EXPECT_FALSE(parseGuidBraced("", bad));
 }
 
-TEST(AudioEffects, ResolveByNameAndSlug) {
-    GUID g{};
-    EXPECT_TRUE(resolveAudioEffectId("Noise Suppression", g));
-    EXPECT_EQ(audioEffectTypeName(g), "Noise Suppression");
-
-    GUID g2{};
-    EXPECT_TRUE(resolveAudioEffectId("noise-suppression", g2));
-    EXPECT_TRUE(InlineIsEqualGUID(g, g2));
-
-    GUID g3{};
-    EXPECT_TRUE(resolveAudioEffectId("NOISE_SUPPRESSION", g3));
-    EXPECT_TRUE(InlineIsEqualGUID(g, g3));
-
-    GUID g4{};
-    EXPECT_TRUE(resolveAudioEffectId("{6F64ADBF-8211-11E2-8C70-2C27D7F001FA}", g4));
-    EXPECT_TRUE(InlineIsEqualGUID(g, g4));
-
-    GUID miss{};
-    EXPECT_FALSE(resolveAudioEffectId("Totally Fake Effect", miss));
-    EXPECT_FALSE(resolveAudioEffectId("", miss));
-}
-
 TEST(AudioEffects, StreamEffectDefaults) {
     StreamAudioEffect e{};
     EXPECT_TRUE(e.id.empty());
@@ -143,16 +112,16 @@ TEST(AudioEffects, ProbeDefaultDeviceSkipsGracefully) {
     }
 }
 
-TEST(AudioEffects, SetUnknownTokenFailsCleanly) {
+TEST(AudioEffects, SetInvalidGuidFailsCleanly) {
     const Result r = setStreamAudioEffect(DataFlow::Render, DeviceId{},
                                           "Totally Fake Effect", AudioEffectState::Off);
     EXPECT_FALSE(r);
-    EXPECT_NE(r.message.find("unknown effect"), std::string::npos);
+    EXPECT_NE(r.message.find("invalid effect GUID"), std::string::npos);
 }
 
 TEST(AudioEffects, SetNullClientFailsCleanly) {
     GUID ns{};
-    ASSERT_TRUE(resolveAudioEffectId("noise-suppression", ns));
+    ASSERT_TRUE(parseGuidBraced("{6F64ADBF-8211-11E2-8C70-2C27D7F001FA}", ns));
     const Result nullClient = setAudioEffectStateOnClient(nullptr, ns, AudioEffectState::On);
     EXPECT_FALSE(nullClient);
     EXPECT_NE(nullClient.message.find("null"), std::string::npos);

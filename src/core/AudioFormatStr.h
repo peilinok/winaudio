@@ -7,7 +7,7 @@ namespace wa {
 
 // "48000/16/2" (integer PCM) or "48000/32f/2" (float). A free function rather
 // than a member so the vendored AudioFormat struct stays untouched; used by log
-// arguments and CLI/GUI display so the format string is written once.
+// arguments and GUI display so the format string is written once.
 inline std::string formatAudio(const AudioFormat& f) {
     return std::to_string(f.sampleRate) + "/" + std::to_string(f.bitsPerSample) +
            (f.isFloat ? "f" : "") + "/" + std::to_string(f.channels);

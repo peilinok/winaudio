@@ -16,7 +16,7 @@
 - `src/core` 是一个**刻意"从不打印"的纯库**(`Result.h:7` 契约),约 **68 处** WASAPI/COM 调用点全部只把结果压进 `Result` 往上抛,其中 **~15 处连返回值都被直接忽略**(`GetBufferSize`/`GetDevicePeriod`/`Stop`/`ReleaseBuffer` 等)。
 - **没有 `hrToString`**:HRESULT 现在只显示成 `0x88890004` 裸十六进制,无可读符号名/描述(全代码库无 `FormatMessage`)。
 - **没有 `AudioFormat::toString()`**:格式参数在 4+ 处被手写重复格式化。
-- **没有任何日志级别/开关**。GUI 日志面板 `logLines_` 只有 3 处写入(`invalid format` / `monitor started` / `monitor stopped`)、只增不删、无时间戳;CLI 全靠 `printf`。
+- **没有任何日志级别/开关**。GUI 日志面板 `logLines_` 只有 3 处写入(`invalid format` / `monitor started` / `monitor stopped`)、只增不删、无时间戳。
 
 即"想看接口调用细节根本无从看起"。本设计基于 spdlog 搭一套薄封装 + 全面插桩。
 
@@ -43,11 +43,10 @@
 
 - `third_party/spdlog` 作为 git submodule(固定版本);CMake 集成、`/MT` 继承、SYSTEM include。
 - core `wa::log` 封装:init async logger(`overrun_oldest`)、级别 get/set、sink 注册、`emit`/`emitTrace` 转发、`hrName`。
-- 三个 sink:`rotating_file_sink`(文件)、stderr sink(CLI)、自定义 GUI 面板 sink(继承 `base_sink`)。
+- 三个 sink:`rotating_file_sink`(文件)、stderr sink(诊断探针)、自定义 GUI 面板 sink(继承 `base_sink`)。
 - `AudioFormat::toString()`。
 - 在 core 全部控制路径 WASAPI/COM 调用点插桩(debug)、音频热路径插桩(trace)、生命周期事件(info)、失败与被忽略返回值(err/warn)。
 - GUI:升级日志面板 + 级别下拉 + 默认写 `winaudio.log`。
-- CLI:`--log-level` / `--log-file` + 日志走 stderr。
 
 ### 非目标(YAGNI)
 
@@ -55,7 +54,6 @@
 - 不做**每 sink 独立级别**——全局单一 logger 级别,运行时可切。
 - 不做结构化 JSON 日志(已选对齐分栏文本格式)。
 - 不做日志的网络/远程传输、不做日志压缩。
-- 不改变现有 CLI stdout 行为(状态行、`caps` 表、设备列表照旧);日志是新增的 stderr 通道。
 
 ## 日志级别与覆盖映射
 
@@ -129,13 +127,12 @@
 
 ### `AudioFormat::toString()`(新增)
 
-返回 `"48000/16/2"`(float 时 `"48000/32f/2"`),消除现状 CLI(`main.cpp:160/169`)、GUI(`AppUi.cpp:139-145/676-683/715-718/121-124`)4+ 处重复手写格式化,并供日志 args 统一使用。
+返回 `"48000/16/2"`(float 时 `"48000/32f/2"`),消除现状 GUI(`AppUi.cpp:139-145/676-683/715-718/121-124`)4+ 处重复手写格式化,并供日志 args 统一使用。
 
-## 三个 sink 与前端集成
+## 日志 sink 与前端集成
 
 - **文件 sink**:直接用 spdlog `rotating_file_sink_mt`(**大小轮转**,默认如 10 MB × 3 份)。GUI 默认 `winaudio.log`(exe 同目录,`GetModuleFileNameW` 定位)。
 - **GUI 面板 sink**:**自定义 `spdlog::sinks::base_sink<std::mutex>`**,`sink_it_` 里把 spdlog 格式化后的行推入 GUI 侧一个**加锁 pending 缓冲**,`AppUi::draw()` 每帧取出追加到 `logLines_`(**环形行数上限**、自动滚动、清空按钮、**级别下拉运行时切**);**绝不在音频线程碰 ImGui**(sink 运行在 spdlog 后台线程)。
-- **CLI stderr sink**:spdlog `stderr_color_sink_mt`(或普通 stderr sink),与现有 `\r` 状态行/表格(stdout)分离,便于 `2> log.txt`。参数 `--log-level <trace|debug|info|warn|err>`(默认 info)、`--log-file <path>`(给了才加 file sink)。
 - **GUI 默认**:启动 `wa::log::init()` 后 `addFileSink("winaudio.log", ...)` + GUI 面板 sink。
 
 ## 全局约束(Global Constraints)
@@ -144,7 +141,6 @@
 - **core 默认零输出**:未 `init`/未加 sink 时不产生 I/O;`Result` 语义与既有返回值行为**字节级不变**,日志纯旁路。
 - **插桩纯观测**:所有日志插桩只读取现有变量/参数/HRESULT 来记录,**不得改变任何现有控制流、返回值或时序**;"补齐被忽略的返回值"仅指捕获 hr 用于记录一条 warn,原有的继续/跳过/break 行为保持不变。
 - **音频线程绝不阻塞**:热路径经 async logger `overrun_oldest`(队满丢弃)+ `should_log` 短路;不加自定义锁、不在实时线程做 I/O。
-- **现有 CLI stdout 行为不变**:状态行、`caps` 表、设备列表照旧;日志只走 stderr。
 - **构建/质量**:C++17、静态 CRT(`/MT`)、本项目代码 `/W4` 零告警、Debug+Release 双配置;`build.bat`/`test.bat` 驱动;gtest 无硬件;GUI 存活验证。
 - **回答用中文**,代码/命令/API 标识符保持英文。
 
@@ -171,14 +167,13 @@
 - **async 溢出丢日志**:`overrun_oldest` 下极高频 trace 可能丢最旧行(含偶发控制路径行);队列容量取足够大(如 8192),并让 spdlog 统计丢弃。可接受(trace 本就诊断用途)。
 - **线程短名**:spdlog `%t` 默认数字 id;需自定义 flag/registration 给 `main/pump/capW/renW` 短名,漏设显示 `?`。
 - **submodule 版本**:pin 到 spdlog 最新稳定 release tag(实现时确定确切版本号与 commit)。
-- **插桩工作量大**:~50 debug + ~15 warn 补齐 + 热路径 trace,分布在 `DeviceEnumerator.cpp`/`Engine.cpp`/`WasapiStream.cpp`/`MonitorEngine.cpp`。writing-plans 阶段按文件/子系统拆多任务。
+- **插桩工作量大**:~50 debug + ~15 warn 补齐 + 热路径 trace,分布在 `DeviceEnumerator.cpp`/`WasapiStream.cpp`/`MonitorEngine.cpp`。writing-plans 阶段按文件/子系统拆多任务。
 
 ## 附录 A:现状调用点地图(供 writing-plans 拆任务)
 
-> core 里仅 4 个 .cpp 触及 COM/WASAPI:`DeviceEnumerator.cpp`、`Engine.cpp`、`WasapiStream.cpp`(重头)、`MonitorEngine.cpp`(仅 Win32 事件,设备调用全走 `IAudioBackend`)。`WavFile.cpp` 用 C stdio(非 COM)。现有错误处理两模式:(A) `if (FAILED(hr)) return HrToResult(hr,"where")`;(B) 包在 `SUCCEEDED(...)` 里,失败静默跳过——(B) 及"返回值忽略"处是 warn 补齐重点。
+> core 里相关 .cpp 触及 COM/WASAPI:`DeviceEnumerator.cpp`、`WasapiStream.cpp`(重头)、`MonitorEngine.cpp`(仅 Win32 事件,设备调用全走 `IAudioBackend`)。`WavFile.cpp` 用 C stdio(非 COM)。现有错误处理两模式:(A) `if (FAILED(hr)) return HrToResult(hr,"where")`;(B) 包在 `SUCCEEDED(...)` 里,失败静默跳过——(B) 及"返回值忽略"处是 warn 补齐重点。
 
 - **`DeviceEnumerator.cpp`**(~29 处): `CoCreateInstance`、`GetDefaultAudioEndpoint`/`GetDevice`、`IMMDevice::GetId`/`OpenPropertyStore`/`Activate`、`IPropertyStore::GetValue`(FriendlyName/DeviceFormat/OEMFormat)、`GetMixFormat`、`EnumAudioEndpoints`、`IMMDeviceCollection::GetCount`(忽略)/`Item`、`IsFormatSupported`(能力矩阵探测)。
-- **`Engine.cpp`**(~6 处,`probeFormat`): `CoCreateInstance`、`GetDefaultAudioEndpoint`/`GetDevice`、`Activate`、`IsFormatSupported`(分类 S_OK/S_FALSE/失败)。
 - **`WasapiStream.cpp`**(~33 处,**重头**): `QueryInterface(IAudioClient2)`、`IsOffloadCapable`、`SetClientProperties`、`GetService(IAudioSessionControl/2)`、`SetDuckingPreference`、`Initialize`(shared-requested / shared-mix / exclusive / 重对齐)、`GetMixFormat`、`IsFormatSupported(EXCLUSIVE)`、`GetDevicePeriod`(忽略)、`GetBufferSize`(部分忽略)、`Activate`、`SetEventHandle`、`Start`、`Stop`(忽略)、`GetService(Capture/Render Client)`、`GetNextPacketSize`、`GetBuffer`/`ReleaseBuffer`(cap+ren,**热路径**)、`GetCurrentPadding`(**热路径**);Win32: `CreateEventW`/`CloseHandle`/`SetEvent`/`WaitForSingleObject`/`GetLastError`/`std::thread`。
 - **`MonitorEngine.cpp`**: 无直接 WASAPI;`ComInitGuard`、`WaitForSingleObject`/`SetEvent`;经 `IAudioBackend` 的 `open`/`start`/`stop`/`stats`/`dataReadyEvent`(高层入口,info/debug 该覆盖,每个内部展开成上面一串)。
 - **`ComUtil.h`**: `CoInitializeEx`/`CoUninitialize`(接受 `RPC_E_CHANGED_MODE`)。`HrToResult(hr,"where")` 现有 `where` 文案可复用为 debug 的 module/call 种子。
@@ -188,5 +183,4 @@
 - `Result{ok, code, message}`(`Result.h:9`);`HrToResult(hr, where)`(`ComUtil.h:24`,产出十六进制 Result,可作日志文案种子)。
 - `AudioFormat`(`AudioFormat.h:4`,缺 `toString()`);`toWaveFormatExtensible`/`fromWaveFormat` 已有。
 - GUI `logLines_`(`AppUi.h:36`,绘制 `AppUi.cpp:329-333`)——面板 sink 落点。
-- CLI 全 `printf`/`wprintf`(`cli/main.cpp`),`Result::message` 已在 7+ 处回显。
 - `third_party/`(已有 `implot` submodule 惯例)——`spdlog` submodule 落此。

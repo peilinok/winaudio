@@ -4,6 +4,7 @@
 #endif
 #include <functional>
 #include "EndpointEnhancements.h"
+#include "EndpointEnhancementsAction.h"
 #include "DeviceEnumerator.h"
 #include "Elevate.h"
 #include "HeatmapRgba.h"
@@ -200,21 +201,14 @@ static void applyEndpointEnhancements(const wa::DeviceInfo& d, wa::DataFlow flow
     wa::DeviceInfo after{};
     wa::Result r = wa::setEndpointEnhancements(flow, d.id, want, &after);
     if (!r && wa::resultIsAccessDenied(r)) {
-        const std::wstring cli = wa::siblingCliPath();
-        if (cli.empty()) {
-            if (fx.error) *fx.error = r.message + " (WinAudioCli.exe not found for elevation)";
+        const std::wstring exe = wa::currentExecutablePath();
+        if (exe.empty()) {
+            if (fx.error) *fx.error = r.message + " (GUI executable path unavailable for elevation)";
             return;
         }
-        std::wstring params = L"enhancements set --no-elevate ";
-        params += (flow == wa::DataFlow::Capture) ? L"--capture " : L"--render ";
-        if (!d.id.empty()) {
-            params += L"--device \"";
-            params += d.id;
-            params += L"\" ";
-        }
-        params += (want == wa::EnhancementsState::Enabled) ? L"on" : L"off";
+        const auto params = wa::endpoint_enhancements_action::arguments(flow, d.id, want);
         unsigned long exitCode = 1;
-        r = wa::runElevatedAndWait(cli, params, &exitCode);
+        r = wa::runElevatedAndWait(exe, params, &exitCode);
         if (r) after = findDeviceAfterSet(flow, d.id);
     }
     if (!r) {

@@ -3,13 +3,13 @@
 **日期**：2026-07-02 ｜ **v2**（经 agent-team 评审修订：并发视角 opus + 需求/UX 视角 sonnet；codex 超时未出）
 **目标**：GUI 去掉三 mode 切换，恒为监听模式；"是否同步播放"由 checkbox 实时控制（勾选=经延迟播放，取消=停播并释放渲染设备）；界面改为两列——左列功能/设备/日志，右列 waveform/spectrum/spectrogram 图表且**可拖拽重排**。
 
-> **v2 修订要点（评审发现）**：① `renderScope_`/`renderRing_` 必须**全会话存活**（start 建、仅 teardown 释放），engage/disengage 绝不动这两个指针——否则 GUI 每帧 `snapshotRender` 会 UAF（并发 Critical）。② `overall_`（引擎/采集态）必须与"渲染预填就绪"**解耦**——否则采集-only 时 `overall_` 永远卡 Idle。③ 渲染相关尺寸/`DelayFifo` 依赖渲染设备，须在 engage 时（重）推导/（重）建。④ `engageRender()` 返回 `Result` 且失败原子（全关渲染），start 失败→整体回滚、运行期失败→仅播放关采集续。⑤ AppUi 需自持 `DeviceEnumerator`（`Engine` 删除后设备枚举无来源）。
+> **v2 修订要点（评审发现）**：① `renderScope_`/`renderRing_` 必须**全会话存活**（start 建、仅 teardown 释放），engage/disengage 绝不动这两个指针——否则 GUI 每帧 `snapshotRender` 会 UAF（并发 Critical）。② `overall_`（引擎/采集态）必须与"渲染预填就绪"**解耦**——否则采集-only 时 `overall_` 永远卡 Idle。③ 渲染相关尺寸/`DelayFifo` 依赖渲染设备，须在 engage 时（重）推导/（重）建。④ `engageRender()` 返回 `Result` 且失败原子（全关渲染），start 失败→整体回滚、运行期失败→仅播放关采集续。⑤ AppUi 需自持 `DeviceEnumerator`（自行提供设备枚举）。
 
 ## 1. 范围
 
-**做：** AppUi 去 mode/单流、恒监听、两列布局、右列 6 图可拖拽重排、"同步播放" checkbox（实时）；MonitorEngine 运行期播放开关 `setPlaybackEnabled(bool)`（A2：采集恒运行，渲染运行期开/停并释放设备）；CLI `monitor` 行为不变。
+**做：** AppUi 去 mode/单流、恒监听、两列布局、右列 6 图可拖拽重排、"同步播放" checkbox（实时）；MonitorEngine 运行期播放开关 `setPlaybackEnabled(bool)`（A2：采集恒运行，渲染运行期开/停并释放设备）。
 
-**不做 / 收窄：** GUI 变 **monitor-only**——移除 GUI 录 WAV / 播 WAV（连同 `Engine engine_`、`drawSingleStream`、单流状态）；这些能力仍在 CLI。不引入 ImGui docking（重排手写）；图表顺序不持久化；不改 DSP/分析算法。
+**不做 / 收窄：** GUI 变 **monitor-only**——移除 GUI 录 WAV / 播 WAV（连同旧单流界面状态）；不引入 ImGui docking（重排手写）；图表顺序不持久化；不改 DSP/分析算法。
 
 **约束（保持）：** Core 纯 Win32+STL、不跨 API 抛异常、状态用原子、音频路径无 mutex、帧对齐 ring I/O、无重采样器、采集==渲染采样率（渲染开启时校验）。/W4 clean。CMake（`build.bat`/`test.bat`）。
 
@@ -31,7 +31,7 @@
 ```cpp
 void setPlaybackEnabled(bool enabled);   // GUI 线程；仅设原子意图 wantPlayback_，实际开/停由 pump 执行，结果经 poll() 反映
 Result start(BackendKind kind, const DeviceId& capId, const DeviceId& renderId,
-             uint32_t delayMs, bool playbackEnabled = true);  // 第5参默认 true = 现行为，CLI 不用改
+             uint32_t delayMs, bool playbackEnabled = true);  // 第5参默认 true = 现行为
 // 私有：Result engageRender();  void disengageRender();
 ```
 `MonitorStatus` 字段不变。
@@ -43,7 +43,7 @@ Result start(BackendKind kind, const DeviceId& capId, const DeviceId& renderId,
   - `poll()`：只读原子，从不碰 backend/ring/fifo/scope 对象指针。
 - **`setPlaybackEnabled`**：只设原子 `wantPlayback_`。pump 每轮比较 `wantPlayback_` 与本地 `renderActive_`：需开未开→`engageRender()`；需关在开→`disengageRender()`。toggle 在 ≤20ms 的 pump wait 内被观察到。
 - **`engageRender()`（返回 Result，失败原子）**：开渲染后端 → 读 `renderFmt_`、校验 ==采集采样率 → 推导渲染刮擦/`renderBufMs_`、依渲染周期 `make_unique<DelayFifo>` 并预填 `delayMs`（+≥1 render period）静音 → 置 `renderState=Running`、`renderActive_=true`。**任一步失败**：完全 stop+close 渲染后端（释放设备）、`renderActive_=false`、不留半开态、返回 Fail。
-  - **失败策略不对称**：`start()`（playbackEnabled=true）调用 engage 失败 → 走现有 `rollback()`（**停采集、返回 Fail、状态回 Idle/Error**，CLI 语义：不匹配即整体启动失败、`capState=Idle`）；**pump**（运行期 toggle）engage 失败 → `renderState=Error`+`errorCode`+`wantPlayback_=false`，**采集继续**（不因一次播放尝试失败中断稳定采集）。
+  - **失败策略不对称**：`start()`（playbackEnabled=true）调用 engage 失败 → 走现有 `rollback()`（**停采集、返回 Fail、状态回 Idle/Error**，不匹配即整体启动失败、`capState=Idle`）；**pump**（运行期 toggle）engage 失败 → `renderState=Error`+`errorCode`+`wantPlayback_=false`，**采集继续**（不因一次播放尝试失败中断稳定采集）。
 - **`disengageRender()`**：stop+close 渲染后端（释放设备）、reset `renderRing_`/`delayFifo_`/渲染刮擦（每-engage 对象）、`renderActive_=false`、`renderLevel_=0`、`renderState=Idle`。**不**触碰 `renderScope_` 指针（全会话存活，pump 停止向其推数据即可）。
 - **pump 的 COM**：pump 现在承担渲染 COM 生命周期（close→Release），给 pump 线程自带 `ComInitGuard`（MTA）——明确而非依赖偶发（现状 teardown 亦从非-COM 线程 Release，但 pump 显式持有更稳妥）。
 - **teardown / stop**：不变——`running_=false`→唤醒 pump→**join pump**→停采集→（若在）停渲染→释放全部（含全会话 `renderScope_` 与最后一次 engage 的 `renderRing_`/`delayFifo_`）。任何播放态下都安全；二次 stop 幂等；`if (renderBackend_)` 守卫处理已 disengage（null）态。
@@ -58,8 +58,8 @@ Result start(BackendKind kind, const DeviceId& capId, const DeviceId& renderId,
 ## 3. AppUi：两列布局 + 拖拽重排
 
 ### 3.1 移除与新增成员
-- **删**：`Engine engine_`、`drawSingleStream`、`refreshDevices`(单流)、`modeIdx_/prevMode_`、`deviceIdx_/devices_/devicesLoaded_`、`wavPath_`、`rateIdx_/bitsIdx_/chIdx_/isFloat_`、Probe；**死代码**：`utow()`（仅单流用；`wtou()` 保留）、文件顶 `kRates/kRatesS/kBits/kBitsS/kChans/kChansS` 数组；`AppUi.h` 的 `#include "Engine.h"`（`BackendKind` 经 `MonitorEngine.h` 传递可得）。
-- **加**：`wa::DeviceEnumerator enumerator_;`（`Engine` 删后设备枚举来源；`refreshMonitorDevices()` 改用 `enumerator_.enumerate(flow, vec)`）+ `#include "DeviceEnumerator.h"`。`stopAll()` 只停 `monitor_`。`main.cpp` 不变。
+- **删**：`drawSingleStream`、`refreshDevices`(单流)、`modeIdx_/prevMode_`、`deviceIdx_/devices_/devicesLoaded_`、`wavPath_`、`rateIdx_/bitsIdx_/chIdx_/isFloat_`、Probe；**死代码**：`utow()`（仅单流用；`wtou()` 保留）、文件顶 `kRates/kRatesS/kBits/kBitsS/kChans/kChansS` 数组。
+- **加**：`wa::DeviceEnumerator enumerator_;`（设备枚举来源；`refreshMonitorDevices()` 改用 `enumerator_.enumerate(flow, vec)`）+ `#include "DeviceEnumerator.h"`。`stopAll()` 只停 `monitor_`。`main.cpp` 不变。
 
 ### 3.2 状态新增
 ```cpp
@@ -94,8 +94,8 @@ std::vector<int> chartOrder_ = {0,1,2,3,4,5};// 面板顺序，可拖拽 splice 
 - **engage 阻塞采集 drain**：`engageRender` 的渲染 `start()` 会阻塞 pump 数十~数百 ms（独占模式对齐重试更久），期间不排空 `captureRing_`（1 MiB≈2.7~5.5s 余量，不 overrun），采集可视化会短暂冻结后跳变——可接受，记为已知。
 - **engage 失败原子性**：`engageRender()` 失败必须全关渲染、无半开；start→rollback、pump→Error+采集续（§2.3）。
 - **拖拽无自动滚动**：ImGui `BeginDragDropTarget` 在 child 内不自动滚动，目标须在可视区内——不实现自滚（ImGui 限制，可接受）。
-- **CLI 回归**：`start` 第5参默认 true → 4 参调用语义不变；现有 MonitorEngine 测试不受影响。
+- **默认参数回归**：`start` 第5参默认 true → 4 参调用语义不变；现有 MonitorEngine 测试不受影响。
 - **对照需求**：右列纵向相邻 + 两波形同 50ms 窗口/同 `waveX_` 时间轴即可对照；水平 2-up 不在范围内。
 
 ## 6. 交付物
-改：`src/core/MonitorEngine.h/.cpp`（setPlaybackEnabled + engage/disengageRender + 生命周期解耦 + start 增参 + pump ComInitGuard）、`src/tests/test_monitorengine.cpp`（+4 测试 + RateMismatch capState 断言）、`src/gui/AppUi.h/.cpp`（去单流+死代码、DeviceEnumerator 成员、两列、拖拽 splice 重排、播放 checkbox、renderState 门控 + disengage 重置播放侧分析）。`src/cli/main.cpp`、`src/gui/main.cpp` 预期不改（如编译需要作最小调整）。
+改：`src/core/MonitorEngine.h/.cpp`（setPlaybackEnabled + engage/disengageRender + 生命周期解耦 + start 增参 + pump ComInitGuard）、`src/tests/test_monitorengine.cpp`（+4 测试 + RateMismatch capState 断言）、`src/gui/AppUi.h/.cpp`（去单流+死代码、DeviceEnumerator 成员、两列、拖拽 splice 重排、播放 checkbox、renderState 门控 + disengage 重置播放侧分析）。`src/gui/main.cpp` 预期不改（如编译需要作最小调整）。

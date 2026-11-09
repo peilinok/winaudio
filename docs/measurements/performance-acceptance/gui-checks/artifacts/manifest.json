@@ -367,14 +367,6 @@
     "source_bytes": 237532,
     "artifact_bytes": 21106
   },
-  "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\ctest-release-completion.log": {
-    "artifact": "performance-vs18-ctest-release-completion.log.gz",
-    "source_sha256": "c046dd5e44a977a8d834efb03aa7979926200a93d3c449ce36079ea0259c8ad8",
-    "content_sha256": "c046dd5e44a977a8d834efb03aa7979926200a93d3c449ce36079ea0259c8ad8",
-    "artifact_sha256": "4db74b03b27d9bff4d9d9f61bc09317781226052e0e27fc02a60bbb7b54cafbe",
-    "source_bytes": 118433,
-    "artifact_bytes": 17590
-  },
   "E:\\WORK\\vibecoding\\winaudio\\build\\performance-vs18\\envelope-counter-green.log": {
     "artifact": "performance-vs18-envelope-counter-green.log.gz",
     "source_sha256": "570c872381e80fe0656a6293f613e84f681511c678f91bf5c8ada932e4b6151d",

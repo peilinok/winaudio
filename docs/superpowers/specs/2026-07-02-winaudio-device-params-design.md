@@ -1,6 +1,6 @@
 # WinAudio 设备下拉框 + 高级流参数(StreamParams)设计
 
-日期:2026-07-02 · 状态:已与用户对齐(方案 C:改 `open` 签名) · 范围:Core + GUI(CLI 零行为变化)
+日期:2026-07-02 · 状态:已与用户对齐(方案 C:改 `open` 签名) · 范围:Core + GUI
 
 ## 1. 背景与目标
 
@@ -64,8 +64,6 @@ virtual Result open(const DeviceId& id, const AudioFormat& fmt, RingBuffer* ring
   | `IAudioBackend.h` 接口 | 签名变更 + `#include "StreamParams.h"` |
   | `WasapiStream.h/.cpp` override | 存 `params_`,open 路径消费(§4) |
   | `test_monitorengine.cpp` fake | 记录收到的 `params`(供断言) |
-  | `Engine.cpp` capture(~L92) | `StreamParams{}`(CLI 不暴露,零变化) |
-  | `Engine.cpp` playback(~L130) | `StreamParams{}` |
   | `MonitorEngine.cpp` capture(~L97) | `capParams_` |
   | `MonitorEngine.cpp` engageRender(~L157) | 渲染参数快照(§5) |
 
@@ -117,21 +115,20 @@ void   setRenderParams(const StreamParams& p);   // 运行中可调,下次 engag
 
 - `test_streamparams.cpp`:`isDefault`/`anyClientProps` 谓词;类别/option 映射函数数值断言(测试工程本就在 Windows 上,直接比对 `AudioCategory_*`/`AUDCLNT_STREAMOPTIONS_*`)。
 - `test_monitorengine.cpp`:fake 后端记录 `open` 收到的 `StreamParams` → 断言 start 传递 capture/render 参数正确;`setRenderParams` 后 disable→enable playback,fake render 在 re-engage 收到**新**参数。
-- 既有 60 测试零回归(fake 签名同步更新);CLI 路径显式 `StreamParams{}`,行为零变化。
+- 既有 60 测试零回归(fake 签名同步更新)。
 - RAW/offload/ducking 的真实音频效果依赖硬件与驱动 → 手动冒烟(不做自动化断言)。
 
 ## 8. 非目标(YAGNI)
 
 - 参数持久化(重启回"跟随系统")。
-- CLI 暴露高级参数。
 - loopback extras、除 AutoConvert 以外的其余 `AUDCLNT_STREAMFLAGS_*`、会话音量/静音、通知回调。
   AutoConvert（Default / Force / Off）已进入 Stream params，由 Stream init 合成 Initialize flags；见 ADR-0001。EVENTCALLBACK 锁定；LOOPBACK 仍由调用者 extras 传入。
 - 运行中热改**采集**参数(必须 Stop/Start)。
-- 弹窗内格式(采样率/位深)配置——Exclusive 格式仍由现有 CLI `--format`/候选协商逻辑负责。
+- 弹窗内格式(采样率/位深)配置——Exclusive 格式仍由候选协商逻辑负责。
 
 ## 9. 验收标准
 
-1. 全默认路径:CLI 与 GUI 行为、日志、时序与 master 无差异;60+ 新增测试全绿,/W4 零告警。
+1. 全默认路径:GUI 行为、日志、时序与 master 无差异;60+ 新增测试全绿,/W4 零告警。
 2. GUI 启动即选中系统默认采集/渲染设备(下拉框,默认项带 `*`)。
 3. Advanced 弹窗按 §6.2 布局;全部初值 "System default"。
 4. Shared + 任一高级参数:`SetClientProperties` 在 Initialize 前被调用(代码审查 + 日志/手动验证);Exclusive + 高级参数 → 启动失败且报错文案明确。

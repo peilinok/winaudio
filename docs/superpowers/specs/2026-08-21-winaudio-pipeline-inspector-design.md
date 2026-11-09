@@ -1,6 +1,6 @@
 # WinAudio Pipeline Inspector 设计
 
-日期: 2026-08-21 · 状态: 2026-08-25 grill 已锁定（ADR-0002）· 范围: Core + GUI 新 tab；**CLI is unchanged**
+日期: 2026-08-21 · 状态: 2026-08-25 grill 已锁定（ADR-0002）· 范围: Core + GUI 新 tab
 
 ## 1. 产品定位
 
@@ -53,13 +53,12 @@ UI 不得把 Probed 画成「Chrome 实际走过的 APO」。**禁止把 Shared 
 - **Call log**：控制路径保留；泵默认关；打开后走小环形缓冲 + xrun 计数；永不记 PCM。
 - **Shared probe**：未挂钩时用；Default / Communications / Raw；Initialize then `IAudioEffectsManager`；**no Start**；**never Exclusive probe**。
 - **ETW Initialize**：attach 前补洞；PID + 短时间窗 + device id；对不上 Unknown。无 ETW 权限则该层缺席，其余仍工作。
-- **CLI is unchanged**。
 
 ## 3. 非目标（v1）
 
 - 钩 audiodg / `IAudioProcessingObject`；系统级 API Monitor；跨位数注入助手。
 - 枚举 APO 运行实例、内部旋钮；Exclusive 探针；打断并重开对方的流。
-- 热路径逐帧 ETW；CollectAudioLogs；空间音频对象级参数；CLI 子命令。
+- 热路径逐帧 ETW；CollectAudioLogs；空间音频对象级参数。
 
 ## 4. 五层数据，合成图 + 日志
 

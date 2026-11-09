@@ -49,6 +49,7 @@ add_executable(WinAudioTests
     test_chart_host.cpp
     test_capabilities.cpp
     test_device_enhancements.cpp
+    test_endpoint_enhancements_action.cpp
     test_audio_effects.cpp
     test_log.cpp
     test_loopback.cpp
@@ -72,7 +73,6 @@ add_executable(WinAudioTests
     test_pipeline_attach_set.cpp
     test_pump_window.cpp
 
-    test_cli_options.cpp
     test_dump_ui.cpp
     test_frame_probe.cpp
     test_performance_calls.cpp
@@ -94,7 +94,6 @@ add_executable(WinAudioTests
 )
 target_include_directories(WinAudioTests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_SOURCE_DIR}/src/cli
     ${CMAKE_SOURCE_DIR}/src/gui                   # for Spectrogram.h
     ${CMAKE_SOURCE_DIR}/src/probe
 )

@@ -8,7 +8,6 @@
 #include <thread>
 #include <vector>
 #include "AudioFormatDef.h"
-#include "Engine.h"        // BackendKind
 #include "IAudioBackend.h" // IAudioBackend, DataFlow, DeviceId
 #include "Result.h"
 #include "StreamParams.h"

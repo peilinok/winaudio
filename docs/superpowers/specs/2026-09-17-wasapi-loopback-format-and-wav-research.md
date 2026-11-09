@@ -127,11 +127,7 @@ render object 取得 `IAudioCaptureClient`。Loopback 只支持 Shared mode。
 | Device | `PKEY_AudioEngine_DeviceFormat` | 用户为 endpoint 选择的 shared-mode device format |
 | OEM | `PKEY_AudioEngine_OEMFormat` | 驱动/OEM 提供的原始默认 property；诊断参考，不是当前运行格式 |
 
-三者的代码入口是 `DeviceEnumerator::queryCapabilities`；CLI 可运行：
-
-```powershell
-.\build\bin\Debug\WinAudioCli.exe caps --render --device <endpoint-id>
-```
+三者的代码入口是 `DeviceEnumerator::queryCapabilities`；可在 GUI 的设备能力弹窗查看。
 
 GUI 普通 endpoint 页面通过 `Device caps...` 查看三种来源与候选矩阵；System
 Loopback 的 create recipe 已使用同一 render endpoint 能力生成格式下拉列表。

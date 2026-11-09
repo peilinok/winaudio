@@ -4,18 +4,18 @@
 
 **Goal:** Replace the hand-written Visual Studio solution/projects with a CMake build (MSVC retained, project files generated), command-line `.bat` scripts, and a clean `build/`-centric artifact layout — with zero C++ source changes.
 
-**Architecture:** Top-level `CMakeLists.txt` + a warnings helper + `third_party/CMakeLists.txt` (imgui/implot static libs + googletest via `add_subdirectory`) + one `CMakeLists.txt` per module (core/cli/gui/tests). The Visual Studio 17 2022 multi-config generator produces `.sln`/`.vcxproj` into `build/`; `.bat` scripts drive `cmake --build`. Built incrementally bottom-up so each task is independently configurable + buildable.
+**Architecture:** Top-level `CMakeLists.txt` + a warnings helper + `third_party/CMakeLists.txt` (imgui/implot static libs + googletest via `add_subdirectory`) + one `CMakeLists.txt` per module (core/gui/tests). The Visual Studio 17 2022 multi-config generator produces `.sln`/`.vcxproj` into `build/`; `.bat` scripts drive `cmake --build`. Built incrementally bottom-up so each task is independently configurable + buildable.
 
 **Tech Stack:** CMake ≥ 3.21, Visual Studio 17 2022 generator, MSVC v143, C++17, Dear ImGui + ImPlot (vendored), GoogleTest (vendored full tree), DX11/WASAPI/COM.
 
 ## Global Constraints
 
 - MSVC v143, x64 only; C++17 + `/permissive-`; `/W4` on our targets; `/utf-8`; `/sdl`. Third-party TUs (imgui/implot/gtest) compiled at `/W0` (warnings off), never `/W4`.
-- CharacterSet=Unicode → global `UNICODE` / `_UNICODE` (CLI uses `wmain`; GUI uses `...W` Win32 APIs).
+- CharacterSet=Unicode → global `UNICODE` / `_UNICODE` (GUI uses `...W` Win32 APIs).
 - Debug = dynamic debug CRT (`/MDd`) + `_DEBUG`; Release = dynamic CRT (`/MD`) + `NDEBUG` + IPO/LTO. GoogleTest MUST use `gtest_force_shared_crt ON` to match.
 - `cmake_minimum_required(VERSION 3.21)` — this makes policy **CMP0092 default NEW** (no default `/W3` in the compiler flags), so adding `/W4` does not trigger `D9025 overriding /W3 with /W4`. Do not lower the minimum.
 - GUI is a Windows-subsystem exe with a `main()` entry: `WIN32_EXECUTABLE TRUE` + `/ENTRY:mainCRTStartup` (replicates SubSystem=Windows + EntryPointSymbol=mainCRTStartup).
-- Core links `ole32 oleaut32` as **PUBLIC** so cli/gui/tests inherit WASAPI/COM; GUI additionally links `d3d11 dxgi d3dcompiler`.
+- Core links `ole32 oleaut32` as **PUBLIC** so gui/tests inherit WASAPI/COM; GUI additionally links `d3d11 dxgi d3dcompiler`.
 - Artifacts: exes → `build/bin/<Config>/`, static libs → `build/lib/<Config>/`. Everything under `build/` (git-ignored).
 - **Zero source changes** — `src/**` and `third_party/** (imgui/implot/googletest)` C++ files are not edited. Success = both configs build `/W4` clean, 56/56 tests pass, GUI liveness OK.
 - Build tool availability: `cmake`/`ctest` must be callable. If not on PATH, the VS-bundled copy is at `D:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\` (add to PATH for the session), or install standalone CMake. The VS 2022 generator locates MSVC itself — no `vcvars` needed.
@@ -90,7 +90,7 @@ enable_testing()
 
 add_subdirectory(third_party)
 add_subdirectory(src/core)
-# Tasks 2-4 each append one add_subdirectory line below (src/cli, src/gui, src/tests).
+# GUI and tests append their add_subdirectory lines below.
 ```
 
 - [ ] **Step 4: Create `third_party/CMakeLists.txt`**
@@ -139,7 +139,6 @@ add_library(WinAudioCore STATIC
     WavFile.cpp
     DeviceEnumerator.cpp
     WasapiStream.cpp
-    Engine.cpp
     FormatSpec.cpp
     MonitorEngine.cpp
 )
@@ -162,47 +161,6 @@ Expected: configure succeeds (googletest configures too); build succeeds with **
 ```
 git add cmake/CompilerWarnings.cmake CMakeLists.txt third_party/CMakeLists.txt src/core/CMakeLists.txt
 git -c commit.gpgsign=false commit -m "build(cmake): foundation + third_party + WinAudioCore"
-```
-
----
-
-### Task 2: WinAudioCli target
-
-**Files:**
-- Create: `src/cli/CMakeLists.txt`
-- Modify: `CMakeLists.txt` (uncomment/append `add_subdirectory(src/cli)`)
-
-**Consumes:** `WinAudioCore` (PUBLIC include `src/core` + PUBLIC `ole32 oleaut32`), `wa_set_project_warnings`.
-
-- [ ] **Step 1: Create `src/cli/CMakeLists.txt`**
-
-```cmake
-add_executable(WinAudioCli main.cpp)   # console subsystem is the default (no WIN32)
-target_link_libraries(WinAudioCli PRIVATE WinAudioCore)  # inherits src/core include + ole32/oleaut32
-wa_set_project_warnings(WinAudioCli)
-```
-
-- [ ] **Step 2: Append to the root `CMakeLists.txt`**
-
-Add this line after `add_subdirectory(src/core)`:
-```cmake
-add_subdirectory(src/cli)
-```
-
-- [ ] **Step 3: Re-configure, build, smoke**
-
-Run:
-```
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64
-cmake --build build --config Debug --target WinAudioCli
-```
-Expected: 0 warnings/errors; `build/bin/Debug/WinAudioCli.exe` exists. Smoke: `./build/bin/Debug/WinAudioCli.exe list` prints the device list (exit 0). (`wmain` links `wmainCRTStartup` automatically under MSVC.)
-
-- [ ] **Step 4: Commit**
-
-```
-git add src/cli/CMakeLists.txt CMakeLists.txt
-git -c commit.gpgsign=false commit -m "build(cmake): WinAudioCli target"
 ```
 
 ---
@@ -234,7 +192,7 @@ wa_set_project_warnings(WinAudioGui)
 
 - [ ] **Step 2: Append to the root `CMakeLists.txt`**
 
-Add after `add_subdirectory(src/cli)`:
+Add after `add_subdirectory(src/core)`:
 ```cmake
 add_subdirectory(src/gui)
 ```
@@ -430,7 +388,7 @@ git -c commit.gpgsign=false commit -m "build(cmake): batch build/test/clean scri
 
 **Files:**
 - Modify: `.gitignore`
-- Delete: `WinAudio.sln`, `src/core/WinAudioCore.vcxproj`, `src/cli/WinAudioCli.vcxproj`, `src/gui/WinAudioGui.vcxproj`, `src/tests/WinAudioTests.vcxproj`
+- Delete: `WinAudio.sln`, `src/core/WinAudioCore.vcxproj`, `src/gui/WinAudioGui.vcxproj`, `src/tests/WinAudioTests.vcxproj`
 - Delete (local, untracked): `x64/` (scattered MSBuild artifacts)
 
 - [ ] **Step 1: Add `build/` to `.gitignore`**
@@ -447,7 +405,7 @@ x64/
 - [ ] **Step 2: Remove the hand-written MSBuild project files (tracked → `git rm`)**
 
 ```
-git rm WinAudio.sln src/core/WinAudioCore.vcxproj src/cli/WinAudioCli.vcxproj src/gui/WinAudioGui.vcxproj src/tests/WinAudioTests.vcxproj
+git rm WinAudio.sln src/core/WinAudioCore.vcxproj src/gui/WinAudioGui.vcxproj src/tests/WinAudioTests.vcxproj
 ```
 
 - [ ] **Step 3: Remove scattered local build output (untracked, already git-ignored)**
@@ -466,7 +424,7 @@ Run:
 .\build.bat Release
 .\test.bat Release
 ```
-Expected: both configs build **0 warnings / 0 errors**; both test runs **56/56 pass**; `build/bin/{Debug,Release}/` each contain `WinAudioCli.exe`, `WinAudioGui.exe`, `WinAudioTests.exe`; `build/lib/{Debug,Release}/WinAudioCore.lib` present. GUI liveness (Release):
+Expected: both configs build **0 warnings / 0 errors**; both test runs **56/56 pass**; `build/bin/{Debug,Release}/` each contain `WinAudioGui.exe`, `WinAudioTests.exe`; `build/lib/{Debug,Release}/WinAudioCore.lib` present. GUI liveness (Release):
 ```powershell
 $p = Start-Process ".\build\bin\Release\WinAudioGui.exe" -PassThru; Start-Sleep 3
 if ($p.HasExited) { "FAIL (exit $($p.ExitCode))" } else { Stop-Process $p; "GUI started OK" }
@@ -489,7 +447,7 @@ git -c commit.gpgsign=false commit -m "build(cmake): drop hand-written .sln/.vcx
 
 - [ ] **Step 1: Rewrite the "构建与运行" build commands in `CLAUDE.md`**
 
-Replace the MSBuild-based build block (the `$MSBuild = ...` / `& $MSBuild WinAudio.sln ...` / `.\x64\Debug\...` lines) with the CMake workflow. Keep the CLI/GUI usage sections, but update every `.\x64\Debug\WinAudioCli.exe` / `.\x64\Debug\WinAudioTests.exe` path to `.\build\bin\Debug\...`. New build block:
+Replace the MSBuild-based build block (the `$MSBuild = ...` / `& $MSBuild WinAudio.sln ...` / `.\x64\Debug\...` lines) with the CMake workflow. Keep the GUI usage sections, but update the `.\x64\Debug\WinAudioTests.exe` path to `.\build\bin\Debug\...`. New build block:
 
 ````markdown
 ## 构建与运行
@@ -516,11 +474,11 @@ cmake --preset vs2022
 cmake --build build --config Release -j
 ```
 
-产物：`build\bin\<Config>\{WinAudioCli,WinAudioGui,WinAudioTests}.exe`、`build\lib\<Config>\WinAudioCore.lib`。
+产物：`build\bin\<Config>\{WinAudioGui,WinAudioTests}.exe`、`build\lib\<Config>\WinAudioCore.lib`。
 若 `cmake` 不在 PATH，用 VS 自带的：`D:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin`。
 ````
 
-Also update the CLI/GUI usage examples further down: change `.\x64\Debug\WinAudioCli.exe` → `.\build\bin\Debug\WinAudioCli.exe` and `.\x64\Debug\WinAudioGui.exe` → `.\build\bin\Debug\WinAudioGui.exe` (all occurrences).
+Also update the GUI usage examples further down: change `.\x64\Debug\WinAudioGui.exe` → `.\build\bin\Debug\WinAudioGui.exe` (all occurrences).
 
 - [ ] **Step 2: Build once more to confirm docs match reality**
 

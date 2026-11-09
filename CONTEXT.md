@@ -71,7 +71,7 @@ The kind and identity of what a Capture Track captures: a capture endpoint, a Sy
 _Avoid_: Track, device (when meaning the whole instance)
 
 **Capture Track**:
-A Track that binds one Capture source and may own a WAV sink (GUI: live start/stop Dump; CLI capture: required path at create).
+A Track that binds one Capture source and may own a WAV sink (GUI: live start/stop Dump).
 _Avoid_: record track, input track, Capture side (when meaning the Track itself)
 
 **Render Track**:

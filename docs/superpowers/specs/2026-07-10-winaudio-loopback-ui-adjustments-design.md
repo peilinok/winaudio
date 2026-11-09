@@ -69,7 +69,6 @@ Windows 机器上实机验证。
 System Loopback 增加一个可见 silent render 控件：
 
 - GUI：`Loopback` 页放一个 checkbox，默认开启。
-- CLI：`--loopback` 默认开启 silent render；新增 `--no-silent-render` 用于关闭。
 
 这个控件需要暴露出来，因为 WinAudio 是 demo 工具。用户应能对比开启和关闭 helper render
 stream 后的 loopback 行为差异。
@@ -112,7 +111,6 @@ capture 侧空闲或平台行为不同的时候避免可视化完全冻结。
 
 自动化检查覆盖：
 
-- CLI 解析：loopback 默认开启 silent render，`--no-silent-render` 能关闭。
 - 核心链路：System Loopback 启动时，开启状态会请求 silent render，关闭状态不会请求。
 - 失败行为：helper render 启动失败会被记录或暴露，但不会让成功的 capture start 失败。
 - 现有 idle zero-fill helper 测试继续有效。
