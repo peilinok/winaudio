@@ -11,7 +11,6 @@ add_library(WinAudioCore STATIC
     DeviceEnumerator.cpp
     WasapiStream.cpp
     StreamInit.cpp
-    Engine.cpp
     FormatSpec.cpp
     MonitorEngine.cpp
     CaptureTrackList.cpp

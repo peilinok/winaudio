@@ -10,13 +10,13 @@
 
 原始行为目录为 `build/performance-vs18/charts-gui-final/`。夹具强制 Render 页签，因此不能用该窗口证明 Monitor 页的行为。图内拖动未获得可靠证据；随后补充的轴范围平移另见下段，不登记拖动交互通过。
 
-`monitor-capture.png`、`monitor-render.png` 来自独立生产 WinAudioGui。采集为 CABLE Output，输出为 Realtek；显式 48000／16／2，开启同步播放，状态显示 capture／render 同时运行、两端帧数持续增加。滚动分别观察两个 Capture 声道和 Render 的波形／声谱。观察到平线；另外尝试 CLI 向 CABLE Input 播放双声道正弦文件仍未在此链路得到可区分的非零内容，因此该次只能证明静音链路呈现和正常停止，不能作为 Monitor 非零双方向内容隔离证据。停止后图清空；正常退出日志完整。
+`monitor-capture.png`、`monitor-render.png` 来自独立生产 WinAudioGui。采集为 CABLE Output，输出为 Realtek；显式 48000／16／2，开启同步播放，状态显示 capture／render 同时运行、两端帧数持续增加。滚动分别观察两个 Capture 声道和 Render 的波形／声谱。观察到平线；该次只能证明静音链路呈现和正常停止，不能作为 Monitor 非零双方向内容隔离证据。停止后图清空；正常退出日志完整。
 
 ### 平移与非零 Monitor 补证
 
 `charts-pan-final` 使用本地提交 `0c687a4` 的性能程序，SHA256 `CFE5B072B6527947A234994B10ECE076A112D457AD746BD78C3C52B9D32ED552`，两条真实八声道 RenderTrack、CABLE Input 端点及 65%／25% Channel ident。冻结第一条图表后，放大到 2.56～7.68 秒，再通过 X 轴菜单编辑、按 Return 提交为 1.56～6.68 秒；视窗宽度均为 5.12 秒。两个采集声道的横轴同步变化，滚至第二条时仍为约 0～10 秒全历史；其音频没有随图表冻结而停止。截图为 `charts-pan-range-before.png`、`charts-pan-range-after.png` 和 `charts-other-track-after-pan.png`。`charts-pan-after.png` 记录的是没有改变范围的拖动尝试，不能当作拖动成功证据。
 
-`monitor-nonzero-final` 是独立生产 GUI，SHA256 `CB1FE578E891F36AFA97541D960EB9CD2BB93F87B82F05B6E642E2BF552FF6D2`。用上述 RenderTrack 作为真实信号源，选择 CABLE Output 采集、Realtek 输出、显式 48000／16／2、同步播放。16:38:16.737 两端运行，观察到两个采集声道可区分的非零波形及各自声谱，延迟输出为非零单声道降混波形和独立声谱。冻结后放大，采集各声道与输出共用横轴范围；16:39:54.474 停止后图清空，16:40:05.965 正常退出。证据为 `monitor-nonzero-capture.png`、`monitor-host-zoom.png`、`monitor-ch2-render-zoom.png`、`monitor-nonzero-render.png`、`monitor-stop-clears.png`。只验证内容与生命周期，不由截图推算真实音频延迟；前述静音尝试仍保留，不修正本轮范围外的 CLI 播放问题。
+`monitor-nonzero-final` 是独立生产 GUI，SHA256 `CB1FE578E891F36AFA97541D960EB9CD2BB93F87B82F05B6E642E2BF552FF6D2`。用上述 RenderTrack 作为真实信号源，选择 CABLE Output 采集、Realtek 输出、显式 48000／16／2、同步播放。16:38:16.737 两端运行，观察到两个采集声道可区分的非零波形及各自声谱，延迟输出为非零单声道降混波形和独立声谱。冻结后放大，采集各声道与输出共用横轴范围；16:39:54.474 停止后图清空，16:40:05.965 正常退出。证据为 `monitor-nonzero-capture.png`、`monitor-host-zoom.png`、`monitor-ch2-render-zoom.png`、`monitor-nonzero-render.png`、`monitor-stop-clears.png`。只验证内容与生命周期，不由截图推算真实音频延迟；前述静音尝试仍保留。
 
 ## Inspector
 

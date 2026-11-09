@@ -4,7 +4,7 @@
 
 **Goal:** 实现已确认的 Loopback UI 调整：两个 tab 底部全宽日志，以及默认开启、可关闭、可观察的 System Loopback silent render helper。
 
-**Architecture:** 用一个小的 `LoopbackOptions` 结构贯穿 CLI、GUI、`Engine` 和 `MonitorEngine`。新增专用 `WasapiSilentRenderStream` 负责提交 `AUDCLNT_BUFFERFLAGS_SILENT`，避免复用普通 playback render 路径导致语义混淆。`MonitorEngine` 增加可测试的 silent render factory seam；`Engine` 走真实 WASAPI helper，用日志暴露状态。
+**Architecture:** 用一个小的 `LoopbackOptions` 结构贯穿 GUI 和 `MonitorEngine`。新增专用 `WasapiSilentRenderStream` 负责提交 `AUDCLNT_BUFFERFLAGS_SILENT`，避免复用普通 playback render 路径导致语义混淆。`MonitorEngine` 增加可测试的 silent render factory seam。
 
 **Tech Stack:** C++17、WASAPI、Dear ImGui、CMake、GoogleTest、PowerShell。
 
@@ -14,150 +14,23 @@
 
 - 修改 `src/core/IAudioBackend.h`：新增 `LoopbackOptions`，不放 GUI 或 monitor 状态字段。
 - 修改 `src/core/WasapiStream.h` / `src/core/WasapiStream.cpp`：新增 `WasapiSilentRenderStream`，专门用于 shared-mode silent render。
-- 修改 `src/core/Engine.h` / `src/core/Engine.cpp`：`capture --loopback` 路径按 `LoopbackOptions` 启停 silent render helper。
-- 修改 `src/core/MonitorEngine.h` / `src/core/MonitorEngine.cpp`：`monitor --loopback` 和 GUI Loopback 页按 `LoopbackOptions` 启停 silent render helper，并通过 `MonitorStatus` 暴露状态。
-- 新增 `src/cli/CliOptions.h`：只放可单测的 CLI loopback options 解析。
-- 修改 `src/cli/main.cpp`：usage 文案和 `capture` / `monitor` 参数传递。
+- 修改 `src/core/MonitorEngine.h` / `src/core/MonitorEngine.cpp`：GUI Loopback 页按 `LoopbackOptions` 启停 silent render helper，并通过 `MonitorStatus` 暴露状态。
 - 修改 `src/gui/AppUi.h` / `src/gui/AppUi.cpp`：Loopback checkbox、状态显示、两个 tab 底部全宽日志布局。
 - 修改 `src/tests/test_loopback.cpp`：`LoopbackOptions` 和 `WasapiSilentRenderStream` 基础测试。
 - 修改 `src/tests/test_monitorengine.cpp`：fake seam 覆盖 silent render 默认开启、关闭、失败非 fatal。
-- 新增 `src/tests/test_cli_options.cpp`：覆盖 `--no-silent-render` 解析。
-- 修改 `src/tests/CMakeLists.txt`：注册 `test_cli_options.cpp`，并让 tests 能 include `src/cli`。
 - 不修改 `docs/superpowers/specs/2026-07-10-winaudio-loopback-ui-adjustments-design.md`，除非实现中发现 spec 与现实冲突。
 
 ---
 
-### Task 1: LoopbackOptions 与 CLI 解析测试
+### Task 1: LoopbackOptions
 
-**Files:**
-- Modify: `src/core/IAudioBackend.h`
-- Create: `src/cli/CliOptions.h`
-- Create: `src/tests/test_cli_options.cpp`
-- Modify: `src/tests/CMakeLists.txt`
-
-- [ ] **Step 1: 写失败测试 `test_cli_options.cpp`**
-
-创建 `src/tests/test_cli_options.cpp`：
-
-```cpp
-#include <gtest/gtest.h>
-#include "CliOptions.h"
-
-TEST(CliOptions, LoopbackSilentRenderDefaultsEnabled) {
-    const wchar_t* argv[] = {L"WinAudioCli", L"capture", L"--loopback"};
-
-    wa::LoopbackOptions opts =
-        wa::cli::parseLoopbackOptions(3, const_cast<wchar_t**>(argv));
-
-    EXPECT_TRUE(opts.silentRender);
-}
-
-TEST(CliOptions, NoSilentRenderDisablesHelper) {
-    const wchar_t* argv[] = {
-        L"WinAudioCli", L"monitor", L"--loopback", L"--no-silent-render"
-    };
-
-    wa::LoopbackOptions opts =
-        wa::cli::parseLoopbackOptions(4, const_cast<wchar_t**>(argv));
-
-    EXPECT_FALSE(opts.silentRender);
-}
-```
-
-- [ ] **Step 2: 注册测试并运行，确认失败**
-
-修改 `src/tests/CMakeLists.txt`：
-
-```cmake
-add_executable(WinAudioTests
-    test_delayfifo.cpp
-    test_streamparams.cpp
-    test_smoke.cpp
-    test_audioformat.cpp
-    test_fft.cpp
-    test_ringbuffer.cpp
-    test_sampleconvert.cpp
-    test_wavfile.cpp
-    test_formatspec.cpp
-    test_scopebuffer.cpp
-    test_analysis.cpp
-    test_monitorengine.cpp
-    test_spectrogram.cpp
-    test_capabilities.cpp
-    test_log.cpp
-    test_loopback.cpp
-    test_cli_options.cpp
-    ${CMAKE_SOURCE_DIR}/src/gui/Spectrogram.cpp
-)
-target_include_directories(WinAudioTests PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_SOURCE_DIR}/src/gui
-    ${CMAKE_SOURCE_DIR}/src/cli
-)
-```
-
-运行：
-
-```powershell
-cmake --build build --config Debug --target WinAudioTests -j
-```
-
-Expected: 编译失败，错误包含 `Cannot open include file: 'CliOptions.h'` 或 `parseLoopbackOptions` 未声明。
-
-- [ ] **Step 3: 实现 `LoopbackOptions`**
-
-在 `src/core/IAudioBackend.h` 的 `CaptureSource` 后添加：
+在 IAudioBackend.h 中定义每个 Capture source 使用的选项：
 
 ```cpp
 struct LoopbackOptions {
     bool silentRender = true;
 };
 ```
-
-- [ ] **Step 4: 实现 `src/cli/CliOptions.h`**
-
-创建 `src/cli/CliOptions.h`：
-
-```cpp
-#pragma once
-#include <cwchar>
-#include "IAudioBackend.h"
-
-namespace wa::cli {
-
-inline bool hasArg(int argc, wchar_t** argv, const wchar_t* key) {
-    for (int i = 1; i < argc; ++i) {
-        if (std::wcscmp(argv[i], key) == 0) return true;
-    }
-    return false;
-}
-
-inline LoopbackOptions parseLoopbackOptions(int argc, wchar_t** argv) {
-    LoopbackOptions opts{};
-    opts.silentRender = !hasArg(argc, argv, L"--no-silent-render");
-    return opts;
-}
-
-} // namespace wa::cli
-```
-
-- [ ] **Step 5: 运行 focused 测试，确认通过**
-
-```powershell
-cmake --build build --config Debug --target WinAudioTests -j
-.\build\bin\Debug\WinAudioTests.exe --gtest_filter=CliOptions.*
-```
-
-Expected: `2 tests` 通过。
-
-- [ ] **Step 6: 提交 Task 1**
-
-```powershell
-git add src/core/IAudioBackend.h src/cli/CliOptions.h src/tests/test_cli_options.cpp src/tests/CMakeLists.txt
-git commit -m "feat(cli): add loopback silent render option parsing"
-```
-
----
 
 ### Task 2: 新增 WasapiSilentRenderStream
 
@@ -575,164 +448,6 @@ git commit -m "feat(core): wire silent render into loopback monitor"
 
 ---
 
-### Task 4: Engine 与 CLI 接入 silent render options
-
-**Files:**
-- Modify: `src/core/Engine.h`
-- Modify: `src/core/Engine.cpp`
-- Modify: `src/cli/main.cpp`
-
-- [ ] **Step 1: 扩展 Engine API**
-
-在 `src/core/Engine.h` 中更新 `startCapture`：
-
-```cpp
-    Result startCapture(BackendKind kind, const CaptureSource& source, const std::wstring& wavPath,
-                        const AudioFormat* requested = nullptr,
-                        const LoopbackOptions& loopbackOptions = {});
-    Result startCapture(BackendKind kind, const DeviceId& id, const std::wstring& wavPath,
-                        const AudioFormat* requested = nullptr) {
-        return startCapture(kind, CaptureSource{CaptureSourceKind::Endpoint, id}, wavPath,
-                            requested, {});
-    }
-```
-
-在 private 区添加：
-
-```cpp
-    Result startSilentRenderForLoopback(const CaptureSource& source,
-                                        const LoopbackOptions& loopbackOptions);
-    void   stopSilentRender();
-```
-
-在成员区添加：
-
-```cpp
-    std::unique_ptr<IAudioBackend> silentRenderBackend_;
-```
-
-- [ ] **Step 2: 实现 Engine helper**
-
-在 `src/core/Engine.cpp` 中更新 `startCapture` 签名，并在 capture backend start 成功后、设置 `running_` 前插入：
-
-```cpp
-        if (Result sr = startSilentRenderForLoopback(source, loopbackOptions); !sr) {
-            WA_LOG(wa::log::Level::Warn, "Engine", "silentRender.unavailable",
-                   "", sr.message);
-        }
-```
-
-添加 helper：
-
-```cpp
-Result Engine::startSilentRenderForLoopback(const CaptureSource& source,
-                                            const LoopbackOptions& loopbackOptions) {
-    if (source.kind != CaptureSourceKind::SystemLoopback || !loopbackOptions.silentRender)
-        return Result::Ok();
-
-    WA_LOG(wa::log::Level::Info, "Engine", "silentRender.start",
-           "dev=" + (source.deviceId.empty() ? std::string("(default)")
-                                             : wa::narrowAscii(source.deviceId)),
-           "requested");
-
-    silentRenderBackend_ = std::make_unique<WasapiSilentRenderStream>(WasapiMode::Shared, nullptr);
-    Result r = silentRenderBackend_->open(source.deviceId, AudioFormat{}, nullptr, {});
-    if (!r) {
-        silentRenderBackend_.reset();
-        return r;
-    }
-    r = silentRenderBackend_->start();
-    if (!r) {
-        silentRenderBackend_->stop();
-        silentRenderBackend_.reset();
-        return r;
-    }
-    WA_LOG(wa::log::Level::Info, "Engine", "silentRender.started", "", "ok");
-    return Result::Ok();
-}
-
-void Engine::stopSilentRender() {
-    if (silentRenderBackend_) {
-        WA_LOG(wa::log::Level::Info, "Engine", "silentRender.stop", "", "");
-        silentRenderBackend_->stop();
-        silentRenderBackend_.reset();
-    }
-}
-```
-
-在 `Engine::stop()` 中，join pump 后、停止 main backend 前添加：
-
-```cpp
-    stopSilentRender();
-```
-
-- [ ] **Step 3: 接入 CLI usage 与参数传递**
-
-在 `src/cli/main.cpp` 添加 include：
-
-```cpp
-#include "CliOptions.h"
-```
-
-更新 usage 中 capture/monitor 行：
-
-```cpp
-        "WinAudioCli capture --out <file.wav> [--device <id>] [--seconds N] [--loopback]\n"
-        "                    [--no-silent-render] [--backend wasapi-shared|wasapi-exclusive]\n"
-        "                    [--format 48000/16/2] (both backends)\n"
-```
-
-```cpp
-        "WinAudioCli monitor [--loopback] [--cap <id>] [--render <id>] [--delay-ms N] [--seconds N]\n"
-        "                    [--no-silent-render] [--backend wasapi-shared|wasapi-exclusive]\n"
-        "                    [--format R/B/C[f]]\n"
-```
-
-在 `capture` 命令中创建 options 并传给 `Engine`：
-
-```cpp
-        LoopbackOptions loopbackOptions = wa::cli::parseLoopbackOptions(argc, argv);
-        CaptureSource source{loopback ? CaptureSourceKind::SystemLoopback : CaptureSourceKind::Endpoint, id};
-        Result r = eng.startCapture(kind, source, out, haveFmt ? &fmt : nullptr,
-                                    loopbackOptions);
-```
-
-在 `monitor` 命令中传给 `MonitorEngine`：
-
-```cpp
-        LoopbackOptions loopbackOptions = wa::cli::parseLoopbackOptions(argc, argv);
-        wa::Result r = mon.start(kind, source, renderId, delayMs,
-                                 true, {}, {}, haveFmt ? &capFmt : nullptr,
-                                 loopbackOptions);
-```
-
-- [ ] **Step 4: 构建 CLI**
-
-```powershell
-cmake --build build --config Debug --target WinAudioCli -j
-.\build\bin\Debug\WinAudioCli.exe
-```
-
-Expected: 构建通过；无参数运行打印 usage，usage 包含 `--no-silent-render`。
-
-- [ ] **Step 5: 运行 core focused 测试**
-
-```powershell
-cmake --build build --config Debug --target WinAudioTests -j
-.\build\bin\Debug\WinAudioTests.exe --gtest_filter=CliOptions.*:WasapiSilentRenderStream.*:MonitorEngine.Loopback*
-```
-
-Expected: focused tests 通过。
-
-- [ ] **Step 6: 提交 Task 4**
-
-```powershell
-git add src/core/Engine.h src/core/Engine.cpp src/cli/main.cpp
-git commit -m "feat(loopback): expose silent render in CLI capture"
-```
-
----
-
 ### Task 5: GUI Loopback checkbox 与状态展示
 
 **Files:**
@@ -948,7 +663,7 @@ Expected: 全部测试通过。
 - [ ] **Step 3: 跑 focused 测试复核**
 
 ```powershell
-.\build\bin\Debug\WinAudioTests.exe --gtest_filter=CliOptions.*:WasapiSilentRenderStream.*:WasapiSystemLoopbackCaptureStream.*:MonitorEngine.Loopback*:MonitorEngine.SilentRenderFailureDoesNotFailLoopbackCapture
+.\build\bin\Debug\WinAudioTests.exe --gtest_filter=WasapiSilentRenderStream.*:WasapiSystemLoopbackCaptureStream.*:MonitorEngine.Loopback*:MonitorEngine.SilentRenderFailureDoesNotFailLoopbackCapture
 ```
 
 Expected: focused tests 全部通过。
@@ -967,18 +682,7 @@ Expected: smoke 脚本完成并输出成功状态。
 
 - [ ] **Step 5: 手动 loopback 验证**
 
-在目标 Windows 机器上执行：
-
-```powershell
-.\build\bin\Debug\WinAudioCli.exe capture --loopback --out loopback-silent-on.wav --seconds 3 --log-level debug
-.\build\bin\Debug\WinAudioCli.exe capture --loopback --out loopback-silent-off.wav --seconds 3 --no-silent-render --log-level debug
-```
-
-Expected:
-
-- 第一条日志包含 `silentRender.started`。
-- 第二条不启动 silent render。
-- 两条命令都能正常退出并写出 WAV 文件。
+在 GUI 中分别开启和关闭 silent render，确认 helper 状态及采集生命周期。
 
 - [ ] **Step 6: 最终状态检查**
 
@@ -995,5 +699,4 @@ Expected: 工作区只剩用户已知的未跟踪 `.codegraph/` 和 `AGENTS.md`�
 
 - Spec 覆盖：底部全宽日志由 Task 6 实现；silent render 默认开启、可关闭、可观察由 Task 1、3、4、5 实现；idle zero-fill 保留由 Task 2 和 Task 7 focused 测试保护；实机验证由 Task 7 覆盖。
 - 范围控制：没有拆分日志历史、没有 draggable splitter、没有 application/process loopback、没有改变 Monitor tab playback 语义。
-- 类型一致性：`LoopbackOptions` 在 `IAudioBackend.h` 定义；CLI parser、`Engine::startCapture`、`MonitorEngine::start`、GUI Start 调用使用同一类型；`silentRenderState` 使用现有 `StreamState`。
-- 风险：`Engine` 没有现成 fake factory seam，Task 4 依靠构建、CLI smoke 和 real WASAPI helper 行为验证；`MonitorEngine` 的 helper 生命周期通过 fake seam 做自动化覆盖。
+- 类型一致性：`LoopbackOptions` 在 `IAudioBackend.h` 定义；`MonitorEngine::start`、GUI Start 调用使用同一类型；`silentRenderState` 使用现有 `StreamState`。

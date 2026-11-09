@@ -2,7 +2,7 @@
 
 - 日期：2026-06-29
 - 状态：已两轮多 agent + codex 评审并修订（v3），待用户评审 → writing-plans
-- 依赖：Phase 1/2 已合并到 master（WASAPI Shared/Exclusive 单流 Engine）
+- 依赖：Phase 1/2 已合并到 master（WASAPI Shared/Exclusive 后端）
 
 ## 1. 目标
 GUI 内实时、分别绘制「采集」与「(延迟)播放」两路信号的 **时域波形** + **频域（FFT 频谱曲线 + 滚动声谱图）**，对标 Adobe Audition。运行模式为**带可配延迟的监听直通**（capture → 延迟 → render）。Phase 4 再做延迟/glitch 数值测量（本期不做）。
@@ -34,7 +34,7 @@ GUI 内实时、分别绘制「采集」与「(延迟)播放」两路信号的 *
 ## 4. Core 新增/改动
 
 ### 4.0 AudioFormat 拆分（前置重构，保零依赖边界）
-新增 `src/core/AudioFormatDef.h`：纯 POD `AudioFormat{sampleRate,channels,bitsPerSample,isFloat}` + `blockAlign()`/`avgBytesPerSec()`/`operator==`，**不含任何 windows 头**。`AudioFormat.h` 改为 `#include "AudioFormatDef.h"` + windows 头 + `toWaveFormatExtensible/fromWaveFormat`。现有包含点（WasapiStream.h/DeviceEnumerator.h/Engine.h 等）按需改 include。→ `Fft/ScopeBuffer/SampleConvert/DelayFifo` 仅含 `AudioFormatDef.h`，保持 windows-free 可纯单测。
+新增 `src/core/AudioFormatDef.h`：纯 POD `AudioFormat{sampleRate,channels,bitsPerSample,isFloat}` + `blockAlign()`/`avgBytesPerSec()`/`operator==`，**不含任何 windows 头**。`AudioFormat.h` 改为 `#include "AudioFormatDef.h"` + windows 头 + `toWaveFormatExtensible/fromWaveFormat`。现有包含点（WasapiStream.h/DeviceEnumerator.h 等）按需改 include。→ `Fft/ScopeBuffer/SampleConvert/DelayFifo` 仅含 `AudioFormatDef.h`，保持 windows-free 可纯单测。
 
 ### 4.1 Fft（src/core/Fft.h/.cpp，纯 STL）
 ```cpp
@@ -68,7 +68,7 @@ void pcmToFloat(const uint8_t* in, size_t frames, const AudioFormat&, float* out
 void floatToPcm(const float* inInterleaved, size_t frames, const AudioFormat&, uint8_t* out); // 缩放后【对整数 clamp 到[MIN,MAX]】
 void downmixMono(const float* interleaved, size_t frames, uint16_t ch, float* monoOut);       // 取平均(÷ch)
 void adaptChannels(const float* in, uint16_t inCh, float* out, uint16_t outCh, size_t frames);// 仅 1↔2 明确;>2 降混
-float peakLevel(const float* mono, size_t n);  // 由 Engine 私有 computeLevels 抽出复用(顺带支持 int24/int32 路径)
+float peakLevel(const float* mono, size_t n);  // 共用的电平计算(顺带支持 int24/int32 路径)
 ```
 单测：int16 INT16_MIN/MAX 边界、int24 负值符号扩展 round-trip、float→int 越界 clamp（含 round-to-nearest 进位）、降混平均(满幅立体声仍≤0dBFS)、声道适配。
 
@@ -100,11 +100,11 @@ class MonitorEngine {
 - `renderXruns = renderRing.overruns()`（预填阶段不计）。状态字段全部 atomic；errorCode 取代 message。
 - **测试 seam**：假 backend 实现 `IAudioBackend`（含 `dataReadyEvent()`），可向其 RingBuffer 注入字节并 SetEvent → pump 逻辑（预填、rate-fail、回滚、drift、scope 推进、xrun）全部无硬件可测。
 
-> Engine/MonitorEngine 仍是并列两类（pump 语义不同，不强行共享基类）。仅把 `peakLevel` 提到 SampleConvert 复用；生命周期样板各自保留属可接受重复。
+> `peakLevel` 提到 SampleConvert 复用。
 
 ## 5. GUI（src/gui，ImPlot + DX11）
 - **ImPlot vendored** 于 `third_party/implot/`（依赖 ImGui）；GUI vcxproj 加 `$(SolutionDir)third_party\implot` include 目录（Debug/Release 两处），并对 `implot.cpp`/`implot_items.cpp` 加 per-file `TurnOffAllWarnings`（同 ImGui 处理）。
-- **AppUi 持有 Engine 与 MonitorEngine 两者为成员**（AppUi 拥有生命周期）；`draw()` 不再外部传 Engine&。顶层模式选择 Capture/Playback(用 Engine) | Monitor(用 MonitorEngine)，只 start 当前活动者。
+- **AppUi 持有 MonitorEngine**，负责监听生命周期；`draw()` 按帧读取快照。
 - **Monitor 视图**（ImPlot，两组上下：采集 / 延迟播放，每组 3 图）：
   - 顶栏：采集设备▼ 渲染设备▼ 延迟[100]ms slider [▶开始][■停止]；状态行：cap/render state、sr、fifoFillMs、renderBufMs、drift、xrun c/r。
   - 波形：ImPlot Line，时域，x=秒（取最近~50ms 窗口）。
@@ -112,9 +112,6 @@ class MonitorEngine {
   - 声谱图：ImPlot Heatmap，**先把线性 FFT bin 重采样到对数间隔的行**再填（Heatmap 假定均匀网格；DC bin 不入 log 轴）；x=时间、y=对数频率、色=dBFS（色板固定如 viridis，范围 −96..0，历史≈5s≈469 列）。
 - **分析驱动（FPS 无关，抽成可单测自由函数）**：`advanceAnalysis(written, &nextEndIdx, hop, fn)`——每渲染帧按 hop=512 推进 `nextEndIdx`（**持久化**，不每帧重置；极端落后则**快进**而非逐 hop 空转），对每个 hop 调 `snapshotLatest(2048)`→`magnitudeSpectrumDb`→(a)更新频谱曲线(b)向声谱图滚动缓冲(freqBins×historyCols)追加一列；窗口滚出(false)跳过并计数。
 - 预分配：每路一份 `workBuf`(2^k)+复用 `magDbOut`，无每帧堆分配。
-
-## 6. CLI（src/cli）
-新增 `monitor` 子命令（无 GUI 冒烟）：`WinAudioCli monitor [--cap <id>] [--render <id>] [--delay-ms N] [--backend ...] [--seconds N]`，定时打印 cap/render state、fifoFillMs、drift、xrun。用于在 GUI 前验证 MonitorEngine 端到端。
 
 ## 7. 可测验收指标
 - FFT n=2048、hop=512、75% 重叠；23.4375 Hz/bin、10.667ms/列、469 列/5s（自洽）。
@@ -126,15 +123,14 @@ class MonitorEngine {
 
 ## 8. 测试矩阵
 - 纯逻辑单测（无硬件）：Fft（on-bin/非2^k 标定、冲激、floor）、SampleConvert（边界/int24/clamp/平均降混）、ScopeBuffer（一致快照同 epoch、滚出 false、totalWritten 推进）、DelayFifo+drift（偏速→占用稳定、drop/dup 计数）、advanceAnalysis（hop/快进/滚出）、MonitorEngine pump（注入假 backend：预填、rate-fail、回滚、scope/xrun）。
-- 硬件/集成（手动）：CLI `monitor` 冒烟（state/fifo/drift/xrun）；GUI 监听跑通，波形/频谱/声谱图实时刷新，关闭不挂（拆卸顺序），长跑观察 drift 稳定。
+- 硬件/集成（手动）：GUI 监听跑通，波形/频谱/声谱图实时刷新，关闭不挂（拆卸顺序），长跑观察 drift 稳定。
 
 ## 9. 实施 gate 顺序（单计划内）
 1. **Core DSP + 单测**：AudioFormat 拆分 → Fft → SampleConvert → ScopeBuffer → DelayFifo（各自单测过）。
 2. **IAudioBackend.dataReadyEvent() + WasapiCaptureStream pumpReadyEvent_**（不破坏现有单流路径；现有 23 测试 + Shared 冒烟回归）。
 3. **MonitorEngine + 假 backend 单测**（生命周期/预填/回滚/drift/scope）。
-4. **CLI monitor 冒烟**（真实设备，无 GUI）。
 5. **ImPlot vendoring + vcxproj 接入 + 空编译**。
-6. **AppUi 模式切换重构**（持双 engine，模式选择，无图）。
+6. **AppUi 模式切换重构**（自持 MonitorEngine，无图）。
 7. **波形**（ImPlot Line + snapshotLatest）。
 8. **频谱曲线**（magnitudeSpectrumDb + log-X，校验 0 dBFS）。
 9. **声谱图**（log 重采样 + Heatmap 滚动缓冲）——最复杂，放最后。

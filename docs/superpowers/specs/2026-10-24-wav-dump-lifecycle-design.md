@@ -35,7 +35,7 @@
 2. 正常停止保留停止边界之前已成功接收的数据。接收边界是原子准入成功，既不是 GUI 点击时间，也不是数据进入上游采集 ring 的时间。
 3. 准入成功的 push 即使与停止重叠，也允许完成这次有限复制。停止之后未取得准入的 push 返回未接收，不接触 ring。
 4. 停止 Dump 不停止 Track、不清空 Scope tap，也不重置 Monitor 的 DelayFifo。停止整个 Track 或 Monitor 时，先停止 producer，再完成 Dump 回收。
-5. GUI 可选 Dump 失败只影响该文件。CLI 必需 WAV 的失败继续标记对应 Track Error，不销毁兄弟 Track。
+5. GUI 可选 Dump 失败只影响该文件。
 6. Capture Dump 记录延迟前 PCM；Render Dump 保持记录延迟及格式适配后的 PCM。Render Dump 不能证明设备实际播放了这些数据。
 7. 停用 render 后，Render Dump 不再接收新数据。capture 与 Capture Dump 继续运行；再次启用 render 不自动重开 Dump。
 8. 只有正常同步 stop 成功，或异步收尾状态明确成功，才能把文件呈现为已完成。

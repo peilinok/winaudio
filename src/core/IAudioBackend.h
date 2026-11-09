@@ -11,6 +11,7 @@ namespace wa {
 class RingBuffer;
 
 enum class DataFlow { Capture, Render };
+enum class BackendKind { WasapiShared, WasapiExclusive };
 using DeviceId = std::wstring;     // MMDevice id; empty string = default endpoint
 
 enum class CaptureSourceKind {
@@ -66,22 +67,6 @@ inline bool enhancementsStateToSysFxUlVal(EnhancementsState s, uint32_t& out) {
     if (s == EnhancementsState::Enabled) { out = 0; return true; }   // ENDPOINT_SYSFX_ENABLED
     if (s == EnhancementsState::Disabled) { out = 1; return true; }  // ENDPOINT_SYSFX_DISABLED
     return false;
-}
-
-// Parse "on" / "off" (case-insensitive). Unknown if neither.
-inline EnhancementsState enhancementsStateFromName(const std::string& name) {
-    if (name.size() == 2 &&
-        (name[0] == 'o' || name[0] == 'O') &&
-        (name[1] == 'n' || name[1] == 'N')) {
-        return EnhancementsState::Enabled;
-    }
-    if (name.size() == 3 &&
-        (name[0] == 'o' || name[0] == 'O') &&
-        (name[1] == 'f' || name[1] == 'F') &&
-        (name[2] == 'f' || name[2] == 'F')) {
-        return EnhancementsState::Disabled;
-    }
-    return EnhancementsState::Unknown;
 }
 
 // Discoverable enhancement descriptor (APO slot CLSID, etc.). Empty list is normal

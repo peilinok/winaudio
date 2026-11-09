@@ -5,14 +5,14 @@
 
 ## 目标
 
-为 WinAudio 增加音频**数据格式**的显示、枚举、能力查询与设置能力，贯穿 core / CLI / GUI。核心理念 **"默认就好，但允许修改"**：每个后端模式给一个开箱能跑的默认格式，并允许用户从候选下拉或手动输入覆盖；不引入本工具自己的重采样/复杂格式引擎。
+为 WinAudio 增加音频**数据格式**的显示、枚举、能力查询与设置能力，贯穿 core / GUI。核心理念 **"默认就好，但允许修改"**：每个后端模式给一个开箱能跑的默认格式，并允许用户从候选下拉或手动输入覆盖；不引入本工具自己的重采样/复杂格式引擎。
 
 ## 架构
 
-- **core 新增格式能力层**（三来源查询 + 能力矩阵 + 默认格式生成 + open 路径改动），CLI 与 GUI 共用。
+- **core 新增格式能力层**（三来源查询 + 能力矩阵 + 默认格式生成 + open 路径改动），供 GUI 使用。
 - 两个功能簇（一体交付，一个 spec）：
-  - **簇 A 格式设置**（交互）：GUI 左栏格式选择区 + CLI `--format` 扩展。
-  - **簇 B 格式诊断**（只读）：CLI `caps` 命令 + GUI 能力浏览弹窗。
+  - **簇 A 格式设置**（交互）：GUI 左栏格式选择区。
+  - **簇 B 格式诊断**（只读）：GUI 能力浏览弹窗。
 
 ## 全局约束
 
@@ -93,20 +93,7 @@ Exclusive 默认在**切到 Exclusive 时后台生成**（保证开箱能跑）�
 
 `MonitorEngine::start` 增采集格式参数（可选，默认空=用 `defaultFormatFor`）；渲染沿用采集采样率（守一致约束）。
 
-### CLI（`--format` 扩展）
-
-- `capture --format R/B/C[f]` 现状仅 Exclusive 有效（shared 传报错）；改为 **Shared 也接受**（传给 `Initialize` 引擎转换），语义与 GUI 一致。
-- `monitor` 增可选 `--format`（采集格式；渲染须同采样率）。
-- `play` 从 WAV 头读格式，不变。
-
 ## 簇 B：格式诊断
-
-### CLI `caps` 命令
-
-```
-WinAudioCli caps [--device <id>] [--render|--capture]
-```
-调 `queryCapabilities`，打印：三来源格式（Mix/Device/OEM，标注 Mix 多为引擎 float）+ 能力矩阵（文本表，每候选一行，Shared/Exclusive 两列 ✓/✗）。
 
 ### GUI 能力浏览弹窗
 
@@ -129,7 +116,7 @@ Format          Shared   Exclusive
 
 - 三来源某项缺失/读取失败 → `has*=false`，UI 显示 `—`，非硬错误。
 - 矩阵格子探测失败 → 该格 `false`（不支持）。
-- Start 用指定格式失败 → `Result` 携规范化 HRESULT message → GUI 日志 + 停止 / CLI 打印并非零退出。
+- Start 用指定格式失败 → `Result` 携规范化 HRESULT message → GUI 日志 + 停止。
 - 手输解析失败（`parseFormatSpec` 返回 false）→ 拒绝启动，提示"无效格式"。
 
 ## 测试
@@ -140,7 +127,7 @@ Format          Shared   Exclusive
   - 三来源解析：`WAVEFORMATEX` blob → `AudioFormat`（含 float/int 判定）经 `fromWaveFormat`，复用现有测试模式。
   - `WasapiStream` Shared 选格式辅助（hasRequested → requestedFormat 否则 mix）若可抽为纯函数则单测。
 - **既有**：`FormatSpec`（parse/select/candidates）测试保留。
-- **真实 `IsFormatSupported` / 三来源 property store**：无硬件不单测，靠手动 smoke（CLI `caps` + GUI 弹窗核对控制面板）。
+- **真实 `IsFormatSupported` / 三来源 property store**：无硬件不单测，靠手动 smoke（GUI 弹窗核对控制面板）。
 
 ## 已知约束 / 非目标
 

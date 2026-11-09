@@ -2,17 +2,17 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build WinAudio MVP — a Windows audio test tool that enumerates devices and, via a single WASAPI-Shared backend, captures audio to a `.wav` file and plays a `.wav` back, driven by a Dear ImGui GUI (primary) and a minimal CLI.
+**Goal:** Build WinAudio MVP — a Windows audio test tool that enumerates devices and, via a single WASAPI-Shared backend, captures audio to a `.wav` file and plays a `.wav` back, driven by a Dear ImGui GUI.
 
-**Architecture:** A UI-agnostic static library `WinAudioCore` holds all logic: `AudioFormat`, a lock-free SPSC `RingBuffer`, WAV I/O, `DeviceEnumerator` (MMDevice), an `IAudioBackend` abstraction with WASAPI-Shared capture/render implementations (each owning its own I/O thread), and an `Engine` that wires backend ↔ ring ↔ WAV. Audio threads and UI threads never touch each other directly — the UI reads snapshots via `Engine::poll()`. Two front-ends link the Core: `WinAudioGui` (Dear ImGui + DX11) and `WinAudioCli`.
+**Architecture:** A UI-agnostic static library `WinAudioCore` holds all logic: `AudioFormat`, a lock-free SPSC `RingBuffer`, WAV I/O, `DeviceEnumerator` (MMDevice), an `IAudioBackend` abstraction with WASAPI-Shared capture/render implementations (each owning its own I/O thread), and shared stream primitives. Audio threads and UI threads communicate through snapshots. `WinAudioGui` (Dear ImGui + DX11) links the Core.
 
-**Tech Stack:** C++17, MSBuild (`.sln` + `.vcxproj`), MSVC, x64. Win32 + WASAPI (`mmdeviceapi.h`, `audioclient.h`) + STL only in Core/Cli. Dear ImGui + Direct3D 11 in Gui. gtest in Tests.
+**Tech Stack:** C++17, MSBuild (`.sln` + `.vcxproj`), MSVC, x64. Win32 + WASAPI (`mmdeviceapi.h`, `audioclient.h`) + STL only in Core. Dear ImGui + Direct3D 11 in Gui. gtest in Tests.
 
 ## Global Constraints
 
 - Build system: **MSBuild**, configurations Debug/Release, platform **x64** only.
 - Language standard: **C++17** (`/std:c++17`), `/W4`, treat the Core as warning-clean.
-- **WinAudioCore** and **WinAudioCli**: pure **Win32 + STL**, zero third-party deps. WAV read/write, CLI arg parsing, and logging are all hand-written.
+- **WinAudioCore**: pure **Win32 + STL**, zero third-party deps. WAV read/write and logging are all hand-written.
 - Third-party deps appear **only** in: `WinAudioGui` (Dear ImGui + DX11) and `WinAudioTests` (gtest).
 - Vendored third-party source lives under `third_party/imgui/` (Gui only) and `third_party/googletest/` (Tests only).
 - Namespace: all Core symbols in namespace `wa`.
@@ -36,12 +36,9 @@ src/
     DeviceEnumerator.h/.cpp   IMMDeviceEnumerator wrapper
     IAudioBackend.h           backend interface + DeviceId/DataFlow/BackendStats
     WasapiShared.h/.cpp       WasapiSharedCapture / WasapiSharedRender
-    Engine.h/.cpp             orchestration + poll() snapshot
-  cli/                        (WinAudioCli.vcxproj — console exe)
-    main.cpp                  list / capture / play subcommands
   gui/                        (WinAudioGui.vcxproj — windows exe)
     main.cpp                  Win32 window + DX11 device + ImGui loop
-    AppUi.h/.cpp              ImGui widgets bound to Engine
+    AppUi.h/.cpp              ImGui widgets
   tests/                      (WinAudioTests.vcxproj — console exe, gtest)
     test_ringbuffer.cpp
     test_audioformat.cpp
@@ -864,7 +861,7 @@ git commit -m "feat(core): WAV reader/writer with round-trip + truncation handli
 - Create: `src/core/IAudioBackend.h`
 - Create: `src/core/DeviceEnumerator.h`
 - Create: `src/core/DeviceEnumerator.cpp`
-- Modify: `src/core/WinAudioCore.vcxproj`, `src/cli/...` (CLI added in Task 8)
+- Modify: `src/core/WinAudioCore.vcxproj`
 
 **Interfaces:**
 - Consumes: `wa::AudioFormat`, `wa::Result`.
@@ -1090,7 +1087,7 @@ Result DeviceEnumerator::mixFormat(const DeviceId& id, AudioFormat& out) {
 
 - [ ] **Step 5: Add files to Core project**
 
-Add `ComUtil.h`, `IAudioBackend.h`, `DeviceEnumerator.h/.cpp` to `WinAudioCore.vcxproj`. Add `ole32.lib`, `mmdevapi.lib` to the eventual exe linkers (Core is a static lib; the linker libs are added on the Cli/Gui projects). Note: no unit test here — enumeration needs real devices; it is verified manually via the CLI in Task 8.
+Add `ComUtil.h`, `IAudioBackend.h`, `DeviceEnumerator.h/.cpp` to `WinAudioCore.vcxproj`. Add `ole32.lib`, `mmdevapi.lib` to the eventual exe linkers (Core is a static lib; the linker libs are added on the Gui project). Note: no unit test here — enumeration needs real devices; it is verified in the GUI.
 
 - [ ] **Step 6: Build to confirm it compiles**
 
@@ -1271,7 +1268,7 @@ Add `WasapiShared.h/.cpp` to `WinAudioCore.vcxproj`. Add `#include <vector>` to 
 - [ ] **Step 4: Build to confirm it compiles**
 
 Run: `msbuild src/core/WinAudioCore.vcxproj /p:Configuration=Debug /p:Platform=x64 /m`
-Expected: builds clean. (Functional verification happens through the Engine + CLI in Task 8.)
+Expected: builds clean. (Functional verification uses the GUI.)
 
 - [ ] **Step 5: Commit**
 
@@ -1427,536 +1424,9 @@ git commit -m "feat(core): WASAPI-Shared render backend (ring -> device)"
 
 ---
 
-## Task 8: Engine + minimal CLI (first end-to-end verification)
+## Task 9: GUI
 
-**Files:**
-- Create: `src/core/Engine.h`
-- Create: `src/core/Engine.cpp`
-- Create: `src/cli/main.cpp`
-- Create: `src/cli/WinAudioCli.vcxproj`
-- Modify: `WinAudio.sln` (add Cli project)
-
-**Interfaces:**
-- Consumes: `DeviceEnumerator`, `WasapiSharedCapture`, `WasapiSharedRender`, `WavWriter`, `WavReader`, `RingBuffer`, `IAudioBackend`.
-- Produces:
-  - `enum class wa::EngineState { Idle, Capturing, Playing, Error };`
-  - `enum class wa::BackendKind { WasapiShared };` (only kind in MVP)
-  - `struct wa::EngineStatus { EngineState state; float levelL; float levelR; uint64_t overruns; uint64_t underruns; AudioFormat actualFormat; uint32_t elapsedMs; std::string message; };`
-  - `class wa::Engine { std::vector<DeviceInfo> enumerate(DataFlow); Result startCapture(BackendKind, const DeviceId&, const std::wstring& wavPath); Result startPlayback(BackendKind, const DeviceId&, const std::wstring& wavPath); void stop(); EngineStatus poll(); }`
-
-- [ ] **Step 1: Create `src/core/Engine.h`**
-
-```cpp
-#pragma once
-#include <atomic>
-#include <memory>
-#include <mutex>
-#include <string>
-#include <thread>
-#include <vector>
-#include "IAudioBackend.h"
-#include "RingBuffer.h"
-
-namespace wa {
-
-enum class EngineState { Idle, Capturing, Playing, Error };
-enum class BackendKind { WasapiShared };
-
-struct EngineStatus {
-    EngineState state = EngineState::Idle;
-    float       levelL = 0.f;
-    float       levelR = 0.f;
-    uint64_t    overruns = 0;
-    uint64_t    underruns = 0;
-    AudioFormat actualFormat{};
-    uint32_t    elapsedMs = 0;
-    std::string message;
-};
-
-class WavWriter;
-class WavReader;
-
-class Engine {
-public:
-    Engine();
-    ~Engine();
-
-    std::vector<DeviceInfo> enumerate(DataFlow flow);
-    Result startCapture(BackendKind kind, const DeviceId& id, const std::wstring& wavPath);
-    Result startPlayback(BackendKind kind, const DeviceId& id, const std::wstring& wavPath);
-    void   stop();
-    EngineStatus poll();
-
-private:
-    void captureLoop(std::wstring wavPath);
-    void playbackLoop(std::wstring wavPath);
-
-    std::unique_ptr<IAudioBackend> backend_;
-    std::unique_ptr<RingBuffer>    ring_;
-    std::thread                    pump_;
-    std::atomic<bool>              running_{false};
-
-    std::mutex   mtx_;
-    EngineStatus status_;
-    unsigned long long startTick_ = 0;
-};
-
-} // namespace wa
-```
-
-- [ ] **Step 2: Create `src/core/Engine.cpp`**
-
-```cpp
-#include "Engine.h"
-#include "WasapiShared.h"
-#include "WavFile.h"
-#include "DeviceEnumerator.h"
-#include "ComUtil.h"
-#include <windows.h>
-#include <algorithm>
-#include <cmath>
-
-namespace wa {
-
-namespace {
-constexpr size_t kRingBytes = 1 << 20; // 1 MiB
-
-// Compute peak level (0..1) for L/R from interleaved float32 or int16 PCM.
-void computeLevels(const uint8_t* data, size_t bytes, const AudioFormat& fmt,
-                   float& l, float& r) {
-    l = r = 0.f;
-    if (fmt.channels == 0) return;
-    const uint16_t ch = fmt.channels;
-    if (fmt.isFloat && fmt.bitsPerSample == 32) {
-        const float* s = reinterpret_cast<const float*>(data);
-        size_t n = bytes / 4;
-        for (size_t i = 0; i + ch <= n; i += ch) {
-            l = std::max(l, std::fabs(s[i]));
-            r = std::max(r, std::fabs(s[i + (ch > 1 ? 1 : 0)]));
-        }
-    } else if (!fmt.isFloat && fmt.bitsPerSample == 16) {
-        const int16_t* s = reinterpret_cast<const int16_t*>(data);
-        size_t n = bytes / 2;
-        for (size_t i = 0; i + ch <= n; i += ch) {
-            l = std::max(l, std::fabs(s[i] / 32768.f));
-            r = std::max(r, std::fabs(s[i + (ch > 1 ? 1 : 0)] / 32768.f));
-        }
-    }
-}
-} // namespace
-
-Engine::Engine() = default;
-Engine::~Engine() { stop(); }
-
-std::vector<DeviceInfo> Engine::enumerate(DataFlow flow) {
-    ComInitGuard com;
-    DeviceEnumerator de;
-    std::vector<DeviceInfo> out;
-    de.enumerate(flow, out);
-    return out;
-}
-
-Result Engine::startCapture(BackendKind, const DeviceId& id, const std::wstring& wavPath) {
-    stop();
-    ring_ = std::make_unique<RingBuffer>(kRingBytes);
-    backend_ = std::make_unique<WasapiSharedCapture>();
-    Result r = backend_->open(id, AudioFormat{}, ring_.get());
-    if (!r) return r;
-    r = backend_->start();
-    if (!r) return r;
-    running_.store(true);
-    startTick_ = GetTickCount64();
-    { std::lock_guard<std::mutex> lk(mtx_); status_ = {}; status_.state = EngineState::Capturing; }
-    pump_ = std::thread(&Engine::captureLoop, this, wavPath);
-    return Result::Ok();
-}
-
-Result Engine::startPlayback(BackendKind, const DeviceId& id, const std::wstring& wavPath) {
-    stop();
-    ring_ = std::make_unique<RingBuffer>(kRingBytes);
-    backend_ = std::make_unique<WasapiSharedRender>();
-    Result r = backend_->open(id, AudioFormat{}, ring_.get());
-    if (!r) return r;
-    running_.store(true);
-    startTick_ = GetTickCount64();
-    { std::lock_guard<std::mutex> lk(mtx_); status_ = {}; status_.state = EngineState::Playing; }
-    pump_ = std::thread(&Engine::playbackLoop, this, wavPath);
-    return Result::Ok();
-}
-
-void Engine::stop() {
-    running_.store(false);
-    if (pump_.joinable()) pump_.join();
-    if (backend_) backend_->stop();
-    backend_.reset();
-    ring_.reset();
-    std::lock_guard<std::mutex> lk(mtx_);
-    if (status_.state != EngineState::Error) status_.state = EngineState::Idle;
-}
-
-void Engine::captureLoop(std::wstring wavPath) {
-    // Backend already started; its actualFormat is known after start.
-    AudioFormat fmt = backend_->stats().actualFormat;
-    WavWriter writer;
-    if (!writer.open(wavPath, fmt)) {
-        std::lock_guard<std::mutex> lk(mtx_);
-        status_.state = EngineState::Error;
-        status_.message = "cannot open output wav";
-        running_.store(false);
-        return;
-    }
-    std::vector<uint8_t> buf(16384);
-    while (running_.load()) {
-        size_t got = ring_->read(buf.data(), buf.size());
-        if (got == 0) { Sleep(5); }
-        else {
-            writer.write(buf.data(), got);
-            float l, r; computeLevels(buf.data(), got, fmt, l, r);
-            std::lock_guard<std::mutex> lk(mtx_);
-            status_.levelL = l; status_.levelR = r;
-            status_.actualFormat = fmt;
-            status_.overruns = ring_->overruns();
-            status_.underruns = ring_->underruns();
-            status_.elapsedMs = static_cast<uint32_t>(GetTickCount64() - startTick_);
-        }
-    }
-    writer.close();
-}
-
-void Engine::playbackLoop(std::wstring wavPath) {
-    WavReader reader;
-    if (!reader.open(wavPath)) {
-        std::lock_guard<std::mutex> lk(mtx_);
-        status_.state = EngineState::Error;
-        status_.message = "cannot open input wav";
-        running_.store(false);
-        return;
-    }
-    AudioFormat fmt = reader.format();
-    backend_->start(); // render thread uses device mix format; feed best-effort
-    std::vector<uint8_t> buf(16384);
-    bool fileDone = false;
-    while (running_.load()) {
-        if (!fileDone) {
-            // keep the ring topped up
-            while (ring_->availableWrite() >= buf.size()) {
-                size_t got = reader.read(buf.data(), buf.size());
-                if (got == 0) { fileDone = true; break; }
-                ring_->write(buf.data(), got);
-                float l, r; computeLevels(buf.data(), got, fmt, l, r);
-                std::lock_guard<std::mutex> lk(mtx_);
-                status_.levelL = l; status_.levelR = r;
-            }
-        } else if (ring_->availableRead() == 0) {
-            break; // drained
-        }
-        {
-            std::lock_guard<std::mutex> lk(mtx_);
-            status_.actualFormat = backend_->stats().actualFormat;
-            status_.overruns = ring_->overruns();
-            status_.underruns = ring_->underruns();
-            status_.elapsedMs = static_cast<uint32_t>(GetTickCount64() - startTick_);
-        }
-        Sleep(5);
-    }
-    running_.store(false);
-}
-
-EngineStatus Engine::poll() {
-    std::lock_guard<std::mutex> lk(mtx_);
-    return status_;
-}
-
-} // namespace wa
-```
-
-> Note on playback/format: MVP plays a `.wav` whose sample format may differ from the device mix format. For the MVP we require the input wav to already match the device mix format (commonly float32/48k from a prior capture). A resampler/format-converter is explicitly out of scope (later phase). The CLI/GUI surface a clear message if `reader.format()` != `backend stats actualFormat`.
-
-- [ ] **Step 3: Create `src/cli/main.cpp`**
-
-```cpp
-#include <cstdio>
-#include <string>
-#include <vector>
-#include "Engine.h"
-#include "DeviceEnumerator.h"
-#include "ComUtil.h"
-
-using namespace wa;
-
-static void usage() {
-    std::printf(
-        "WinAudioCli list [--render|--capture]\n"
-        "WinAudioCli capture --out <file.wav> [--device <id>] [--seconds N]\n"
-        "WinAudioCli play    --in  <file.wav> [--device <id>]\n");
-}
-
-static std::wstring arg(int argc, wchar_t** argv, const wchar_t* key) {
-    for (int i = 1; i < argc - 1; ++i)
-        if (std::wcscmp(argv[i], key) == 0) return argv[i + 1];
-    return L"";
-}
-static bool has(int argc, wchar_t** argv, const wchar_t* key) {
-    for (int i = 1; i < argc; ++i) if (std::wcscmp(argv[i], key) == 0) return true;
-    return false;
-}
-
-int wmain(int argc, wchar_t** argv) {
-    if (argc < 2) { usage(); return 1; }
-    ComInitGuard com;
-    std::wstring cmd = argv[1];
-
-    if (cmd == L"list") {
-        DataFlow flow = has(argc, argv, L"--capture") ? DataFlow::Capture : DataFlow::Render;
-        DeviceEnumerator de;
-        std::vector<DeviceInfo> devs;
-        Result r = de.enumerate(flow, devs);
-        if (!r) { std::printf("enumerate failed: %s\n", r.message.c_str()); return 2; }
-        for (auto& d : devs) {
-            std::wprintf(L"%s %s  [%u Hz %u ch %s]\n",
-                d.isDefault ? L"*" : L" ", d.name.c_str(),
-                d.mixFormat.sampleRate, d.mixFormat.channels,
-                d.mixFormat.isFloat ? L"float" : L"pcm");
-            std::wprintf(L"     id=%s\n", d.id.c_str());
-        }
-        return 0;
-    }
-
-    Engine eng;
-    if (cmd == L"capture") {
-        std::wstring out = arg(argc, argv, L"--out");
-        if (out.empty()) { usage(); return 1; }
-        std::wstring id = arg(argc, argv, L"--device");
-        std::wstring secStr = arg(argc, argv, L"--seconds");
-        int seconds = secStr.empty() ? 5 : _wtoi(secStr.c_str());
-        Result r = eng.startCapture(BackendKind::WasapiShared, id, out);
-        if (!r) { std::printf("capture start failed: %s\n", r.message.c_str()); return 2; }
-        for (int i = 0; i < seconds * 10; ++i) {
-            Sleep(100);
-            EngineStatus s = eng.poll();
-            std::printf("\rL=%.2f R=%.2f over=%llu under=%llu  ",
-                s.levelL, s.levelR,
-                (unsigned long long)s.overruns, (unsigned long long)s.underruns);
-        }
-        eng.stop();
-        std::printf("\nwrote %ls\n", out.c_str());
-        return 0;
-    }
-
-    if (cmd == L"play") {
-        std::wstring in = arg(argc, argv, L"--in");
-        if (in.empty()) { usage(); return 1; }
-        std::wstring id = arg(argc, argv, L"--device");
-        Result r = eng.startPlayback(BackendKind::WasapiShared, id, in);
-        if (!r) { std::printf("play start failed: %s\n", r.message.c_str()); return 2; }
-        for (;;) {
-            Sleep(100);
-            EngineStatus s = eng.poll();
-            if (s.state == EngineState::Idle || s.state == EngineState::Error) break;
-            std::printf("\rplaying L=%.2f R=%.2f  ", s.levelL, s.levelR);
-        }
-        eng.stop();
-        std::printf("\ndone\n");
-        return 0;
-    }
-
-    usage();
-    return 1;
-}
-```
-
-- [ ] **Step 4: Create `src/cli/WinAudioCli.vcxproj`**
-
-Console application, x64 Debug/Release, C++17. Include dir `$(SolutionDir)src/core`. Project reference to `WinAudioCore.vcxproj`. Linker additional dependencies: `ole32.lib`. Add to `WinAudio.sln`.
-
-- [ ] **Step 5: Build everything**
-
-Run: `msbuild WinAudio.sln /p:Configuration=Debug /p:Platform=x64 /m`
-Expected: builds clean.
-
-- [ ] **Step 6: Manual end-to-end verification (requires audio hardware)**
-
-Run:
-```powershell
-x64\Debug\WinAudioCli.exe list --capture
-x64\Debug\WinAudioCli.exe list --render
-x64\Debug\WinAudioCli.exe capture --out cap.wav --seconds 5
-x64\Debug\WinAudioCli.exe play --in cap.wav
-```
-Expected: `list` prints devices with a `*` on the default; `capture` shows moving L/R levels while you make sound, then writes `cap.wav`; `play` plays it back. Confirm `cap.wav` opens in any media player.
-
-- [ ] **Step 7: Commit**
-
-```powershell
-git add -A
-git commit -m "feat: Engine orchestration + minimal CLI; first end-to-end capture/play"
-```
-
----
-
-## Task 9: WinAudioGui — Dear ImGui + DX11 front-end (primary)
-
-**Files:**
-- Create: `third_party/imgui/` (vendored Dear ImGui core + `backends/imgui_impl_win32.*` + `backends/imgui_impl_dx11.*`)
-- Create: `src/gui/main.cpp`
-- Create: `src/gui/AppUi.h`
-- Create: `src/gui/AppUi.cpp`
-- Create: `src/gui/WinAudioGui.vcxproj`
-- Modify: `WinAudio.sln`
-
-**Interfaces:**
-- Consumes: `wa::Engine`, `wa::DeviceInfo`, `wa::EngineStatus`, `wa::BackendKind`, `wa::DataFlow`.
-- Produces: `class AppUi { void draw(Engine& eng); }` rendering all controls and binding them to `Engine` calls; `main.cpp` owns the Win32 window + DX11 swapchain + ImGui frame loop and calls `AppUi::draw` each frame.
-
-- [ ] **Step 1: Vendor Dear ImGui**
-
-Copy Dear ImGui (v1.90+ docking or master) sources into `third_party/imgui/`: `imgui*.cpp/.h`, plus `backends/imgui_impl_win32.cpp/.h` and `backends/imgui_impl_dx11.cpp/.h`.
-
-- [ ] **Step 2: Create `src/gui/AppUi.h`**
-
-```cpp
-#pragma once
-#include <string>
-#include <vector>
-#include "Engine.h"
-
-class AppUi {
-public:
-    void draw(wa::Engine& eng);
-private:
-    void refreshDevices(wa::Engine& eng);
-
-    int  backendIdx_ = 0;          // 0 = WASAPI-Shared (only MVP option)
-    int  flowIdx_ = 0;             // 0 = capture, 1 = playback
-    int  deviceIdx_ = 0;
-    bool devicesLoaded_ = false;
-    std::vector<wa::DeviceInfo> devices_;
-    char wavPath_[260] = "cap.wav";
-    std::vector<std::string> logLines_;
-};
-```
-
-- [ ] **Step 3: Create `src/gui/AppUi.cpp`**
-
-```cpp
-#include "AppUi.h"
-#include "imgui.h"
-#include <string>
-
-static std::string wtou(const std::wstring& w) {
-    if (w.empty()) return {};
-    int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), nullptr, 0, nullptr, nullptr);
-    std::string s(n, 0);
-    WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), s.data(), n, nullptr, nullptr);
-    return s;
-}
-static std::wstring utow(const char* s) {
-    int n = MultiByteToWideChar(CP_UTF8, 0, s, -1, nullptr, 0);
-    std::wstring w(n ? n - 1 : 0, 0);
-    MultiByteToWideChar(CP_UTF8, 0, s, -1, w.data(), n);
-    return w;
-}
-
-void AppUi::refreshDevices(wa::Engine& eng) {
-    wa::DataFlow flow = (flowIdx_ == 0) ? wa::DataFlow::Capture : wa::DataFlow::Render;
-    devices_ = eng.enumerate(flow);
-    deviceIdx_ = 0;
-    devicesLoaded_ = true;
-}
-
-void AppUi::draw(wa::Engine& eng) {
-    if (!devicesLoaded_) refreshDevices(eng);
-
-    ImGui::Begin("WinAudio");
-
-    const char* backends[] = {"WASAPI-Shared"};
-    ImGui::Combo("Backend", &backendIdx_, backends, 1);
-
-    int prevFlow = flowIdx_;
-    ImGui::RadioButton("Capture", &flowIdx_, 0); ImGui::SameLine();
-    ImGui::RadioButton("Playback", &flowIdx_, 1);
-    if (flowIdx_ != prevFlow) refreshDevices(eng);
-
-    if (ImGui::Button("Refresh devices")) refreshDevices(eng);
-
-    if (ImGui::BeginListBox("Devices")) {
-        for (int i = 0; i < (int)devices_.size(); ++i) {
-            std::string label = (devices_[i].isDefault ? "* " : "  ") + wtou(devices_[i].name);
-            if (ImGui::Selectable(label.c_str(), deviceIdx_ == i)) deviceIdx_ = i;
-        }
-        ImGui::EndListBox();
-    }
-
-    ImGui::InputText("WAV file", wavPath_, sizeof(wavPath_));
-
-    wa::EngineStatus st = eng.poll();
-    bool busy = (st.state == wa::EngineState::Capturing || st.state == wa::EngineState::Playing);
-
-    if (!busy) {
-        if (ImGui::Button("Start")) {
-            wa::DeviceId id = devices_.empty() ? L"" : devices_[deviceIdx_].id;
-            std::wstring path = utow(wavPath_);
-            wa::Result r = (flowIdx_ == 0)
-                ? eng.startCapture(wa::BackendKind::WasapiShared, id, path)
-                : eng.startPlayback(wa::BackendKind::WasapiShared, id, path);
-            logLines_.push_back(r ? "started" : ("error: " + r.message));
-        }
-    } else {
-        if (ImGui::Button("Stop")) { eng.stop(); logLines_.push_back("stopped"); }
-    }
-
-    ImGui::SameLine();
-    const char* stateStr[] = {"Idle", "Capturing", "Playing", "Error"};
-    ImGui::Text("State: %s  %.1fs", stateStr[(int)st.state], st.elapsedMs / 1000.f);
-
-    ImGui::ProgressBar(st.levelL, ImVec2(-1, 0), "L");
-    ImGui::ProgressBar(st.levelR, ImVec2(-1, 0), "R");
-    ImGui::Text("overrun %llu  underrun %llu  fmt %u/%u/%u",
-        (unsigned long long)st.overruns, (unsigned long long)st.underruns,
-        st.actualFormat.sampleRate, st.actualFormat.bitsPerSample, st.actualFormat.channels);
-
-    ImGui::Separator();
-    ImGui::BeginChild("log", ImVec2(0, 120), true);
-    for (auto& l : logLines_) ImGui::TextUnformatted(l.c_str());
-    ImGui::EndChild();
-
-    ImGui::End();
-}
-```
-
-- [ ] **Step 4: Create `src/gui/main.cpp`**
-
-Use the standard Dear ImGui Win32+DX11 example skeleton (`examples/example_win32_directx11/main.cpp`), adapted: create the device + swapchain, init `ImGui_ImplWin32_Init`/`ImGui_ImplDX11_Init`, then in the frame loop call:
-```cpp
-// inside the render loop, after NewFrame():
-static AppUi ui;
-static wa::Engine engine;
-ui.draw(engine);
-```
-On `WM_DESTROY`, call `engine.stop()` before teardown. Keep the window title "WinAudio". (Copy the example file verbatim and insert the three lines above plus the `#include "AppUi.h"` and the `engine.stop()` call.)
-
-- [ ] **Step 5: Create `src/gui/WinAudioGui.vcxproj`**
-
-Windows application (`Application`, `Subsystem=Windows`), x64 Debug/Release, C++17. Include dirs: `$(SolutionDir)src/core`, `$(SolutionDir)src/gui`, `$(SolutionDir)third_party/imgui`, `$(SolutionDir)third_party/imgui/backends`. Compile: `src/gui/*.cpp`, `third_party/imgui/imgui*.cpp`, `third_party/imgui/backends/imgui_impl_win32.cpp`, `third_party/imgui/backends/imgui_impl_dx11.cpp`. Project reference to `WinAudioCore.vcxproj`. Linker deps: `d3d11.lib; dxgi.lib; d3dcompiler.lib; ole32.lib`. Add to `WinAudio.sln`.
-
-- [ ] **Step 6: Build**
-
-Run: `msbuild WinAudio.sln /p:Configuration=Debug /p:Platform=x64 /m`
-Expected: builds clean; `x64\Debug\WinAudioGui.exe` exists.
-
-- [ ] **Step 7: Manual verification (requires audio hardware + desktop)**
-
-Run: `x64\Debug\WinAudioGui.exe`
-Expected: window opens; device list populates; selecting Capture + a device + Start shows moving L/R meters and writes the wav; switching to Playback + Start plays the wav back; Stop returns to Idle. Closing the window does not hang (engine.stop() joins threads).
-
-- [ ] **Step 8: Commit**
-
-```powershell
-git add -A
-git commit -m "feat(gui): Dear ImGui + DX11 front-end bound to Engine"
-```
-
----
+GUI 的窗口、双流编排与图表方案见 [监听重构计划](2026-07-02-winaudio-gui-monitor-redesign.md)。
 
 ## Task 10: CLAUDE.md fix-up + Release build sanity
 
@@ -1974,10 +1444,9 @@ Replace the "目标约定" placeholders with the real commands:
 msbuild WinAudio.sln /p:Configuration=Debug   /p:Platform=x64 /m
 msbuild WinAudio.sln /p:Configuration=Release /p:Platform=x64 /m
 x64\Debug\WinAudioTests.exe            # run unit tests
-x64\Debug\WinAudioCli.exe list --render
 x64\Debug\WinAudioGui.exe              # GUI
 ```
-And update the "项目状态" section to note the MVP is implemented (Core + WASAPI-Shared + CLI + GUI), remove the "仓库为空" wording.
+And update the "项目状态" section to note the MVP is implemented (Core + WASAPI-Shared + GUI), remove the "仓库为空" wording.
 
 - [ ] **Step 2: Verify Release build**
 
@@ -2001,23 +1470,19 @@ git commit -m "docs: update CLAUDE.md to match implemented MVP"
 ## Self-Review
 
 **Spec coverage:**
-- Layered architecture (Core lib + Cli + Gui) — Tasks 1, 8, 9. ✅
+- Layered architecture (Core lib + Gui) — Tasks 1, 8, 9. ✅
 - AudioFormat + WAVEFORMATEX conversion — Task 2. ✅
 - SPSC RingBuffer + xrun counters — Task 3. ✅
 - WAV reader/writer round-trip + bad-header handling — Task 4. ✅
 - DeviceEnumerator (IMMDevice) — Task 5. ✅
 - IAudioBackend interface — Task 5. ✅
 - WASAPI-Shared capture + render (own thread, ring decoupling, scheme C) — Tasks 6, 7. ✅
-- Engine poll() snapshot, levels, xrun — Task 8. ✅
-- Minimal CLI (list/capture/play) — Task 8. ✅
-- ImGui+DX11 GUI as primary front-end, bound to Engine — Task 9. ✅
+- ImGui+DX11 GUI — Task 9.
 - Error handling via Result, HRESULT normalization, COM RAII/threading — Tasks 1, 5, 6, 7. ✅
 - Testing via gtest (RingBuffer/AudioFormat/Wav) — Tasks 1–4. ✅
-- gtest only in Tests; ImGui only in Gui; Core/Cli zero-dep — Tasks 1, 6, 9. ✅
+- gtest only in Tests; ImGui only in Gui; Core zero-dep — Tasks 1, 6, 9. ✅
 - Out of scope (waveIn/waveOut, WASAPI-Exclusive, format conversion/resampling, latency measurement) — documented as later phases. ✅
 
 **Deferred-to-later-phase (intentionally not in MVP, per spec phasing):** format/capability probe panel (IsFormatSupported UI), latency/glitch measurement, signal-quality loopback compare, waveIn/waveOut + Exclusive backends. The backend interface and ring xrun counters are already shaped to accept them without rework.
 
 **Known MVP limitation (made explicit):** playback assumes the input wav format matches the device mix format (no resampler). Capture writes the device mix format (commonly float32). This is called out in Task 8 Step 2's note and surfaced to the user; a converter is a later phase.
-
-**Type consistency:** `AudioFormat`, `Result`, `RingBuffer`, `IAudioBackend`/`DeviceInfo`/`BackendStats`, `Engine`/`EngineStatus`/`EngineState`/`BackendKind` names and signatures are used identically across Tasks 2–9. `enumerate`, `startCapture`, `startPlayback`, `stop`, `poll` match between Engine.h (Task 8), CLI (Task 8), and GUI (Task 9). ✅

@@ -8,6 +8,9 @@
 // - Introduction, links and more at the top of imgui.cpp
 
 #include "AppUi.h"
+#include "EndpointEnhancements.h"
+#include "EndpointEnhancementsAction.h"
+#include "Elevate.h"
 #ifdef WA_PERFORMANCE_FIXTURE
 #include "PerformanceFixture.h"
 #endif
@@ -18,6 +21,7 @@
 #include "imgui_impl_win32.h"
 #include "imgui_impl_dx11.h"
 #include <d3d11.h>
+#include <shellapi.h>
 #include <tchar.h>
 #include <cstdio>
 #include <cstdlib>
@@ -67,6 +71,34 @@ static bool frameProbeRequested() {
 // Main code
 int main(int, char**)
 {
+    // Handle the single UAC operation before creating windows or audio streams.
+    int argumentCount = 0;
+    auto arguments = CommandLineToArgvW(GetCommandLineW(), &argumentCount);
+    const DWORD argumentError = arguments ? ERROR_SUCCESS : GetLastError();
+    if (!arguments || wa::endpoint_enhancements_action::requested(argumentCount, arguments)) {
+        wa::log::init();
+        wa::log::setThreadName("elevate");
+        wa::log::addFileSink("winaudio-elevation.log");
+        wa::log::setLevel(wa::log::Level::Debug);
+        WA_LOG(wa::log::Level::Debug, "EndpointAction", "CommandLineToArgvW", "",
+               "err=" + std::to_string(argumentError));
+        int exitCode = static_cast<int>(argumentError);
+        if (arguments) {
+            exitCode = *wa::endpoint_enhancements_action::handle(
+                argumentCount, arguments, wa::processIsElevated(),
+                [](wa::DataFlow flow, const wa::DeviceId& device, wa::EnhancementsState state) {
+                    const auto r = wa::setEndpointEnhancements(flow, device, state);
+                    return r ? 0 : (r.code != 0 ? static_cast<int>(r.code) : 1);
+                });
+            LocalFree(arguments);
+        }
+        WA_LOG(wa::log::Level::Info, "EndpointAction", "complete", "",
+               "exit=" + std::to_string(exitCode));
+        wa::log::shutdown();
+        return exitCode;
+    }
+    LocalFree(arguments);
+
     // Create application window
     //ImGui_ImplWin32_EnableDpiAwareness();
     WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"ImGui Example", nullptr };
@@ -121,7 +153,7 @@ int main(int, char**)
     // Our state
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
-    // WinAudio: UI (owns both engine and monitor engine)
+    // WinAudio: UI (owns monitor and independent tracks)
 #ifdef WA_PERFORMANCE_FIXTURE
     static AppUi ui(PerformanceFixture::exportWriter(), PerformanceFixture::monitorRenderOutput());
 #else
@@ -139,6 +171,7 @@ int main(int, char**)
         ui.pushLog(static_cast<int>(lvl), line);
     });
     wa::log::setLevel(wa::log::Level::Info);
+    WA_LOG(wa::log::Level::Debug, "Gui", "CommandLineToArgvW", "", "OK");
 
     // System Microsoft YaHei, once, for both GUI languages. Not redistributed.
     // Skip AddFontFromFileTTF when the file is absent: that call asserts in

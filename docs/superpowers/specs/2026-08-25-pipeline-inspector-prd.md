@@ -46,7 +46,6 @@ A Pipeline Inspector tab reconstructs one capture or render path for a Live sess
 36. As an audio tester, I want Core Audio intercept limited to the closed COM set (no XAudio2, DirectSound, or WinRT AudioGraph entry points), so that the product is not an API Monitor clone.
 37. As an audio tester, I want no intercept of audiodg APO COM, so that I do not destabilize protected audio or fake APO internals.
 38. As an audio tester, I want switching away from the Pipeline tab not to stop Monitor or Loopback Tracks, so that inspection is side-by-side with my own streams.
-39. As an audio tester, I want CLI behaviour unchanged, so that scripts and `list`/`caps`/`capture`/`play`/`monitor` keep working.
 40. As an audio tester, I want Unknown rather than invented APO knobs (EQ curves, NS strength), so that the tool stays honest.
 41. As an audio tester, I want attach after Initialize to still show future calls immediately, so that Stop/Start and the next Initialize are Observed even if the first Initialize was missed.
 42. As an audio tester, I want a 32-bit WinAudio GUI to attach to 32-bit targets the same way, so that same-bitness attach works on both official binaries.
@@ -66,7 +65,6 @@ A Pipeline Inspector tab reconstructs one capture or render path for a Live sess
 - On-demand attach: selected Live session PID only; same bitness; fail closed without debug rights; no auto-inject; no launch-suspended; no cross-bitness helper from the 64-bit GUI.
 - Core Audio intercept closed set: device activate, IAudioClient*, capture/render clients, IAudioEffectsManager, session control, stream/channel volume, audio clock.
 - Adapters (session watch, endpoint FX/topology, probe, ETW enable, inject) sit below the snapshot join. They must not become the test seam.
-- CLI is unchanged.
 
 ## Testing Decisions
 
@@ -83,7 +81,7 @@ A Pipeline Inspector tab reconstructs one capture or render path for a Live sess
 - Auto-inject; launch-suspended monitor; 32-bit helper spawned from the 64-bit GUI; always-admin GUI.
 - XAudio2, DirectSound, and WinRT AudioGraph entry-point hooks.
 - Exclusive Shared probe; forcing the target to re-Initialize; recording PCM from GetBuffer.
-- CLI flags for Inspector; CollectAudioLogs-scale tracing; spatial object parameters; Time Travel Tracing.
+- CollectAudioLogs-scale tracing; spatial object parameters; Time Travel Tracing.
 - Changing Monitor, System Loopback, or Application Loopback stream behaviour.
 
 ## Further Notes

@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <vector>
 #include "AudioFormatDef.h"
-#include "Engine.h"   // BackendKind
+#include "IAudioBackend.h"   // BackendKind
 namespace wa {
 enum class FormatOrigin : uint8_t {
     Standard = 1u << 0,

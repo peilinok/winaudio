@@ -85,8 +85,6 @@ The GitHub landing page is an English `README.md`. The Chinese guide is `README.
 57. As a GitHub visitor, I want Loopback and Application Loopback screenshots in the same language as the page I am reading, so that those modes are shown the same way as Monitor.
 58. As a GitHub visitor, I want the Monitor image on the README and the Monitor image on the screenshot page to be the same file for that language, so that the two pages do not drift.
 59. As a GitHub visitor reading Chinese, I want glossary terms left in English inside the Chinese guide, so that the guide uses the same words as the window and the domain glossary.
-60. As a GitHub visitor, I want the guide's CLI section in the language of the page I am reading, so that the landing page explains the tool in that language.
-61. As an audio tester, I want the CLI program's own usage text to stay English, so that scripts and `--help` do not grow a second language.
 62. As a GitHub visitor, I want release notes to stay the English PR titles, so that the release history stays one list.
 
 ## 2. GUI copy
@@ -163,9 +161,9 @@ Chinese GUI copy uses the system Microsoft YaHei face already loaded for the win
 
 Repo guide is the README prose on the GitHub landing page plus the screenshot page that README links to.
 
-`README.md` is English and is the page GitHub opens. `README.zh-CN.md` is the Chinese guide. Each page links to the other near the top. The current Chinese README is the source for the Chinese file. The English file covers the same sections: screenshot, features, download and run, build, GUI use, CLI use, logging, known limits, and development. Do not add `README.en.md`, and do not move either guide under a language subdirectory.
+`README.md` is English and is the page GitHub opens. `README.zh-CN.md` is the Chinese guide. Each page links to the other near the top. The current Chinese README is the source for the Chinese file. The English file covers the same sections: screenshot, features, download and run, build, GUI use, logging, known limits, and development. Do not add `README.en.md`, and do not move either guide under a language subdirectory.
 
-Chinese repo-guide prose keeps glossary terms in English, same as GUI copy. The CLI section of each README is repo guide and follows that page's language. The CLI program's usage text is unchanged.
+Chinese repo-guide prose keeps glossary terms in English, same as GUI copy.
 
 Screenshot pages match the READMEs:
 
@@ -216,7 +214,6 @@ Repo guide is a file-name contract, checked by review of the README links and th
 
 ## 5. 非目标
 
-- CLI usage text and CLI status lines.
 - Core and spdlog runtime lines.
 - Code comments and API identifiers.
 - Channel ident recordings, and any new spoken-language take.

@@ -139,8 +139,7 @@ void init() {
 }
 
 void shutdown() {
-    // Must not throw: called from CLI's LogShutdown destructor (a sink flush
-    // failure must not escape into the destructor path).
+    // Must not throw: sink flush failures must not escape shutdown cleanup.
     try {
         if (g_logger) g_logger->flush();
         spdlog::shutdown();

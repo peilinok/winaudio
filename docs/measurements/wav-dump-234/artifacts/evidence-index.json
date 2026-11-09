@@ -18,13 +18,6 @@
       "artifact_sha256": "5555a5b20dcec8f3a8385819a4c644395c7f9d3562518871695cdda6aed209de"
     },
     {
-      "source": "build-red-close.log",
-      "source_sha256": "22b4d15b18b5e73588e36a65db9dd3acc82f9dd868629237e16f20ef424e7d05",
-      "artifact": "red-01-close-build.txt",
-      "source_encoding": "utf-16",
-      "artifact_sha256": "558bd6c9a271e2338180e065be11768b0dc40b72a4c641f088e824b559e620c9"
-    },
-    {
       "source": "red-close.log",
       "source_sha256": "289fbe2608fe8aa447014b753942de744f21453d3ca5dc3d25711e73bb900095",
       "artifact": "red-01-close.txt",
@@ -128,55 +121,6 @@
       "artifact": "stable-lifecycle-tests.txt",
       "source_encoding": "utf-8-sig",
       "artifact_sha256": "34667a2d9faa5838627551c9ce7baaf62587666102027c93e54fcdf4d13e455f"
-    },
-    {
-      "source": "build-x64-debug.log",
-      "source_sha256": "96a7ffe3a239c216369f451cf369c5ab007dcc36bf35239d17dcdd76eb44a804",
-      "artifact": "build-x64-debug-initial.txt",
-      "source_encoding": "utf-16",
-      "artifact_sha256": "8019cc62ac78ca87661102483ac693f6fd7ec57f758175fe9018561279b4a401"
-    },
-    {
-      "source": "build-x64-release.log",
-      "source_sha256": "b7df9153ee2788905893ca0462c1794a732bbaa46aa8eedab9f609e8c8b2b086",
-      "artifact": "build-x64-release-initial.txt",
-      "source_encoding": "utf-16",
-      "artifact_sha256": "461094a61bf68e685b5c4cc1a51c8a70d125fabb4dede3131988735e7b3ad63b"
-    },
-    {
-      "source": "build-x64-debug-final.log",
-      "source_sha256": "75b19cfa63be6b4c869b219027fa290cf559a222690d1e5bbe46eaafc84f90f0",
-      "artifact": "build-x64-debug.txt",
-      "source_encoding": "utf-16",
-      "artifact_sha256": "2168302093fc728f405339be91a411bbc79723e243501ae8794add9a86d0d2c7"
-    },
-    {
-      "source": "build-x64-release-final.log",
-      "source_sha256": "374766b1a8d594ba7458b4b8b142a2723d15acae74b3721d23df8b2497846eae",
-      "artifact": "build-x64-release.txt",
-      "source_encoding": "utf-16",
-      "artifact_sha256": "3b73bd58ed47cd67023adfea489112296e690bb50e73f9bcfffbe6cdda1ccec9"
-    },
-    {
-      "source": "build-x86-debug.log",
-      "source_sha256": "12b55c6f5fb26bd83d20e6b32bfee4172b84b2078f44b82f9305134d1a0cbfb6",
-      "artifact": "build-x86-debug-initial.txt",
-      "source_encoding": "utf-16",
-      "artifact_sha256": "a4b7af460cbf711cd600e716d5031b57951a1e9cb4c1a7b448793ae3a624ce65"
-    },
-    {
-      "source": "build-x86-debug-final.log",
-      "source_sha256": "7eff94219a1e255326f8e89e61c6910cfa6c69c4fa74218e69945cc19dde7ecd",
-      "artifact": "build-x86-debug.txt",
-      "source_encoding": "utf-16",
-      "artifact_sha256": "e58df1b8a4657679870e128accdae47ac443bc0a9f84f53e1537f65f234a6e4e"
-    },
-    {
-      "source": "build-x86-release.log",
-      "source_sha256": "52bad3e88d782a43b259fc657c1c5c5fadb43d3ae8f0aa429b2f1feb0b1fdcf8",
-      "artifact": "build-x86-release.txt",
-      "source_encoding": "utf-16",
-      "artifact_sha256": "9388e41f477a3bc4d1d4ce7c84b7360fd07373c7bf0651ebfae32f7d6eee889b"
     },
     {
       "source": "configure-x86.log",

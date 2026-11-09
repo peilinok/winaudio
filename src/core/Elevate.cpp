@@ -86,7 +86,7 @@ Result runElevatedAndWait(const std::wstring& exePath, const std::wstring& param
     return Result::Ok();
 }
 
-std::wstring siblingCliPath() {
+std::wstring currentExecutablePath() {
     wchar_t module[MAX_PATH] = {};
     const DWORD n = GetModuleFileNameW(nullptr, module, MAX_PATH);
     if (n == 0 || n >= MAX_PATH) {
@@ -94,18 +94,7 @@ std::wstring siblingCliPath() {
                "err=" + std::to_string(GetLastError()));
         return {};
     }
-    std::wstring path(module, module + n);
-    const auto slash = path.find_last_of(L"\\/");
-    if (slash == std::wstring::npos) return {};
-    path.resize(slash + 1);
-    path += L"WinAudioCli.exe";
-    const DWORD attr = GetFileAttributesW(path.c_str());
-    if (attr == INVALID_FILE_ATTRIBUTES) {
-        WA_LOG(wa::log::Level::Warn, "Elevate", "siblingCliPath",
-               narrowForLog(path), "missing");
-        return {};
-    }
-    return path;
+    return std::wstring(module, module + n);
 }
 
 }  // namespace wa

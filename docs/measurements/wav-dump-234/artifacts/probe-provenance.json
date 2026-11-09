@@ -96,25 +96,11 @@
   },
   "build_logs": [
     {
-      "original": "build-performance-before.log",
-      "original_sha256": "dabf9325f5d139041aff04e11f75cc49fffbb11f8e5eb9f7e69186675a0f7c2d",
-      "original_encoding": "utf-16",
-      "artifact": "probe-build-before.txt",
-      "artifact_sha256": "e14eb0da851316d634decc38d50b7218eaff613cdfa64bfc7f2bb277c208d9eb"
-    },
-    {
       "original": "build-performance-gui-before.log",
       "original_sha256": "354a9a66c7003de22e88c1374d5487be28e36a2247ada37b9e24499eea06879f",
       "original_encoding": "utf-16",
       "artifact": "probe-gui-build-before.txt",
       "artifact_sha256": "a2fb887414b9c75a43af53a6cdb4e93017d0e889030ac03ca9ffedfa0ddf3794"
-    },
-    {
-      "original": "build-performance-after.log",
-      "original_sha256": "a9da05de6200c15eb09a89bdcf88a45126a42b5fb56b3ddb17893ccc2073081b",
-      "original_encoding": "utf-16",
-      "artifact": "probe-build-after.txt",
-      "artifact_sha256": "7887ce360a79b442d842e7ee265755b36a595977e9284973689614196d594033"
     },
     {
       "original": "build-performance-gui-after.log",

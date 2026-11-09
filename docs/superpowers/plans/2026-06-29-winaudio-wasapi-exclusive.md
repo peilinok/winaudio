@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a WASAPI-Exclusive backend (low-latency, explicit format + `IsFormatSupported` probing) to WinAudio, by first refactoring the two WASAPI-Shared backend classes into a `WasapiStream` base + Capture/Render subclasses, then adding the exclusive mode path and wiring it through Engine/CLI/GUI.
+**Goal:** Add a WASAPI-Exclusive backend (low-latency, explicit format + `IsFormatSupported` probing) to WinAudio, by first refactoring the two WASAPI-Shared backend classes into a `WasapiStream` base + Capture/Render subclasses, then adding the exclusive mode path and wiring it through Core/GUI.
 
 **Architecture:** `WasapiStream` (abstract) owns the lifecycle, the synchronous `start()` condition-variable handshake, and the `threadMain` scaffold; direction differs via virtual hooks (`dataFlow`/`createService`/`preRoll`/`runLoop`/`resetService`) in `WasapiCaptureStream`/`WasapiRenderStream`; mode (Shared vs Exclusive) is a branch inside the base `prepareClient()` (format negotiation + Initialize, with the exclusive `AUDCLNT_E_BUFFER_SIZE_NOT_ALIGNED` rebuild-retry). Shared behavior must stay byte-for-byte equivalent to Phase 1.
 
-**Tech Stack:** C++17, MSBuild (x64), MSVC v143, Win32 + WASAPI, gtest. Pure Win32+STL in Core/Cli; ImGui only in Gui.
+**Tech Stack:** C++17, MSBuild (x64), MSVC v143, Win32 + WASAPI, gtest. Pure Win32+STL in Core; ImGui only in Gui.
 
 ## Global Constraints
 
@@ -14,7 +14,7 @@
 - **msbuild is NOT on PATH.** Build with the PowerShell tool (Git-Bash mangles `/p:` flags):
   `& "d:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" WinAudio.sln /p:Configuration=Debug /p:Platform=x64 /m`
   Build the **solution** (`WinAudio.sln`), never a single `.vcxproj` standalone (`$(SolutionDir)`-relative include/reference paths break).
-- WinAudioCore + WinAudioCli: pure **Win32 + STL, zero third-party**. ImGui only in Gui; gtest only in Tests.
+- WinAudioCore: pure **Win32 + STL, zero third-party**. ImGui only in Gui; gtest only in Tests.
 - All Core symbols in namespace `wa`. Core never `printf`/`std::cout`, never throws across its public API; returns `wa::Result`.
 - COM: every WASAPI thread runs its own `ComInitGuard` (`CoInitializeEx(nullptr, COINIT_MULTITHREADED)` paired with `CoUninitialize`); all COM interfaces RAII via `wa::ComPtr`; no raw `Release()`.
 - **Equivalence:** the `WasapiMode::Shared` path must behave identically to Phase 1 (100ms buffer, event-driven, the synchronous-start handshake, the `CreateEventW`/`std::thread` guards, and the `GetBufferSize`/`SetEventHandle`/`Start` HRESULT checks). Existing 14 gtest tests must stay green.
@@ -31,8 +31,6 @@ src/core/
                                    selectSupportedFormat, defaultExclusiveCaptureCandidates
   WasapiStream.h / .cpp      NEW — WasapiStream base + WasapiCaptureStream + WasapiRenderStream
   WasapiShared.h / .cpp      DELETED — replaced by WasapiStream
-  Engine.h / .cpp            MODIFIED — BackendKind::WasapiExclusive, requestedFormat params, probeFormat()
-src/cli/main.cpp             MODIFIED — --backend, --format, probe subcommand
 src/gui/AppUi.h / .cpp       MODIFIED — backend combo (2), format controls, probe button
 src/tests/
   test_formatspec.cpp        NEW — gtest for FormatSpec pure helpers
@@ -213,7 +211,7 @@ git -c commit.gpgsign=false commit -m "feat(core): FormatSpec pure helpers (pars
 **Files:**
 - Create: `src/core/WasapiStream.h`, `src/core/WasapiStream.cpp`
 - Delete: `src/core/WasapiShared.h`, `src/core/WasapiShared.cpp`
-- Modify: `src/core/Engine.cpp` (include + construct new classes), `src/core/WinAudioCore.vcxproj`
+- Modify: `src/core/WinAudioCore.vcxproj`
 
 **Interfaces:**
 - Consumes: `IAudioBackend`, `RingBuffer`, `AudioFormat`, `ComUtil`.
@@ -224,7 +222,7 @@ git -c commit.gpgsign=false commit -m "feat(core): FormatSpec pure helpers (pars
   - `class WasapiRenderStream : public WasapiStream` with `WasapiRenderStream(WasapiMode, const AudioFormat* requested)`.
   - In THIS task the exclusive `prepareClient` branch returns a "not implemented" failure (filled in Task 3). Shared path is fully functional and equivalent to Phase 1.
 
-> No new unit test: this is a behavior-preserving refactor. Verification is the existing 14 tests + clean build + a CLI Shared capture/play smoke confirming runtime parity.
+> No new unit test: this is a behavior-preserving refactor. Verification is the existing 14 tests + clean build + a GUI Shared capture/playback smoke confirming runtime parity.
 
 - [ ] **Step 1: Create `src/core/WasapiStream.h`**
 
@@ -542,9 +540,9 @@ void WasapiRenderStream::runLoop() {
 } // namespace wa
 ```
 
-- [ ] **Step 3: Update `src/core/Engine.cpp` to use the new classes**
+- [ ] **Step 3: 更新后端构造调用点**
 
-Change the include (line 5) `#include "WasapiShared.h"` → `#include "WasapiStream.h"`. In `startCapture` change `backend_ = std::make_unique<WasapiSharedCapture>();` → `backend_ = std::make_unique<WasapiCaptureStream>(WasapiMode::Shared, nullptr);`. In `startPlayback` change `backend_ = std::make_unique<WasapiSharedRender>();` → `backend_ = std::make_unique<WasapiRenderStream>(WasapiMode::Shared, nullptr);`. (Engine's `BackendKind` param is still ignored in this task — Task 4 wires it.)
+由 GUI 共用的 MonitorEngine 和 Track 后端工厂选择 Shared / Exclusive。
 
 - [ ] **Step 4: Update the Core vcxproj and delete WasapiShared**
 
@@ -560,8 +558,6 @@ Expected: all 4 projects build /W4 clean (0 warnings/errors).
 Run:
 ```powershell
 & ".\x64\Debug\WinAudioTests.exe"                         # expect 20 PASSED (14 + 6 FormatSpec)
-& ".\x64\Debug\WinAudioCli.exe" capture --out cap.wav --seconds 3
-& ".\x64\Debug\WinAudioCli.exe" play --in cap.wav
 ```
 Expected: 20 tests pass; capture writes a non-empty `cap.wav` whose header matches the device mix format (float/48000/32-bit on this machine); play runs to completion and exits cleanly — identical to Phase 1 Shared behavior. Do not commit `cap.wav`.
 
@@ -662,354 +658,9 @@ git commit -m "feat(core): WASAPI-Exclusive format negotiation + aligned-buffer 
 
 ---
 
-## Task 4: Engine — BackendKind::WasapiExclusive, requestedFormat, probeFormat()
+## Task 6: GUI
 
-**Files:**
-- Modify: `src/core/Engine.h`, `src/core/Engine.cpp`
-
-**Interfaces:**
-- Consumes: `WasapiStream` (`WasapiMode`, `WasapiCaptureStream`, `WasapiRenderStream`), `ComUtil`.
-- Produces:
-  - `enum class BackendKind { WasapiShared, WasapiExclusive };`
-  - `Result startCapture(BackendKind, const DeviceId&, const std::wstring& wavPath, const AudioFormat* requested = nullptr);`
-  - `Result startPlayback(BackendKind, const DeviceId&, const std::wstring& wavPath, const AudioFormat* requested = nullptr);`
-  - `Result probeFormat(BackendKind, DataFlow, const DeviceId&, const AudioFormat&);`
-
-- [ ] **Step 1: Edit `src/core/Engine.h`**
-
-Change line 14 to:
-```cpp
-enum class BackendKind { WasapiShared, WasapiExclusive };
-```
-Change the two start signatures (lines 36-37) to:
-```cpp
-    Result startCapture(BackendKind kind, const DeviceId& id, const std::wstring& wavPath,
-                        const AudioFormat* requested = nullptr);
-    Result startPlayback(BackendKind kind, const DeviceId& id, const std::wstring& wavPath,
-                         const AudioFormat* requested = nullptr);
-    Result probeFormat(BackendKind kind, DataFlow flow, const DeviceId& id,
-                       const AudioFormat& fmt);
-```
-
-- [ ] **Step 2: Edit `src/core/Engine.cpp` includes + start construction**
-
-Change the include `#include "WasapiShared.h"` (already changed to `WasapiStream.h` in Task 2 — keep it). Add `#include <mmdeviceapi.h>` and `#include <audioclient.h>` after `#include "ComUtil.h"`.
-
-In `startCapture`, replace the signature and the backend construction:
-```cpp
-Result Engine::startCapture(BackendKind kind, const DeviceId& id, const std::wstring& wavPath,
-                            const AudioFormat* requested) {
-    stop();
-    try {
-        ring_ = std::make_unique<RingBuffer>(kRingBytes);
-        WasapiMode mode = (kind == BackendKind::WasapiExclusive) ? WasapiMode::Exclusive
-                                                                 : WasapiMode::Shared;
-        backend_ = std::make_unique<WasapiCaptureStream>(mode, requested);
-        Result r = backend_->open(id, AudioFormat{}, ring_.get());
-        if (!r) return r;
-        r = backend_->start();
-        if (!r) return r;
-        running_.store(true);
-        startTick_ = GetTickCount64();
-        { std::lock_guard<std::mutex> lk(mtx_); status_ = {}; status_.state = EngineState::Capturing; }
-        pump_ = std::thread(&Engine::captureLoop, this, wavPath);
-        return Result::Ok();
-    } catch (const std::exception& e) {
-        stop();
-        std::lock_guard<std::mutex> lk(mtx_);
-        status_.state = EngineState::Error;
-        status_.message = e.what();
-        return Result::Fail(-1, e.what());
-    }
-}
-```
-
-In `startPlayback`, the same treatment:
-```cpp
-Result Engine::startPlayback(BackendKind kind, const DeviceId& id, const std::wstring& wavPath,
-                             const AudioFormat* requested) {
-    stop();
-    try {
-        ring_ = std::make_unique<RingBuffer>(kRingBytes);
-        WasapiMode mode = (kind == BackendKind::WasapiExclusive) ? WasapiMode::Exclusive
-                                                                 : WasapiMode::Shared;
-        backend_ = std::make_unique<WasapiRenderStream>(mode, requested);
-        Result r = backend_->open(id, AudioFormat{}, ring_.get());
-        if (!r) return r;
-        running_.store(true);
-        startTick_ = GetTickCount64();
-        { std::lock_guard<std::mutex> lk(mtx_); status_ = {}; status_.state = EngineState::Playing; }
-        pump_ = std::thread(&Engine::playbackLoop, this, wavPath);
-        return Result::Ok();
-    } catch (const std::exception& e) {
-        stop();
-        std::lock_guard<std::mutex> lk(mtx_);
-        status_.state = EngineState::Error;
-        status_.message = e.what();
-        return Result::Fail(-1, e.what());
-    }
-}
-```
-
-- [ ] **Step 3: Add `Engine::probeFormat` to `src/core/Engine.cpp`**
-
-Add this method (e.g. right after `enumerate`):
-```cpp
-Result Engine::probeFormat(BackendKind kind, DataFlow flow, const DeviceId& id,
-                           const AudioFormat& fmt) {
-    ComInitGuard com;
-    ComPtr<IMMDeviceEnumerator> e;
-    HRESULT hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_ALL,
-            __uuidof(IMMDeviceEnumerator),
-            reinterpret_cast<void**>(e.GetAddressOf()));
-    if (FAILED(hr)) return HrToResult(hr, "probeFormat: CoCreateInstance");
-    ComPtr<IMMDevice> dev;
-    EDataFlow ef = (flow == DataFlow::Capture) ? eCapture : eRender;
-    hr = id.empty() ? e->GetDefaultAudioEndpoint(ef, eConsole, &dev)
-                    : e->GetDevice(id.c_str(), &dev);
-    if (FAILED(hr)) return HrToResult(hr, "probeFormat: GetDevice");
-    ComPtr<IAudioClient> client;
-    hr = dev->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr,
-            reinterpret_cast<void**>(client.GetAddressOf()));
-    if (FAILED(hr)) return HrToResult(hr, "probeFormat: Activate");
-    AUDCLNT_SHAREMODE sm = (kind == BackendKind::WasapiExclusive)
-                               ? AUDCLNT_SHAREMODE_EXCLUSIVE : AUDCLNT_SHAREMODE_SHARED;
-    WAVEFORMATEXTENSIBLE wfx = fmt.toWaveFormatExtensible();
-    WAVEFORMATEX* closest = nullptr;
-    hr = client->IsFormatSupported(sm, reinterpret_cast<WAVEFORMATEX*>(&wfx), &closest);
-    if (closest) CoTaskMemFree(closest);
-    if (hr == S_OK) return Result::Ok();
-    if (hr == S_FALSE) return Result::Fail(1, "format not supported exactly (closest available)");
-    return HrToResult(hr, "probeFormat: not supported");
-}
-```
-
-- [ ] **Step 4: Build + regress**
-
-Run: `& "...MSBuild.exe" WinAudio.sln /p:Configuration=Debug /p:Platform=x64 /m` then `& ".\x64\Debug\WinAudioTests.exe"`
-Expected: /W4 clean; 20 tests PASS. (CLI/GUI still pass `BackendKind::WasapiShared` with the default `requested=nullptr`, so they compile unchanged.)
-
-- [ ] **Step 5: Commit**
-
-```powershell
-git add src/core/Engine.h src/core/Engine.cpp
-git commit -m "feat(core): Engine exclusive backend kind, requested format, probeFormat()"
-```
-
----
-
-## Task 5: CLI — --backend, --format, probe subcommand
-
-**Files:**
-- Modify: `src/cli/main.cpp`
-
-**Interfaces:**
-- Consumes: `Engine::startCapture/startPlayback(..., const AudioFormat*)`, `Engine::probeFormat`, `parseFormatSpec`.
-- Produces: CLI accepts `--backend wasapi-shared|wasapi-exclusive` (default shared), `--format R/B/C[f]`, and a `probe` subcommand.
-
-- [ ] **Step 1: Add helpers + includes to `src/cli/main.cpp`**
-
-After the existing includes add `#include "FormatSpec.h"` and `#include <string>`. Add these helpers after `has(...)`:
-```cpp
-static std::string narrow(const std::wstring& w) {
-    return std::string(w.begin(), w.end()); // format spec is ASCII
-}
-static BackendKind backendArg(int argc, wchar_t** argv) {
-    std::wstring b = arg(argc, argv, L"--backend");
-    return (b == L"wasapi-exclusive") ? BackendKind::WasapiExclusive
-                                      : BackendKind::WasapiShared;
-}
-// Returns true and fills `fmt` if --format present & valid; false if absent; exits(2) if invalid.
-static bool formatArg(int argc, wchar_t** argv, AudioFormat& fmt) {
-    std::wstring f = arg(argc, argv, L"--format");
-    if (f.empty()) return false;
-    if (!parseFormatSpec(narrow(f), fmt)) {
-        std::printf("invalid --format (want R/B/C[f], e.g. 48000/16/2)\n");
-        std::exit(2);
-    }
-    return true;
-}
-```
-
-- [ ] **Step 2: Update `usage()`**
-
-```cpp
-static void usage() {
-    std::printf(
-        "WinAudioCli list  [--render|--capture]\n"
-        "WinAudioCli capture --out <file.wav> [--device <id>] [--seconds N]\n"
-        "                    [--backend wasapi-shared|wasapi-exclusive] [--format 48000/16/2]\n"
-        "WinAudioCli play    --in  <file.wav> [--device <id>]\n"
-        "                    [--backend wasapi-shared|wasapi-exclusive]\n"
-        "WinAudioCli probe   --format 48000/16/2 [--device <id>] [--render|--capture]\n"
-        "                    [--backend wasapi-shared|wasapi-exclusive]\n");
-}
-```
-
-- [ ] **Step 3: Wire backend/format into `capture` and `play`**
-
-In the `capture` block, replace the `startCapture` call:
-```cpp
-        AudioFormat fmt{};
-        bool haveFmt = formatArg(argc, argv, fmt);
-        Result r = eng.startCapture(backendArg(argc, argv), id, out,
-                                    haveFmt ? &fmt : nullptr);
-```
-In the `play` block, replace the `startPlayback` call:
-```cpp
-        AudioFormat fmt{};
-        bool haveFmt = formatArg(argc, argv, fmt);
-        Result r = eng.startPlayback(backendArg(argc, argv), id, in,
-                                     haveFmt ? &fmt : nullptr);
-```
-
-- [ ] **Step 4: Add the `probe` subcommand**
-
-Before the final `usage(); return 1;`, add:
-```cpp
-    if (cmd == L"probe") {
-        AudioFormat fmt{};
-        if (!formatArg(argc, argv, fmt)) { usage(); return 1; }
-        std::wstring id = arg(argc, argv, L"--device");
-        DataFlow flow = has(argc, argv, L"--capture") ? DataFlow::Capture : DataFlow::Render;
-        Result r = eng.probeFormat(backendArg(argc, argv), flow, id, fmt);
-        std::printf("%s: %s\n", r ? "SUPPORTED" : "NOT SUPPORTED", r.message.c_str());
-        return r ? 0 : 1;
-    }
-```
-(`eng` is already declared above the `capture` block; `probe` uses the same `Engine eng;`.)
-
-- [ ] **Step 5: Build**
-
-Run: `& "...MSBuild.exe" WinAudio.sln /p:Configuration=Debug /p:Platform=x64 /m`
-Expected: /W4 clean.
-
-- [ ] **Step 6: Manual CLI verification (real hardware)**
-
-Run:
-```powershell
-& ".\x64\Debug\WinAudioCli.exe" probe --capture --format 48000/16/2 --backend wasapi-exclusive
-& ".\x64\Debug\WinAudioCli.exe" probe --capture --format 99999/16/2 --backend wasapi-exclusive
-& ".\x64\Debug\WinAudioCli.exe" capture --out exc.wav --seconds 3 --backend wasapi-exclusive --format 48000/16/2
-& ".\x64\Debug\WinAudioCli.exe" play --in exc.wav --backend wasapi-exclusive --format 48000/16/2
-& ".\x64\Debug\WinAudioCli.exe" capture --out sh.wav --seconds 2   # Shared still works
-```
-Expected: first probe SUPPORTED (or a sensible NOT SUPPORTED if the device lacks 48k/16/2 exclusive — try 44100/16/2); the bogus rate NOT SUPPORTED; exclusive capture writes `exc.wav` with a **16-bit/48000** header (the requested exclusive format, not the mix format); exclusive play completes; Shared capture unchanged. Do not commit the `.wav` files. If exclusive capture fails with `AUDCLNT_E_DEVICE_IN_USE`, close other apps using the device and retry; report the outcome.
-
-- [ ] **Step 7: Commit**
-
-```powershell
-git add src/cli/main.cpp
-git commit -m "feat(cli): --backend, --format, and probe subcommand"
-```
-
----
-
-## Task 6: GUI — backend combo, format controls, probe button
-
-**Files:**
-- Modify: `src/gui/AppUi.h`, `src/gui/AppUi.cpp`
-
-**Interfaces:**
-- Consumes: `Engine::startCapture/startPlayback(..., const AudioFormat*)`, `Engine::probeFormat`, `BackendKind`.
-- Produces: GUI backend combo has `WASAPI-Shared` + `WASAPI-Exclusive`; when Exclusive is selected, format controls + a "Probe format" button are active and the chosen format is passed to start/probe.
-
-- [ ] **Step 1: Add state fields to `src/gui/AppUi.h`**
-
-Add these private members (alongside the existing ones):
-```cpp
-    int  rateIdx_ = 0;   // index into kRates
-    int  bitsIdx_ = 0;   // index into kBits
-    int  chIdx_ = 1;     // index into kChannels (default 2ch)
-    bool isFloat_ = false;
-```
-
-- [ ] **Step 2: Build the requested-format + backend logic in `src/gui/AppUi.cpp`**
-
-At file scope (after the `utow` helper) add:
-```cpp
-static const int   kRates[] = {44100, 48000, 96000};
-static const char* kRatesS[] = {"44100", "48000", "96000"};
-static const int   kBits[]  = {16, 24, 32};
-static const char* kBitsS[] = {"16", "24", "32"};
-static const int   kChans[] = {1, 2};
-static const char* kChansS[]= {"1", "2"};
-```
-
-- [ ] **Step 3: Render backend combo + format controls in `AppUi::draw`**
-
-Replace the existing backend combo block:
-```cpp
-    const char* backends[] = {"WASAPI-Shared"};
-    ImGui::Combo("Backend", &backendIdx_, backends, 1);
-```
-with:
-```cpp
-    const char* backends[] = {"WASAPI-Shared", "WASAPI-Exclusive"};
-    ImGui::Combo("Backend", &backendIdx_, backends, 2);
-    const bool exclusive = (backendIdx_ == 1);
-```
-Then, right BEFORE the `ImGui::InputText("WAV file", ...)` line, add the format controls + probe button (disabled unless exclusive):
-```cpp
-    if (!exclusive) ImGui::BeginDisabled();
-    ImGui::Combo("Rate", &rateIdx_, kRatesS, IM_ARRAYSIZE(kRatesS)); ImGui::SameLine();
-    ImGui::Combo("Bits", &bitsIdx_, kBitsS, IM_ARRAYSIZE(kBitsS)); ImGui::SameLine();
-    ImGui::Combo("Ch", &chIdx_, kChansS, IM_ARRAYSIZE(kChansS)); ImGui::SameLine();
-    ImGui::Checkbox("float", &isFloat_);
-    if (ImGui::Button("Probe format")) {
-        wa::AudioFormat f{};
-        f.sampleRate = kRates[rateIdx_]; f.bitsPerSample = (uint16_t)kBits[bitsIdx_];
-        f.channels = (uint16_t)kChans[chIdx_]; f.isFloat = isFloat_;
-        wa::DeviceId id = devices_.empty() ? L"" : devices_[deviceIdx_].id;
-        wa::DataFlow flow = (flowIdx_ == 0) ? wa::DataFlow::Capture : wa::DataFlow::Render;
-        wa::Result pr = eng.probeFormat(wa::BackendKind::WasapiExclusive, flow, id, f);
-        logLines_.push_back(std::string("probe ") + (pr ? "SUPPORTED" : "NOT SUPPORTED: " + pr.message));
-    }
-    if (!exclusive) ImGui::EndDisabled();
-```
-
-- [ ] **Step 4: Pass backend + format to Start**
-
-Replace the Start handler body:
-```cpp
-        if (ImGui::Button("Start")) {
-            wa::DeviceId id = devices_.empty() ? L"" : devices_[deviceIdx_].id;
-            std::wstring path = utow(wavPath_);
-            wa::BackendKind kind = exclusive ? wa::BackendKind::WasapiExclusive
-                                             : wa::BackendKind::WasapiShared;
-            wa::AudioFormat f{};
-            f.sampleRate = kRates[rateIdx_]; f.bitsPerSample = (uint16_t)kBits[bitsIdx_];
-            f.channels = (uint16_t)kChans[chIdx_]; f.isFloat = isFloat_;
-            const wa::AudioFormat* req = exclusive ? &f : nullptr;
-            wa::Result r = (flowIdx_ == 0)
-                ? eng.startCapture(kind, id, path, req)
-                : eng.startPlayback(kind, id, path, req);
-            logLines_.push_back(r ? "started" : ("error: " + r.message));
-        }
-```
-
-- [ ] **Step 5: Build**
-
-Run: `& "...MSBuild.exe" WinAudio.sln /p:Configuration=Debug /p:Platform=x64 /m`
-Expected: clean build; `src/gui/*.cpp` warning-clean at /W4 (ImGui TUs remain suppressed).
-
-- [ ] **Step 6: GUI liveness check**
-
-Run:
-```powershell
-$p = Start-Process .\x64\Debug\WinAudioGui.exe -PassThru; Start-Sleep 3
-if(!$p.HasExited){ "started OK"; Stop-Process $p } else { "EXITED code=$($p.ExitCode)" }
-```
-Expected: "started OK". (Full visual check — selecting Exclusive enables Rate/Bits/Ch/float + Probe; Probe logs SUPPORTED/NOT — is part of Task 7's visual acceptance.)
-
-- [ ] **Step 7: Commit**
-
-```powershell
-git add src/gui/AppUi.h src/gui/AppUi.cpp
-git commit -m "feat(gui): backend selector, exclusive format controls, probe button"
-```
-
----
+GUI 格式选择与设备能力弹窗见 [数据格式计划](2026-07-04-winaudio-data-format.md)。
 
 ## Task 7: Docs + full hardware smoke + Release
 
@@ -1022,7 +673,7 @@ git commit -m "feat(gui): backend selector, exclusive format controls, probe but
 
 - [ ] **Step 1: Update `CLAUDE.md`**
 
-In the capability list, change the WASAPI line to note **both** modes: "WASAPI-Shared（共享）与 WASAPI-Exclusive（独占，需 IsFormatSupported 格式探测）". Update the "后续阶段" list to remove WASAPI-Exclusive (now done) — leave waveIn/waveOut and resampling as future. Add the new CLI forms to the run section: `probe`, and `capture/play` with `--backend`/`--format`.
+In the capability list, change the WASAPI line to note **both** modes: "WASAPI-Shared（共享）与 WASAPI-Exclusive（独占，需 IsFormatSupported 格式探测）". Update the "后续阶段" list to remove WASAPI-Exclusive (now done) — leave waveIn/waveOut and resampling as future.
 
 - [ ] **Step 2: Release build (all 4 projects)**
 
@@ -1037,13 +688,6 @@ Expected: 20 tests PASS.
 - [ ] **Step 4: Hardware smoke — Shared regression + Exclusive**
 
 Run:
-```powershell
-& ".\x64\Release\WinAudioCli.exe" capture --out sh.wav --seconds 2                                  # Shared
-& ".\x64\Release\WinAudioCli.exe" play   --in  sh.wav
-& ".\x64\Release\WinAudioCli.exe" probe  --capture --format 48000/16/2 --backend wasapi-exclusive
-& ".\x64\Release\WinAudioCli.exe" capture --out exc.wav --seconds 2 --backend wasapi-exclusive --format 48000/16/2
-& ".\x64\Release\WinAudioCli.exe" play   --in  exc.wav --backend wasapi-exclusive --format 48000/16/2
-```
 Expected: Shared capture writes mix-format wav and plays (Phase 1 parity); probe reports support; exclusive capture writes a **16-bit/48000** wav and exclusive play completes. Record the outcomes (and any `AUDCLNT_E_DEVICE_IN_USE`). Do not commit `.wav` files.
 
 - [ ] **Step 5: Commit**
@@ -1063,15 +707,13 @@ git commit -m "docs: CLAUDE.md WASAPI-Exclusive; Phase 2 complete"
 - Occupied/unsupported errors normalized — Task 3 (HrToResult on Initialize/IsFormatSupported). ✅
 - WasapiStream base + Capture/Render subclasses; Shared equivalence — Task 2 (+ regression Step 6). ✅
 - Format fallback list (capture, exclusive, no explicit format) — Task 1 `defaultExclusiveCaptureCandidates` + Task 3. ✅
-- Engine BackendKind::WasapiExclusive + requestedFormat + probeFormat — Task 4. ✅
-- CLI --backend/--format/probe — Task 5. ✅
 - GUI backend combo + format controls + probe button — Task 6. ✅
-- Tests: aligned duration, format fallback selection, --format parse — Task 1. ✅
-- Shared regression (14 → 20 gtest + CLI/GUI smoke) — Tasks 2, 4, 7. ✅
+- Tests: aligned duration, format fallback selection, format parsing — Task 1. ✅
+- Shared regression (14 → 20 gtest + GUI smoke) — Tasks 2, 4, 7. ✅
 - Docs — Task 7. ✅
 
 **Out of scope (later phases, per spec §7):** waveIn/waveOut; latency/glitch numeric measurement; loopback signal compare; full format-probe UI panel (only the probe button entry here); resampling.
 
-**Type consistency:** `WasapiMode`, `WasapiStream`/`WasapiCaptureStream`/`WasapiRenderStream` ctor `(WasapiMode, const AudioFormat*)`; `BackendKind::{WasapiShared,WasapiExclusive}`; `Engine::startCapture/startPlayback(..., const AudioFormat* requested=nullptr)`; `Engine::probeFormat(BackendKind, DataFlow, const DeviceId&, const AudioFormat&)`; `parseFormatSpec(const std::string&, AudioFormat&)`; `alignedBufferDuration100ns(uint32_t,uint32_t)`; `selectSupportedFormat(vector, function)`; `defaultExclusiveCaptureCandidates()` — used consistently across Tasks 1–6. `Result::Fail(long,std::string)` everywhere (no `Result::Error`). Protected members (`ring_`, `actualFormat_`, `bufferFrames_`, `frameBytes_`, `running_`, `hEvent_`, `client_`) are accessed by subclass `runLoop`/`preRoll`/`createService`. ✅
+**Type consistency:** `WasapiMode`, `WasapiStream`/`WasapiCaptureStream`/`WasapiRenderStream` ctor `(WasapiMode, const AudioFormat*)`; `BackendKind::{WasapiShared,WasapiExclusive}`; `parseFormatSpec(const std::string&, AudioFormat&)`; `alignedBufferDuration100ns(uint32_t,uint32_t)`; `selectSupportedFormat(vector, function)`; `defaultExclusiveCaptureCandidates()` — used consistently across Tasks 1–6. `Result::Fail(long,std::string)` everywhere (no `Result::Error`). Protected members (`ring_`, `actualFormat_`, `bufferFrames_`, `frameBytes_`, `running_`, `hEvent_`, `client_`) are accessed by subclass `runLoop`/`preRoll`/`createService`. ✅
 
-**Equivalence risk (Shared):** Task 2 keeps the 100ms buffer, event flags, the synchronous-start handshake, and the HRESULT guards verbatim in the base scaffold; regression Step 6 (20 tests + Shared CLI capture/play with correct mix-format header) is the gate before exclusive code lands.
+**Equivalence risk (Shared):** Task 2 keeps the 100ms buffer, event flags, the synchronous-start handshake, and the HRESULT guards verbatim in the base scaffold; regression Step 6 (20 tests + Shared GUI capture/playback) is the gate before exclusive code lands.

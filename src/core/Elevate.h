@@ -12,9 +12,8 @@ bool processIsElevated();
 Result runElevatedAndWait(const std::wstring& exePath, const std::wstring& params,
                           unsigned long* exitCodeOut = nullptr);
 
-// Absolute path of WinAudioCli.exe beside the current module (GUI or CLI).
-// Empty when GetModuleFileName fails or the sibling is missing.
-std::wstring siblingCliPath();
+// Absolute path of the current executable. Empty when GetModuleFileName fails.
+std::wstring currentExecutablePath();
 
 // True when Result carries E_ACCESSDENIED / ERROR_ACCESS_DENIED.
 bool resultIsAccessDenied(const Result& r);

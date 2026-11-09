@@ -21,18 +21,18 @@ WinAudio 是一个小巧的 Windows 音频测试工具，用于用多种音频�
 
 - 语言/构建：**C++ + MSBuild**，Visual Studio 解决方案（`.sln`）+ 工程
   （`.vcxproj`），MSVC 工具链，**x64**。
-- **WinAudioCore / WinAudioCli**：纯 **Win32 + STL，零第三方依赖**
-  （WAV 读写、CLI 解析、日志、单测断言全部自写）。
+- **WinAudioCore**：纯 **Win32 + STL，零第三方依赖**
+  （WAV 读写、日志、单测断言全部自写）。
 - **WinAudioGui**：破例引入 **Dear ImGui**（渲染后端 `imgui_impl_win32` +
   `imgui_impl_dx11`，DX11 属 Windows SDK）。
 - 第三方依赖**仅出现在 GUI 前端（Dear ImGui）与测试工程（gtest）**；
-  WinAudioCore 与 WinAudioCli 保持纯 Win32 + STL 零依赖。
-- 前端定位：**GUI(Dear ImGui) 为主**，CLI 最小化（调试/脚本入口）。
+  WinAudioCore 保持纯 Win32 + STL 零依赖。
+- 前端定位：**GUI(Dear ImGui)**。
 
 ## 3. 首批范围（MVP）与分阶段
 
 - **MVP**：WinAudioCore + GUI 完成 **设备枚举/查询 + 单后端采集落盘 wav +
-  从 wav 播放**，并把多后端抽象层与前端骨架立好。CLI 保留最小调试入口。
+  从 wav 播放**，并把多后端抽象层与前端骨架立好。
 - **后续阶段**（在同一 Core 上叠加，不返工）：
   - 阶段 2：补齐全部 4 后端（waveIn/waveOut + WASAPI 共享/独占）采集播放。
   - 阶段 3：延迟/性能测量（基于 RingBuffer 计数 + 时间戳）。
@@ -41,27 +41,7 @@ WinAudio 是一个小巧的 Windows 音频测试工具，用于用多种音频�
 
 ## 4. 顶层架构
 
-核心做成 UI 无关的静态库，CLI 与 GUI 是它的两个前端，共享同一套后端与测量逻辑。
-
-```
-   WinAudioCore (.lib)   ← Engine + 4后端 + RingBuffer + DeviceEnumerator
-        ▲          ▲        + AudioFormat + Wav I/O（纯 Win32+STL，零依赖）
-        │ link     │ link
-   WinAudioCli.exe   WinAudioGui.exe (Dear ImGui + DX11，仅此前端含第三方)
-```
-
-分层（方案 C：后端自持线程 + 无锁 SPSC 环形缓冲解耦）：
-
-```
-   CLI 层 / GUI 层      参数解析或 ImGui 界面 / 日志或界面刷新
-        │ 组装并驱动（仅通过 Engine 接口，不进音频线程）
-   编排层 Engine        采集: backend → ring → WavWriter
-                       播放: WavReader → ring → backend
-        │
-   后端层(各自持线程)   WasapiCapture/Render  WaveInCapture/WaveOutRender
-        │  ←→ RingBuffer(SPSC 无锁, 带 xrun 计数) ←→ Engine
-   设备层               DeviceEnumerator(IMMDevice…)  AudioFormat(WAVEFORMATEX 封装)
-```
+GUI 链接 UI 无关的 WinAudioCore。MonitorEngine 编排双流监听，CaptureTrackList / RenderTrackList 管理独立 Track；设备枚举、格式协商、WASAPI 后端、WAV 与 RingBuffer 由 Core 提供。
 
 ### 选型理由（为什么是方案 C）
 
@@ -81,7 +61,7 @@ B 阻塞读写式——把"推"硬包成阻塞读写，等于藏了个 ring buff
 - **AudioFormat**：统一 PCM 格式描述，与 `WAVEFORMATEX`/`WAVEFORMATEXTENSIBLE`
   互转。被所有层共用，不依赖任何后端。
 - **RingBuffer**：单生产者单消费者无锁环形字节缓冲，含 over/underrun 计数。
-  后端与 Engine 之间唯一数据通道。纯逻辑、不碰音频 API。
+  后端与 Track/Monitor 之间唯一数据通道。纯逻辑、不碰音频 API。
 - **DeviceEnumerator**：基于 `IMMDeviceEnumerator` 枚举设备、查默认端点、
   查混音格式/端点属性。仅查询，不持流。
 - **后端实现（4 个，互不依赖，各自内部持 I/O 线程）**：
@@ -90,10 +70,7 @@ B 阻塞读写式——把"推"硬包成阻塞读写，等于藏了个 ring buff
   `open/start/stop/close` + 一个 RingBuffer 端点 + `stats()`。
 - **WavReader/WavWriter**：`.wav`（RIFF/PCM）读写，被采集落盘与播放读取复用，
   不依赖后端。
-- **Engine**：编排——按选择实例化设备/后端/数据源汇，连上 ring buffer，跑
-  采集或播放流程，收集计数与电平。**不 print、不碰 UI。**
-- **CLI / GUI**：把同一套 Engine 调用分别包成命令行 + 定时 `poll()` 打印 /
-  ImGui 界面 + 每帧 `poll()` 刷新。两前端不实现彼此没有的逻辑，保证行为一致。
+- **GUI**：驱动 Monitor 与各 Track，按帧读取状态和 Scope tap；不在音频线程内绘制界面。
 
 ## 6. 核心接口
 
@@ -108,7 +85,7 @@ struct AudioFormat {
 
 class RingBuffer {                                   // SPSC 无锁, 按 frame 对齐
     size_t   write(const void* data, size_t bytes);  // 生产者(后端采集线程)
-    size_t   read(void* out, size_t bytes);          // 消费者(Engine 线程)
+    size_t   read(void* out, size_t bytes);          // 消费者(编排线程)
     uint64_t overruns()  const;                      // 写满丢弃 → glitch 指标
     uint64_t underruns() const;                      // 读空计数
 };
@@ -121,70 +98,22 @@ class IAudioBackend {                                // 4 实现各自内部持 
     virtual BackendStats stats() const = 0;  // 实际格式、缓冲帧数、xrun
 };
 
-class Engine {                                       // UI 无关, GUI 与 CLI 共用
-    std::vector<DeviceInfo> enumerate(DataFlow);
-    bool startCapture(sel, fmt, wavPath);            // backend→ring→WavWriter
-    bool startPlayback(sel, wavPath);                // WavReader→ring→backend
-    void stop();
-    EngineStatus poll() const;   // 状态机 + 实时电平(RMS/峰值) + xrun 计数
-};
 ```
 
-## 7. 数据流
+## 7. 数据流与 GUI
 
-- **采集**：`Backend(采集线程) → RingBuffer → Engine(消费线程) → WavWriter`，
-  Engine 顺带算 RMS/峰值供电平条。
-- **播放**：`WavReader → Engine(喂数据线程) → RingBuffer → Backend(渲染线程)`。
-- **UI 解耦**：UI 线程永不进音频线程，只通过 `Engine::poll()` 读快照。这是
-  GUI 实时刷新与音频实时性互不阻塞的关键。
-
-## 8. GUI 布局（Dear ImGui + DX11，单窗口，每帧 poll 刷新）
-
-```
-┌─ WinAudio ───────────────────────────────────────────────┐
-│ [后端 ▼ WASAPI-Shared | WASAPI-Excl | waveIn/Out ]        │
-│ [数据流 ◉ 采集  ○ 播放 ]                                   │
-├───────────────────────────────────────────────────────────┤
-│ 设备列表 (来自 Engine::enumerate)        [刷新设备]        │
-├───────────────────────────────────────────────────────────┤
-│ 格式: [48000▼]Hz [16▼]bit [2▼]ch □float                   │
-│   独占模式: [探测此格式是否支持] (IsFormatSupported)        │
-│ WAV 文件: [ … path … ] [浏览]                             │
-├───────────────────────────────────────────────────────────┤
-│ [▶ 开始] [■ 停止]   状态: ● Running 00:03                  │
-│ 电平 L ▓▓▓▓▓▓░░░░  R ▓▓▓▓▓░░░░░   (RMS/峰值)               │
-│ 计数: overrun 0  underrun 0  实际格式 48k/16/2             │
-├───────────────────────────────────────────────────────────┤
-│ 日志窗格 (复用 Core 状态/错误消息)                         │
-└───────────────────────────────────────────────────────────┘
-```
-
-- 控件状态映射到一次启动配置（后端+数据流+设备+格式+wav 路径）；「开始」即调
-  `startCapture/startPlayback`。
-- 电平条、计时、xrun、实际格式全部来自 `Engine::poll()` 快照。
-- 「探测格式」按钮调设备层 `IsFormatSupported`（阶段 4 入口）。
-
-## 9. 最小 CLI
-
-```
-WinAudioCli list [--render|--capture]
-WinAudioCli capture --backend wasapi-shared --device <id> \
-                    --format 48000/16/2 --out cap.wav [--seconds N]
-WinAudioCli play    --backend wasapi-shared --device <id> --in cap.wav
-```
-
-CLI 只把同一套 Engine 调用包成命令行 + 定时 `poll()` 打印，不实现 GUI 没有的逻辑。
+采集由后端经 RingBuffer 进入 Monitor 或 Capture Track，可选地写入 WAV；Monitor 经 DelayFifo 将数据送至 render。GUI 只读取状态快照与 Scope tap。当前 GUI 布局见 [监听重构设计](2026-07-02-winaudio-gui-monitor-redesign-design.md)。
 
 ## 10. 错误处理
 
 - **错误传递**：Core 不抛异常穿透 UI、不自己 print。操作返回 `bool` +
-  结构化 `Result{ ok, code, message }`；UI 层负责呈现（GUI 日志窗格 / CLI stderr）。
+  结构化 `Result{ ok, code, message }`；UI 层负责呈现（GUI 日志窗格）。
 - **HRESULT 归一**：WASAPI/COM 的 `HRESULT` 在后端内部转统一错误码 + 可读消息
   （含 `AUDCLNT_E_*` 常见项：设备被独占、格式不支持、
   `AUDCLNT_E_DEVICE_INVALIDATED` 设备拔出）。
 - **COM 生命周期**：每个 WASAPI 后端线程自行 `CoInitializeEx(COINIT_MULTITHREADED)`
   并配对 `CoUninitialize`；COM 接口一律 RAII 智能指针包裹，禁止裸 `Release`。
-- **设备失效/拔出**：途中失效 → 后端线程检测后置 Engine 状态 `Error` 并停流；
+- **设备失效/拔出**：途中失效 → 后端线程检测后置 Track 状态 `Error` 并停流；
   GUI 弹日志、按钮回到可重启状态，不崩。
 - **xrun 不致命**：over/underrun 只计数、继续跑（这是要观测的测试指标）。
 - **格式协商失败**：共享模式取设备混音格式；独占模式 `IsFormatSupported` 失败时
@@ -200,14 +129,13 @@ CLI 只把同一套 Engine 调用包成命令行 + 定时 `poll()` 打印，不�
   端点 loopback 比对）。依赖真实声卡，归手动/集成测试。
 - **测试框架**：**gtest**，`WinAudioTests.exe` 工程链接 gtest 并聚合运行。
   gtest 源码 vendored 于 `third_party/googletest/`，**仅 `WinAudioTests` 工程引用**；
-  Core/Cli 仍保持纯 Win32+STL 零依赖。
+  Core 仍保持纯 Win32+STL 零依赖。
 
 ## 12. 工程结构（目标）
 
 ```
 WinAudio.sln
   WinAudioCore.vcxproj    静态库, 纯 Win32+STL
-  WinAudioCli.vcxproj     控制台 exe, 链接 Core
   WinAudioGui.vcxproj     窗口 exe, 链接 Core + Dear ImGui + DX11
   WinAudioTests.vcxproj   控制台 exe, gtest, 链接 Core
   third_party/imgui/      Dear ImGui 源码(仅 GUI 工程引用)

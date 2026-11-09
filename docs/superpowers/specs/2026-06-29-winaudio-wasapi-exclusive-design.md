@@ -67,18 +67,10 @@ WasapiRenderStream : WasapiStream
 
 ## 5. 接入改动
 
-- **Engine**（`src/core/Engine.h/.cpp`）
-  - `enum class BackendKind { WasapiShared, WasapiExclusive };`
-  - `startCapture(BackendKind, const DeviceId&, const std::wstring& wavPath, const AudioFormat* requested = nullptr)`；`startPlayback` 同加可选 requested（Shared 忽略）。
-  - 按 kind+mode 构造 `WasapiCaptureStream`/`WasapiRenderStream`。
-  - 新增 `Result probeFormat(BackendKind, DataFlow, const DeviceId&, const AudioFormat&)`：薄封装 `IAudioClient::IsFormatSupported`，供 CLI/GUI 的「探测格式」用（独占模式）。
-- **CLI**（`src/cli/main.cpp`）
-  - `--backend wasapi-shared|wasapi-exclusive`（默认 shared）。
-  - `--format <rate>/<bits>/<ch>[f]`（如 `48000/16/2` 或 `48000/32/2f`）传给 capture/play。
-  - 新增 `probe --backend wasapi-exclusive --device <id> --format 48000/16/2 [--render|--capture]` 子命令，打印是否支持。
+- `BackendKind` 在 `IAudioBackend.h` 定义，Monitor 与 Track 工厂按 Shared / Exclusive 选择后端。格式能力由 DeviceEnumerator 查询。
 - **GUI**（`src/gui/AppUi.cpp`）
   - 后端下拉框：`WASAPI-Shared`、`WASAPI-Exclusive`。
-  - 选 Exclusive 时启用格式控件（采样率/位深/声道下拉 + float 勾选）与「探测此格式是否支持」按钮（调 `Engine::probeFormat`，结果进日志窗格）。
+  - 选 Exclusive 时启用格式控件（采样率/位深/声道下拉 + float 勾选）与「探测此格式是否支持」按钮（查询设备格式能力，结果进日志窗格）。
   - Shared 时格式控件禁用（沿用设备混音格式）。
 
 ## 6. 测试策略
@@ -86,11 +78,11 @@ WasapiRenderStream : WasapiStream
 - **纯逻辑 gtest**（不碰设备）：
   - 对齐 duration 计算：给定 sampleRate + alignedFrames，验证 `hnsPeriodicity` 公式与取整。
   - 格式回退列表选择：给定一个「支持判定」桩函数，验证按序返回第一个命中 / 全不命中报错。
-  - 格式字符串解析（CLI `--format`）：`48000/16/2`、`48000/32/2f`、非法输入。
+  - GUI 自定义格式字符串解析：`48000/16/2`、`48000/32/2f`、非法输入。
 - **设备/集成（硬件手动）**：
   - `probe` 对默认设备的常见格式应返回支持；对明显非法格式返回不支持。
   - Exclusive 采集写 wav（wav 头格式 == 协商格式）；Exclusive 播放该 wav。
-  - **Shared 回归**：现有 14 个 gtest 全过；CLI/GUI 的 Shared 采集/播放冒烟与 Phase 1 行为一致（含正确的 wav 头格式）。
+  - **Shared 回归**：现有 14 个 gtest 全过；GUI 的 Shared 采集/播放冒烟与 Phase 1 行为一致（含正确的 wav 头格式）。
 
 ## 7. 范围与非目标
 
