@@ -282,9 +282,9 @@ Inspector 首轮十分钟浏览得到 594 个预热后进程样本，实际跨�
 
 ### 最终构建、测试与交付边界
 
-正式采样结束后完成 Release／Debug 的 GUI、性能 GUI、测试目标构建，日志为 gui-boundary-release-build.log、gui-boundary-debug-build.log。受控夹具接线的 Store／Export／Attach／FrameProbe 回归为 38／38。全部 GUI 和自有音频目标退出后，再串行运行最终完整 CTest：Release 592／593，Debug 592／593；唯一失败仍为已在起点复现的 AudioEffects.SetHardwareSkipsIfUnavailable，相关文件未改。Python 汇总八项通过。最终输出为 ctest-release-completion.log、ctest-debug-completion.log 和 python-completion.log，均随 GUI artifacts 归档。
+正式采样结束后完成 Release／Debug 的 GUI、性能 GUI、测试目标构建，日志为 gui-boundary-release-build.log、gui-boundary-debug-build.log。受控夹具接线的 Store／Export／Attach／FrameProbe 回归为 38／38。全部 GUI 和自有音频目标退出后，再串行运行最终完整 CTest：Release 592／593，Debug 592／593；唯一失败仍为已在起点复现的 AudioEffects.SetHardwareSkipsIfUnavailable，相关文件未改。Python 汇总八项通过。当前 GUI artifacts 保留 ctest-debug-completion.log 和 python-completion.log；Release 的汇总结果仍见本段。
 
-正式后测归档含独立 manifest；手工 GUI、真实导出、红绿回归、完整构建／测试和分析脚本共 111 份附件另见 gui-checks/artifacts/manifest.json。每份 gzip 都实际解压核对内容 SHA256，源字节保持。代码与规格的最终复核独立报告，不把测试通过等同于实机行为或发布完成。
+正式后测归档含独立 manifest；手工 GUI、真实导出、红绿回归、完整构建／测试和分析脚本现保留 110 份附件另见 gui-checks/artifacts/manifest.json。每份 gzip 都实际解压核对内容 SHA256，源字节保持。代码与规格的最终复核独立报告，不把测试通过等同于实机行为或发布完成。
 
 本轮全部十二张实施票的本地工作完成，代码提交到当前 main；不推送、不发布、不修改远端票状态。远端 Windows2022／VS2022 CI 未运行；本机完整测试存在上述既有硬件失败，不能称 CI 全绿或已具备合并证明。用户原有 .archify／_shots／shots 保留。
 
@@ -294,4 +294,4 @@ Standards（规范轴）：零项未关闭硬规范问题，零项需处理的�
 
 Spec（规格轴）：零项未闭合发现。逐票本地交付、性能预算、真实 GUI、确定性边界与证据分别满足规格；保留未归因尾部、受控 writer、预生成参数、既有硬件失败及远端 CI 限制。两轴均只读复核，没有替代实施方实测或重新执行负载。
 
-实施方最终核对四份 manifest 共 281 条记录：源文件 SHA256、归档 SHA256 和逐份实际解压后的内容 SHA256 全部匹配；无清单之外的 gzip。316 个任务文件的暂存内容与工作区一致，文本仅应用登记的换行规则；本地 Markdown 链接和 git diff --cached --check 通过。核验输出保留于 build/performance-vs18/audit-completion.log。
+实施方当时核对四份 manifest 共 281 条记录：源文件 SHA256、归档 SHA256 和逐份实际解压后的内容 SHA256 全部匹配；无清单之外的 gzip。316 个任务文件的暂存内容与工作区一致，文本仅应用登记的换行规则；本地 Markdown 链接和 git diff --cached --check 通过。核验输出保留于 build/performance-vs18/audit-completion.log。

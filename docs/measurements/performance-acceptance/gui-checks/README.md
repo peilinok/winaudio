@@ -64,7 +64,7 @@ Explorer 自动定位该导出文件时弹出“位置不可用”，但目录�
 
 ## 原始归档与完整性
 
-[artifacts/manifest.json](artifacts/manifest.json) 登记 111 份手工 GUI、真实 JSONL、构建／红绿／最终测试及分析脚本的源 SHA256、压缩前内容 SHA256、gzip SHA256 和字节数。每份 gzip 均实际解压散列核验；不改原始日志编码。正式性能目录的 manifest 独立维护。
+[artifacts/manifest.json](artifacts/manifest.json) 登记 110 份手工 GUI、真实 JSONL、构建／红绿／最终测试及分析脚本的源 SHA256、压缩前内容 SHA256、gzip SHA256 和字节数。每份 gzip 均实际解压散列核验；不改原始日志编码。正式性能目录的 manifest 独立维护。
 
 [artifacts/integrity.json](artifacts/integrity.json) 按运行头登记帧连续性、结束标记与丢失计数。`gui-wait-idle` 起初误以 Hidden 启动，未导出就结束了该窗口，首段仅 1364 帧且尾行截断；下一次运行头因此附在截断行尾。原始字节保留，明确分为不完整诊断段和最终 4481 帧正常结束段，不合并为连续运行。其余八份行为日志均正常结束、帧号连续，四种 lost 计数及末尾 pending 均为 0。行为轮次没有独立进程采样，且可能同时运行信号窗口／读取证据，全部不作正式预算样本。
 
