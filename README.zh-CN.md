@@ -104,7 +104,7 @@ cd winaudio
 ## 日志
 
 - 级别：`Info`（默认，流生命周期：open/close/start/stop、选中设备、最终格式）；`Debug`（所有控制路径调用的参数 + 返回值，HRESULT 译成符号名，如 `AUDCLNT_E_DEVICE_INVALIDATED`）；`Trace`（音频热路径逐帧，诊断用，开启时可能对被测音频有轻微扰动）。
-- GUI：左栏日志面板（运行时切级别）+ 运行目录 `winaudio.log`（轮转文件）。
+- GUI：左栏日志面板（运行时切级别）+ 当前工作目录 `winaudio.log`（轮转文件）。文件打不开时，GUI 继续运行并在日志面板提示原因，不改写到其他目录。内部提权操作的 `winaudio-elevation.log` 同样写在当前工作目录，文件打不开也不影响操作执行。
 
 ## 已知限制
 

@@ -164,8 +164,13 @@ bool shouldLog(Level lvl) {
     return g_logger && g_logger->should_log(toSpd(lvl));
 }
 
-void addFileSink(const std::string& path, size_t maxBytes, size_t maxFiles) {
-    pushSink(std::make_shared<spdlog::sinks::rotating_file_sink_mt>(path, maxBytes, maxFiles));
+Result addFileSink(const std::string& path, size_t maxBytes, size_t maxFiles) {
+    try {
+        pushSink(std::make_shared<spdlog::sinks::rotating_file_sink_mt>(path, maxBytes, maxFiles));
+        return Result::Ok();
+    } catch (const spdlog::spdlog_ex& e) {
+        return Result::Fail(E_FAIL, e.what());
+    }
 }
 
 void addStderrSink() {

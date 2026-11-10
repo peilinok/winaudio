@@ -114,7 +114,7 @@ CSV 继续保留前十列 `timeMs,pid,iface,method,args,hr,hresult,streamId,pump
 ## Logging
 
 - Levels: `Info` (default; stream lifetime: open/close/start/stop, the selected device, and the final format); `Debug` (parameters and return values on the control path, with HRESULT names such as `AUDCLNT_E_DEVICE_INVALIDATED`); `Trace` (per buffer on the audio thread; for diagnosis, and it can slightly disturb the audio under test).
-- GUI: the log panel (level can change while running) plus `winaudio.log` in the working directory (rotating file).
+- GUI: the log panel (level can change while running) plus `winaudio.log` in the working directory (rotating file). If the log file cannot be opened, the GUI continues running and reports the reason in the log panel; no alternate log directory is used. The internal elevation operation also continues if its working-directory `winaudio-elevation.log` cannot be opened.
 
 ## Known limits
 
