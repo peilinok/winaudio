@@ -2,7 +2,21 @@
 
 [English](gui-screenshots.md)
 
-这些截图来自 WinAudio GUI 的真实运行状态，用于展示主要工作模式下的波形、声谱图、状态与日志区域。
+## 可调整的工作区（2026-11-09）
+
+以下截图来自 `6bd655a` 构建版本的桌面验收。Monitor 处于空闲状态，两条 Render 轨道均已暂停；Loopback 正在采集八声道 CABLE 虚拟端点，图表选择 Ch 2。
+
+![Monitor 双流适屏布局](images/gui-workspace-monitor.zh-CN.png)
+
+![两条暂停的 Render 轨道并排比较](images/gui-workspace-render-compare.zh-CN.png)
+
+![系统 Loopback 选择 Ch 2](images/gui-workspace-loopback-ch2.zh-CN.png)
+
+Pipeline 使用可选测试程序生成的 10,000 条调用记录，分属两个模拟 PID。管线图选择 PID 42001，调用记录选择 PID 42002，展示两者可独立选择；这张截图不代表真实应用的接入结果或性能测量结果。
+
+![Pipeline 合成数据及独立选择](images/gui-workspace-pipeline-synthetic.zh-CN.png)
+
+下方为此前版本的界面截图。
 
 ## Monitor
 

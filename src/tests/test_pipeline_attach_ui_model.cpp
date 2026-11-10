@@ -115,6 +115,30 @@ TEST(PipelineAttachUiModel, SessionHintOnlyWhenSelectedPidMatches) {
     EXPECT_FALSE(pipeline_attach_ui::sessionHintForPid(rows, -1, 4242u, deviceId, flow, key));
 }
 
+TEST(PipelineAttachUiModel, ProcessClickSelectsOnlyItsUniqueLiveSession) {
+    std::vector<LiveSessionView> rows(3);
+    rows[0].processId = 7;
+    rows[1].processId = 42;
+    rows[2].processId = 7;
+    EXPECT_EQ(pipeline_attach_ui::uniqueSessionForPid(rows, 42), 1);
+    EXPECT_EQ(pipeline_attach_ui::uniqueSessionForPid(rows, 7), -1);
+    EXPECT_EQ(pipeline_attach_ui::uniqueSessionForPid(rows, 99), -1);
+    EXPECT_EQ(pipeline_attach_ui::uniqueSessionForPid(rows, 0), -1);
+    EXPECT_EQ(pipeline_attach_ui::uniqueSessionForPid({}, 42), -1);
+}
+
+TEST(PipelineAttachUiModel, ProcessWithMultipleDevicesOrFlowsRequiresAnExplicitSession) {
+    std::vector<LiveSessionView> rows(2);
+    for (auto& row : rows) row.processId = 42;
+    rows[0].deviceId = "render";
+    rows[0].flow = PipelineFlow::Render;
+    rows[1].deviceId = "capture";
+    rows[1].flow = PipelineFlow::Capture;
+    EXPECT_EQ(pipeline_attach_ui::uniqueSessionForPid(rows, 42), -1);
+    rows[1].flow = PipelineFlow::Render;
+    EXPECT_EQ(pipeline_attach_ui::uniqueSessionForPid(rows, 42), -1);
+}
+
 TEST(PipelineAttachUiModel, FormatAttachedPidsAndDetachGates) {
     EXPECT_EQ(pipeline_attach_ui::formatAttachedPids({}), "");
     EXPECT_EQ(pipeline_attach_ui::formatAttachedPids({3u, 10u}), "3, 10");

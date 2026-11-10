@@ -219,6 +219,18 @@ inline PipelineAttachUiState hookStatusForRow(
     return PipelineAttachUiState::Detached;
 }
 
+// Auto-select only an unambiguous live session; several devices/flows need a choice.
+inline int uniqueSessionForPid(const std::vector<LiveSessionView>& rows, uint32_t pid) {
+    if (!pid) return -1;
+    int selected = -1;
+    for (size_t i = 0; i < rows.size(); ++i) {
+        if (rows[i].processId != pid) continue;
+        if (selected >= 0) return -1;
+        selected = static_cast<int>(i);
+    }
+    return selected;
+}
+
 // Prefer deviceId/flow from a selected Live session that shares the attach PID.
 inline bool sessionHintForPid(const std::vector<LiveSessionView>& rows, int selected,
                               uint32_t pid, std::string& deviceIdOut, PipelineFlow& flowOut,

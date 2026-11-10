@@ -15,6 +15,7 @@
 #include "PerformanceFixture.h"
 #endif
 #include "GuiGpu.h"
+#include "GuiFont.h"
 #include "Log.h"
 #include "imgui.h"
 #include "implot.h"
@@ -181,7 +182,7 @@ int main(int, char**)
     const bool yaHeiPresent = std::filesystem::exists(kYaHeiPath, yaHeiEc) && !yaHeiEc;
     if (!yaHeiPresent ||
         !io.Fonts->AddFontFromFileTTF(kYaHeiPath, 18.0f, nullptr,
-                                     io.Fonts->GetGlyphRangesChineseSimplifiedCommon())) {
+                                     wa::gui_font::ranges())) {
         io.Fonts->AddFontDefault();
         WA_LOG(wa::log::Level::Warn, "GuiFont", "AddFontFromFileTTF", kYaHeiPath,
                yaHeiPresent ? "failed" : "missing");

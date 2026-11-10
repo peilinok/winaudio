@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include "LogRegionPrefs.h"
+#include "LogView.h"
 
 #include <filesystem>
 #include <fstream>
@@ -101,4 +102,19 @@ TEST(LogRegionPrefs, RoundTripCollapsedAndExpanded) {
 TEST(LogRegionPrefs, SaveToDirectoryPathReportsFailure) {
     const fs::path dir = makeCaseDir();
     EXPECT_FALSE(wa::log_region_prefs::save(dir, true));
+}
+
+TEST(LogView, DisplayFilterDoesNotMistakePayloadForSeverity) {
+    EXPECT_EQ(wa::log_view::severity("19:02:28.625 [W] [main] event"), 3);
+    EXPECT_EQ(wa::log_view::severity("event payload [E]"), -1);
+    EXPECT_EQ(wa::log_view::severity("19:02:28.625 [I] [main] payload [E]"), 2);
+    EXPECT_FALSE(wa::log_view::matches("19:02:28.625 [I] [main] payload [E]", "", 2));
+    EXPECT_TRUE(wa::log_view::matches("19:02:28.625 [E] [main] error", "", 3));
+}
+
+TEST(LogView, UnclassifiedEventsRemainSearchableInFilteredView) {
+    EXPECT_TRUE(wa::log_view::matches("render error: unavailable", "render", 3));
+    EXPECT_FALSE(wa::log_view::matches("render error: unavailable", "capture", 3));
+    EXPECT_TRUE(wa::log_view::matches("19:02:28.625 [D] [main] debug", "", 0));
+    EXPECT_FALSE(wa::log_view::matches("19:02:28.625 [D] [main] debug", "", 1));
 }

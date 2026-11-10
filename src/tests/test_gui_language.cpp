@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include "AppUiText.h"
+#include "GuiFont.h"
 #include "LogRegionPrefs.h"
 #include "imgui.h"
 
@@ -186,9 +187,9 @@ TEST_F(GuiLanguageText, EnglishLanguageReturnsTheEnglishPointer) {
 TEST_F(GuiLanguageText, ChineseReturnsFilledSlotAndFallsBackWhenMissing) {
     wa::ui_text::setLanguage(wa::gui_language::Language::ZhCn);
     EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kApply), "应用");
-    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kLoopbackCreate), "创建 Track");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kLoopbackCreate), "创建轨道");
     EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kApplicationLoopbackTab), "Application Loopback");
-    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kLoopbackEmptyHint), "创建 Track 以采集系统音频。");
+    EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kLoopbackEmptyHint), "从左侧选择设备并创建轨道，即可采集系统音频。");
     EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kChartsPause), "暂停图表");
     EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kEnhancementsOnShort), "增强开");
     EXPECT_STREQ(wa::ui_text::get(wa::ui_text::kEnhancementsOffShort), "增强关");
@@ -632,10 +633,50 @@ TEST_F(GuiLanguageText, SourceStatisticsDistinguishUnknownZeroFailuresAndDiscont
 }
 
 TEST_F(GuiLanguageText, SourceStatisticsLabelsFitProductionFontRanges) {
-    ImFontAtlas atlas;
     ImFontGlyphRangesBuilder available;
-    available.AddRanges(atlas.GetGlyphRangesChineseSimplifiedCommon());
+    available.AddRanges(wa::gui_font::ranges());
     const char* labels[] = {
+        wa::ui_text::kTrackCaption,
+        wa::ui_text::kTrackCharts,
+        wa::ui_text::kTrackLevel,
+        wa::ui_text::kNewTrackHint,
+        wa::ui_text::kRemoveTrackHint,
+        wa::ui_text::kCustomFormatHint,
+        wa::ui_text::kTargetProcess,
+        wa::ui_text::kCaptureFormatTab,
+        wa::ui_text::kIncludeTreeHint,
+        wa::ui_text::kExcludeTreeHint,
+        wa::ui_text::kSessionSearch,
+        wa::ui_text::kNoMatchingSessions,
+        wa::ui_text::kInvalidTargetPid,
+        wa::ui_text::kRenderCreateHint,
+        wa::ui_text::kChannelCaption,
+        wa::ui_text::kChannelLoop,
+        wa::ui_text::kRenderLoopPaused,
+        wa::ui_text::kRenderLoopActive,
+        wa::ui_text::kLogTitle,
+        wa::ui_text::kLogSearch,
+        wa::ui_text::kLogFollow,
+        wa::ui_text::kLogShow,
+        wa::ui_text::kLogHide,
+        wa::ui_text::kLogClear,
+        wa::ui_text::kDeviceTools,
+        wa::ui_text::kMmsysCplHint,
+        wa::ui_text::kMsSettingsHint,
+        wa::ui_text::kMonitorConfiguration,
+        wa::ui_text::kMonitorDeviceDetails,
+        wa::ui_text::kMonitorLocked,
+        wa::ui_text::kMonitorDiagnostics,
+        wa::ui_text::kPipelineTargets,
+        wa::ui_text::kPaneMaximize,
+        wa::ui_text::kPaneRestore,
+        wa::ui_text::kPipelineChooseSession,
+        wa::ui_text::kPipelineNoSession,
+        wa::ui_text::kPipelineReceivedFmt,
+        wa::ui_text::kPipelineCountSummaryFmt,
+        wa::ui_text::kPipelineTargetHint,
+        wa::ui_text::kPipelineSelectTarget,
+        wa::ui_text::kPipelineStatisticsTab,
         wa::ui_text::kPipelineSaveCalls,
         wa::ui_text::kPipelineExportHint,
         wa::ui_text::kPipelineClearCurrent,

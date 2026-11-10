@@ -50,7 +50,7 @@ Outputs are in `build\bin\<Config>\`: `WinAudioGui.exe` and `WinAudioTests.exe`.
 
 ## GUI use
 
-Run `WinAudioGui.exe`. The window has **Monitor** / **Loopback** / **Application Loopback** tabs. The log defaults to `winaudio.log` in the working directory (double-click starts in the exe directory). The log panel can change the level, clear, and follow the latest line while running.
+运行 `WinAudioGui.exe`，可切换 **Monitor** / **Loopback** / **Application Loopback** / **Render** / **Pipeline**。页签数量表示后台运行的任务、轨道或已附加进程，空闲时不显示数量。顶部的 `mmsys.cpl` 统一打开 Windows 声音控制面板的播放页，`ms-settings` 打开声音设置。日志默认写入工作目录的 `winaudio.log`（双击启动时通常是程序目录）；面板支持调整高度、收起、搜索、跟随最新、清空及复制或保存筛选结果。记录级别控制实际写入的日志，显示级别只筛选面板内容；没有级别标记的界面事件仍保留。
 
 The endpoint enhancements switch is available before streaming. If Windows requires Administrator rights, the GUI requests UAC and starts a second instance for that single operation. Cancellation or failure is shown in the original window. The helper exits without opening a window or starting audio streams.
 
@@ -58,7 +58,7 @@ Domain terms: a **Track** is one one-way stream (capture or playback) that is cr
 
 ### Monitor (dual-stream latency listener)
 
-Two columns: devices, control, status, and the log on the left; capture and playback "waveform + spectrogram" units on the right. A 1-channel capture format stays one view. At 2ch+, each channel's waveform is stacked as `Ch N`, then each channel's spectrogram (the first 8 channels, with `8 / N channels` when there are more). The channels advance on the same capture end index. Playback stays one delayed view. The charts share a time axis. The divider in a mono or playback unit moves vertically, and the units can be reordered by dragging.
+顶部控制 Start / Stop 和同步播放；左侧配置设备、格式和参数，右侧显示图表，底部是日志。配置区宽度可以拖动调整。图表提供双流适屏、纵向详细、仅采集或仅播放布局，可交换两流位置或恢复布局。多声道采集默认显示 `Ch 1`，可选择前 8 个声道之一或全部声道；所有采集声道的历史仍按同一个结束位置更新。Monitor 的播放图表保持单声道降混，采集和播放共用时间轴。
 
 - **Devices**: pick the capture device (the system default starts selected) and the backend (Shared / Exclusive). "Capture caps…" shows that device's three format sources and the Shared/Exclusive matrix.
 - **Format**: the format that will be used (for example `48000 Hz, 16-bit, 2-ch`). The first combo entry is System default, then the candidates the current backend supports, and Custom for a manual entry. Changing the device or backend recomputes the default.
@@ -71,22 +71,26 @@ Two columns: devices, control, status, and the log on the left; capture and play
 This page is a list of System Loopback **Capture Track**s (Shared-only), not one Start/Stop.
 
 - **Create Track**: pick a render device as the Capture source. The Format combo is System default (no requested format, so the mix format is used), plus that render device's Shared candidates, plus Custom Apply (`sr/bits/ch[f]`, same as Monitor). Options are the capture column (Set client properties, category, offload, stream option, buffer; no Ducking and no AutoConvert control) and are written into the next Create's Stream params. Silent render keepalive defaults on, always uses the full default mix, and does not inherit this page's recipe. Create opens the stream immediately. There is no second Start step. The same render device can have several tracks. This page's recipe is not shared with Monitor or Application Loopback. Destroy and leaving the tab do not clear the recipe.
-- **Destroy** / **Destroy all**: Destroy removes that one track (capture, the silent render helper, a WAV if that track is dumping, and that track's charts). Destroy all clears only this page. It does not touch Application Loopback or Monitor.
-- The right side is one Capture-only **Chart Host** per track (waveform + spectrogram; at 2ch+, `Ch N` stays inside that Track, first 8 channels). Chart freeze and the linked time axis are per Track. Tracks do not share a time axis or a format.
+- **Stop and remove** / **Stop and remove all**：停止并移除单条或本页全部轨道，同时结束对应 WAV 录音并保留文件，不影响其他页。
+- 右侧先显示轨道摘要，再按“当前轨道”“两轨比较”或“全部展开”显示图表。选择比较对象后可并排查看两条轨道，移除或刷新时会修正选择。图表暂停、声道选择和时间轴归各条轨道独立管理。
 - **Dump** / **Stop dump**: each track has its own WAV sink, which can start and stop while the track is running. Start dump picks a folder. The file name is a fixed prefix, the actual format, and a timestamp. After Stop dump (or Destroy) succeeds, Explorer selects that file. Tracks are not mixed into one stream or one file.
 
 ### Application Loopback (per-process loopback)
 
-This page is a list of Application Loopback Capture Tracks (Create / Destroy / Destroy all, stacked Chart Hosts, and an independent Dump per track). The Capture source is a **PID + IncludeTree / ExcludeTree**. The Format combo has only System default, plus Custom Apply (no microphone or speaker candidate list). Options are the same capture column. Create sends that page's Stream params into the open (and calls SetClientProperties when enabled). The recipe is not shared with Monitor or System Loopback. Dump file names include the process name and PID. Destroy removes that one track. Destroy all clears only this page's Application Loopback Capture Tracks. It does not touch the Loopback page or Monitor. A running track row shows the actual format only.
+本页独立管理 Application Loopback 采集轨道，支持创建、停止并移除、两轨比较及逐轨 WAV Dump。采集源是 **PID + IncludeTree / ExcludeTree**；可直接输入 PID，也可搜索进程名或 PID 后选择音频会话。“格式参考”仅提供格式候选，不限制实际采集设备；不选参考时可使用自动格式或自定义格式。参数只用于下一次创建，轨道摘要显示实际格式，Dump 文件名包含进程名和 PID。本页操作不影响 Monitor 或系统 Loopback 轨道。
 
 Opening the tab enumerates processes that currently have an Audio Session (process name + PID, sorted by process name). "Refresh" enumerates again. The session list is for discovery: clicking a row copies the PID into the input, and any non-zero PID can be typed (it does not have to be in the list). Clicking the list does not open a stream.
 
-The **PID** input and the **Exclude** checkbox (unchecked by default) belong to the next Create. They are stored on that Track's Capture source. The mode of a running track does not change. To change the mode, or to capture the same PID again, Create another track. The same PID with a different mode is not an equal Capture source. The same PID and mode can still be opened twice.
+**PID** 与采集范围选项用于下一次创建，并保存在该轨道的采集源中。默认采集此进程及子进程；另一选项采集除此进程树外的音频。运行中轨道的范围不随选项改变；需要改变范围或再次采集同一 PID 时，创建新轨道。
 
 | Mode | UI | Track state | Meaning (Windows process tree) |
 |------|----|-------------|-------------------------------|
-| **IncludeTree** (default) | Exclude unchecked | `IncludeTree` | Capture only the target PID and its **child process tree** |
-| **ExcludeTree** | Exclude checked | `ExcludeTree` | Capture the process-loopback mix **except** that process tree |
+| **IncludeTree** (default) | Capture this process tree | `IncludeTree` | Capture only the target PID and its **child process tree** |
+| **ExcludeTree** | Capture outside this process tree | `ExcludeTree` | Capture the process-loopback mix **except** that process tree |
+
+### Render（按声道试听）
+
+左侧选择输出端点和声道布局，也可输入 1–8 的自定义声道数。客户端格式固定为 48000 Hz / PCM16。新轨道的全部声道默认暂停；在右侧按声道选择继续循环、暂停、播放一次或调整音量。轨道摘要显示客户端格式、实际格式及流状态；全部声道暂停时播放流仍可能运行，因此页签数量按运行中的流统计。图表支持声道选择、两轨比较和全部展开。
 
 ### Pipeline (Live session API monitor)
 
@@ -96,7 +100,9 @@ The **PID** input and the **Exclude** checkbox (unchecked by default) belong to 
 
 启动观测来源和导出摘要用 `observationMode=startup`、`startup.*` 标记实际入口／主线程、协议、就绪时能力、Hook 内容路径及就绪 QPC；`methods/initialMethods`、配置变化、代次与传输缺失继续使用共同段格式。能力快照仅覆盖就绪时发现的实现，不代表所有 Core Audio 对象。入口前 DLL／TLS、先行辅助线程、未知实现、其他 PID、子进程、转交既有实例均不保证记录；无调用、方法关闭、无音频会话和传输失败须分别核对，不能称作完整启动历史。实现及受控验证见[启动观测报告](docs/measurements/2026-11-03-startup-observation.md)，它记录 ADR-0004 既定路线当前实际交付的范围。
 
-Type a **PID** (or select a Live session / process row to fill it) and **Attach** to inject `WinAudioHook.dll` (same bitness) - no Live session is required. You can attach **multiple PIDs**; Attach adds the current PID without detaching others. The list shows all user processes (collapsible sessions under each PID; same-name groups share a root PID). Hook status is per process. **Detach** removes one PID; **Detach all** stops every hook. Watch Core Audio / WASAPI COM calls with parameters and HRESULT in the Call log (PID column when multi-attached). Filter the log with fuzzy Call/Args text, an Iface combo, and Failures only. Drag the splitters to resize Live sessions | graph, Call table | Parameters, and top row | Call Log. **保存当前段 / Save current segment** 将当前查看段的快照写为 JSONL，目录为 `%LOCALAPPDATA%\\WinAudio\\pipeline-calls`，不受录制范围、显示筛选或显示窗口开关限制。 The processing graph shows status banners for Initialize field source (none / ETW / Hooked), Shared-probe Probed vs Observed, and multi-Hooked-stream selection; the join uses only the selected Live session PID. Pump GetBuffer/ReleaseBuffer metadata stays opt-in. Not a full API Monitor: closed COM set only, no stack walks, no cross-bitness inject.
+输入 **PID**，或从左侧进程/会话列表选择目标，再点击 **Attach** 注入同架构的 `WinAudioHook.dll`。可同时附加多个 PID；新增目标不会分离其他目标。目标列表支持进程名/PID 搜索和音频会话筛选；PID 只有一个会话时自动选中管线目标，多设备或多方向时需明确选择会话。管线图和调用记录分别选择目标，查看不同进程时会提示。**Detach PID** 分离输入框中的进程，调用记录旁的“分离此进程”分离当前记录段所属进程，**Detach all** 分离全部目标；历史记录继续保留。
+
+管线图、调用表、参数、API 监控选择及统计可同屏显示，各区域分隔条可拖动，图或调用区域可单独最大化后恢复。调用记录支持模糊搜索、接口和失败结果筛选；API 监控选择控制实际采集的方法，显示窗口开关只影响显示。**保存当前段 / Save current segment** 将当前查看段快照写为 JSONL，目录为 `%LOCALAPPDATA%\WinAudio\pipeline-calls`，不受显示筛选或显示窗口开关限制。管线图继续区分 Initialize 来源（none / ETW / Hooked）、主动探测与观察结果，以及多个 Hooked 流；只合并所选会话所属进程的调用。高频 GetBuffer/ReleaseBuffer 方法默认关闭；不支持跨架构注入、任意 API 或调用栈采集。
 
 导出格式：当前段快照的 `schemaVersion=2`。JSONL 首行 `rowType=segment` 为段摘要，其余 `rowType=call` 为控制调用和最近窗口；调用字段 `timeMs/pid/iface/method/args/hr/hrHex/hresult/streamId/pump/xrun`、可选格式字段及结构化 `parameters` 含义不变。调用另带 `roundId/attachId/lane/sequence/processCreated/attachToken/observationGeneration`；`lane=control|pump` 的序号各自解释。窗口至多 1024 条，只是最近仍保留的调用，不是完整高频历史。仅摘要、无调用的文件有效。
 

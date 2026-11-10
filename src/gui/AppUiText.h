@@ -12,6 +12,84 @@ namespace wa::ui_text {
 
 // One row: identifier, English literal, Chinese slot (nullptr or "" = fallback).
 #define WA_UI_TEXT_ROWS \
+    WA_UI_TEXT(kAvailableCaptureChannels, "Capture channels: %u / %u available (up to 8)", "采集声道：可选 %u / %u（最多 8 个）") \
+    WA_UI_TEXT(kResetLogHeight, "Reset log height", "恢复日志高度") \
+    WA_UI_TEXT(kRenderChannelsShown, "Render channels: %u / %u channels available", "播放声道：可选 %u / %u 个声道") \
+    WA_UI_TEXT(kRenderChannelWaveform, "Render Ch %u waveform", "Render Ch %u 波形") \
+    WA_UI_TEXT(kRenderChannelSpectrogram, "Render Ch %u spectrogram", "Render Ch %u 声谱图") \
+    WA_UI_TEXT(kMonitorTabCountHelp, "Count: running monitor tasks (0 or 1).", "数量：运行中的监听任务（0 或 1）。") \
+    WA_UI_TEXT(kTrackTabCountHelp, "Count: running capture tracks, updated once a second.", "数量：运行中的采集轨道，每秒更新。") \
+    WA_UI_TEXT(kRenderTabCountHelp, "Count: running render streams, updated once a second. A stream may run while all its channels are paused.", "数量：运行中的播放流，每秒更新；全部声道暂停时，流仍可能运行。") \
+    WA_UI_TEXT(kPipelineTabCountHelp, "Count: currently attached processes, excluding history segments.", "数量：当前已附加的进程，不包含历史记录段。") \
+    WA_UI_TEXT(kUseRequestFormat, "Use selected request format", "使用选中的请求格式") \
+    WA_UI_TEXT(kRequestFormatHelp, "Applies to the next start or new track only; support is negotiated when opening the stream.", "仅用于下次启动或新轨道，实际支持情况在打开流时协商。") \
+    WA_UI_TEXT(kCapabilitySource, "Capabilities queried from the Windows audio endpoint", "能力来源：Windows 音频端点查询") \
+    WA_UI_TEXT(kActivityCapture, "Capture tracks", "采集轨道") \
+    WA_UI_TEXT(kRunningCount, "Running", "运行中") \
+    WA_UI_TEXT(kEffectDetails, "Effect details", "效果详情") \
+    WA_UI_TEXT(kLogUnclassified, "Display filtering includes unclassified event messages.", "显示筛选保留没有级别标记的事件消息。") \
+    WA_UI_TEXT(kLogSaveFailed, "Cannot write log file; check the output directory.", "日志文件写入失败，请检查输出目录。") \
+    WA_UI_TEXT(kAllLogLevels, "All levels", "全部级别") \
+    WA_UI_TEXT(kInvalidFormatInput, "Invalid format; use rate/bits/channels, for example 48000/16/2.", "格式无效，请输入采样率/位深/声道数，例如 48000/16/2。") \
+    WA_UI_TEXT(kDriftCorrections, "Drift fixes", "漂移修正") \
+    WA_UI_TEXT(kAllChannels, "All channels", "全部声道") \
+    WA_UI_TEXT(kFitBoth, "Fit both streams", "双流适屏") \
+    WA_UI_TEXT(kDetailedCharts, "Detailed charts", "纵向详细图") \
+    WA_UI_TEXT(kSwapCharts, "Swap streams", "交换两流位置") \
+    WA_UI_TEXT(kResetLayout, "Reset layout", "恢复布局") \
+    WA_UI_TEXT(kRenderDownmix, "Render view: mono downmix", "播放观测：单声道降混") \
+    WA_UI_TEXT(kSelectedTrack, "Selected track", "当前轨道") \
+    WA_UI_TEXT(kCompareTracks, "Compare two tracks", "两轨比较") \
+    WA_UI_TEXT(kAllTracks, "All tracks", "全部展开") \
+    WA_UI_TEXT(kCompare, "Compare", "比较") \
+    WA_UI_TEXT(kActualFormat, "Actual stream format", "实际流格式") \
+    WA_UI_TEXT(kRequestedFormat, "Requested format", "请求格式") \
+    WA_UI_TEXT(kClientFormat, "Client format", "客户端格式") \
+    WA_UI_TEXT(kUnavailableFormat, "Not obtained", "未取得") \
+    WA_UI_TEXT(kTrackActions, "Track actions", "轨道操作") \
+    WA_UI_TEXT(kCreateCapture, "Create and start capture", "创建并开始采集") \
+    WA_UI_TEXT(kReferenceOnly, "Format candidates only; this does not select a capture device.", "仅提供格式候选，不限制采集设备。") \
+    WA_UI_TEXT(kCaptureTree, "Capture this process tree", "采集此进程及子进程") \
+    WA_UI_TEXT(kExcludeTree, "Capture outside this process tree", "采集除此进程树外的音频") \
+    WA_UI_TEXT(kCustomChannels, "Custom channel count (1-8)", "自定义声道数（1–8）") \
+    WA_UI_TEXT(kFixedRenderFormat, "Fixed client format: 48000 Hz / PCM16", "固定客户端格式：48000 Hz / PCM16") \
+    WA_UI_TEXT(kRecordLevel, "Record level", "记录级别") \
+    WA_UI_TEXT(kDisplayLevel, "Display level", "显示级别") \
+    WA_UI_TEXT(kCopyVisible, "Copy visible", "复制显示内容") \
+    WA_UI_TEXT(kSaveLog, "Save visible log", "保存显示日志") \
+    WA_UI_TEXT(kSaveLogResult, "Log file", "日志文件") \
+    WA_UI_TEXT(kNonDefaultParams, "Non-default parameters", "非默认参数") \
+    WA_UI_TEXT(kBufferAuto, "0 = system default buffer", "0 表示系统默认缓冲") \
+    WA_UI_TEXT(kCapabilitiesFilter, "Search rate, channels or layout", "搜索采样率、声道或布局") \
+    WA_UI_TEXT(kAnySupport, "All support results", "全部支持结果") \
+    WA_UI_TEXT(kSharedExact, "Shared: exact", "共享：精确支持") \
+    WA_UI_TEXT(kExclusiveExact, "Exclusive: exact", "独占：精确支持") \
+    WA_UI_TEXT(kClosestHelp, "Closest is an alternative format, not exact support for the requested format.", "接近格式表示存在替代格式，不等于精确支持请求格式。") \
+    WA_UI_TEXT(kGraphTarget, "Graph target", "管线目标") \
+    WA_UI_TEXT(kSeparateTargets, "Graph and call log are showing different processes.", "管线图与调用记录当前查看不同的进程。") \
+    WA_UI_TEXT(kBackgroundActivity, "Background: Monitor %s | capture %zu | render %zu | attached %zu", "后台：Monitor %s | 采集 %zu | 播放 %zu | 监控 %zu") \
+    WA_UI_TEXT(kProbeEffectsNotice, "Probe opens a temporary audio client; it is not a read-only list query.", "探测会打开临时音频客户端，并非只读列表查询。") \
+    WA_UI_TEXT(kPipelineTargets, "Target processes", "目标进程") \
+    WA_UI_TEXT(kPaneMaximize, "Maximize", "最大化") \
+    WA_UI_TEXT(kPaneRestore, "Restore workspace", "恢复工作区") \
+    WA_UI_TEXT(kPipelineChooseSession, "Select an audio session to view its graph.", "请选择一个音频会话查看管线。") \
+    WA_UI_TEXT(kPipelineNoSession, "This process has no current audio session. Attach is still available by PID.", "此进程当前没有音频会话，仍可按 PID 附加。") \
+    WA_UI_TEXT(kPipelineReceivedFmt, "Received: control %llu | recent %llu / 1024", "已接收：控制调用 %llu | 最近调用 %llu / 1024") \
+    WA_UI_TEXT(kPipelineCountSummaryFmt, "High-frequency source: completed %llu | API failures %llu | discontinuities %llu | accuracy %s", "高频源端：完成 %llu | API 失败 %llu | 数据不连续 %llu | 准确性 %s") \
+    WA_UI_TEXT(kPipelineProcessSearch, "Search process name or PID", "搜索进程名或 PID") \
+    WA_UI_TEXT(kPipelineTargetHint, "Select a process to attach. Expand it and select an audio session for the graph.", "选择进程后附加；展开进程并选择音频会话，可查看管线图。") \
+    WA_UI_TEXT(kPipelineNoProcessMatch, "No matching processes. Change the search or filters.", "没有匹配的进程，请调整搜索或筛选。") \
+    WA_UI_TEXT(kPipelineSegmentHint, "Select a monitoring target or history segment on the left.", "在左侧选择正在监控的目标或历史记录段。") \
+    WA_UI_TEXT(kPipelineStatisticsTab, "Statistics and coverage", "统计与覆盖范围") \
+    WA_UI_TEXT(kPipelineDetachCurrent, "Detach this process", "分离此进程") \
+    WA_UI_TEXT(kPipelineRecentHint, "Display only. Monitoring continues for all attached targets; choose captured methods in API monitoring selection.", "这里只控制显示。所有已附加目标继续记录；采集哪些方法请在 API 监控选择中设置。") \
+    WA_UI_TEXT(kPipelineCopyCall, "Copy call details", "复制调用详情") \
+    WA_UI_TEXT(kPipelineSelectTarget, "Select a process or audio session on the left. Graph and call-log selections are independent.", "在左侧选择进程或音频会话。管线图与调用记录分别选择。") \
+    WA_UI_TEXT(kMonitorConfiguration, "Audio setup", "音频配置") \
+    WA_UI_TEXT(kMonitorDeviceDetails, "Enhancements and stream effects", "设备增强与流效果") \
+    WA_UI_TEXT(kMonitorTools, "Device tools", "设备工具") \
+    WA_UI_TEXT(kMonitorLocked, "Stop monitoring to change devices, mode, delay or format.", "停止监控后可修改设备、模式、延迟和格式。") \
+    WA_UI_TEXT(kMonitorDiagnostics, "Stream diagnostics", "流诊断") \
     WA_UI_TEXT(kPipelineStartup, "Launch and observe", "启动并观测") \
     WA_UI_TEXT(kPipelineStartupExe, "EXE path", "EXE 路径") \
     WA_UI_TEXT(kPipelineStartupArguments, "Raw arguments", "原始参数") \
@@ -104,14 +182,41 @@ namespace wa::ui_text {
     WA_UI_TEXT(kChartsZoomOut, "Zoom out", "缩小") \
     WA_UI_TEXT(kChartsZoomIn, "Zoom in", "放大") \
     WA_UI_TEXT(kChartsResetView, "Reset view", "重置视图") \
-    WA_UI_TEXT(kLoopbackCreate, "Create Track", "创建 Track") \
-    WA_UI_TEXT(kLoopbackDestroy, "Destroy", "销毁") \
-    WA_UI_TEXT(kLoopbackDestroyAll, "Destroy all", "全部销毁") \
-    WA_UI_TEXT(kLoopbackTracks, "Tracks", "Tracks") \
+    WA_UI_TEXT(kTrackCaption, "Track", "轨道") \
+    WA_UI_TEXT(kTrackCharts, "Waveform and spectrogram", "波形与声谱图") \
+    WA_UI_TEXT(kTrackLevel, "Level", "电平") \
+    WA_UI_TEXT(kNewTrackHint, "Settings apply to new tracks only.", "参数仅用于新建轨道。") \
+    WA_UI_TEXT(kRemoveTrackHint, "Stops tracks and finishes recording. Saved WAV files are kept.", "停止轨道并结束录音，保留已保存的 WAV 文件。") \
+    WA_UI_TEXT(kCustomFormatHint, "Custom: rate/bits/channels", "自定义：采样率/位深/声道数") \
+    WA_UI_TEXT(kTargetProcess, "Target process", "目标进程") \
+    WA_UI_TEXT(kCaptureFormatTab, "Capture format", "采集格式") \
+    WA_UI_TEXT(kIncludeTreeHint, "Capture this process and its children.", "采集此进程及其子进程。") \
+    WA_UI_TEXT(kExcludeTreeHint, "Capture other audio, excluding this process and its children.", "采集其他音频，排除此进程及其子进程。") \
+    WA_UI_TEXT(kSessionSearch, "Search process name or PID", "搜索进程名或 PID") \
+    WA_UI_TEXT(kNoMatchingSessions, "No matching audio sessions. Enter a PID directly or refresh.", "没有匹配的音频会话。可直接输入 PID 或刷新。") \
+    WA_UI_TEXT(kInvalidTargetPid, "Enter a valid, nonzero PID.", "请输入有效且不为零的 PID。") \
+    WA_UI_TEXT(kRenderCreateHint, "New tracks start with all channels paused. Use Continue or Play once to listen.", "新轨道的所有声道默认暂停。点击“继续”或“播放一次”试听。") \
+    WA_UI_TEXT(kChannelCaption, "Channel", "声道") \
+    WA_UI_TEXT(kRenderLoopPaused, "Loop playback: all paused", "循环播放：全部暂停") \
+    WA_UI_TEXT(kRenderLoopActive, "Loop playback: active", "循环播放：进行中") \
+    WA_UI_TEXT(kChannelLoop, "Loop playback", "循环播放") \
+    WA_UI_TEXT(kLogTitle, "Log", "日志") \
+    WA_UI_TEXT(kLogSearch, "Search logs", "搜索日志") \
+    WA_UI_TEXT(kLogFollow, "Follow latest", "跟随最新") \
+    WA_UI_TEXT(kLogShow, "Expand log", "展开日志") \
+    WA_UI_TEXT(kLogHide, "Collapse log", "收起日志") \
+    WA_UI_TEXT(kLogClear, "Clear log", "清空日志") \
+    WA_UI_TEXT(kDeviceTools, "Device tools", "设备工具") \
+    WA_UI_TEXT(kLoopbackCreate, "Create Track", "创建轨道") \
+    WA_UI_TEXT(kLoopbackDestroy, "Stop and remove", "停止并移除") \
+    WA_UI_TEXT(kLoopbackDestroyAll, "Stop and remove all", "停止并移除全部") \
+    WA_UI_TEXT(kLoopbackTracks, "Tracks", "轨道") \
     WA_UI_TEXT(kLoopbackSilentRender, "Silent render keepalive", "静音 Render 保活") \
     WA_UI_TEXT(kOptions, "Options", "选项") \
     WA_UI_TEXT(kMmsysCpl, "mmsys.cpl", "mmsys.cpl") \
     WA_UI_TEXT(kMsSettings, "ms-settings", "ms-settings") \
+    WA_UI_TEXT(kMmsysCplHint, "Open Windows Sound Control Panel (Playback)", "打开 Windows 声音控制面板（播放页）") \
+    WA_UI_TEXT(kMsSettingsHint, "Open Windows sound settings", "打开 Windows 声音设置") \
     WA_UI_TEXT(kMmsysCplFailed, "mmsys.cpl: ShellExecute failed", "mmsys.cpl：ShellExecute 失败") \
     WA_UI_TEXT(kMsSettingsFailed, "ms-settings: ShellExecute failed", "ms-settings：ShellExecute 失败") \
     WA_UI_TEXT(kCaptureOptionsPopup, "Capture options", "Capture 选项") \
@@ -127,9 +232,9 @@ namespace wa::ui_text {
     WA_UI_TEXT(kDumpCompleted, "Dump completed", "文件已完成") \
     WA_UI_TEXT(kDumpFailed, "Dump failed", "文件失败") \
     WA_UI_TEXT(kDumpCancelled, "Dump cancelled", "已取消") \
-    WA_UI_TEXT(kLoopbackEmptyHint, "Create a Track to capture system audio.", "创建 Track 以采集系统音频。") \
+    WA_UI_TEXT(kLoopbackEmptyHint, "Create a Track to capture system audio.", "从左侧选择设备并创建轨道，即可采集系统音频。") \
     WA_UI_TEXT(kRenderTab, "Render", "Render") \
-    WA_UI_TEXT(kRenderEmptyHint, "Create a Track to play to a render endpoint.", "创建 Track 以播放到 Render 端点。") \
+    WA_UI_TEXT(kRenderEmptyHint, "Create a Track to play to a render endpoint.", "从左侧选择输出设备并创建轨道，再按声道试听。") \
     WA_UI_TEXT(kRenderEndpoint, "Render endpoint", "Render 端点") \
     WA_UI_TEXT(kRenderLayout, "Layout", "布局") \
     WA_UI_TEXT(kRenderCustomIgnored, "Sample rate and bit depth are ignored.", "采样率和位深将被忽略。") \
@@ -173,7 +278,7 @@ namespace wa::ui_text {
     WA_UI_TEXT(kPhraseChannel6, "channel 6", "声道 6") \
     WA_UI_TEXT(kPhraseChannel7, "channel 7", "声道 7") \
     WA_UI_TEXT(kPhraseChannel8, "channel 8", "声道 8") \
-    WA_UI_TEXT(kApplicationLoopbackEmptyHint, "Create a Track to capture application audio.", "创建 Track 以采集应用音频。") \
+    WA_UI_TEXT(kApplicationLoopbackEmptyHint, "Create a Track to capture application audio.", "从左侧选择目标进程并创建轨道，即可采集应用音频。") \
     WA_UI_TEXT(kLogEmpty, "(empty)", "（空）") \
     WA_UI_TEXT(kLogExpand, "+", nullptr) \
     WA_UI_TEXT(kLogCollapse, "-", "") \
@@ -189,7 +294,7 @@ namespace wa::ui_text {
     WA_UI_TEXT(kPipelineSelectHint, \
         "Select a Live session to see its processing graph.", \
         "选择一个 Live 会话以查看其处理图。") \
-    WA_UI_TEXT(kPipelineGraph, "Processing graph", "处理图") \
+    WA_UI_TEXT(kPipelineGraph, "Processing graph", "管线图") \
     WA_UI_TEXT(kPipelineProbe, "Probe this device", "探测此设备") \
     WA_UI_TEXT(kPipelineEtwUnavailable, "ETW unavailable", "ETW 不可用") \
     WA_UI_TEXT(kPipelineEtwListening, "ETW listening", "ETW 监听中") \
@@ -218,7 +323,7 @@ namespace wa::ui_text {
         "调用日志含其他已挂接 PID；处理图只合并所选 Live 会话的 PID。") \
     WA_UI_TEXT(kPipelinePrimaryStreamFmt, "Primary Hooked stream id: %u", "主 Hooked 流 id：%u") \
     WA_UI_TEXT(kPipelineAttach, "Attach", "附加") \
-    WA_UI_TEXT(kPipelineDetach, "Detach", "分离") \
+    WA_UI_TEXT(kPipelineDetach, "Detach PID", "分离输入的 PID") \
     WA_UI_TEXT(kPipelineDetachAll, "Detach all", "全部分离") \
     WA_UI_TEXT(kPipelineAttachedPids, "Attached PIDs", "已附加 PID") \
     WA_UI_TEXT(kPipelineRecord, "Record calls", "录制调用") \
@@ -235,7 +340,7 @@ namespace wa::ui_text {
     WA_UI_TEXT(kPipelineColAttach, "Hook", "Hook") \
     WA_UI_TEXT(kPipelineAttachDetached, "Detached", "未附加") \
     WA_UI_TEXT(kPipelineAttachFailed, "Failed", "失败") \
-    WA_UI_TEXT(kPipelineCallLog, "Call log", "调用日志") \
+    WA_UI_TEXT(kPipelineCallLog, "Call log", "调用记录") \
     WA_UI_TEXT(kPipelineAttached, "Attached", "已附加") \
     WA_UI_TEXT(kPipelineAttachSelected, "Attach selected (%zu)", "附加所选（%zu）") \
     WA_UI_TEXT(kPipelineBatchCancel, "Cancel batch", "取消批量") \
@@ -438,16 +543,17 @@ struct CatalogEntry {
     const char* zh;
 };
 
+inline constexpr CatalogEntry kCatalog[] = {
+#define WA_UI_TEXT(name, en, zh) {name, zh},
+    WA_UI_TEXT_ROWS
+#undef WA_UI_TEXT
+};
+
 inline const char* get(const char* english) {
     static constexpr const char* kEmpty = "";
     if (!english) return kEmpty;
     if (language() != wa::gui_language::Language::ZhCn) return english;
-    static const CatalogEntry kRows[] = {
-#define WA_UI_TEXT(name, en, zh) {name, zh},
-        WA_UI_TEXT_ROWS
-#undef WA_UI_TEXT
-    };
-    for (const CatalogEntry& row : kRows) {
+    for (const CatalogEntry& row : kCatalog) {
         if (row.en != english) continue;
         if (row.zh != nullptr && row.zh[0] != '\0') return row.zh;
         return english;
