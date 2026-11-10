@@ -79,7 +79,8 @@ int main(int, char**)
     if (!arguments || wa::endpoint_enhancements_action::requested(argumentCount, arguments)) {
         wa::log::init();
         wa::log::setThreadName("elevate");
-        wa::log::addFileSink("winaudio-elevation.log");
+        // File logging is optional; the parent needs the action's exit code.
+        (void)wa::log::addFileSink("winaudio-elevation.log");
         wa::log::setLevel(wa::log::Level::Debug);
         WA_LOG(wa::log::Level::Debug, "EndpointAction", "CommandLineToArgvW", "",
                "err=" + std::to_string(argumentError));
@@ -162,16 +163,20 @@ int main(int, char**)
 #endif
     ui.setMainWindow(hwnd);
 
-    // WinAudio: logging — file (winaudio.log, exe dir) + GUI panel via callback sink.
+    // WinAudio: logging — file (winaudio.log, working dir) + GUI panel via callback sink.
     // The callback runs on the logging pump thread; pushLog buffers thread-safely.
     // Init before the font load so a missing face can be recorded.
     wa::log::init();
     wa::log::setThreadName("main");
-    wa::log::addFileSink("winaudio.log");
     wa::log::addCallbackSink([](wa::log::Level lvl, const std::string& line) {
         ui.pushLog(static_cast<int>(lvl), line);
     });
     wa::log::setLevel(wa::log::Level::Info);
+    const auto fileLog = wa::log::addFileSink("winaudio.log");
+    if (!fileLog) {
+        WA_LOG(wa::log::Level::Warn, "Gui", "addFileSink", "winaudio.log",
+               "File logging unavailable; continuing with GUI log panel only: " + fileLog.message);
+    }
     WA_LOG(wa::log::Level::Debug, "Gui", "CommandLineToArgvW", "", "OK");
 
     // System Microsoft YaHei, once, for both GUI languages. Not redistributed.

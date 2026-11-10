@@ -1,4 +1,5 @@
 #pragma once
+#include "Result.h"
 #include <string>
 #include <functional>
 
@@ -25,7 +26,8 @@ Level getLevel();
 bool  shouldLog(Level lvl);   // hot path calls this first to short-circuit
 
 // Sinks may coexist (file + stderr + GUI callback all at once).
-void addFileSink(const std::string& path,
+// File open/setup failures return an error without changing the existing sinks.
+Result addFileSink(const std::string& path,
                  size_t maxBytes = 10u * 1024u * 1024u, size_t maxFiles = 3);
 void addStderrSink();
 // Feeds each formatted line to cb (used by the GUI panel). cb runs on the
